@@ -1,0 +1,89 @@
+# Node.js dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Editor files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.swp
+
+# Environment files
+.env*
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# MacOS files
+.DS_Store
+*.pem
+
+# Build outputs
+dist/
+build/
+out/
+
+# Next.js specific
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Testing
+/coverage
+/.nyc_output
+
+# Production
+/build
+
+# Vercel
+.vercel
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+.temp
+.tmp
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Client specific
+client/node_modules/
+client/dist/
+client/.next/
+client/out/
+client/build/
+
+# Server specific
+server/node_modules/
+server/dist/
+server/build/
+server/logs/
