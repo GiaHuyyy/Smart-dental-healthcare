@@ -29,11 +29,14 @@ export class User {
   @Prop()
   avatar: string;
 
-  // @Prop({ required: true })
-  // role: string; // e.g., 'patient', 'doctor', 'admin'
+  @Prop({ default: 'PATIENT' })
+  role: string; // e.g., 'patient', 'doctor', 'admin'
 
-  @Prop()
-  is_active: boolean;
+  @Prop({ default: 'LOCAL' })
+  accountType: string; // e.g., 'personal', 'business'
+
+  @Prop({ default: false })
+  isActive: boolean;
 
   @Prop()
   codeId: string;
