@@ -5,6 +5,7 @@ import { User } from './schemas/user.schemas';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { hashPasswordHelper } from 'src/helpers/utils';
+import aqp from 'api-query-params';
 
 @Injectable()
 export class UsersService {
@@ -23,7 +24,9 @@ export class UsersService {
     // Check if email already exists
     const emailExists = await this.isEmailExists(email);
     if (emailExists) {
-      throw new BadRequestException('Email already exists: ' + email + '. Please use a different email.');
+      throw new BadRequestException(
+        'Email already exists: ' + email + '. Please use a different email.',
+      );
     }
 
     // hash the password before saving
@@ -48,12 +51,31 @@ export class UsersService {
     };
   }
 
-  findAll() {
-    return `This action returns all users`;
+  async findAll(query: string, current: number, pageSize: number) {
+    const { filter, sort } = aqp(query);
+
+    if (filter.current) delete filter.current;
+    if (filter.pageSize) delete filter.pageSize;
+
+    if (!current) current = 1;
+    if (!pageSize) pageSize = 10;
+
+    const totalItems = (await this.userModel.find(filter)).length;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const skip = (current - 1) * pageSize;
+
+    const results = await this.userModel
+      .find(filter)
+      .limit(pageSize)
+      .skip(skip)
+      .sort(sort as any)
+      .select('-password')
+      .exec();
+    return { results, totalPages };
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} user`;
+    return this.userModel.findById(id).select('-password').exec();
   }
 
   update(id: number, updateUserDto: UpdateUserDto) {
