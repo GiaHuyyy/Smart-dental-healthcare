@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { hashPasswordHelper } from 'src/helpers/utils';
 import aqp from 'api-query-params';
@@ -74,15 +74,23 @@ export class UsersService {
     return { results, totalPages };
   }
 
-  findOne(id: number) {
+  findOne(id: string) {
     return this.userModel.findById(id).select('-password').exec();
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async update(updateUserDto: UpdateUserDto) {
+    return await this.userModel.updateOne(
+      { _id: updateUserDto._id },
+      { ...updateUserDto },
+    );
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async remove(id: string) {
+    // check _id user
+    if (mongoose.isValidObjectId(id)) {
+      return this.userModel.deleteOne({ _id: id });
+    } else {
+      throw new BadRequestException('Invalid user ID format');
+    }
   }
 }
