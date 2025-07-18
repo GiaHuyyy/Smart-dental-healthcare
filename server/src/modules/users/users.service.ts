@@ -25,7 +25,7 @@ export class UsersService {
     const emailExists = await this.isEmailExists(email);
     if (emailExists) {
       throw new BadRequestException(
-        'Email already exists: ' + email + '. Please use a different email.',
+        'Email đã tồn tại: ' + email + '. Vui lòng sử dụng email khác.',
       );
     }
 
@@ -78,6 +78,10 @@ export class UsersService {
     return this.userModel.findById(id).select('-password').exec();
   }
 
+  async findByEmail(email: string) {
+    return await this.userModel.findOne({ email }).exec();
+  }
+
   async update(updateUserDto: UpdateUserDto) {
     return await this.userModel.updateOne(
       { _id: updateUserDto._id },
@@ -90,7 +94,7 @@ export class UsersService {
     if (mongoose.isValidObjectId(id)) {
       return this.userModel.deleteOne({ _id: id });
     } else {
-      throw new BadRequestException('Invalid user ID format');
+      throw new BadRequestException('ID người dùng không hợp lệ');
     }
   }
 }
