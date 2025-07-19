@@ -6,6 +6,9 @@ import mongoose, { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { hashPasswordHelper } from 'src/helpers/utils';
 import aqp from 'api-query-params';
+import { CreateAuthDto } from 'src/auth/dto/create-auth.dto';
+import { v4 as uuidv4 } from 'uuid';
+import dayjs from 'dayjs';
 
 @Injectable()
 export class UsersService {
@@ -96,5 +99,34 @@ export class UsersService {
     } else {
       throw new BadRequestException('ID người dùng không hợp lệ');
     }
+  }
+
+  async handleRegister(createRegisterDto: CreateAuthDto) {
+    const { email, password, fullName } = createRegisterDto;
+
+    // Check if email already exists
+    const emailExists = await this.isEmailExists(email);
+    if (emailExists) {
+      throw new BadRequestException(
+        'Email đã tồn tại: ' + email + '. Vui lòng sử dụng email khác.',
+      );
+    }
+
+    // hash the password before saving
+    const hashedPassword = await hashPasswordHelper(password);
+    const user = await this.userModel.create({
+      fullName,
+      email,
+      password: hashedPassword,
+      isActive: false,
+      codeId: uuidv4(),
+      codeExpired: dayjs().add(1, 'hour'), // Set code expiration to 1 hour from now
+    });
+
+    return {
+      _id: user._id,
+    };
+
+    // send email to user
   }
 }
