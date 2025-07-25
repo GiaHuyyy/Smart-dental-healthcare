@@ -7,6 +7,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/passport/jwt-auth.guard';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 
 @Module({
   imports: [
@@ -14,6 +16,7 @@ import { JwtAuthGuard } from './auth/passport/jwt-auth.guard';
       isGlobal: true,
     }),
     UsersModule,
+    AuthModule,
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -21,7 +24,34 @@ import { JwtAuthGuard } from './auth/passport/jwt-auth.guard';
       }),
       inject: [ConfigService],
     }),
-    AuthModule,
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        transport: {
+          host: configService.get<string>('MAIL_HOST'),
+          port: configService.get<number>('MAIL_PORT'),
+          // secure: true,
+          // ignoreTLS: true,
+          // secure: false,
+          auth: {
+            user: configService.get<string>('MAILDEV_INCOMING_USER'),
+            pass: configService.get<string>('MAILDEV_INCOMING_PASS'),
+          },
+        },
+        defaults: {
+          from: '"No Reply" <no-reply@localhost>',
+        },
+        // preview: true,
+        template: {
+          dir: process.cwd() + '/src/mail/templates/',
+          adapter: new HandlebarsAdapter(), // or new PugAdapter() or new EjsAdapter()
+          options: {
+            strict: true,
+          },
+        },
+      }),
+      inject: [ConfigService],
+    }),
   ],
   controllers: [AppController],
   providers: [
