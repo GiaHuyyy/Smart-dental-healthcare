@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { authenticate } from "@/utils/actions";
+import { useSession } from "next-auth/react"
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +18,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const { data: session } = useSession()
+
+  console.log("Check Session:", session);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -23,41 +30,36 @@ export default function LoginPage() {
     try {
       // Simulate login API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
+      const { email, password } = formData;
+      const res = await authenticate(email, password);
+      console.log("Authentication response:", res);
+      // const data = await signIn("credentials", { email, password, redirect: false });
+      // console.log("Login data:", data);
+      // // Demo account validation
+      // const validCredentials =
+      //   (userType === "patient" && formData.email === "patient@demo.com" && formData.password === "123456") ||
+      //   (userType === "doctor" && formData.email === "doctor@demo.com" && formData.password === "123456");
 
-      // Demo account validation
-      const validCredentials =
-        (userType === "patient" && formData.email === "patient@demo.com" && formData.password === "123456") ||
-        (userType === "doctor" && formData.email === "doctor@demo.com" && formData.password === "123456");
+      // if (!validCredentials) {
+      //   throw new Error("Email hoặc mật khẩu không đúng");
+      // }
 
-      if (!validCredentials) {
-        throw new Error("Email hoặc mật khẩu không đúng");
-      }
+      // // Store user info in localStorage (in real app, use proper auth)
+      // localStorage.setItem("userType", userType);
+      // localStorage.setItem("userEmail", formData.email);
+      // localStorage.setItem("isAuthenticated", "true");
 
-      // Store user info in localStorage (in real app, use proper auth)
-      localStorage.setItem("userType", userType);
-      localStorage.setItem("userEmail", formData.email);
-      localStorage.setItem("isAuthenticated", "true");
-
-      // Redirect to appropriate dashboard
-      if (userType === "patient") {
-        router.push("/patient");
-      } else {
-        router.push("/doctor");
-      }
+      // // Redirect to appropriate dashboard
+      // if (userType === "patient") {
+      //   router.push("/patient");
+      // } else {
+      //   router.push("/doctor");
+      // }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const fillDemoAccount = (type: "patient" | "doctor") => {
-    setUserType(type);
-    setFormData({
-      email: type === "patient" ? "patient@demo.com" : "doctor@demo.com",
-      password: "123456",
-      rememberMe: false,
-    });
   };
 
   return (
@@ -193,25 +195,6 @@ export default function LoginPage() {
             </div>
           </div>
         </form>
-
-        {/* Demo Accounts */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Tài khoản demo:</h3>
-          <div className="space-y-2">
-            <button
-              onClick={() => fillDemoAccount("patient")}
-              className="w-full text-left p-2 text-sm text-gray-600 hover:bg-gray-50 rounded border"
-            >
-              👤 Bệnh nhân: patient@demo.com / 123456
-            </button>
-            <button
-              onClick={() => fillDemoAccount("doctor")}
-              className="w-full text-left p-2 text-sm text-gray-600 hover:bg-gray-50 rounded border"
-            >
-              👨‍⚕️ Bác sĩ: doctor@demo.com / 123456
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

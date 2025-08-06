@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function HomePage() {
+export default async function HomePage() {
   const services = [
     {
       icon: "🦷",
