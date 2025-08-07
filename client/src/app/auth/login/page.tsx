@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { authenticate } from "@/utils/actions";
-import { useSession } from "next-auth/react"
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,10 +17,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { data: session } = useSession()
-
-  console.log("Check Session:", session);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -31,30 +26,18 @@ export default function LoginPage() {
       // Simulate login API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const { email, password } = formData;
-      const res = await authenticate(email, password);
-      console.log("Authentication response:", res);
-      // const data = await signIn("credentials", { email, password, redirect: false });
-      // console.log("Login data:", data);
-      // // Demo account validation
-      // const validCredentials =
-      //   (userType === "patient" && formData.email === "patient@demo.com" && formData.password === "123456") ||
-      //   (userType === "doctor" && formData.email === "doctor@demo.com" && formData.password === "123456");
+      const res = await authenticate(email, password, userType);
 
-      // if (!validCredentials) {
-      //   throw new Error("Email hoặc mật khẩu không đúng");
-      // }
-
-      // // Store user info in localStorage (in real app, use proper auth)
-      // localStorage.setItem("userType", userType);
-      // localStorage.setItem("userEmail", formData.email);
-      // localStorage.setItem("isAuthenticated", "true");
-
-      // // Redirect to appropriate dashboard
-      // if (userType === "patient") {
-      //   router.push("/patient");
-      // } else {
-      //   router.push("/doctor");
-      // }
+      if (res.error) {
+        toast.error(res.error);
+        if (res.code === 2) {
+          router.push("/auth/verify");
+        }
+      } else {
+        toast.success("Đăng nhập thành công");
+        router.push(`/${userType}`);
+      }
+      localStorage.setItem("userType", userType);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
     } finally {
@@ -86,7 +69,7 @@ export default function LoginPage() {
                 ? "border-green-500 bg-green-50 text-green-700"
                 : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             }`}
-            onClick={() => setUserType("patient")}
+            onClick={() => (setUserType("patient"), setFormData({ ...formData, email: "", password: "" }))}
           >
             <div className="text-center">
               <span className="text-2xl">👤</span>
@@ -100,7 +83,7 @@ export default function LoginPage() {
                 ? "border-blue-500 bg-blue-50 text-blue-700"
                 : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             }`}
-            onClick={() => setUserType("doctor")}
+            onClick={() => (setUserType("doctor"), setFormData({ ...formData, email: "", password: "" }))}
           >
             <div className="text-center">
               <span className="text-2xl">👨‍⚕️</span>

@@ -29,7 +29,7 @@ export class User {
   @Prop()
   avatar: string;
 
-  @Prop({ default: 'PATIENT' })
+  @Prop({ required: true })
   role: string; // e.g., 'patient', 'doctor', 'admin'
 
   @Prop({ default: 'LOCAL' })

@@ -23,24 +23,24 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     // Check authentication
-    const authStatus = localStorage.getItem("isAuthenticated");
+    // const authStatus = localStorage.getItem("isAuthenticated");
     const userType = localStorage.getItem("userType");
-    const email = localStorage.getItem("userEmail");
+    // const email = localStorage.getItem("userEmail");
 
-    if (!authStatus || userType !== "doctor") {
+    if (userType !== "doctor") {
       router.push("/auth/login");
       return;
     }
 
     setIsAuthenticated(true);
-    setUserEmail(email || "");
+    // setUserEmail(email || "");
     setIsLoading(false);
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
+    // localStorage.removeItem("isAuthenticated");
     localStorage.removeItem("userType");
-    localStorage.removeItem("userEmail");
+    // localStorage.removeItem("userEmail");
     router.push("/");
   };
 

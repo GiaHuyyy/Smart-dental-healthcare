@@ -2,11 +2,12 @@
 "use server";
 import { signIn } from "@/auth";
 
-export async function authenticate(email: string, password: string) {
+export async function authenticate(email: string, password: string, userType: string) {
   try {
     const r = await signIn("credentials", {
       email: email,
       password: password,
+      role: userType,
       // callbackUrl: "/",
       redirect: false,
     });
@@ -23,7 +24,7 @@ export async function authenticate(email: string, password: string) {
         code: 2,
       };
     } else {
-      return { error: "Đã có lỗi xảy ra o server", code: 0 };
+      return { error: "Đã có lỗi xảy ra", code: 0 };
     }
   }
 }
