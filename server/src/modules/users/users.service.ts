@@ -89,6 +89,10 @@ export class UsersService {
     return await this.userModel.findOne({ email }).exec();
   }
 
+  async findByEmailAndRole(email: string, role: string) {
+    return await this.userModel.findOne({ email, role }).exec();
+  }
+
   async update(updateUserDto: UpdateUserDto) {
     return await this.userModel.updateOne(
       { _id: updateUserDto._id },
@@ -106,7 +110,7 @@ export class UsersService {
   }
 
   async handleRegister(createRegisterDto: CreateAuthDto) {
-    const { email, password, fullName } = createRegisterDto;
+    const { email, password, fullName, role } = createRegisterDto;
 
     // Check if email already exists
     const emailExists = await this.isEmailExists(email);
@@ -123,6 +127,7 @@ export class UsersService {
       fullName,
       email,
       password: hashedPassword,
+      role: role,
       isActive: false,
       codeId: codeId,
       codeExpired: dayjs().add(30, 'seconds'),

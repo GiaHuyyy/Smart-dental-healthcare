@@ -12,31 +12,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: {},
         password: {},
+        role: {},
       },
       authorize: async (credentials) => {
-        const res = await sendRequest<IBackendRes<ILogin> | ILogin>({
+        const res = await sendRequest<IBackendRes<ILogin>>({
           method: "POST",
           url: "http://localhost:8081/api/v1/auth/login",
           body: {
             username: credentials?.email,
             password: credentials?.password,
+            role: credentials?.role,
           },
         });
 
         console.log("User response:", res);
 
         // Check if the response is a direct user object (no statusCode) or contains statusCode
-        if (!("statusCode" in res)) {
+        if (+res.statusCode === 201) {
           // Direct response with user data
           return {
-            id: res.user._id, // NextAuth requires this id field
-            _id: res.user._id,
-            email: res.user.email,
-            fullName: res.user.fullName,
+            _id: res?.data?.user._id,
+            email: res?.data?.user.email,
+            fullName: res?.data?.user.fullName,
             // isVerify: true, // Set default or extract from response if available
             // type: "patient", // Set default or extract from response if available
             // role: "patient", // Set default or extract from response if available
-            access_token: res.access_token,
+            access_token: res?.data?.access_token,
           };
         } else if (+res.statusCode === 401) {
           throw new InvalidEmailPasswordError();
@@ -57,7 +58,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     jwt({ token, user }) {
       if (user) {
         // User is available during sign-in
-        // console.log("User data:", token);
         token.user = user as IUser;
       }
       return token;
@@ -65,6 +65,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     session({ session, token }) {
       (session.user as IUser) = token.user;
       return session;
+    },
+    authorized: async ({ auth }) => {
+      // Logged in users are authenticated, otherwise redirect to login page
+      return !!auth
     },
   },
 });

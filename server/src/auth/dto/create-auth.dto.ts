@@ -9,4 +9,7 @@ export class CreateAuthDto {
 
   @IsNotEmpty({ message: 'Tên không được để trống' })
   fullName: string;
+
+  @IsNotEmpty({ message: 'Vai trò là bắt buộc' })
+  role: string;
 }
