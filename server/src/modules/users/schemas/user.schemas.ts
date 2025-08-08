@@ -50,7 +50,7 @@ export class User {
   @Prop()
   licenseNumber: string;
 
-  @Prop({ default: false })
+  @Prop({ default: true })
   agreeTerms: boolean;
 }
 

@@ -57,7 +57,7 @@ export default async function HomePage() {
               </div>
               <h1 className="ml-3 text-2xl font-bold text-gray-900">Smart Dental Healthcare</h1>
             </div>
-            <nav className="hidden md:flex space-x-8">
+            <nav className="flex items-center space-x-8">
               <Link href="#services" className="text-gray-600 hover:text-gray-900">
                 Dịch vụ
               </Link>

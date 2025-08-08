@@ -8,13 +8,21 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') || 8081;
 
-  app.useGlobalPipes(new ValidationPipe(
-    {
+  app.useGlobalPipes(
+    new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
-    }
-  ));
-  app.setGlobalPrefix('api/v1', {exclude: ['']});
+    }),
+  );
+  app.setGlobalPrefix('api/v1', { exclude: [''] });
+
+  //config cors
+  app.enableCors({
+    origin: configService.get<string>('CORS_ORIGIN'),
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    preflightContinue: false,
+    credentials: true,
+  });
 
   await app.listen(port);
 }

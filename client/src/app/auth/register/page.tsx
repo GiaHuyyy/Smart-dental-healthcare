@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
+import { sendRequest } from "@/utils/api";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
   const [userType, setUserType] = useState("patient");
@@ -14,15 +18,38 @@ export default function RegisterPage() {
     dateOfBirth: "",
     gender: "",
     address: "",
-    specialty: "", // for doctors
-    licenseNumber: "", // for doctors
-    agreeTerms: false,
+    specialty: "",
+    licenseNumber: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration logic here
-    console.log("Register:", { ...formData, userType });
+    const { fullName, email, phone, password, dateOfBirth, gender, address, specialty, licenseNumber } = formData;
+    const res = await sendRequest<IBackendRes<any>>({
+      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/register`,
+      method: "POST",
+      body: {
+        fullName,
+        email,
+        phone,
+        password,
+        dateOfBirth,
+        gender,
+        address,
+        specialty,
+        licenseNumber,
+        role: userType,
+      },
+    });
+    console.log("Registration response:", res);
+    if (res.error) {
+      toast.error(res.message);
+    } else {
+      toast.success("Đăng ký thành công");
+      router.push(`/auth/verify/${res.data._id}`);
+    }
   };
 
   return (
@@ -215,8 +242,6 @@ export default function RegisterPage() {
                 type="checkbox"
                 required
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                checked={formData.agreeTerms}
-                onChange={(e) => setFormData({ ...formData, agreeTerms: e.target.checked })}
               />
               <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-700">
                 Tôi đồng ý với{" "}
