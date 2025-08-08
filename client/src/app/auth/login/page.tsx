@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authenticate } from "@/utils/actions";
 import { toast } from "sonner";
+import { getSession } from "next-auth/react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,9 +36,11 @@ export default function LoginPage() {
         }
       } else {
         toast.success("Đăng nhập thành công");
+        // Force session update
+        await getSession();
         router.push(`/${userType}`);
+        router.refresh();
       }
-      localStorage.setItem("userType", userType);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
     } finally {
