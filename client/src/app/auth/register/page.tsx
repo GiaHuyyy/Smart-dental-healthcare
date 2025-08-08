@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { sendRequest } from "@/utils/api";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
   const [userType, setUserType] = useState("patient");
@@ -19,11 +22,12 @@ export default function RegisterPage() {
     licenseNumber: "",
   });
 
+  const router = useRouter();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle registration logic here
     const { fullName, email, phone, password, dateOfBirth, gender, address, specialty, licenseNumber } = formData;
-    const res = await sendRequest({
+    const res = await sendRequest<IBackendRes<any>>({
       url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/register`,
       method: "POST",
       body: {
@@ -39,7 +43,13 @@ export default function RegisterPage() {
         role: userType,
       },
     });
-    console.log("Register:", res);
+    console.log("Registration response:", res);
+    if (res.error) {
+      toast.error(res.message);
+    } else {
+      toast.success("Đăng ký thành công");
+      router.push(`/auth/verify/${res.data._id}`);
+    }
   };
 
   return (

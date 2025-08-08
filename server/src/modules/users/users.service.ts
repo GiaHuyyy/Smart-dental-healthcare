@@ -6,7 +6,7 @@ import mongoose, { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { hashPasswordHelper } from 'src/helpers/utils';
 import aqp from 'api-query-params';
-import { CreateAuthDto } from 'src/auth/dto/create-auth.dto';
+import { CodeAuthDto, CreateAuthDto } from 'src/auth/dto/create-auth.dto';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -32,7 +32,7 @@ export class UsersService {
     const emailExists = await this.isEmailExists(email);
     if (emailExists) {
       throw new BadRequestException(
-        'Email đã tồn tại: ' + email + '. Vui lòng sử dụng email khác.',
+        'Email ' + email + '. Vui lòng sử dụng email khác.',
       );
     }
 
@@ -110,13 +110,24 @@ export class UsersService {
   }
 
   async handleRegister(createRegisterDto: CreateAuthDto) {
-    const { email, password, fullName, role, gender, address, dateOfBirth, phone, specialty, licenseNumber } = createRegisterDto;
+    const {
+      email,
+      password,
+      fullName,
+      role,
+      gender,
+      address,
+      dateOfBirth,
+      phone,
+      specialty,
+      licenseNumber,
+    } = createRegisterDto;
 
     // Check if email already exists
     const emailExists = await this.isEmailExists(email);
     if (emailExists) {
       throw new BadRequestException(
-        'Email đã tồn tại: ' + email + '. Vui lòng sử dụng email khác.',
+        'Email ' + email + '. Vui lòng sử dụng email khác.',
       );
     }
 
@@ -136,8 +147,7 @@ export class UsersService {
       licenseNumber,
       isActive: false,
       codeId: codeId,
-      codeExpired: dayjs().add(30, 'seconds'),
-      // codeExpired: dayjs().add(1, 'hour'),
+      codeExpired: dayjs().add(1, 'hour'),
     });
 
     // send email to user
@@ -154,5 +164,26 @@ export class UsersService {
     return {
       _id: user._id,
     };
+  }
+
+  async handleCheckCode(checkCodeDto: CodeAuthDto) {
+    const { id, code } = checkCodeDto;
+    const user = await this.userModel.findOne({
+      _id: id,
+      codeId: code,
+    });
+    if (!user) {
+      throw new BadRequestException('Người dùng không tồn tại');
+    }
+
+    // check code expiration
+    if (dayjs().isAfter(user.codeExpired)) {
+      throw new BadRequestException('Mã kích hoạt đã hết hạn');
+    } else {
+      await this.userModel.updateOne(
+        { _id: id },
+        { isActive: true, codeId: null, codeExpired: null },
+      );
+    }
   }
 }

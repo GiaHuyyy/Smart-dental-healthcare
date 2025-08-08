@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import LogoutButton from "./LogoutButton";
+import LogoutButton from "./auth/LogoutButton";
 import { useSession } from "next-auth/react";
 
 export default function Header({ role = "Bệnh nhân" }) {

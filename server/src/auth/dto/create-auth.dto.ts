@@ -31,3 +31,11 @@ export class CreateAuthDto {
   @IsOptional()
   licenseNumber: string;
 }
+
+export class CodeAuthDto {
+  @IsNotEmpty({ message: 'id người dùng không được để trống' })
+  id: string;
+
+  @IsNotEmpty({ message: 'Mã xác thực không được để trống' })
+  code: string;
+}
