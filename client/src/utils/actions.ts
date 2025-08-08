@@ -28,3 +28,40 @@ export async function authenticate(email: string, password: string, userType: st
     }
   }
 }
+
+// Register function
+// export async function register(
+//   fullName: string,
+//   email: string,
+//   password: string,
+//   userType: string,
+//   phone?: string,
+//   dateOfBirth?: Date
+// ) {
+//   try {
+//     const response = await fetch("/api/auth/register", {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify({
+//         fullName,
+//         email,
+//         password,
+//         role: userType,
+//         phone,
+//         dateOfBirth,
+//       }),
+//     });
+
+//     if (!response.ok) {
+//       throw new Error("Failed to register");
+//     }
+
+//     const data = await response.json();
+//     return data;
+//   } catch (error) {
+//     console.error("Error registering:", error);
+//     return { error: "Đã có lỗi xảy ra", code: 0 };
+//   }
+// }

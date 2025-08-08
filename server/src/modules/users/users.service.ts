@@ -110,7 +110,7 @@ export class UsersService {
   }
 
   async handleRegister(createRegisterDto: CreateAuthDto) {
-    const { email, password, fullName, role } = createRegisterDto;
+    const { email, password, fullName, role, gender, address, dateOfBirth, phone, specialty, licenseNumber } = createRegisterDto;
 
     // Check if email already exists
     const emailExists = await this.isEmailExists(email);
@@ -128,6 +128,12 @@ export class UsersService {
       email,
       password: hashedPassword,
       role: role,
+      gender,
+      address,
+      dateOfBirth,
+      phone,
+      specialty,
+      licenseNumber,
       isActive: false,
       codeId: codeId,
       codeExpired: dayjs().add(30, 'seconds'),
