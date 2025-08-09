@@ -7,6 +7,7 @@ import { authenticate } from "@/utils/actions";
 import { toast } from "sonner";
 import { getSession } from "next-auth/react";
 import ModalReactive from "@/components/auth/ModalReactive";
+import ModalForgotPassword from "@/components/auth/ModalForgotPassword";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,9 +155,13 @@ export default function LoginPage() {
                     Ghi nhớ đăng nhập
                   </label>
                 </div>
-                <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPasswordModalOpen(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
                   Quên mật khẩu?
-                </Link>
+                </button>
               </div>
             </div>
 
@@ -187,6 +193,9 @@ export default function LoginPage() {
 
       {/* Modal for reactive form */}
       <ModalReactive isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} userEmail={formData.email} />
+
+      {/* Modal for forgot password */}
+      <ModalForgotPassword isModalOpen={isForgotPasswordModalOpen} setIsModalOpen={setIsForgotPasswordModalOpen} />
     </div>
   );
 }
