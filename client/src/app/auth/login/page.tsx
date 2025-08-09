@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { authenticate } from "@/utils/actions";
 import { toast } from "sonner";
 import { getSession } from "next-auth/react";
+import ModalReactive from "@/components/auth/ModalReactive";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function LoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +34,7 @@ export default function LoginPage() {
       if (res.error) {
         toast.error(res.error);
         if (res.code === 2) {
-          router.push("/auth/verify");
+          setIsModalOpen(true);
         }
       } else {
         toast.success("Đăng nhập thành công");
@@ -182,6 +184,9 @@ export default function LoginPage() {
           </div>
         </form>
       </div>
+
+      {/* Modal for reactive form */}
+      <ModalReactive isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} userEmail={formData.email} />
     </div>
   );
 }
