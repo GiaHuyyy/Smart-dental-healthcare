@@ -45,6 +45,12 @@ export class User {
   codeExpired: Date;
 
   @Prop()
+  codeIdPassword: string;
+
+  @Prop()
+  codeExpiredPassword: Date;
+
+  @Prop()
   specialty: string;
 
   @Prop()

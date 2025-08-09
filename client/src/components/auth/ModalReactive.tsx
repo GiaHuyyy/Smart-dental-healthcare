@@ -4,6 +4,7 @@
 import { sendRequest } from "@/utils/api";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import BaseStepModal from "./BaseStepModal";
 
 interface ModalReactiveProps {
   isModalOpen: boolean;
@@ -96,8 +97,6 @@ export default function ModalReactive({ isModalOpen, setIsModalOpen, userEmail =
       setCurrentStep(currentStep - 1);
     }
   };
-
-  if (!isModalOpen) return null;
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -298,53 +297,14 @@ export default function ModalReactive({ isModalOpen, setIsModalOpen, userEmail =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black opacity-55 transition-opacity"></div>
-
-      {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 z-10">
-        {/* Close button */}
-        <button
-          onClick={handleCloseModal}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        {/* Step indicator */}
-        <div className="flex items-center justify-center mb-6">
-          {[1, 2, 3].map((step) => (
-            <div key={step} className="flex items-center">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  step <= currentStep ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"
-                }`}
-              >
-                {step < currentStep ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  step
-                )}
-              </div>
-              {step < 3 && (
-                <div className={`w-8 h-0.5 mx-2 ${step < currentStep ? "bg-blue-600" : "bg-gray-200"}`}></div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Step content */}
-        {renderStepContent()}
-      </div>
-    </div>
+    <BaseStepModal
+      isModalOpen={isModalOpen}
+      onClose={handleCloseModal}
+      currentStep={currentStep}
+      totalSteps={3}
+      stepIndicatorColor="blue"
+    >
+      {renderStepContent()}
+    </BaseStepModal>
   );
 }

@@ -6,7 +6,12 @@ import mongoose, { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { hashPasswordHelper } from 'src/helpers/utils';
 import aqp from 'api-query-params';
-import { CodeAuthDto, CreateAuthDto } from 'src/auth/dto/create-auth.dto';
+import {
+  CodeAuthDto,
+  CreateAuthDto,
+  VerifyResetCodeDto,
+  ResetPasswordDto,
+} from 'src/auth/dto/create-auth.dto';
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -221,6 +226,97 @@ export class UsersService {
     return {
       _id: user._id,
       message: 'Mã kích hoạt mới đã được gửi đến email của bạn',
+    };
+  }
+
+  async handleForgotPassword(email: string) {
+    const user = await this.userModel.findOne({ email });
+    console.log("Response from server:", user);
+    if (!user) {
+      throw new BadRequestException('Không tìm thấy tài khoản với email này');
+    }
+
+    // Generate password reset code
+    const codeId = uuidv4();
+    await this.userModel.updateOne(
+      { _id: user._id },
+      {
+        codeIdPassword: codeId,
+        codeExpiredPassword: dayjs().add(1, 'hour'),
+      },
+    );
+
+    // Send password reset email
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: 'Đặt lại mật khẩu tài khoản của bạn',
+      template: 'forgot-password',
+      context: {
+        name: user.fullName,
+        resetCode: codeId,
+      },
+    });
+
+    return {
+      _id: user._id,
+      message: 'Mã đặt lại mật khẩu đã được gửi đến email của bạn',
+    };
+  }
+
+  async handleVerifyResetCode(verifyResetCodeDto: VerifyResetCodeDto) {
+    const { id, code } = verifyResetCodeDto;
+    const user = await this.userModel.findOne({
+      _id: id,
+      codeIdPassword: code,
+    });
+
+    if (!user) {
+      throw new BadRequestException(
+        'Mã đặt lại mật khẩu không hợp lệ hoặc người dùng không tồn tại',
+      );
+    }
+
+    // Check code expiration
+    if (dayjs().isAfter(user.codeExpiredPassword)) {
+      throw new BadRequestException('Mã đặt lại mật khẩu đã hết hạn');
+    }
+
+    return {
+      message: 'Mã đặt lại mật khẩu hợp lệ',
+    };
+  }
+
+  async handleResetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { id, code, newPassword } = resetPasswordDto;
+    const user = await this.userModel.findOne({
+      _id: id,
+      codeIdPassword: code,
+    });
+
+    if (!user) {
+      throw new BadRequestException(
+        'Mã đặt lại mật khẩu không hợp lệ hoặc người dùng không tồn tại',
+      );
+    }
+
+    // Check code expiration
+    if (dayjs().isAfter(user.codeExpiredPassword)) {
+      throw new BadRequestException('Mã đặt lại mật khẩu đã hết hạn');
+    }
+
+    // Hash new password and update user
+    const hashedPassword = await hashPasswordHelper(newPassword);
+    await this.userModel.updateOne(
+      { _id: id },
+      {
+        password: hashedPassword,
+        codeIdPassword: null,
+        codeExpiredPassword: null,
+      },
+    );
+
+    return {
+      message: 'Đặt lại mật khẩu thành công',
     };
   }
 }

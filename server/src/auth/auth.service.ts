@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { UsersService } from '../modules/users/users.service';
 import { comparePasswordHelper } from 'src/helpers/utils';
 import { JwtService } from '@nestjs/jwt';
-import { CodeAuthDto, CreateAuthDto } from './dto/create-auth.dto';
+import {
+  CodeAuthDto,
+  CreateAuthDto,
+  VerifyResetCodeDto,
+  ResetPasswordDto,
+} from './dto/create-auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -11,10 +16,12 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(username: string, pass: string, role: string): Promise<any> {
+  async validateUser(
+    username: string,
+    pass: string,
+    role: string,
+  ): Promise<any> {
     const user = await this.usersService.findByEmailAndRole(username, role);
-    console.log('Validating user:', user);
-    console.log('Role user:', role);
     if (user && (await comparePasswordHelper(pass, user.password))) {
       return user;
     }
@@ -43,5 +50,17 @@ export class AuthService {
 
   async retryCode(email: string) {
     return await this.usersService.handleRetryCode(email);
+  }
+
+  async forgotPassword(email: string) {
+    return await this.usersService.handleForgotPassword(email);
+  }
+
+  async verifyResetCode(verifyResetCodeDto: VerifyResetCodeDto) {
+    return await this.usersService.handleVerifyResetCode(verifyResetCodeDto);
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    return await this.usersService.handleResetPassword(resetPasswordDto);
   }
 }

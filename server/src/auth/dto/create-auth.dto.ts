@@ -39,3 +39,22 @@ export class CodeAuthDto {
   @IsNotEmpty({ message: 'Mã xác thực không được để trống' })
   code: string;
 }
+
+export class VerifyResetCodeDto {
+  @IsNotEmpty({ message: 'id người dùng không được để trống' })
+  id: string;
+
+  @IsNotEmpty({ message: 'Mã xác thực không được để trống' })
+  code: string;
+}
+
+export class ResetPasswordDto {
+  @IsNotEmpty({ message: 'id người dùng không được để trống' })
+  id: string;
+
+  @IsNotEmpty({ message: 'Mã xác thực không được để trống' })
+  code: string;
+
+  @IsNotEmpty({ message: 'Mật khẩu mới không được để trống' })
+  newPassword: string;
+}
