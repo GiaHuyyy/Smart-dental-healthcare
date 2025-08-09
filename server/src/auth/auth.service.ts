@@ -40,4 +40,8 @@ export class AuthService {
   async checkCode(checkCodeDto: CodeAuthDto) {
     return await this.usersService.handleCheckCode(checkCodeDto as any);
   }
+
+  async retryCode(email: string) {
+    return await this.usersService.handleRetryCode(email);
+  }
 }

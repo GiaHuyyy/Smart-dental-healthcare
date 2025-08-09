@@ -173,7 +173,9 @@ export class UsersService {
       codeId: code,
     });
     if (!user) {
-      throw new BadRequestException('Người dùng không tồn tại');
+      throw new BadRequestException(
+        'Mã kích hoạt không hợp lệ hoặc người dùng không tồn tại',
+      );
     }
 
     // check code expiration
@@ -185,5 +187,40 @@ export class UsersService {
         { isActive: true, codeId: null, codeExpired: null },
       );
     }
+  }
+
+  async handleRetryCode(email: string) {
+    const user = await this.userModel.findOne({ email });
+    if (!user) {
+      throw new BadRequestException('Người dùng không tồn tại');
+    }
+
+    // Generate new activation code
+    const codeId = uuidv4();
+    await this.userModel.updateOne(
+      {
+        _id: user._id,
+      },
+      {
+        codeId: codeId,
+        codeExpired: dayjs().add(1, 'hour'),
+      },
+    );
+
+    // Send email with new activation code
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: 'Kích hoạt tài khoản của bạn',
+      template: 'register',
+      context: {
+        name: user.fullName,
+        activationCode: codeId,
+      },
+    });
+
+    return {
+      _id: user._id,
+      message: 'Mã kích hoạt mới đã được gửi đến email của bạn',
+    };
   }
 }
