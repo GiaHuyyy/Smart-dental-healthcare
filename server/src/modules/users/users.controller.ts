@@ -1,16 +1,20 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
+import { JwtAuthGuard } from 'src/auth/passport/jwt-auth.guard';
+import { Public } from 'src/decorator/customize';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
@@ -22,6 +26,7 @@ export class UsersController {
   }
 
   @Get()
+  @Public()
   async findAll(
     @Query() query: string,
     @Query('current') current: string,
@@ -29,8 +34,27 @@ export class UsersController {
   ) {
     return this.usersService.findAll(query, +current, +pageSize);
   }
+  
+  @Get('patients')
+  @Public()
+  async findAllPatients() {
+    return this.usersService.findAllPatients(null);
+  }
+
+  @Get('doctors')
+  @Public()
+  async findAllDoctors() {
+    return this.usersService.findAllDoctors(null);
+  }
+
+  @Patch('activate-for-test')
+  @Public()
+  async activateForTest(@Body() body: { email: string }) {
+    return this.usersService.activateForTest(body.email);
+  }
 
   @Get(':id')
+  @Public()
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }

@@ -1,23 +1,25 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from './modules/users/users.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/passport/jwt-auth.guard';
-import { MailerModule } from '@nestjs-modules/mailer';
-import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
-import { TransformInterceptor } from './core/transform.interceptor';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { UsersModule } from './modules/users/users.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    UsersModule,
-    AuthModule,
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -25,34 +27,15 @@ import { TransformInterceptor } from './core/transform.interceptor';
       }),
       inject: [ConfigService],
     }),
-    MailerModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        transport: {
-          host: configService.get<string>('MAIL_HOST'),
-          port: configService.get<number>('MAIL_PORT'),
-          // secure: true,
-          // ignoreTLS: true,
-          // secure: false,
-          auth: {
-            user: configService.get<string>('MAILDEV_INCOMING_USER'),
-            pass: configService.get<string>('MAILDEV_INCOMING_PASS'),
-          },
-        },
-        defaults: {
-          from: '"No Reply" <no-reply@localhost>',
-        },
-        // preview: true,
-        template: {
-          dir: process.cwd() + '/src/mail/templates/',
-          adapter: new HandlebarsAdapter(), // or new PugAdapter() or new EjsAdapter()
-          options: {
-            strict: true,
-          },
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    MailModule,
+    UsersModule,
+    AuthModule,
+    AppointmentsModule,
+    MedicalRecordsModule,
+    NotificationsModule,
+    PaymentsModule,
+    ReportsModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -60,10 +43,6 @@ import { TransformInterceptor } from './core/transform.interceptor';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: TransformInterceptor,
     },
   ],
 })

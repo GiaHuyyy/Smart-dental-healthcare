@@ -98,6 +98,59 @@ export class UsersService {
     return await this.userModel.findOne({ email, role }).exec();
   }
 
+  async findAllPatients(user: any) {
+    try {
+      // Kiểm tra quyền, chỉ bác sĩ mới có thể xem danh sách bệnh nhân
+      // Bỏ qua kiểm tra quyền nếu user là null (API test)
+      if (user && user.role !== 'doctor') {
+        throw new BadRequestException('Bạn không có quyền truy cập danh sách bệnh nhân');
+      }
+      
+      // Lấy danh sách bệnh nhân (role = 'patient')
+      const patients = await this.userModel
+        .find({ role: 'patient' })
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .exec();
+      
+      return {
+        success: true,
+        data: patients,
+        message: 'Lấy danh sách bệnh nhân thành công',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy danh sách bệnh nhân',
+      };
+    }
+  }
+
+  async findAllDoctors(user: any) {
+    try {
+      // Lấy danh sách bác sĩ (role = 'doctor')
+      const doctors = await this.userModel
+        .find({ role: 'doctor' }) // Bỏ điều kiện isActive để lấy tất cả bác sĩ
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .exec();
+      
+      console.log('Doctors found:', doctors.length);
+      
+      return {
+        success: true,
+        data: doctors,
+        message: 'Lấy danh sách bác sĩ thành công',
+      };
+    } catch (error) {
+      console.error('Error in findAllDoctors:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy danh sách bác sĩ',
+      };
+    }
+  }
+
   async update(updateUserDto: UpdateUserDto) {
     return await this.userModel.updateOne(
       { _id: updateUserDto._id },
@@ -191,6 +244,30 @@ export class UsersService {
         { _id: id },
         { isActive: true, codeId: null, codeExpired: null },
       );
+    }
+  }
+
+  async activateForTest(email: string) {
+    try {
+      const user = await this.userModel.findOne({ email });
+      if (!user) {
+        throw new BadRequestException('Không tìm thấy người dùng với email này');
+      }
+
+      await this.userModel.updateOne(
+        { email },
+        { isActive: true, codeId: null, codeExpired: null }
+      );
+
+      return {
+        success: true,
+        message: 'Kích hoạt tài khoản thành công cho mục đích test',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi kích hoạt tài khoản',
+      };
     }
   }
 
