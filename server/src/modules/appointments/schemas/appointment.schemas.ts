@@ -54,7 +54,8 @@ export class Appointment {
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
 
 // Xóa index cũ nếu có
-AppointmentSchema.index({ doctorId: 1, appointmentDate: 1, appointmentTime: 1 }, { unique: false });
-
-// Tạo index mới cho các trường cần thiết
+// Tạo index mới cho các trường cần thiết (unique on doctorId + appointmentDate + startTime)
 AppointmentSchema.index({ doctorId: 1, appointmentDate: 1, startTime: 1 }, { unique: true });
+// NOTE: ensure the DB does not have a legacy unique index on appointmentTime.
+// If a legacy index exists in the database (doctorId_1_appointmentDate_1_appointmentTime_1),
+// drop it manually. The schema only uses startTime going forward.
