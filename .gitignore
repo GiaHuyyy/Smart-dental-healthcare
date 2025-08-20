@@ -87,3 +87,5 @@ server/node_modules/
 server/dist/
 server/build/
 server/logs/
+
+.early.coverage

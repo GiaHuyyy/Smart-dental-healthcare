@@ -37,9 +37,9 @@ const apiEndpoints = [
    */
   
   // Users APIs
-  // { method: 'GET', url: '/users', description: 'Lấy danh sách người dùng', requiresAuth: true },
-  // { method: 'GET', url: '/users/doctors', description: 'Lấy danh sách bác sĩ', requiresAuth: true },
-  // { method: 'GET', url: '/users/patients', description: 'Lấy danh sách bệnh nhân', requiresAuth: true },
+  { method: 'GET', url: '/users', description: 'Lấy danh sách người dùng', requiresAuth: true },
+  { method: 'GET', url: '/users/doctors', description: 'Lấy danh sách bác sĩ', requiresAuth: true },
+  { method: 'GET', url: '/users/patients', description: 'Lấy danh sách bệnh nhân', requiresAuth: true },
   
   // Appointments APIs
   { method: 'GET', url: '/appointments', description: 'Lấy danh sách lịch hẹn', requiresAuth: true },
@@ -48,41 +48,41 @@ const apiEndpoints = [
   { method: 'GET', url: '/appointments/patient/68a4294faee99e31432653fd', description: 'Lấy danh sách lịch hẹn của bệnh nhân', requiresAuth: true },
   
   // Medical Records APIs
-  // { method: 'GET', url: '/medical-records', description: 'Lấy danh sách hồ sơ bệnh án', requiresAuth: true },
-  // { method: 'POST', url: '/medical-records', body: { patientId: '65f2e7d4e52b8b9d1e8b4567', doctorId: '65f2e7d4e52b8b9d1e8b4568', recordDate: '2023-08-15', chiefComplaint: 'Đau răng', diagnosis: 'Viêm nướu', notes: 'Ghi chú test' }, description: 'Tạo hồ sơ bệnh án mới', requiresAuth: true },
-  // { method: 'GET', url: '/medical-records/doctor/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách hồ sơ bệnh án của bác sĩ', requiresAuth: true },
-  // { method: 'GET', url: '/medical-records/patient/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách hồ sơ bệnh án của bệnh nhân', requiresAuth: true },
+  { method: 'GET', url: '/medical-records', description: 'Lấy danh sách hồ sơ bệnh án', requiresAuth: true },
+  { method: 'POST', url: '/medical-records', body: { patientId: '65f2e7d4e52b8b9d1e8b4567', doctorId: '65f2e7d4e52b8b9d1e8b4568', recordDate: '2023-08-15', chiefComplaint: 'Đau răng', diagnosis: 'Viêm nướu', notes: 'Ghi chú test' }, description: 'Tạo hồ sơ bệnh án mới', requiresAuth: true },
+  { method: 'GET', url: '/medical-records/doctor/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách hồ sơ bệnh án của bác sĩ', requiresAuth: true },
+  { method: 'GET', url: '/medical-records/patient/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách hồ sơ bệnh án của bệnh nhân', requiresAuth: true },
   
   // Notifications APIs
-  // { method: 'GET', url: '/notifications', description: 'Lấy danh sách thông báo', requiresAuth: true },
-  // { method: 'POST', url: '/notifications', body: { title: 'Thông báo mới', message: 'Nội dung thông báo test', userId: '65f2e7d4e52b8b9d1e8b4567', isRead: false, type: 'appointment' }, description: 'Tạo thông báo mới', requiresAuth: true },
-  // { method: 'GET', url: '/notifications/user/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách thông báo của người dùng', requiresAuth: true },
-  // { method: 'PATCH', url: '/notifications/65f2e7d4e52b8b9d1e8b4569/read', description: 'Đánh dấu thông báo đã đọc', requiresAuth: true },
-  // { method: 'PATCH', url: '/notifications/user/65f2e7d4e52b8b9d1e8b4567/read-all', description: 'Đánh dấu tất cả thông báo của người dùng đã đọc', requiresAuth: true },
+  { method: 'GET', url: '/notifications', description: 'Lấy danh sách thông báo', requiresAuth: true },
+  { method: 'POST', url: '/notifications', body: { title: 'Thông báo mới', message: 'Nội dung thông báo test', userId: '65f2e7d4e52b8b9d1e8b4567', isRead: false, type: 'appointment' }, description: 'Tạo thông báo mới', requiresAuth: true },
+  { method: 'GET', url: '/notifications/user/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách thông báo của người dùng', requiresAuth: true },
+  { method: 'PATCH', url: '/notifications/65f2e7d4e52b8b9d1e8b4569/read', description: 'Đánh dấu thông báo đã đọc', requiresAuth: true },
+  { method: 'PATCH', url: '/notifications/user/65f2e7d4e52b8b9d1e8b4567/read-all', description: 'Đánh dấu tất cả thông báo của người dùng đã đọc', requiresAuth: true },
   
   // Payments APIs
-  // { method: 'GET', url: '/payments', description: 'Lấy danh sách thanh toán', requiresAuth: true },
-  // { method: 'POST', url: '/payments', body: { patientId: '65f2e7d4e52b8b9d1e8b4567', doctorId: '65f2e7d4e52b8b9d1e8b4568', amount: 500000, status: 'pending', type: 'appointment', paymentMethod: 'cash' }, description: 'Tạo thanh toán mới', requiresAuth: true },
-  // { method: 'GET', url: '/payments/patient/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách thanh toán của bệnh nhân', requiresAuth: true },
-  // { method: 'GET', url: '/payments/doctor/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách thanh toán của bác sĩ', requiresAuth: true },
-  // // Sử dụng ID từ kết quả tạo thanh toán mới thay vì ID cố định
-  // { method: 'PATCH', url: '/payments/68a403d1a97df7ab4a85eb73', body: { _id: '68a403d1a97df7ab4a85eb73', status: 'completed' }, description: 'Cập nhật trạng thái thanh toán', requiresAuth: true },
+  { method: 'GET', url: '/payments', description: 'Lấy danh sách thanh toán', requiresAuth: true },
+  { method: 'POST', url: '/payments', body: { patientId: '65f2e7d4e52b8b9d1e8b4567', doctorId: '65f2e7d4e52b8b9d1e8b4568', amount: 500000, status: 'pending', type: 'appointment', paymentMethod: 'cash' }, description: 'Tạo thanh toán mới', requiresAuth: true },
+  { method: 'GET', url: '/payments/patient/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách thanh toán của bệnh nhân', requiresAuth: true },
+  { method: 'GET', url: '/payments/doctor/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách thanh toán của bác sĩ', requiresAuth: true },
+  // Sử dụng ID từ kết quả tạo thanh toán mới thay vì ID cố định
+  { method: 'PATCH', url: '/payments/68a403d1a97df7ab4a85eb73', body: { _id: '68a403d1a97df7ab4a85eb73', status: 'completed' }, description: 'Cập nhật trạng thái thanh toán', requiresAuth: true },
   
   // Reviews APIs
-  // { method: 'GET', url: '/reviews', description: 'Lấy danh sách đánh giá', requiresAuth: true },
-  // { method: 'POST', url: '/reviews', body: { patientId: '65f2e7d4e52b8b9d1e8b4567', doctorId: '65f2e7d4e52b8b9d1e8b4568', rating: 5, comment: 'Bác sĩ rất tận tâm và chuyên nghiệp' }, description: 'Tạo đánh giá mới', requiresAuth: true },
-  // { method: 'GET', url: '/reviews/doctor/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách đánh giá của bác sĩ', requiresAuth: true },
-  // { method: 'GET', url: '/reviews/patient/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách đánh giá của bệnh nhân', requiresAuth: true },
-  // { method: 'GET', url: '/reviews/doctor/65f2e7d4e52b8b9d1e8b4568/rating', description: 'Lấy điểm đánh giá trung bình của bác sĩ', requiresAuth: true },
+  { method: 'GET', url: '/reviews', description: 'Lấy danh sách đánh giá', requiresAuth: true },
+  { method: 'POST', url: '/reviews', body: { patientId: '65f2e7d4e52b8b9d1e8b4567', doctorId: '65f2e7d4e52b8b9d1e8b4568', rating: 5, comment: 'Bác sĩ rất tận tâm và chuyên nghiệp' }, description: 'Tạo đánh giá mới', requiresAuth: true },
+  { method: 'GET', url: '/reviews/doctor/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách đánh giá của bác sĩ', requiresAuth: true },
+  { method: 'GET', url: '/reviews/patient/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách đánh giá của bệnh nhân', requiresAuth: true },
+  { method: 'GET', url: '/reviews/doctor/65f2e7d4e52b8b9d1e8b4568/rating', description: 'Lấy điểm đánh giá trung bình của bác sĩ', requiresAuth: true },
   
   // Reports APIs
-  // { method: 'GET', url: '/reports', description: 'Lấy danh sách báo cáo', requiresAuth: true },
-  // { method: 'POST', url: '/reports', body: { userId: '65f2e7d4e52b8b9d1e8b4567', title: 'Báo cáo lỗi', content: 'Mô tả chi tiết về lỗi gặp phải' }, description: 'Tạo báo cáo mới', requiresAuth: true },
-  // { method: 'GET', url: '/reports/user/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách báo cáo của người dùng', requiresAuth: true },
-  // { method: 'GET', url: '/reports/assignee/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách báo cáo được giao cho người dùng', requiresAuth: true },
+  { method: 'GET', url: '/reports', description: 'Lấy danh sách báo cáo', requiresAuth: true },
+  { method: 'POST', url: '/reports', body: { userId: '65f2e7d4e52b8b9d1e8b4567', title: 'Báo cáo lỗi', content: 'Mô tả chi tiết về lỗi gặp phải' }, description: 'Tạo báo cáo mới', requiresAuth: true },
+  { method: 'GET', url: '/reports/user/65f2e7d4e52b8b9d1e8b4567', description: 'Lấy danh sách báo cáo của người dùng', requiresAuth: true },
+  { method: 'GET', url: '/reports/assignee/65f2e7d4e52b8b9d1e8b4568', description: 'Lấy danh sách báo cáo được giao cho người dùng', requiresAuth: true },
   // Sử dụng ID báo cáo có thực trong hệ thống
-  // { method: 'PATCH', url: '/reports/68a4017fa97df7ab4a85ea8f/assign/65f2e7d4e52b8b9d1e8b4568', description: 'Giao báo cáo cho người dùng', requiresAuth: true },
-  // { method: 'PATCH', url: '/reports/68a4017fa97df7ab4a85ea8f/resolve', body: { resolution: 'Đã xử lý lỗi thành công' }, description: 'Giải quyết báo cáo', requiresAuth: true },
+  { method: 'PATCH', url: '/reports/68a4017fa97df7ab4a85ea8f/assign/65f2e7d4e52b8b9d1e8b4568', description: 'Giao báo cáo cho người dùng', requiresAuth: true },
+  { method: 'PATCH', url: '/reports/68a4017fa97df7ab4a85ea8f/resolve', body: { resolution: 'Đã xử lý lỗi thành công' }, description: 'Giải quyết báo cáo', requiresAuth: true },
 ];
 
 // Biến lưu token từ đăng nhập
