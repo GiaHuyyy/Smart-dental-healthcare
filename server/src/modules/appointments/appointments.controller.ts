@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/auth/passport/jwt-auth.guard';
+import { Public, ResponseMessage } from 'src/decorator/customize';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
-import { JwtAuthGuard } from 'src/auth/passport/jwt-auth.guard';
-import { Public, ResponseMessage } from 'src/decorator/customize';
 
 @Controller('appointments')
 @UseGuards(JwtAuthGuard)
@@ -69,7 +69,7 @@ export class AppointmentsController {
     return this.appointmentsService.reschedule(id, appointmentDate, appointmentTime);
   }
 
-  @Post(':id/cancel')
+  @Delete(':id/cancel')
   @ResponseMessage('Hủy lịch hẹn thành công')
   cancel(@Param('id') id: string, @Body('reason') reason: string) {
     return this.appointmentsService.cancel(id, reason);
