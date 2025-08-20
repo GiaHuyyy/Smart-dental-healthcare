@@ -1,8 +1,8 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { InactiveAccountError, InvalidEmailPasswordError } from "./utils/errors";
-import { sendRequest } from "./utils/api";
 import { IUser } from "./types/next-auth";
+import { sendRequest } from "./utils/api";
+import { InactiveAccountError, InvalidEmailPasswordError } from "./utils/errors";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -24,28 +24,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: credentials?.role,
           },
         });
+          // Normalize and inspect response to support multiple backend shapes
+          console.log("User response:", res);
 
-        console.log("User response:", res);
+          // If backend returned wrapped data { data: { user, access_token } }
+          const wrappedUser = (res as any)?.data?.user;
+          const wrappedToken = (res as any)?.data?.access_token || (res as any)?.data?.accessToken;
 
-        // Check if the response is a direct user object (no statusCode) or contains statusCode
-        if (+res.statusCode === 201) {
-          // Direct response with user data
-          return {
-            _id: res?.data?.user._id,
-            email: res?.data?.user.email,
-            fullName: res?.data?.user.fullName,
-            // isVerify: true, // Set default or extract from response if available
-            // type: "patient", // Set default or extract from response if available
-            // role: "patient", // Set default or extract from response if available
-            access_token: res?.data?.access_token,
-          };
-        } else if (+res.statusCode === 401) {
-          throw new InvalidEmailPasswordError();
-        } else if (+res.statusCode === 400) {
-          throw new InactiveAccountError();
-        } else {
-          throw new Error(res.message || "Đã có lỗi xảy ra");
-        }
+          // If backend returned user directly
+          const directUser = (res as any)?.user || (res as any)?.data;
+          const directToken = (res as any)?.access_token || (res as any)?.accessToken || (res as any)?.data?.access_token;
+
+          if (wrappedUser) {
+            return {
+              _id: wrappedUser._id,
+              email: wrappedUser.email,
+              fullName: wrappedUser.fullName,
+              access_token: wrappedToken,
+            };
+          }
+
+          if (directUser && (directUser._id || (directUser.user && directUser.user._id))) {
+            const u = directUser._id ? directUser : directUser.user;
+            return {
+              _id: u._id,
+              email: u.email,
+              fullName: u.fullName,
+              access_token: directToken,
+            };
+          }
+
+          // Handle explicit error status codes returned by sendRequest
+          const statusCode = Number((res as any)?.statusCode || (res as any)?.status || 0);
+          if (statusCode === 401) throw new InvalidEmailPasswordError();
+          if (statusCode === 400) throw new InactiveAccountError();
+
+          // Fallback: if backend returned an error message
+          const message = (res as any)?.message || (res as any)?.error || "Đã có lỗi xảy ra";
+          throw new Error(message);
       },
     }),
   ],
