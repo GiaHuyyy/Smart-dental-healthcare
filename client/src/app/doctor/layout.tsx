@@ -6,12 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const navigation = [
-  { name: "Tổng quan", href: "/doctor", icon: "🏠" },
+  { name: "Trang chủ", href: "/", icon: "🏠", isHome: true },
+  { name: "Tổng quan", href: "/doctor", icon: "📊" },
   { name: "Lịch khám", href: "/doctor/schedule", icon: "📅" },
   { name: "Bệnh nhân", href: "/doctor/patients", icon: "👥" },
   { name: "Hồ sơ điều trị", href: "/doctor/treatments", icon: "📋" },
   { name: "Đơn thuốc", href: "/doctor/prescriptions", icon: "💊" },
-  { name: "Báo cáo", href: "/doctor/reports", icon: "📊" },
+  { name: "Báo cáo", href: "/doctor/reports", icon: "�" },
   { name: "Cài đặt", href: "/doctor/settings", icon: "⚙️" },
 ];
 
@@ -54,16 +55,23 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
             <ul className="space-y-2">
               {navigation.map((item) => {
                 const isActive = pathname === item.href;
+                const isHomeItem = item.isHome;
+
                 return (
                   <li key={item.name}>
                     <Link
                       href={item.href}
                       className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors ${
-                        isActive ? "bg-sky-100 text-sky-700" : "text-gray-600 hover:bg-gray-100"
+                        isHomeItem
+                          ? "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                          : isActive
+                          ? "bg-sky-100 text-sky-700"
+                          : "text-gray-600 hover:bg-gray-100"
                       }`}
                     >
                       <span className="mr-3">{item.icon}</span>
                       {item.name}
+                      {isHomeItem && <span className="ml-auto text-xs">↗</span>}
                     </Link>
                   </li>
                 );
