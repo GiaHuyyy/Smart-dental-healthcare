@@ -132,23 +132,34 @@ export class AppointmentsService {
         (createAppointmentDto as any).endTime = this.calculateEndTime(startTime, (createAppointmentDto as any).duration);
       }
 
+      // Ensure legacy appointmentTime field is populated (avoid nulls that violate old unique index)
+      if (!(createAppointmentDto as any).appointmentTime) {
+        (createAppointmentDto as any).appointmentTime = startTime;
+      }
+
       // Ensure appointmentDate is a Date
       const apptDate = appointmentDate instanceof Date ? appointmentDate : new Date(appointmentDate);
       
-      // Kiểm tra xem bác sĩ có lịch trùng chính xác vào khung giờ này không
-      const hasExactTimeOverlap = await this.hasExactTimeOverlap(doctorId, normalizedDate, startTime);
-      if (hasExactTimeOverlap) {
-        throw new BadRequestException('Bác sĩ đã có lịch hẹn vào khung giờ này');
-      }
+  // Per product decision: allow patients to create multiple appointments with the same doctor on the same day.
+  // Do not block creation by exact-time overlap here. The DB unique index on (doctorId, appointmentDate, startTime)
+  // will still prevent two appointments with the exact same startTime for the same doctor and date.
 
       // Save appointment (also keep legacy appointmentTime if needed elsewhere)
-      const appointment = await this.appointmentModel.create(createAppointmentDto as any);
+      const payload = {
+        ...(createAppointmentDto as any),
+        // force legacy field to be the start time to avoid nulls that trigger legacy unique index
+        appointmentTime: (createAppointmentDto as any).startTime || (createAppointmentDto as any).appointmentTime || (createAppointmentDto as any).time,
+      };
+
+      const appointment = await this.appointmentModel.create(payload as any);
       return appointment;
     } catch (error) {
       // Handle legacy duplicate-key errors caused by old DB indexes pointing to appointmentTime
       if (error && (error.code === 11000 || error.name === 'MongoServerError')) {
         // Surface more info when possible
         const keyInfo = (error.keyValue && JSON.stringify(error.keyValue)) || (error.keyPattern && JSON.stringify(error.keyPattern)) || '';
+        // Log server-side so ops can inspect (kept minimal)
+        console.warn('Duplicate key on create appointment:', keyInfo);
         throw new BadRequestException(
           `Duplicate key error ${keyInfo}. If this persists, run server/scripts/drop-starttime-index.js to remove legacy index or inspect the DB.`,
         );
@@ -348,6 +359,8 @@ export class AppointmentsService {
     
     appointment.appointmentDate = normalizedDate;
     appointment.startTime = appointmentTime;
+  // keep legacy field in sync to avoid inserting null appointmentTime
+  (appointment as any).appointmentTime = (appointment as any).appointmentTime || appointmentTime;
     // update endTime
     appointment.endTime = this.calculateEndTime(appointmentTime, appointment.duration || 30);
     appointment.status = AppointmentStatus.PENDING;
@@ -539,6 +552,8 @@ export class AppointmentsService {
     }
     newData.startTime = newStart;
     newData.endTime = newData.endTime || this.calculateEndTime(newStart, Number(newData.duration) || appointment.duration || 30);
+  // ensure legacy appointmentTime is present on new data
+  newData.appointmentTime = newData.appointmentTime || newData.startTime;
 
     // Kiểm tra xem bác sĩ có lịch hẹn chính xác vào khung giờ này không
     // Chỉ kiểm tra trùng khớp chính xác khung giờ, không chặn các khung giờ liền kề
