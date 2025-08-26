@@ -3,6 +3,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { HttpModule } from '@nestjs/axios';
 import { ImageAnalysisController } from './image-analysis.controller';
 import { ImageAnalysisService } from './image-analysis.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { ImageAnalysisService } from './image-analysis.service';
       dest: './uploads/images',
     }),
     HttpModule,
+    UsersModule,
   ],
   controllers: [ImageAnalysisController],
   providers: [ImageAnalysisService],

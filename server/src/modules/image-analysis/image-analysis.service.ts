@@ -3,10 +3,36 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import * as fs from 'fs';
+import { UsersService } from '../users/users.service';
 
 export interface ImageAnalysisResult {
   message: string;
-  analysisResult: any;
+  analysisResult: {
+    diagnosis: string;
+    confidence: number;
+    detailedFindings: string;
+    recommendations: string[];
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    treatmentPlan: {
+      immediate: string[];
+      shortTerm: string[];
+      longTerm: string[];
+    };
+    riskFactors: string[];
+    followUpRequired: boolean;
+    estimatedCost: {
+      min: number;
+      max: number;
+      currency: string;
+    };
+    metadata: {
+      analysisDate: string;
+      processingTime: number;
+      imageQuality: 'poor' | 'fair' | 'good' | 'excellent';
+      aiModelVersion: string;
+      analysisSource: string;
+    };
+  };
   richContent?: {
     title?: string;
     analysis?: string;
@@ -26,13 +52,16 @@ export interface ImageAnalysisResult {
 export class ImageAnalysisService {
   private readonly logger = new Logger(ImageAnalysisService.name);
   private readonly geminiApiKey: string;
-  private readonly geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  private readonly geminiApiUrl =
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    private readonly usersService: UsersService,
   ) {
-    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'your-gemini-api-key';
+    this.geminiApiKey =
+      this.configService.get<string>('GEMINI_API_KEY') || 'your-gemini-api-key';
     this.logger.log(`Initializing ImageAnalysisService with Gemini API`);
   }
 
@@ -40,6 +69,8 @@ export class ImageAnalysisService {
     filePath: string,
     userId: string,
   ): Promise<ImageAnalysisResult> {
+    const startTime = Date.now();
+
     try {
       this.logger.log(
         `Starting image analysis for user ${userId}, file: ${filePath}`,
@@ -52,36 +83,70 @@ export class ImageAnalysisService {
       // Analyze image using Gemini AI
       const analysisResult = await this.analyzeWithGemini(filePath);
 
+      // Add metadata like the original service
+      const processingTime = Date.now() - startTime;
+      const analysisWithMetadata = {
+        ...analysisResult,
+        metadata: {
+          analysisDate: new Date().toISOString(),
+          processingTime,
+          imageQuality: 'good' as const,
+          aiModelVersion: 'gemini-2.0-flash',
+          analysisSource: 'gemini_ai',
+        },
+      };
+
       return {
         message: 'Phân tích ảnh hoàn tất',
-        analysisResult: analysisResult,
+        analysisResult: analysisWithMetadata,
         richContent: {
           title: 'Kết quả phân tích ảnh nha khoa',
           analysis: analysisResult.diagnosis,
+          highlights: [analysisResult.diagnosis || 'Kết quả sơ bộ'],
           recommendations: analysisResult.recommendations,
           sections: [
             {
+              heading: 'Chẩn đoán',
+              text: analysisResult.diagnosis,
+            },
+            {
+              heading: 'Độ tin cậy',
+              text: `${(analysisResult.confidence * 100).toFixed(1)}%`,
+            },
+            {
+              heading: 'Mức độ',
+              text: analysisResult.severity || '-',
+            },
+            {
+              heading: 'Ước tính chi phí',
+              text: analysisResult.estimatedCost
+                ? `${analysisResult.estimatedCost.min.toLocaleString('vi-VN')} - ${analysisResult.estimatedCost.max.toLocaleString('vi-VN')} VND`
+                : '-',
+            },
+            {
               heading: 'Tình trạng răng miệng',
               text: analysisResult.detailedFindings,
-              bullets: analysisResult.riskFactors
+              bullets: analysisResult.riskFactors,
             },
             {
               heading: 'Kế hoạch điều trị',
               text: 'Các bước điều trị được đề xuất',
               bullets: [
                 ...analysisResult.treatmentPlan.immediate,
-                ...analysisResult.treatmentPlan.shortTerm
-              ]
-            }
-          ]
+                ...analysisResult.treatmentPlan.shortTerm,
+              ],
+            },
+          ],
         },
         options: [
           'Giải thích thêm về chẩn đoán',
           'Đặt lịch khám với bác sĩ',
           'Hướng dẫn chăm sóc tại nhà',
-          'Xem các trường hợp tương tự'
+          'Xem các trường hợp tương tự',
         ],
-        suggestedDoctor: this.getSuggestedDoctorForCondition(String(analysisResult.diagnosis || ''))
+        suggestedDoctor: await this.getSuggestedDoctorForCondition(
+          String(analysisResult.diagnosis || ''),
+        ),
       };
     } catch (error) {
       this.logger.error(`Image analysis failed: ${error.message}`);
@@ -93,203 +158,417 @@ export class ImageAnalysisService {
 
   private async analyzeWithGemini(filePath: string): Promise<any> {
     try {
-      this.logger.log(`Starting Gemini analysis for file: ${filePath}`);
+      this.logger.log(`Starting Gemini AI analysis for file: ${filePath}`);
 
-      // Check if file exists
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File does not exist: ${filePath}`);
-      }
-
-      // Read and convert image to base64
+      // Read file and convert to base64
       const fileBuffer = fs.readFileSync(filePath);
       const base64Image = fileBuffer.toString('base64');
-      this.logger.log(`Image converted to base64, size: ${base64Image.length} characters`);
 
+      // Create prompt for Gemini
       const prompt = this.createDentalAnalysisPrompt();
 
-      // Tạo request body cho Gemini API
+      // Call Gemini API
       const requestBody = {
-        contents: [{
-          parts: [
-            { text: prompt },
-            {
-              inline_data: {
-                mime_type: 'image/jpeg',
-                data: base64Image
-              }
-            }
-          ]
-        }]
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt,
+              },
+              {
+                inline_data: {
+                  mime_type: 'image/jpeg',
+                  data: base64Image,
+                },
+              },
+            ],
+          },
+        ],
       };
 
-      this.logger.log('Sending request to Gemini API...');
-
-      // Gọi Gemini API qua HTTP
-      const response = await firstValueFrom(
-        this.httpService.post<any>(
+      const response: any = await (firstValueFrom as any)(
+        this.httpService.post(
           `${this.geminiApiUrl}?key=${this.geminiApiKey}`,
           requestBody,
           {
             headers: {
               'Content-Type': 'application/json',
             },
-            timeout: 30000 // 30 seconds timeout
-          }
-        )
+            timeout: 60000,
+          },
+        ),
       );
 
-      this.logger.log('Received response from Gemini API');
+      // Parse response from Gemini
+      const geminiResponse = response.data;
+      const analysisText = String(geminiResponse.candidates[0].content.parts[0].text || '');
 
-      if (response.data && response.data.candidates && response.data.candidates[0]) {
-        const analysisText = response.data.candidates[0].content.parts[0].text;
-        this.logger.log(`Analysis text length: ${analysisText?.length || 0}`);
-        return this.parseGeminiResponse(String(analysisText || ''));
-      } else {
-        this.logger.warn('No valid response from Gemini API');
-        return this.getFallbackAnalysis();
-      }
+      // Parse and normalize result
+      const parsedResult = this.parseGeminiResponse(analysisText);
+
+      this.logger.log('Gemini AI analysis completed successfully');
+      return parsedResult;
     } catch (error) {
       this.logger.error(`Gemini AI analysis failed: ${error.message}`);
-      this.logger.error(`Error stack: ${error.stack}`);
       // Return fallback analysis
       return this.getFallbackAnalysis();
     }
   }
 
   private createDentalAnalysisPrompt(): string {
-    return `Bạn là một bác sĩ nha khoa chuyên gia với 20 năm kinh nghiệm. Hãy phân tích hình ảnh nha khoa này và cung cấp kết quả HOÀN TOÀN BẰNG TIẾNG VIỆT theo format JSON:
+    return `Bạn là một bác sĩ nha khoa chuyên gia với 20 năm kinh nghiệm. Hãy phân tích hình ảnh X-quang nha khoa này và cung cấp kết quả HOÀN TOÀN BẰNG TIẾNG VIỆT:
 
+1. CHẨN ĐOÁN CHÍNH: Mô tả ngắn gọn vấn đề chính bằng tiếng Việt
+2. MỨC ĐỘ NGHIÊM TRỌNG: low/medium/high/critical
+3. PHÁT HIỆN CHI TIẾT:
+   - Tình trạng răng (bằng tiếng Việt)
+   - Cấu trúc xương (bằng tiếng Việt)
+   - Sức khỏe nướu (bằng tiếng Việt)
+   - Ống tủy (bằng tiếng Việt)
+   - Sâu răng (bằng tiếng Việt)
+   - Tình trạng nha chu (bằng tiếng Việt)
+4. ĐỀ XUẤT ĐIỀU TRỊ: 3-5 gợi ý cụ thể bằng tiếng Việt
+5. KẾ HOẠCH ĐIỀU TRỊ:
+   - Ngay lập tức (1-2 tuần) - bằng tiếng Việt
+   - Ngắn hạn (1-3 tháng) - bằng tiếng Việt
+   - Dài hạn (3-12 tháng) - bằng tiếng Việt
+6. YẾU TỐ NGUY CƠ: 2-3 yếu tố bằng tiếng Việt
+7. THEO DÕI: Có/Không
+8. CHI PHÍ ƯỚC TÍNH: Min-Max (VND)
+
+QUAN TRỌNG: Tất cả nội dung phải bằng tiếng Việt, không được dùng tiếng Anh.
+
+Hãy trả về kết quả theo format JSON sau:
 {
   "diagnosis": "Chẩn đoán chính bằng tiếng Việt",
   "confidence": 0.85,
+  "detailedFindings": "Phát hiện chi tiết bằng tiếng Việt",
+  "recommendations": ["Đề xuất 1 bằng tiếng Việt", "Đề xuất 2 bằng tiếng Việt"],
   "severity": "medium",
-  "detailedFindings": "Mô tả chi tiết tình trạng răng miệng",
-  "recommendations": [
-    "Khuyến nghị 1",
-    "Khuyến nghị 2"
-  ],
   "treatmentPlan": {
-    "immediate": ["Điều trị ngay lập tức"],
-    "shortTerm": ["Điều trị ngắn hạn"]
+    "immediate": ["Điều trị ngay bằng tiếng Việt"],
+    "shortTerm": ["Điều trị ngắn hạn bằng tiếng Việt"],
+    "longTerm": ["Điều trị dài hạn bằng tiếng Việt"]
   },
-  "riskFactors": ["Yếu tố nguy cơ"],
-  "followUpRequired": true
-}
-
-Lưu ý: Chỉ trả về JSON, không có text thêm.`;
+  "riskFactors": ["Yếu tố 1 bằng tiếng Việt", "Yếu tố 2 bằng tiếng Việt"],
+  "followUpRequired": true,
+  "estimatedCost": {
+    "min": 500000,
+    "max": 2000000,
+    "currency": "VND"
+  }
+}`;
   }
 
   private parseGeminiResponse(analysisText: string): any {
     try {
-      // Try to extract JSON from response
+      // Find JSON in response text
       const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in Gemini response');
       }
 
-      // If no JSON found, create structured response from text
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      // Validate and normalize result according to old service format
       return {
-        diagnosis: this.extractDiagnosis(analysisText),
-        confidence: 0.75,
-        severity: 'medium',
-        detailedFindings: analysisText.substring(0, 200),
-        recommendations: this.extractRecommendations(analysisText),
+        diagnosis: parsed.diagnosis || 'Không thể chẩn đoán',
+        confidence: Math.min(Math.max(Number(parsed.confidence) || 0.5, 0), 1),
+        detailedFindings:
+          parsed.detailedFindings || 'Không có phát hiện chi tiết',
+        recommendations: Array.isArray(parsed.recommendations)
+          ? parsed.recommendations
+          : ['Khám bác sĩ nha khoa'],
+        severity: ['low', 'medium', 'high', 'critical'].includes(
+          String(parsed.severity),
+        )
+          ? parsed.severity
+          : 'medium',
         treatmentPlan: {
-          immediate: ['Khám bác sĩ để được tư vấn cụ thể'],
-          shortTerm: ['Theo dõi tình trạng răng miệng']
+          immediate: Array.isArray(parsed.treatmentPlan?.immediate)
+            ? parsed.treatmentPlan.immediate
+            : [],
+          shortTerm: Array.isArray(parsed.treatmentPlan?.shortTerm)
+            ? parsed.treatmentPlan.shortTerm
+            : [],
+          longTerm: Array.isArray(parsed.treatmentPlan?.longTerm)
+            ? parsed.treatmentPlan.longTerm
+            : [],
         },
-        riskFactors: ['Cần khám bác sĩ để đánh giá chính xác'],
-        followUpRequired: true
+        riskFactors: Array.isArray(parsed.riskFactors)
+          ? parsed.riskFactors
+          : [],
+        followUpRequired: Boolean(parsed.followUpRequired),
+        estimatedCost: {
+          min: Number(parsed.estimatedCost?.min) || 100000,
+          max: Number(parsed.estimatedCost?.max) || 1000000,
+          currency: parsed.estimatedCost?.currency || 'VND',
+        },
       };
     } catch (error) {
       this.logger.error(`Failed to parse Gemini response: ${error.message}`);
+      // Return fallback result according to old format
       return this.getFallbackAnalysis();
     }
   }
 
-  private extractDiagnosis(text: string): string {
-    const diagnosisKeywords = ['chẩn đoán', 'kết luận', 'tình trạng'];
-    for (const keyword of diagnosisKeywords) {
-      const regex = new RegExp(`${keyword}[:\\s]*([^\\n]+)`, 'i');
-      const match = text.match(regex);
-      if (match) {
-        return match[1].trim();
-      }
-    }
-    return 'Cần khám bác sĩ để có chẩn đoán chính xác';
-  }
-
-  private extractRecommendations(text: string): string[] {
-    const recommendations: string[] = [];
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      if (line.includes('khuyến nghị') || line.includes('nên') || line.includes('cần')) {
-        recommendations.push(line.trim());
-      }
-    }
-
-    return recommendations.length > 0 ? recommendations : [
-      'Thăm khám bác sĩ nha khoa định kỳ',
-      'Vệ sinh răng miệng đúng cách'
-    ];
-  }
-
   private getFallbackAnalysis(): any {
     return {
-      diagnosis: 'Đã nhận và phân tích ảnh của bạn',
-      confidence: 0.6,
+      diagnosis: 'Cần khám bác sĩ nha khoa để chẩn đoán chính xác',
+      confidence: 0.3,
+      detailedFindings: 'Không thể phân tích tự động, cần khám trực tiếp',
+      recommendations: ['Khám bác sĩ nha khoa', 'Chụp X-quang chi tiết'],
       severity: 'medium',
-      detailedFindings: 'Để có chẩn đoán chính xác, bạn nên đến khám trực tiếp với bác sĩ nha khoa.',
-      recommendations: [
-        'Đặt lịch khám với bác sĩ nha khoa',
-        'Duy trì vệ sinh răng miệng tốt',
-        'Tránh thực phẩm quá cứng hoặc quá lạnh'
-      ],
       treatmentPlan: {
-        immediate: ['Khám bác sĩ nha khoa'],
-        shortTerm: ['Theo dõi triệu chứng']
+        immediate: ['Khám bác sĩ'],
+        shortTerm: ['Điều trị theo chỉ định'],
+        longTerm: ['Theo dõi định kỳ'],
       },
-      riskFactors: ['Cần đánh giá trực tiếp'],
-      followUpRequired: true
+      riskFactors: ['Cần khám chuyên khoa'],
+      followUpRequired: true,
+      estimatedCost: {
+        min: 200000,
+        max: 500000,
+        currency: 'VND',
+      },
     };
   }
 
-  private getSuggestedDoctorForCondition(diagnosis: string): any {
-    // Simple logic to suggest doctor based on diagnosis
-    if (diagnosis.toLowerCase().includes('niềng') || diagnosis.toLowerCase().includes('khấp khểnh')) {
+  private async getSuggestedDoctorForCondition(
+    diagnosis: string,
+  ): Promise<any> {
+    try {
+      // Get all doctors from database
+      const doctorsResponse = await this.usersService.findAllDoctors(null);
+      const doctors = doctorsResponse.data || [];
+
+      if (doctors.length === 0) {
+        // Fallback to default if no doctors in database
+        return {
+          fullName: 'BS. Nguyễn Thị Lan',
+          specialty: 'Nha khoa tổng quát',
+          keywords: ['khám tổng quát', 'tư vấn nha khoa', 'điều trị đa khoa'],
+        };
+      }
+
+      // Intelligent doctor matching based on diagnosis keywords
+      const diagnosisLower = diagnosis.toLowerCase();
+
+      // Orthodontics - Niềng răng
+      if (
+        diagnosisLower.includes('niềng') ||
+        diagnosisLower.includes('khấp khểnh') ||
+        diagnosisLower.includes('chỉnh nha') ||
+        diagnosisLower.includes('răng hô') ||
+        diagnosisLower.includes('răng móm') ||
+        diagnosisLower.includes('cắn') ||
+        diagnosisLower.includes('khớp cắn')
+      ) {
+        const selectedDoctor = doctors.find(
+          (doc: any) =>
+            doc.specialty?.toLowerCase().includes('chỉnh nha') ||
+            doc.specialty?.toLowerCase().includes('niềng') ||
+            doc.fullName?.toLowerCase().includes('chỉnh nha'),
+        );
+        if (selectedDoctor) {
+          return {
+            fullName: selectedDoctor.fullName || 'BS. Chỉnh nha',
+            specialty: selectedDoctor.specialty || 'Chỉnh nha - Niềng răng',
+            keywords: [
+              'niềng răng',
+              'chỉnh nha',
+              'răng khấp khểnh',
+              'khớp cắn',
+              'răng hô móm',
+            ],
+          };
+        }
+      }
+
+      // Oral Surgery - Phẫu thuật
+      if (
+        diagnosisLower.includes('răng khôn') ||
+        diagnosisLower.includes('nhổ răng') ||
+        diagnosisLower.includes('phẫu thuật') ||
+        diagnosisLower.includes('mọc lệch') ||
+        diagnosisLower.includes('viêm xung quanh') ||
+        diagnosisLower.includes('áp xe')
+      ) {
+        const selectedDoctor = doctors.find(
+          (doc: any) =>
+            doc.specialty?.toLowerCase().includes('phẫu thuật') ||
+            doc.specialty?.toLowerCase().includes('răng khôn') ||
+            doc.fullName?.toLowerCase().includes('phẫu thuật'),
+        );
+        if (selectedDoctor) {
+          return {
+            fullName: selectedDoctor.fullName || 'BS. Phẫu thuật',
+            specialty: selectedDoctor.specialty || 'Phẫu thuật hàm mặt',
+            keywords: [
+              'răng khôn',
+              'phẫu thuật',
+              'nhổ răng',
+              'áp xe',
+              'viêm nhiễm',
+            ],
+          };
+        }
+      }
+
+      // Endodontics - Điều trị tủy
+      if (
+        diagnosisLower.includes('sâu răng') ||
+        diagnosisLower.includes('trám răng') ||
+        diagnosisLower.includes('tủy răng') ||
+        diagnosisLower.includes('điều trị tủy') ||
+        diagnosisLower.includes('đau răng') ||
+        diagnosisLower.includes('khoang miệng')
+      ) {
+        const selectedDoctor = doctors.find(
+          (doc: any) =>
+            doc.specialty?.toLowerCase().includes('tủy') ||
+            doc.specialty?.toLowerCase().includes('nội nha') ||
+            doc.fullName?.toLowerCase().includes('tủy'),
+        );
+        if (selectedDoctor) {
+          return {
+            fullName: selectedDoctor.fullName || 'BS. Nội nha',
+            specialty: selectedDoctor.specialty || 'Điều trị tủy - Nội nha',
+            keywords: [
+              'sâu răng',
+              'điều trị tủy',
+              'trám răng',
+              'đau răng',
+              'nhiễm trùng tủy',
+            ],
+          };
+        }
+      }
+
+      // Periodontics - Nha chu
+      if (
+        diagnosisLower.includes('nướu') ||
+        diagnosisLower.includes('viêm lợi') ||
+        diagnosisLower.includes('chảy máu') ||
+        diagnosisLower.includes('nha chu') ||
+        diagnosisLower.includes('cao răng') ||
+        diagnosisLower.includes('túi nha chu')
+      ) {
+        const selectedDoctor = doctors.find(
+          (doc: any) =>
+            doc.specialty?.toLowerCase().includes('nha chu') ||
+            doc.specialty?.toLowerCase().includes('nướu') ||
+            doc.fullName?.toLowerCase().includes('nha chu'),
+        );
+        if (selectedDoctor) {
+          return {
+            fullName: selectedDoctor.fullName || 'BS. Nha chu',
+            specialty: selectedDoctor.specialty || 'Nha chu - Điều trị nướu',
+            keywords: [
+              'viêm nướu',
+              'nha chu',
+              'chảy máu nướu',
+              'cao răng',
+              'túi nha chu',
+            ],
+          };
+        }
+      }
+
+      // Prosthodontics - Răng sứ thẩm mỹ
+      if (
+        diagnosisLower.includes('răng sứ') ||
+        diagnosisLower.includes('bọc răng') ||
+        diagnosisLower.includes('veneer') ||
+        diagnosisLower.includes('cầu răng') ||
+        diagnosisLower.includes('thẩm mỹ') ||
+        diagnosisLower.includes('làm đẹp')
+      ) {
+        const selectedDoctor = doctors.find(
+          (doc: any) =>
+            doc.specialty?.toLowerCase().includes('răng sứ') ||
+            doc.specialty?.toLowerCase().includes('thẩm mỹ') ||
+            doc.fullName?.toLowerCase().includes('thẩm mỹ'),
+        );
+        if (selectedDoctor) {
+          return {
+            fullName: selectedDoctor.fullName || 'BS. Thẩm mỹ',
+            specialty: selectedDoctor.specialty || 'Răng sứ thẩm mỹ',
+            keywords: [
+              'răng sứ',
+              'veneer',
+              'thẩm mỹ răng',
+              'bọc răng',
+              'cười đẹp',
+            ],
+          };
+        }
+      }
+
+      // Implantology - Cấy ghép
+      if (
+        diagnosisLower.includes('implant') ||
+        diagnosisLower.includes('cấy ghép') ||
+        diagnosisLower.includes('mất răng') ||
+        diagnosisLower.includes('trồng răng') ||
+        diagnosisLower.includes('răng giả')
+      ) {
+        const selectedDoctor = doctors.find(
+          (doc: any) =>
+            doc.specialty?.toLowerCase().includes('implant') ||
+            doc.specialty?.toLowerCase().includes('cấy ghép') ||
+            doc.fullName?.toLowerCase().includes('implant'),
+        );
+        if (selectedDoctor) {
+          return {
+            fullName: selectedDoctor.fullName || 'BS. Implant',
+            specialty: selectedDoctor.specialty || 'Cấy ghép Implant',
+            keywords: [
+              'implant',
+              'cấy ghép răng',
+              'trồng răng',
+              'mất răng',
+              'răng giả cố định',
+            ],
+          };
+        }
+      }
+
+      // Default: Return first available doctor or general dentist
+      const generalDoctor =
+        doctors.find(
+          (doc: any) =>
+            doc.specialty?.toLowerCase().includes('tổng quát') ||
+            doc.specialty?.toLowerCase().includes('general') ||
+            !doc.specialty,
+        ) || doctors[0];
+
       return {
-        fullName: 'BS. Trần Thị B',
-        specialty: 'Chỉnh nha, niềng răng',
-        keywords: ['niềng', 'chỉnh nha', 'răng khấp khểnh']
+        fullName: generalDoctor?.fullName || 'BS. Nha khoa',
+        specialty: generalDoctor?.specialty || 'Nha khoa tổng quát',
+        keywords: ['khám tổng quát', 'tư vấn nha khoa', 'điều trị đa khoa'],
+      };
+    } catch (error) {
+      this.logger.error(`Error getting doctor suggestion: ${error.message}`);
+      // Fallback to default doctor
+      return {
+        fullName: 'BS. Nguyễn Thị Lan',
+        specialty: 'Nha khoa tổng quát',
+        keywords: ['khám tổng quát', 'tư vấn nha khoa', 'điều trị đa khoa'],
       };
     }
-
-    if (diagnosis.toLowerCase().includes('răng khôn') || diagnosis.toLowerCase().includes('nhổ răng')) {
-      return {
-        fullName: 'BS. Lê Văn C',
-        specialty: 'Phẫu thuật hàm mặt, răng khôn',
-        keywords: ['răng khôn', 'phẫu thuật', 'nhổ răng']
-      };
-    }
-
-    return {
-      fullName: 'BS. Nguyễn Văn A',
-      specialty: 'Nha khoa tổng quát',
-      keywords: ['tổng quát', 'khám tổng quát']
-    };
   }
 
   async checkServiceHealth(): Promise<boolean> {
     try {
-      // Test Gemini AI connection with a simple HTTP request
-      const response = await firstValueFrom(
-        this.httpService.get<any>(
+      // Test Gemini AI connection
+      const response: any = await (firstValueFrom as any)(
+        this.httpService.get(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash?key=${this.geminiApiKey}`,
-          { timeout: 5000 }
-        )
+          { timeout: 5000 },
+        ),
       );
-      return response.status === 200;
+      return !!response.data;
     } catch (error) {
       this.logger.warn(`Service health check failed: ${error.message}`);
       return false;
