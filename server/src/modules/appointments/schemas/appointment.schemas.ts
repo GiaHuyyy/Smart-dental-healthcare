@@ -26,6 +26,9 @@ export class Appointment {
   @Prop({ required: true })
   startTime: string;
 
+  @Prop()
+  appointmentTime: string; // legacy field (kept for compatibility with old DB/indexes)
+
   @Prop({ required: true })
   endTime: string;
 
