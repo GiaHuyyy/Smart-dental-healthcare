@@ -32,7 +32,7 @@ export class ImageAnalysisService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {
-    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'AIzaSyDRDYzTqYgOGYPwlVvK94_ooAw-qWEvVsc';
+    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'your-gemini-api-key';
     this.logger.log(`Initializing ImageAnalysisService with Gemini API`);
   }
 
