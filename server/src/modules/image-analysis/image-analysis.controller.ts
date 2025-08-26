@@ -1,45 +1,39 @@
 import {
-  Controller,
-  Post,
-  UploadedFile,
-  UseInterceptors,
-  BadRequestException,
-  Get,
-  Logger,
-  UseGuards,
-  Request,
+    BadRequestException,
+    Controller,
+    Get,
+    Logger,
+    Post,
+    Request,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
 import { Public } from '../../decorator/customize';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import {
-  ImageAnalysisService,
-  ImageAnalysisResult,
+    ImageAnalysisResult,
+    ImageAnalysisService,
 } from './image-analysis.service';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 
 @Controller('image-analysis')
 @UseGuards(JwtAuthGuard)
 export class ImageAnalysisController {
   private readonly logger = new Logger(ImageAnalysisController.name);
 
-  constructor(private readonly imageAnalysisService: ImageAnalysisService) {}
+  constructor(
+    private readonly imageAnalysisService: ImageAnalysisService,
+    private readonly cloudinaryService: CloudinaryService
+  ) {}
 
   @Public()
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/images',
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname((file.originalname || '') as string);
-          const filename = `dental_image_${uniqueSuffix}${ext}`;
-          callback(null, filename);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, callback) => {
         if (!file.originalname?.match(/\.(jpg|jpeg|png|gif)$/)) {
           return callback(
@@ -75,6 +69,15 @@ export class ImageAnalysisController {
         throw new BadRequestException('Không có file được upload');
       }
 
+      // Check if Cloudinary is configured
+      if (!this.cloudinaryService.isCloudinaryConfigured()) {
+        this.logger.error('Cloudinary is not configured');
+        return {
+          success: false,
+          error: 'Dịch vụ lưu trữ ảnh chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+        };
+      }
+
       // For demo purposes, use a default user ID when no authentication
       const userId = req.user?.id || 'demo_user_' + Date.now();
 
@@ -82,10 +85,27 @@ export class ImageAnalysisController {
         `Processing image upload for user ${userId}: ${file.originalname} (${file.size} bytes)`,
       );
 
+      // Upload to Cloudinary first
+      let cloudinaryResult;
+      try {
+        cloudinaryResult = await this.cloudinaryService.uploadImage(file);
+        this.logger.log(`Image uploaded to Cloudinary: ${cloudinaryResult.url}`);
+      } catch (cloudinaryError) {
+        this.logger.error('Cloudinary upload failed:', cloudinaryError);
+        return {
+          success: false,
+          error: 'Không thể upload ảnh lên dịch vụ lưu trữ. Vui lòng kiểm tra kết nối mạng và thử lại.',
+        };
+      }
+
       const analysisResult = await this.imageAnalysisService.analyzeImage(
-        file.path as string,
+        cloudinaryResult.url,
         userId as string,
       );
+
+      // Add Cloudinary URL to the result
+      analysisResult.cloudinaryUrl = cloudinaryResult.url;
+      analysisResult.cloudinaryPublicId = cloudinaryResult.public_id;
 
       return {
         success: true,
@@ -93,9 +113,21 @@ export class ImageAnalysisController {
       };
     } catch (error) {
       this.logger.error(`Image analysis failed: ${error.message}`);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Lỗi phân tích ảnh. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.';
+      
+      if (error.message.includes('Cloudinary')) {
+        errorMessage = 'Lỗi cấu hình dịch vụ lưu trữ ảnh. Vui lòng liên hệ quản trị viên.';
+      } else if (error.message.includes('network') || error.message.includes('connection')) {
+        errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.';
+      } else if (error.message.includes('file')) {
+        errorMessage = 'Lỗi xử lý file ảnh. Vui lòng thử lại với ảnh khác.';
+      }
+      
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }

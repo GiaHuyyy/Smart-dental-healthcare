@@ -1,9 +1,10 @@
+import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
-import { HttpModule } from '@nestjs/axios';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { UsersModule } from '../users/users.module';
 import { ImageAnalysisController } from './image-analysis.controller';
 import { ImageAnalysisService } from './image-analysis.service';
-import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { UsersModule } from '../users/users.module';
     }),
     HttpModule,
     UsersModule,
+    CloudinaryModule,
   ],
   controllers: [ImageAnalysisController],
   providers: [ImageAnalysisService],

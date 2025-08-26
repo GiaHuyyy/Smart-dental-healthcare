@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as FormData from 'form-data';
 import * as fs from 'fs';
 import { firstValueFrom } from 'rxjs';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 export interface ChatMessage {
   id: string;
@@ -54,6 +55,7 @@ export class ChatbotService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {
     this.aiAnalysisUrl = this.configService.get<string>('AI_ANALYSIS_URL') || 'http://localhost:3010/analyze';
     this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'your-api-key';
@@ -474,8 +476,12 @@ Bạn có muốn mình gọi đường dây hỗ trợ hoặc giúp đặt lịc
     try {
       this.logger.log(`Processing image upload for session ${session.id}`);
 
+      // Upload to Cloudinary first
+      const cloudinaryResult = await this.cloudinaryService.uploadImage(imagePath, `chatbot_${session.id}_${Date.now()}`);
+      this.logger.log(`Image uploaded to Cloudinary: ${cloudinaryResult.url}`);
+
       // Gửi ảnh đến AI analysis service
-      const analysisResult = await this.analyzeImage(imagePath);
+      const analysisResult = await this.analyzeImage(cloudinaryResult.url);
   // Compose friendlier message with clear sections
   const lines: string[] = [];
       lines.push('🔍 Kết quả phân tích ảnh (tóm tắt):');

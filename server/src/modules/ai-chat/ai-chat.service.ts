@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Injectable } from '@nestjs/common';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UsersService } from '../users/users.service';
 
 export interface ChatContext {
@@ -30,7 +31,10 @@ export class AiChatService {
   private model: any;
   private chatSessions: Map<string, ChatContext> = new Map();
 
-  constructor(private usersService: UsersService) {
+  constructor(
+    private usersService: UsersService,
+    private cloudinaryService: CloudinaryService
+  ) {
     this.genAI = new GoogleGenerativeAI(
       process.env.GEMINI_API_KEY || 'your-gemini-api-key-here',
     );
@@ -259,7 +263,7 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
   }
 
   private generateQuickActions(context: ChatContext, aiResponse: string): string[] {
-    const actions = [];
+    const actions: string[] = [];
     
     if (context.conversationType === 'symptom') {
       actions.push('📸 Chụp ảnh triệu chứng', '👨‍⚕️ Tư vấn bác sĩ', '📅 Đặt lịch khám');
@@ -275,7 +279,7 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
   }
 
   private generateFollowUpQuestions(context: ChatContext, aiResponse: string): string[] {
-    const questions = [];
+    const questions: string[] = [];
     
     if (context.conversationType === 'initial') {
       questions.push('Bạn có triệu chứng gì cụ thể không?', 'Bạn đã từng điều trị nha khoa chưa?');
@@ -287,7 +291,7 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
   }
 
   private generateNextSteps(context: ChatContext, urgencyLevel: string): string[] {
-    const steps = [];
+    const steps: string[] = [];
     
     if (urgencyLevel === 'high') {
       steps.push('Liên hệ phòng khám ngay', 'Đến cơ sở y tế gần nhất');

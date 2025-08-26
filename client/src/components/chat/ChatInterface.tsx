@@ -1,8 +1,24 @@
 "use client";
 
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+    addChatMessage,
+    clearAppointmentData,
+    setAppointmentData,
+    setNotes,
+    setSelectedDoctor,
+    setSymptoms,
+    setUrgencyLevel
+} from "@/store/slices/appointmentSlice";
+import {
+    clearAnalysisResult,
+    setAnalysisResult,
+    setIsAnalyzing,
+    setUploadedImage
+} from "@/store/slices/imageAnalysisSlice";
 import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { sendRequest } from "@/utils/api";
-import { imageAnalysisAPI, ImageAnalysisResult } from "@/utils/imageAnalysis";
+import { imageAnalysisAPI } from "@/utils/imageAnalysis";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -13,15 +29,17 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) {
-  // State management
+  // Redux hooks
+  const dispatch = useAppDispatch();
+  const { analysisResult, uploadedImage, isAnalyzing } = useAppSelector(state => state.imageAnalysis);
+  const { selectedDoctor, symptoms, urgencyLevel, chatHistory } = useAppSelector(state => state.appointment);
+  
+  // Local state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [suggestedDoctor, setSuggestedDoctor] = useState<DoctorSuggestion | null>(null);
-  const [urgencyLevel, setUrgencyLevel] = useState<"high" | "medium" | "low">("low");
   const [showQuickSuggestions, setShowQuickSuggestions] = useState(true);
-  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<ImageAnalysisResult | null>(null);
   const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
   const [doctorsLoaded, setDoctorsLoaded] = useState(false);
 
@@ -79,15 +97,18 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
     });
 
     if (matchingDoctor) {
-      setSuggestedDoctor({
+      const validatedDoctor = {
         _id: matchingDoctor._id || matchingDoctor.id,
         fullName: matchingDoctor.fullName || matchingDoctor.name,
         specialty: matchingDoctor.specialty,
         keywords: suggestedDoctor.keywords || [],
         email: matchingDoctor.email,
         phone: matchingDoctor.phone
-      });
-      console.log('Validated and set doctor:', matchingDoctor.fullName);
+      };
+      
+      setSuggestedDoctor(validatedDoctor);
+      dispatch(setSelectedDoctor(validatedDoctor));
+      console.log('Validated and set doctor:', validatedDoctor.fullName);
       return true;
     } else {
       console.log('Suggested doctor not found in available doctors:', suggestedDoctor.fullName);
@@ -134,7 +155,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
       if (type === "ai") {
         // Analyze urgency
         const urgency = await aiChatAPI.analyzeUrgency(inputMessage);
-        setUrgencyLevel(urgency);
+        dispatch(setUrgencyLevel(urgency));
 
         // Get AI response
         const response = await aiChatAPI.getDentalAdvice(inputMessage, messages);
@@ -161,6 +182,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
             phone: "0123-456-789"
           };
           setSuggestedDoctor(fallbackDoctor);
+          dispatch(setSelectedDoctor(fallbackDoctor));
           console.log('Set fallback doctor for testing:', fallbackDoctor);
         }
 
@@ -284,10 +306,12 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
       return;
     }
 
-    setIsAnalyzingImage(true);
+    dispatch(setIsAnalyzing(true));
     setIsLoading(true);
 
     const imageUrl = URL.createObjectURL(file);
+    dispatch(setUploadedImage(imageUrl));
+    
     const userMessage: ChatMessage = {
       role: "user",
       content: `🖼️ Đã tải lên ảnh: ${file.name}`,
@@ -304,7 +328,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
       }
 
       const result = analysisResponse.data;
-      setAnalysisResult(result);
+      dispatch(setAnalysisResult(result));
 
       let analysisMessage = `🔍 **KẾT QUẢ PHÂN TÍCH ẢNH**\n${"═".repeat(50)}\n\n`;
 
@@ -388,18 +412,33 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
           phone: "0123-456-789"
         };
         setSuggestedDoctor(fallbackDoctor);
+        dispatch(setSelectedDoctor(fallbackDoctor));
         console.log('Set fallback doctor for image analysis:', fallbackDoctor);
       }
     } catch (error) {
       console.error("Error analyzing image:", error);
+      
+      // Xử lý lỗi Cloudinary cụ thể
+      let errorContent = `❌ Lỗi phân tích ảnh: ${error instanceof Error ? error.message : "Lỗi không xác định"}. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.`;
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Cloudinary') || error.message.includes('cấu hình') || error.message.includes('lưu trữ')) {
+          errorContent = `❌ **Lỗi cấu hình dịch vụ lưu trữ ảnh**\n\nDịch vụ lưu trữ ảnh chưa được cấu hình đúng cách.\n\n**Cách khắc phục:**\n1. Tạo tài khoản Cloudinary tại cloudinary.com\n2. Lấy thông tin cấu hình từ Dashboard\n3. Cập nhật file .env trong thư mục server\n4. Restart server\n\n💡 Xem file CLOUDINARY_SETUP.md để biết chi tiết`;
+        } else if (error.message.includes('kết nối') || error.message.includes('mạng')) {
+          errorContent = `❌ **Lỗi kết nối mạng**\n\nKhông thể kết nối đến server. Vui lòng kiểm tra kết nối internet và thử lại.`;
+        } else if (error.message.includes('file')) {
+          errorContent = `❌ **Lỗi xử lý file ảnh**\n\nVui lòng thử lại với ảnh khác hoặc kiểm tra định dạng file.`;
+        }
+      }
+      
       const errorMessage: ChatMessage = {
         role: "assistant",
-        content: `❌ Lỗi phân tích ảnh: ${error instanceof Error ? error.message : "Lỗi không xác định"}. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.`,
+        content: errorContent,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setIsAnalyzingImage(false);
+      dispatch(setIsAnalyzing(false));
       setIsLoading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -413,78 +452,64 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
 
   // Navigation
   const navigateToAppointments = (doctor?: DoctorSuggestion, symptoms?: string) => {
-    const params = new URLSearchParams();
-    
-    if (doctor) {
-      params.set('doctorId', doctor._id || '');
-      params.set('doctorName', doctor.fullName);
-      params.set('specialty', doctor.specialty);
-    }
-    
+    // Collect comprehensive notes from chat
     let comprehensiveNotes = '';
     
+    // Add symptoms if provided
     if (symptoms) {
-      comprehensiveNotes += `📋 TRIỆU CHỨNG:\n${symptoms}\n\n`;
+      comprehensiveNotes += `🔍 TRIỆU CHỨNG: ${symptoms}\n\n`;
     }
     
-    if (analysisResult?.richContent) {
-      comprehensiveNotes += `🔍 KẾT QUẢ PHÂN TÍCH AI:\n`;
-      
-      if (analysisResult.richContent.analysis) {
-        comprehensiveNotes += `📋 CHẨN ĐOÁN: ${analysisResult.richContent.analysis}\n`;
-      }
-      
-      if (analysisResult.richContent.sections && analysisResult.richContent.sections.length > 0) {
-        comprehensiveNotes += `📊 CHI TIẾT PHÂN TÍCH:\n`;
-        analysisResult.richContent.sections.forEach((section, index) => {
-          if (section.heading && section.text) {
-            comprehensiveNotes += `${index + 1}. ${section.heading}: ${section.text}\n`;
-          }
-          if (section.bullets && section.bullets.length > 0) {
-            section.bullets.forEach((bullet) => {
-              comprehensiveNotes += `   • ${bullet}\n`;
-            });
-          }
-        });
-        comprehensiveNotes += '\n';
-      }
-      
-      if (analysisResult.richContent.recommendations) {
-        comprehensiveNotes += `💡 KHUYẾN NGHỊ:\n`;
-        analysisResult.richContent.recommendations.forEach((rec) => {
-          comprehensiveNotes += `• ${rec}\n`;
-        });
-        comprehensiveNotes += '\n';
-      }
+    // Add urgency level
+    if (urgencyLevel && urgencyLevel !== 'low') {
+      comprehensiveNotes += `⚠️ MỨC ĐỘ KHẨN CẤP: ${urgencyLevel.toUpperCase()}\n\n`;
     }
     
+    // Add analysis result if available
     if (analysisResult) {
-      comprehensiveNotes += `🖼️ HÌNH ẢNH: Đã upload và phân tích ảnh X-quang\n`;
+      comprehensiveNotes += `🔍 KẾT QUẢ PHÂN TÍCH AI:\n${analysisResult.richContent?.analysis || analysisResult.analysis || 'Đã phân tích hình ảnh X-ray'}\n\n`;
     }
     
+    // Add chat history as context
     if (messages.length > 0) {
-      const userMessages = messages.filter(msg => msg.role === 'user');
-      if (userMessages.length > 0) {
-        comprehensiveNotes += `💬 LỊCH SỬ CHAT:\n`;
-        userMessages.forEach((msg, index) => {
-          comprehensiveNotes += `${index + 1}. ${msg.content}\n`;
-        });
-        comprehensiveNotes += '\n';
-      }
+      comprehensiveNotes += `💬 LỊCH SỬ CHAT:\n`;
+      messages.forEach((msg, index) => {
+        if (msg.role === 'user') {
+          comprehensiveNotes += `Bệnh nhân: ${msg.content}\n`;
+        } else if (msg.role === 'assistant') {
+          comprehensiveNotes += `AI: ${msg.content}\n`;
+        }
+        if (index < messages.length - 1) comprehensiveNotes += '\n';
+      });
     }
     
-    if (comprehensiveNotes) {
-      params.set('notes', comprehensiveNotes);
-    }
+    // Store data in Redux
+    const appointmentData = {
+      doctorId: doctor?._id || '',
+      doctorName: doctor?.fullName || '',
+      specialty: doctor?.specialty || '',
+      symptoms: symptoms || '',
+      urgency: urgencyLevel,
+      notes: comprehensiveNotes,
+      hasImageAnalysis: !!analysisResult,
+      // Thêm thông tin hình ảnh và phân tích
+      uploadedImage: uploadedImage || null,
+      analysisResult: analysisResult || null,
+      imageUrl: uploadedImage || null
+    };
     
-    if (urgencyLevel !== 'low') {
-      params.set('urgency', urgencyLevel);
-    }
+    dispatch(setAppointmentData(appointmentData));
+    dispatch(setSymptoms(symptoms || ''));
+    dispatch(setNotes(comprehensiveNotes));
     
-    const queryString = params.toString();
-    const url = `/patient/appointments${queryString ? `?${queryString}` : ''}`;
+    // Add chat messages to history
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    userMessages.forEach(msg => {
+      dispatch(addChatMessage(msg.content));
+    });
     
-    router.push(url);
+    // Navigate to appointments page
+    router.push('/patient/appointments');
   };
 
   // Action handlers
@@ -506,10 +531,10 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
 
       setTimeout(() => {
         setMessages([]);
-        setAnalysisResult(null);
+        dispatch(clearAnalysisResult());
+        dispatch(clearAppointmentData());
         setShowQuickSuggestions(true);
         setSuggestedDoctor(null);
-        setUrgencyLevel("low");
       }, 3000);
 
       return;
@@ -868,7 +893,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
                 </div>
                 <span className="text-sm text-gray-600">
-                  {isAnalyzingImage ? "Đang phân tích ảnh..." : "Đang soạn tin nhắn..."}
+                  {isAnalyzing ? "Đang phân tích ảnh..." : "Đang soạn tin nhắn..."}
                 </span>
               </div>
             </div>
@@ -920,7 +945,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
             </button>
             <button
               onClick={handleImageUploadClick}
-              disabled={isLoading || isAnalyzingImage}
+              disabled={isLoading || isAnalyzing}
               className="p-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               📷
