@@ -10,9 +10,10 @@ const navigation = [
   { name: "Tổng quan", href: "/doctor", icon: "📊" },
   { name: "Lịch khám", href: "/doctor/schedule", icon: "📅" },
   { name: "Bệnh nhân", href: "/doctor/patients", icon: "👥" },
+  { name: "Chat & Tư vấn", href: "/doctor/chat", icon: "💬" },
   { name: "Hồ sơ điều trị", href: "/doctor/treatments", icon: "📋" },
   { name: "Đơn thuốc", href: "/doctor/prescriptions", icon: "💊" },
-  { name: "Báo cáo", href: "/doctor/reports", icon: "�" },
+  { name: "Báo cáo", href: "/doctor/reports", icon: "📈" },
   { name: "Cài đặt", href: "/doctor/settings", icon: "⚙️" },
 ];
 

@@ -103,16 +103,18 @@ export class UsersService {
       // Kiểm tra quyền, chỉ bác sĩ mới có thể xem danh sách bệnh nhân
       // Bỏ qua kiểm tra quyền nếu user là null (API test)
       if (user && user.role !== 'doctor') {
-        throw new BadRequestException('Bạn không có quyền truy cập danh sách bệnh nhân');
+        throw new BadRequestException(
+          'Bạn không có quyền truy cập danh sách bệnh nhân',
+        );
       }
-      
+
       // Lấy danh sách bệnh nhân (role = 'patient')
       const patients = await this.userModel
         .find({ role: 'patient' })
         .select('-password')
         .sort({ createdAt: -1 })
         .exec();
-      
+
       return {
         success: true,
         data: patients,
@@ -134,9 +136,9 @@ export class UsersService {
         .select('-password')
         .sort({ createdAt: -1 })
         .exec();
-      
+
       console.log('Doctors found:', doctors.length);
-      
+
       return {
         success: true,
         data: doctors,
@@ -251,12 +253,14 @@ export class UsersService {
     try {
       const user = await this.userModel.findOne({ email });
       if (!user) {
-        throw new BadRequestException('Không tìm thấy người dùng với email này');
+        throw new BadRequestException(
+          'Không tìm thấy người dùng với email này',
+        );
       }
 
       await this.userModel.updateOne(
         { email },
-        { isActive: true, codeId: null, codeExpired: null }
+        { isActive: true, codeId: null, codeExpired: null },
       );
 
       return {
@@ -308,7 +312,7 @@ export class UsersService {
 
   async handleForgotPassword(email: string) {
     const user = await this.userModel.findOne({ email });
-    console.log("Response from server:", user);
+    console.log('Response from server:', user);
     if (!user) {
       throw new BadRequestException('Không tìm thấy tài khoản với email này');
     }
@@ -395,5 +399,15 @@ export class UsersService {
     return {
       message: 'Đặt lại mật khẩu thành công',
     };
+  }
+
+  async findDoctors() {
+    return await this.userModel
+      .find({
+        role: 'doctor',
+        isActive: true,
+      })
+      .select('fullName email specialty phone')
+      .exec();
   }
 }

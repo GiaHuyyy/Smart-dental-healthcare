@@ -11,6 +11,7 @@ const navigation = [
   { name: "Trang chủ", href: "/", icon: "🏠", isHome: true },
   { name: "Tổng quan", href: "/patient", icon: "📊" },
   { name: "Đặt lịch hẹn", href: "/patient/appointments", icon: "📅" },
+  { name: "Chat & Tư vấn", href: "/patient/chat", icon: "💬" },
   { name: "Hồ sơ điều trị", href: "/patient/records", icon: "📋" },
   { name: "Đơn thuốc", href: "/patient/prescriptions", icon: "💊" },
   { name: "Thanh toán", href: "/patient/payments", icon: "💳" },
@@ -218,9 +219,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     <div className="min-h-screen bg-gray-50">
       <Header role="Bệnh nhân" />
 
-      <div className="flex">
+      <div className="flex h-[calc(100vh-74px)]">
         {/* Sidebar */}
-        <nav className="w-64 bg-white shadow-sm min-h-screen">
+        <nav className="w-64 bg-white shadow-sm">
           <div className="p-4">
             <ul className="space-y-2">
               {navigation.map((item) => {
