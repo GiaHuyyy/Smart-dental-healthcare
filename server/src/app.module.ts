@@ -15,6 +15,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { ImageAnalysisModule } from './modules/image-analysis/image-analysis.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { MailModule } from './mail/mail.module';
 
 @Module({
@@ -34,6 +35,7 @@ import { MailModule } from './mail/mail.module';
     AuthModule,
     AiChatModule,
     ImageAnalysisModule,
+    ChatModule,
     AppointmentsModule,
     MedicalRecordsModule,
     NotificationsModule,

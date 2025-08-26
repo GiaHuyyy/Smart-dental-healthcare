@@ -108,14 +108,14 @@ export class ImageAnalysisController {
     error?: string;
   }> {
     try {
-      const chatbotServiceHealthy =
-        await this.imageAnalysisService.checkChatbotServiceHealth();
+      const serviceHealthy =
+        await this.imageAnalysisService.checkServiceHealth();
 
       return {
         success: true,
         data: {
           status: 'healthy',
-          chatbotService: chatbotServiceHealthy ? 'connected' : 'disconnected',
+          geminiService: serviceHealthy ? 'connected' : 'disconnected',
           timestamp: new Date().toISOString(),
         },
       };
