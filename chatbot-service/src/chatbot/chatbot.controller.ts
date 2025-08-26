@@ -1,20 +1,18 @@
 import {
-    BadRequestException,
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Logger,
-    Param,
-    Post,
-    UploadedFile,
-    UseInterceptors,
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Logger,
+  Param,
+  Post,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@nestjs/websockets';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { Server, Socket } from 'socket.io';
 import { ChatbotService } from './chatbot.service';
 
 interface ChatRequest {
@@ -30,102 +28,16 @@ interface ChatResponse {
   error?: string;
 }
 
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-  transports: ['websocket', 'polling']
-})
 @Controller('chatbot')
-export class ChatbotController implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer()
-  server: Server;
-
+export class ChatbotController {
   private readonly logger = new Logger(ChatbotController.name);
 
   constructor(private readonly chatbotService: ChatbotService) {}
 
-  afterInit() {
-    this.logger.log('Socket.IO gateway initialized');
-    if (this.server) {
-      this.server.on('error', (err) => this.logger.error(`Socket.IO server error: ${err?.message || err}`));
-    }
-  }
-
-  handleConnection(client: Socket) {
-    const addr = (client.handshake && client.handshake.address) || (client.conn && (client.conn.remoteAddress));
-    this.logger.log(`Client connected: id=${client.id} address=${addr}`);
-  }
-
-  handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected: id=${client.id}`);
-  }
-
-  // WebSocket handlers
-  @SubscribeMessage('join')
-  handleJoin(@MessageBody() data: { sessionId: string; userId: string }, @ConnectedSocket() client: Socket) {
-    const { sessionId, userId } = data;
-    client.join(sessionId);
-    this.logger.log(`Client ${userId} joined session ${sessionId}`);
-    
-    // Gửi welcome message
-    this.chatbotService.processMessage(sessionId, userId, 'xin chào')
-      .then(response => {
-        this.server.to(sessionId).emit('message', {
-          type: 'bot',
-          content: response.message,
-          timestamp: new Date(),
-          options: response.options
-        });
-      });
-  }
-
-  @SubscribeMessage('message')
-  async handleMessage(@MessageBody() data: ChatRequest, @ConnectedSocket() client: Socket) {
-    try {
-      const { sessionId, userId, message, attachments } = data;
-      
-      // Xử lý message
-      const response = await this.chatbotService.processMessage(sessionId, userId, message, attachments);
-      
-      // Gửi response về client
-      this.server.to(sessionId).emit('message', {
-        type: 'bot',
-        content: response.message,
-        timestamp: new Date(),
-        options: response.options,
-        analysisResult: response.analysisResult
-      });
-      
-    } catch (error) {
-      this.logger.error(`Error processing message: ${error.message}`);
-      client.emit('error', { message: 'Có lỗi xảy ra khi xử lý tin nhắn' });
-    }
-  }
-
-  @SubscribeMessage('upload_image')
-  async handleImageUpload(@MessageBody() data: { sessionId: string; userId: string; imagePath: string }, @ConnectedSocket() client: Socket) {
-    try {
-      const { sessionId, userId, imagePath } = data;
-      
-      // Xử lý upload ảnh
-      const response = await this.chatbotService.processMessage(sessionId, userId, 'upload_image', [imagePath]);
-      
-      // Gửi response về client
-      this.server.to(sessionId).emit('message', {
-        type: 'bot',
-        content: response.message,
-        timestamp: new Date(),
-        options: response.options,
-        analysisResult: response.analysisResult
-      });
-      
-    } catch (error) {
-      this.logger.error(`Error processing image upload: ${error.message}`);
-      client.emit('error', { message: 'Có lỗi xảy ra khi xử lý ảnh' });
-    }
+  // Small sanitizer to remove control characters and trim
+  private sanitize(input: string): string {
+    if (!input) return '';
+    return input.replace(/[\x00-\x1F\x7F]/g, '').trim();
   }
 
   // REST API endpoints
@@ -133,16 +45,23 @@ export class ChatbotController implements OnGatewayInit, OnGatewayConnection, On
   async sendMessage(@Body() request: ChatRequest): Promise<ChatResponse> {
     try {
       const { sessionId, userId, message, attachments } = request;
-      
       if (!sessionId || !userId || !message) {
         throw new BadRequestException('sessionId, userId, và message là bắt buộc');
       }
-      
-      const response = await this.chatbotService.processMessage(sessionId, userId, message, attachments);
-      
+
+      const sanitized = this.sanitize(message);
+      if (sanitized.length === 0) {
+        throw new BadRequestException('message không hợp lệ');
+      }
+      if (sanitized.length > 2000) {
+        throw new BadRequestException('message quá dài (tối đa 2000 ký tự)');
+      }
+
+      const response = await this.chatbotService.processMessage(sessionId, userId, sanitized, attachments);
+
       return {
         success: true,
-        data: response
+        data: response,
       };
     } catch (error) {
       this.logger.error(`Error in sendMessage: ${error.message}`);
@@ -184,6 +103,9 @@ export class ChatbotController implements OnGatewayInit, OnGatewayConnection, On
       }
       
       const { sessionId, userId } = data;
+      if (!sessionId || !userId) {
+        throw new BadRequestException('sessionId và userId là bắt buộc');
+      }
       const response = await this.chatbotService.processMessage(sessionId, userId, 'upload_image', [file.path]);
       
       return {
