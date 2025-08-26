@@ -51,7 +51,7 @@ export class ChatbotService {
     private readonly configService: ConfigService,
   ) {
     this.aiAnalysisUrl = this.configService.get<string>('AI_ANALYSIS_URL') || 'http://localhost:3010/analyze';
-    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'AIzaSyDDcQCeNgxl98wPbG6-1650PFLXs1B1Yd0';
+    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'your-gemini-api-key';
   }
 
   async processMessage(sessionId: string, userId: string, message: string, attachments?: string[]): Promise<BotResponse> {
@@ -74,7 +74,7 @@ export class ChatbotService {
 
     // Xử lý message và tạo response
     const response = await this.generateBotResponse(session, message, attachments);
-    
+
     // Thêm response của bot
     const botMessage: ChatMessage = {
       id: this.generateId(),
@@ -115,25 +115,25 @@ export class ChatbotService {
     switch (session.currentStep) {
       case 'welcome':
         return this.handleWelcomeStep(session, lowerMessage);
-      
+
       case 'collecting_name':
         return this.handleNameCollection(session, message);
-      
+
       case 'collecting_age':
         return this.handleAgeCollection(session, message);
-      
+
       case 'collecting_symptoms':
         return this.handleSymptomsCollection(session, message);
-      
+
       case 'collecting_pain_level':
         return this.handlePainLevelCollection(session, message);
-      
+
       case 'collecting_last_visit':
         return this.handleLastVisitCollection(session, message);
-      
+
       case 'analysis_complete':
         return this.handleAnalysisComplete(session, lowerMessage);
-      
+
       default:
         return this.handleGeneralConversation(session, lowerMessage);
     }
@@ -146,7 +146,7 @@ export class ChatbotService {
         nextStep: 'collecting_name'
       };
     }
-    
+
     return {
       message: `Xin chào! Tôi là trợ lý AI nha khoa. Tôi sẽ giúp bạn thăm khám răng miệng.\n\nĐể bắt đầu, hãy cho tôi biết tên của bạn:`,
       nextStep: 'collecting_name'
@@ -155,7 +155,7 @@ export class ChatbotService {
 
   private handleNameCollection(session: ChatSession, message: string): BotResponse {
     session.patientInfo.name = message.trim();
-    
+
     return {
       message: `Cảm ơn ${session.patientInfo.name}! Bây giờ hãy cho tôi biết tuổi của bạn:`,
       nextStep: 'collecting_age'
@@ -170,9 +170,9 @@ export class ChatbotService {
         nextStep: 'collecting_age'
       };
     }
-    
+
     session.patientInfo.age = age;
-    
+
     return {
       message: `Bạn ${age} tuổi. Bây giờ hãy mô tả các triệu chứng bạn đang gặp phải:\n\nVí dụ: đau răng, sưng nướu, chảy máu, răng lung lay, v.v.`,
       nextStep: 'collecting_symptoms'
@@ -181,7 +181,7 @@ export class ChatbotService {
 
   private handleSymptomsCollection(session: ChatSession, message: string): BotResponse {
     session.patientInfo.symptoms = message.split(',').map(s => s.trim());
-    
+
     return {
       message: `Tôi hiểu bạn đang gặp: ${session.patientInfo.symptoms.join(', ')}\n\nBây giờ hãy đánh giá mức độ đau của bạn từ 1-10 (1 = không đau, 10 = đau dữ dội):`,
       nextStep: 'collecting_pain_level'
@@ -196,9 +196,9 @@ export class ChatbotService {
         nextStep: 'collecting_pain_level'
       };
     }
-    
+
     session.patientInfo.painLevel = painLevel;
-    
+
     return {
       message: `Mức độ đau: ${painLevel}/10\n\nLần cuối bạn đi khám răng là khi nào? (Ví dụ: 6 tháng trước, 1 năm trước, chưa bao giờ):`,
       nextStep: 'collecting_last_visit'
@@ -207,9 +207,9 @@ export class ChatbotService {
 
   private handleLastVisitCollection(session: ChatSession, message: string): BotResponse {
     session.patientInfo.lastDentalVisit = message;
-    
+
     const analysis = this.generateInitialAnalysis(session);
-    
+
     return {
       message: `Cảm ơn thông tin của bạn!\n\n📋 **KẾT QUẢ ĐÁNH GIÁ SƠ BỘ:**\n${analysis}\n\n🔍 **Để chẩn đoán chính xác hơn, bạn có thể:**\n1. Gửi ảnh X-quang răng (nếu có)\n2. Gửi ảnh chụp răng miệng\n3. Nhập "tiếp tục" để nhận khuyến nghị\n\nBạn muốn làm gì tiếp theo?`,
       nextStep: 'analysis_complete',
@@ -220,10 +220,10 @@ export class ChatbotService {
   private async handleImageUpload(session: ChatSession, imagePath: string): Promise<BotResponse> {
     try {
       this.logger.log(`Processing image upload for session ${session.id}`);
-      
+
       // Gửi ảnh đến AI analysis service
       const analysisResult = await this.analyzeImage(imagePath);
-      
+
       return {
         message: `🔍 **KẾT QUẢ PHÂN TÍCH AI:**\n\n📊 **Chẩn đoán:** ${analysisResult.diagnosis}\n📈 **Độ tin cậy:** ${(analysisResult.confidence * 100).toFixed(1)}%\n⚠️ **Mức độ nghiêm trọng:** ${analysisResult.severity}\n💰 **Chi phí ước tính:** ${analysisResult.estimatedCost.min.toLocaleString('vi-VN')} - ${analysisResult.estimatedCost.max.toLocaleString('vi-VN')} VND\n\n💡 **Khuyến nghị:**\n${analysisResult.recommendations.join('\n')}\n\n🏥 **Kế hoạch điều trị:**\n• Ngay lập tức: ${analysisResult.treatmentPlan.immediate.join(', ')}\n• Ngắn hạn: ${analysisResult.treatmentPlan.shortTerm.join(', ')}\n• Dài hạn: ${analysisResult.treatmentPlan.longTerm.join(', ')}\n\n⚠️ **Yếu tố nguy cơ:**\n${analysisResult.riskFactors.join(', ')}\n\nBạn có muốn tôi giải thích thêm về kết quả này không?`,
         nextStep: 'analysis_complete',
@@ -246,21 +246,21 @@ export class ChatbotService {
         options: ['Đặt lịch khám', 'Hướng dẫn vệ sinh', 'Kết thúc']
       };
     }
-    
+
     if (message.includes('đặt lịch') || message.includes('khám')) {
       return {
         message: `📅 **ĐẶT LỊCH KHÁM:**\n\nĐể đặt lịch khám, vui lòng:\n\n📞 **Gọi điện:** 1900-xxxx\n🌐 **Website:** www.dentalclinic.com\n📱 **App:** Tải app DentalCare\n\nHoặc bạn có thể đến trực tiếp phòng khám vào giờ hành chính.\n\nBạn cần hỗ trợ gì thêm không?`,
         options: ['Hướng dẫn vệ sinh', 'Tư vấn thêm', 'Kết thúc']
       };
     }
-    
+
     if (message.includes('kết thúc') || message.includes('tạm biệt')) {
       return {
         message: `Cảm ơn bạn đã sử dụng dịch vụ thăm khám AI của chúng tôi!\n\nChúc bạn sức khỏe tốt! 👋\n\nNếu cần hỗ trợ thêm, hãy quay lại bất cứ lúc nào.`,
         nextStep: 'welcome'
       };
     }
-    
+
     return {
       message: 'Bạn có thể chọn một trong các tùy chọn sau hoặc nhập tin nhắn của mình:',
       options: ['Giải thích thêm', 'Đặt lịch khám', 'Hướng dẫn vệ sinh', 'Kết thúc']
@@ -274,7 +274,7 @@ export class ChatbotService {
         options: ['Bắt đầu thăm khám', 'Gửi ảnh', 'Tư vấn nhanh']
       };
     }
-    
+
     return {
       message: 'Xin chào! Tôi là trợ lý AI nha khoa. Tôi có thể giúp bạn:\n\n1. Thăm khám răng miệng\n2. Phân tích ảnh X-quang\n3. Tư vấn sức khỏe răng miệng\n\nBạn muốn làm gì?',
       options: ['Thăm khám', 'Gửi ảnh', 'Tư vấn', 'Kết thúc']
@@ -284,7 +284,7 @@ export class ChatbotService {
   private generateInitialAnalysis(session: ChatSession): string {
     const { patientInfo } = session;
     let analysis = '';
-    
+
     // Phân tích tuổi
     if (patientInfo.age) {
       if (patientInfo.age < 18) {
@@ -295,7 +295,7 @@ export class ChatbotService {
         analysis += '👴 **Nhóm tuổi:** Người cao tuổi\n';
       }
     }
-    
+
     // Phân tích triệu chứng
     if (patientInfo.symptoms) {
       const symptoms = patientInfo.symptoms.join(', ').toLowerCase();
@@ -309,7 +309,7 @@ export class ChatbotService {
         analysis += '🦷 **Triệu chứng chính:** Chảy máu nướu\n';
       }
     }
-    
+
     // Phân tích mức độ đau
     if (patientInfo.painLevel) {
       if (patientInfo.painLevel <= 3) {
@@ -320,10 +320,10 @@ export class ChatbotService {
         analysis += '🔴 **Mức độ đau:** Nghiêm trọng\n';
       }
     }
-    
+
     // Khuyến nghị
     analysis += '\n💡 **Khuyến nghị:** Cần khám bác sĩ nha khoa để đánh giá chi tiết';
-    
+
     return analysis;
   }
 
