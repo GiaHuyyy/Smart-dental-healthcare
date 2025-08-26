@@ -89,3 +89,16 @@ server/build/
 server/logs/
 
 .early.coverage
+
+# ai-xray-analysis -service specific
+ai-xray-analysis-service/node_modules/
+ai-xray-analysis-service/dist/
+ai-xray-analysis-service/.next/
+ai-xray-analysis-service/out/
+ai-xray-analysis-service/build/
+
+# Server specific
+chatbot-service/node_modules/
+chatbot-service/dist/
+chatbot-service/build/
+chatbot-service/logs/

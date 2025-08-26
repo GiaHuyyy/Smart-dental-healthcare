@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦷 AI Dental Chatbot - Trợ lý thăm khám răng miệng</title>
+    <!-- Use official CDN for socket.io client to avoid 404 when server doesn't serve the client bundle -->
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 900px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.bot {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .option-btn {
+            background: #f0f4ff;
+            border: 1px solid #667eea;
+            color: #667eea;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .option-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-container {
+            flex: 1;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .upload-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .upload-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 12px 16px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .analysis-result {
+            background: #f8f9ff;
+            border: 1px solid #667eea;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .analysis-result h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .analysis-result p {
+            margin-bottom: 8px;
+        }
+
+        .severity-high {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .severity-medium {
+            color: #ff9800;
+            font-weight: bold;
+        }
+
+        .severity-low {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .welcome-screen {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .welcome-screen h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .welcome-screen p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 90vh;
+                border-radius: 0;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <h1>🦷 AI Dental Chatbot</h1>
+            <p>Trợ lý thăm khám răng miệng thông minh</p>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-screen" id="welcomeScreen">
+                <h2>Chào mừng đến với AI Dental Chatbot!</h2>
+                <p>Tôi sẽ giúp bạn thăm khám răng miệng và phân tích ảnh X-quang</p>
+                <button class="start-btn" onclick="startChat()">Bắt đầu thăm khám</button>
+            </div>
+        </div>
+
+        <div class="chat-input" id="chatInput" style="display: none;">
+            <div class="input-container">
+                <input type="file" class="file-input" id="fileInput" accept="image/*">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    📷
+                </button>
+                <input type="text" class="message-input" id="messageInput" placeholder="Nhập tin nhắn của bạn..." onkeypress="handleKeyPress(event)">
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()">Gửi</button>
+            </div>
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            AI đang phân tích...
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let sessionId;
+        let userId;
+
+        function startChat() {
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('chatInput').style.display = 'flex';
+            
+            // Tạo session ID và user ID
+            sessionId = 'session_' + Date.now();
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            
+            // Kết nối WebSocket
+            connectWebSocket();
+        }
+
+        function connectWebSocket() {
+            // Force websocket transport to avoid XHR polling requests to /socket.io that may return 404
+            socket = io({ transports: ['websocket'] });
+            
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                document.getElementById('statusIndicator').style.background = '#4CAF50';
+                
+                // Join session
+                socket.emit('join', { sessionId, userId });
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                document.getElementById('statusIndicator').style.background = '#f44336';
+            });
+            
+            socket.on('message', (data) => {
+                addMessage('bot', data.content, data.options, data.analysisResult);
+            });
+            
+            socket.on('error', (data) => {
+                addMessage('bot', '❌ ' + data.message);
+            });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                addMessage('user', message);
+                socket.emit('message', { sessionId, userId, message });
+                input.value = '';
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function addMessage(type, content, options = null, analysisResult = null) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.innerHTML = content;
+            
+            messageDiv.appendChild(contentDiv);
+            
+            // Thêm options nếu có
+            if (options && options.length > 0) {
+                const optionsDiv = document.createElement('div');
+                optionsDiv.className = 'message-options';
+                
+                options.forEach(option => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn';
+                    btn.textContent = option;
+                    btn.onclick = () => {
+                        document.getElementById('messageInput').value = option;
+                        sendMessage();
+                    };
+                    optionsDiv.appendChild(btn);
+                });
+                
+                messageDiv.appendChild(optionsDiv);
+            }
+            
+            // Thêm kết quả phân tích nếu có
+            if (analysisResult) {
+                const analysisDiv = document.createElement('div');
+                analysisDiv.className = 'analysis-result';
+                analysisDiv.innerHTML = `
+                    <h4>🔍 Kết quả phân tích AI</h4>
+                    <p><strong>Chẩn đoán:</strong> ${analysisResult.diagnosis}</p>
+                    <p><strong>Độ tin cậy:</strong> ${(analysisResult.confidence * 100).toFixed(1)}%</p>
+                    <p><strong>Mức độ:</strong> <span class="severity-${analysisResult.severity}">${analysisResult.severity}</span></p>
+                    <p><strong>Chi phí ước tính:</strong> ${analysisResult.estimatedCost.min.toLocaleString('vi-VN')} - ${analysisResult.estimatedCost.max.toLocaleString('vi-VN')} VND</p>
+                `;
+                messageDiv.appendChild(analysisDiv);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Xử lý upload file
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        });
+
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('sessionId', sessionId);
+            formData.append('userId', userId);
+            
+            fetch('/chatbot/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addMessage('user', `📷 Đã gửi ảnh: ${file.name}`);
+                    addMessage('bot', data.data.message, data.data.options, data.data.analysisResult);
+                } else {
+                    addMessage('bot', '❌ Lỗi khi upload ảnh: ' + data.error);
+                }
+            })
+            .catch(error => {
+                addMessage('bot', '❌ Lỗi khi upload ảnh: ' + error.message);
+            });
+        }
+
+        // Kiểm tra health
+        function checkHealth() {
+            fetch('/chatbot/health')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('statusIndicator').style.background = '#4CAF50';
+                    } else {
+                        document.getElementById('statusIndicator').style.background = '#f44336';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('statusIndicator').style.background = '#f44336';
+                });
+        }
+
+        // Kiểm tra health định kỳ
+        setInterval(checkHealth, 30000);
+        checkHealth();
+    </script>
+</body>
+</html>
