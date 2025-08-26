@@ -4,6 +4,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  imageUrl?: string; // Add optional image URL field
+  actionButtons?: string[]; // Add optional action buttons
 }
 
 export interface DoctorSuggestion {
