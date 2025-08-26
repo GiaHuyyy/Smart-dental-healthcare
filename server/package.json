@@ -19,7 +19,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:doctors": "ts-node src/scripts/seed-doctors.ts",
-    "list:doctors": "ts-node src/scripts/list-doctors.ts"
+    "list:doctors": "ts-node src/scripts/list-doctors.ts",
+    "check:cloudinary": "node scripts/check-cloudinary.js",
+    "debug:cloudinary": "node scripts/debug-cloudinary.js",
+    "test:cloudinary": "node scripts/test-cloudinary.js",
+    "update:cloudinary": "node scripts/update-cloudinary.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -62,6 +66,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^6.4.17",
     "@types/passport-jwt": "^4.0.1",

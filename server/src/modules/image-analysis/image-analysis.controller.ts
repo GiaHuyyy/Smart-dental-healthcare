@@ -69,6 +69,15 @@ export class ImageAnalysisController {
         throw new BadRequestException('Không có file được upload');
       }
 
+      // Check if Cloudinary is configured
+      if (!this.cloudinaryService.isCloudinaryConfigured()) {
+        this.logger.error('Cloudinary is not configured');
+        return {
+          success: false,
+          error: 'Dịch vụ lưu trữ ảnh chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+        };
+      }
+
       // For demo purposes, use a default user ID when no authentication
       const userId = req.user?.id || 'demo_user_' + Date.now();
 
@@ -77,8 +86,17 @@ export class ImageAnalysisController {
       );
 
       // Upload to Cloudinary first
-      const cloudinaryResult = await this.cloudinaryService.uploadImage(file);
-      this.logger.log(`Image uploaded to Cloudinary: ${cloudinaryResult.url}`);
+      let cloudinaryResult;
+      try {
+        cloudinaryResult = await this.cloudinaryService.uploadImage(file);
+        this.logger.log(`Image uploaded to Cloudinary: ${cloudinaryResult.url}`);
+      } catch (cloudinaryError) {
+        this.logger.error('Cloudinary upload failed:', cloudinaryError);
+        return {
+          success: false,
+          error: 'Không thể upload ảnh lên dịch vụ lưu trữ. Vui lòng kiểm tra kết nối mạng và thử lại.',
+        };
+      }
 
       const analysisResult = await this.imageAnalysisService.analyzeImage(
         cloudinaryResult.url,
@@ -95,9 +113,21 @@ export class ImageAnalysisController {
       };
     } catch (error) {
       this.logger.error(`Image analysis failed: ${error.message}`);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Lỗi phân tích ảnh. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.';
+      
+      if (error.message.includes('Cloudinary')) {
+        errorMessage = 'Lỗi cấu hình dịch vụ lưu trữ ảnh. Vui lòng liên hệ quản trị viên.';
+      } else if (error.message.includes('network') || error.message.includes('connection')) {
+        errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.';
+      } else if (error.message.includes('file')) {
+        errorMessage = 'Lỗi xử lý file ảnh. Vui lòng thử lại với ảnh khác.';
+      }
+      
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }

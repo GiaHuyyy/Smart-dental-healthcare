@@ -1,8 +1,8 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
+import { firstValueFrom } from 'rxjs';
 import { UsersService } from '../users/users.service';
 
 export interface ImageAnalysisResult {
@@ -46,6 +46,9 @@ export interface ImageAnalysisResult {
     specialty: string;
     keywords: string[];
   };
+  // Thêm các trường cho Cloudinary
+  cloudinaryUrl?: string;
+  cloudinaryPublicId?: string;
 }
 
 @Injectable()
@@ -76,7 +79,10 @@ export class ImageAnalysisService {
         `Starting image analysis for user ${userId}, file: ${filePath}`,
       );
 
-      if (!fs.existsSync(filePath)) {
+      // Check if filePath is a URL or local path
+      const isUrl = filePath.startsWith('http://') || filePath.startsWith('https://');
+      
+      if (!isUrl && !fs.existsSync(filePath)) {
         throw new BadRequestException('File không tồn tại');
       }
 
@@ -160,12 +166,56 @@ export class ImageAnalysisService {
     try {
       this.logger.log(`Starting Gemini AI analysis for file: ${filePath}`);
 
-      // Read file and convert to base64
-      const fileBuffer = fs.readFileSync(filePath);
-      const base64Image = fileBuffer.toString('base64');
+      let base64Image: string;
+      
+      // Check if filePath is a URL or local path
+      const isUrl = filePath.startsWith('http://') || filePath.startsWith('https://');
+      
+      if (isUrl) {
+        // Download image from URL and convert to base64
+        try {
+          const response = await firstValueFrom(
+            this.httpService.get(filePath, {
+              responseType: 'arraybuffer',
+              timeout: 30000,
+            })
+          );
+          
+          if (!response.data || response.data.length === 0) {
+            throw new Error('Empty response from image URL');
+          }
+          
+          const buffer = Buffer.from(response.data);
+          base64Image = buffer.toString('base64');
+          
+          // Log the content type for debugging
+          const contentType = response.headers['content-type'];
+          this.logger.log(`Downloaded image content-type: ${contentType}, size: ${buffer.length} bytes`);
+        } catch (downloadError) {
+          this.logger.error(`Failed to download image from URL: ${downloadError.message}`);
+          throw new Error(`Không thể tải ảnh từ URL: ${downloadError.message}`);
+        }
+      } else {
+        // Read local file and convert to base64
+        const fileBuffer = fs.readFileSync(filePath);
+        base64Image = fileBuffer.toString('base64');
+      }
 
       // Create prompt for Gemini
       const prompt = this.createDentalAnalysisPrompt();
+
+      // Determine MIME type based on URL or default to jpeg
+      let mimeType = 'image/jpeg';
+      if (isUrl) {
+        const urlLower = filePath.toLowerCase();
+        if (urlLower.includes('.png')) {
+          mimeType = 'image/png';
+        } else if (urlLower.includes('.gif')) {
+          mimeType = 'image/gif';
+        } else if (urlLower.includes('.webp')) {
+          mimeType = 'image/webp';
+        }
+      }
 
       // Call Gemini API
       const requestBody = {
@@ -177,7 +227,7 @@ export class ImageAnalysisService {
               },
               {
                 inline_data: {
-                  mime_type: 'image/jpeg',
+                  mime_type: mimeType,
                   data: base64Image,
                 },
               },

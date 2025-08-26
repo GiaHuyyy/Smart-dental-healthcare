@@ -417,9 +417,23 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
       }
     } catch (error) {
       console.error("Error analyzing image:", error);
+      
+      // Xử lý lỗi Cloudinary cụ thể
+      let errorContent = `❌ Lỗi phân tích ảnh: ${error instanceof Error ? error.message : "Lỗi không xác định"}. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.`;
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Cloudinary') || error.message.includes('cấu hình') || error.message.includes('lưu trữ')) {
+          errorContent = `❌ **Lỗi cấu hình dịch vụ lưu trữ ảnh**\n\nDịch vụ lưu trữ ảnh chưa được cấu hình đúng cách.\n\n**Cách khắc phục:**\n1. Tạo tài khoản Cloudinary tại cloudinary.com\n2. Lấy thông tin cấu hình từ Dashboard\n3. Cập nhật file .env trong thư mục server\n4. Restart server\n\n💡 Xem file CLOUDINARY_SETUP.md để biết chi tiết`;
+        } else if (error.message.includes('kết nối') || error.message.includes('mạng')) {
+          errorContent = `❌ **Lỗi kết nối mạng**\n\nKhông thể kết nối đến server. Vui lòng kiểm tra kết nối internet và thử lại.`;
+        } else if (error.message.includes('file')) {
+          errorContent = `❌ **Lỗi xử lý file ảnh**\n\nVui lòng thử lại với ảnh khác hoặc kiểm tra định dạng file.`;
+        }
+      }
+      
       const errorMessage: ChatMessage = {
         role: "assistant",
-        content: `❌ Lỗi phân tích ảnh: ${error instanceof Error ? error.message : "Lỗi không xác định"}. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.`,
+        content: errorContent,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);

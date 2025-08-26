@@ -1,4 +1,4 @@
-import { sendRequestFile, sendRequest } from "./api";
+import { sendRequest, sendRequestFile } from "./api";
 
 export interface ImageAnalysisResult {
   message: string;
@@ -37,9 +37,39 @@ export const imageAnalysisAPI = {
         body: formData,
       });
 
+      // Kiểm tra response từ server
+      if (!response.success && response.error) {
+        // Xử lý các lỗi cụ thể
+        if (response.error.includes('Cloudinary') || response.error.includes('cấu hình')) {
+          return {
+            success: false,
+            error: 'Dịch vụ lưu trữ ảnh chưa được cấu hình. Vui lòng liên hệ quản trị viên để được hỗ trợ.',
+          };
+        } else if (response.error.includes('kết nối') || response.error.includes('mạng')) {
+          return {
+            success: false,
+            error: 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại.',
+          };
+        } else if (response.error.includes('file')) {
+          return {
+            success: false,
+            error: 'Lỗi xử lý file ảnh. Vui lòng thử lại với ảnh khác hoặc kiểm tra định dạng file.',
+          };
+        }
+      }
+
       return response;
     } catch (error) {
       console.error("Image analysis API error:", error);
+      
+      // Xử lý lỗi network
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+          success: false,
+          error: 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và thử lại.',
+        };
+      }
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : "Lỗi không xác định khi phân tích ảnh",
