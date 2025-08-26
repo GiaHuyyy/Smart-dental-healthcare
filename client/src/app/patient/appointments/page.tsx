@@ -2,10 +2,12 @@
 
 import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function PatientAppointments() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
@@ -15,6 +17,14 @@ export default function PatientAppointments() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [doctorBusyTimes, setDoctorBusyTimes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [prefilledData, setPrefilledData] = useState<{
+    doctorId?: string;
+    doctorName?: string;
+    specialty?: string;
+    notes?: string;
+    urgency?: string;
+    symptoms?: string;
+  } | null>(null);
 
   const availableTimes = [
     "08:00",
@@ -74,6 +84,72 @@ export default function PatientAppointments() {
     loadDoctors();
     loadAppointments();
   }, [session]);
+
+  // Process URL parameters for pre-filling data
+  useEffect(() => {
+    const doctorId = searchParams.get('doctorId');
+    const doctorName = searchParams.get('doctorName');
+    const specialty = searchParams.get('specialty');
+    const notesParam = searchParams.get('notes');
+    const urgency = searchParams.get('urgency');
+    const symptoms = searchParams.get('symptoms');
+
+         if (doctorId || doctorName || notesParam || urgency || symptoms) {
+       setPrefilledData({
+         doctorId: doctorId || undefined,
+         doctorName: doctorName || undefined,
+         specialty: specialty || undefined,
+         notes: notesParam || undefined,
+         urgency: urgency || undefined,
+         symptoms: symptoms || undefined
+       });
+
+      // Auto-fill doctor if doctorId is provided - set immediately
+      if (doctorId) {
+        setSelectedDoctorId(doctorId);
+      }
+
+      // Auto-fill notes
+      if (notesParam) {
+        setNotes(notesParam);
+      }
+
+      // Auto-fill appointment type based on urgency
+      if (urgency === 'high') {
+        setAppointmentType('Khám cấp cứu');
+      } else if (urgency === 'medium') {
+        setAppointmentType('Khám định kỳ');
+      }
+
+      // Show success message only if coming from chatbot
+      if (doctorName || notesParam) {
+        setTimeout(() => {
+          alert(`Đã chuyển từ chatbot với thông tin:\n${doctorName ? `Bác sĩ: ${doctorName}\n` : ''}${notesParam ? `Triệu chứng: ${notesParam.substring(0, 100)}...` : ''}`);
+        }, 500);
+      }
+    }
+  }, [searchParams]);
+
+  // Auto-select doctor when doctors are loaded and we have a doctorId
+  useEffect(() => {
+    if (doctors.length > 0 && prefilledData?.doctorId) {
+      const doctor = doctors.find(d => d._id === prefilledData.doctorId || d.id === prefilledData.doctorId);
+      if (doctor) {
+        setSelectedDoctorId(doctor._id || doctor.id);
+      }
+    }
+  }, [doctors, prefilledData?.doctorId]);
+
+  // Additional effect to ensure doctor is selected when coming from chatbot
+  useEffect(() => {
+    if (doctors.length > 0 && searchParams.get('doctorId') && !selectedDoctorId) {
+      const doctorId = searchParams.get('doctorId');
+      const doctor = doctors.find(d => d._id === doctorId || d.id === doctorId);
+      if (doctor) {
+        setSelectedDoctorId(doctor._id || doctor.id);
+      }
+    }
+  }, [doctors, searchParams, selectedDoctorId]);
 
   useEffect(() => {
     async function fetchBusy() {
@@ -287,6 +363,7 @@ export default function PatientAppointments() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Đặt lịch hẹn</h1>
           <p className="text-gray-600">Quản lý và đặt lịch khám mới</p>
+          
         </div>
         <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Đặt lịch mới</button>
       </div>
@@ -310,6 +387,11 @@ export default function PatientAppointments() {
                   </option>
                 ))}
               </select>
+                             {prefilledData?.doctorName && !selectedDoctorId && doctors.length > 0 && (
+                 <p className="text-sm text-blue-600 mt-1">
+                   💡 Gợi ý từ chatbot: {prefilledData.doctorName} - {prefilledData.specialty}
+                 </p>
+               )}
             </div>
 
             <div>
@@ -364,16 +446,87 @@ export default function PatientAppointments() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
-              <textarea
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                rows={3}
-                placeholder="Mô tả triệu chứng hoặc yêu cầu đặc biệt..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </div>
+                         <div>
+               <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
+               <textarea
+                 className={`w-full border border-gray-300 rounded-md px-3 py-2 ${
+                   prefilledData?.notes && prefilledData.notes.includes('🔍 KẾT QUẢ PHÂN TÍCH AI') 
+                     ? 'border-blue-300 bg-blue-50' 
+                     : ''
+                 }`}
+                 rows={6}
+                 placeholder="Mô tả triệu chứng hoặc yêu cầu đặc biệt..."
+                 value={notes}
+                 onChange={(e) => setNotes(e.target.value)}
+               />
+               {prefilledData?.notes && prefilledData.notes.includes('🔍 KẾT QUẢ PHÂN TÍCH AI') && (
+                 <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                   <p className="text-sm text-blue-800 font-medium mb-2">
+                     💡 Thông tin từ chatbot đã được điền sẵn:
+                   </p>
+                   <div className="text-xs text-blue-700 space-y-1">
+                     {prefilledData.notes.includes('📋 TRIỆU CHỨNG:') && (
+                       <div className="flex items-start">
+                         <span className="font-medium mr-2">📋</span>
+                         <span>Triệu chứng đã được ghi nhận</span>
+                       </div>
+                     )}
+                     {prefilledData.notes.includes('🔍 KẾT QUẢ PHÂN TÍCH AI:') && (
+                       <div className="flex items-start">
+                         <span className="font-medium mr-2">🔍</span>
+                         <span>Kết quả phân tích AI đã được bao gồm</span>
+                       </div>
+                     )}
+                     {prefilledData.notes.includes('🖼️ HÌNH ẢNH:') && (
+                       <div className="flex items-start">
+                         <span className="font-medium mr-2">🖼️</span>
+                         <span>Hình ảnh X-quang đã được phân tích</span>
+                       </div>
+                     )}
+                     {prefilledData.notes.includes('💬 LỊCH SỬ CHAT:') && (
+                       <div className="flex items-start">
+                         <span className="font-medium mr-2">💬</span>
+                         <span>Lịch sử chat đã được ghi nhận</span>
+                       </div>
+                     )}
+                     {prefilledData.notes.includes('💡 KHUYẾN NGHỊ:') && (
+                       <div className="flex items-start">
+                         <span className="font-medium mr-2">💡</span>
+                         <span>Khuyến nghị điều trị đã được đưa ra</span>
+                       </div>
+                     )}
+                   </div>
+                   <div className="mt-2 flex space-x-2">
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const textarea = document.querySelector('textarea[placeholder*="triệu chứng"]') as HTMLTextAreaElement;
+                         if (textarea) {
+                           textarea.focus();
+                           textarea.setSelectionRange(0, textarea.value.length);
+                         }
+                       }}
+                       className="text-xs text-blue-600 hover:text-blue-800 underline"
+                       title="Click để xem toàn bộ nội dung ghi chú"
+                     >
+                       📝 Xem chi tiết ghi chú
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const textarea = document.querySelector('textarea[placeholder*="triệu chứng"]') as HTMLTextAreaElement;
+                         if (textarea) {
+                           textarea.focus();
+                         }
+                       }}
+                       className="text-xs text-green-600 hover:text-green-800 underline"
+                     >
+                       ✏️ Chỉnh sửa ghi chú
+                     </button>
+                   </div>
+                 </div>
+               )}
+             </div>
 
             <button
               type="submit"

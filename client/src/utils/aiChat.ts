@@ -1,38 +1,20 @@
+import { AiResponse, ChatMessage, DoctorSuggestion } from "@/types/chat";
 import { sendRequest } from "./api";
-
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-  imageUrl?: string; // Add optional image URL field
-  actionButtons?: string[]; // Add optional action buttons
-}
-
-export interface DoctorSuggestion {
-  fullName: string;
-  specialty: string;
-  keywords: string[];
-}
-
-export interface AiResponse {
-  message: string;
-  suggestedDoctor: DoctorSuggestion | null;
-  timestamp: Date;
-}
 
 export const aiChatAPI = {
   // Get AI advice for patients
-  async getDentalAdvice(message: string, chatHistory: ChatMessage[] = [], imageData?: string): Promise<AiResponse> {
+  async getDentalAdvice(message: string, chatHistory: ChatMessage[] = [], sessionId?: string, imageData?: string): Promise<AiResponse> {
     try {
       const response = await sendRequest<AiResponse>({
         method: "POST",
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/chat/dental-advice`,
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat/advice`,
         body: {
           message,
           chatHistory: chatHistory.map((msg) => ({
             role: msg.role,
             content: msg.content,
           })),
+          sessionId,
           imageData,
         },
       });
@@ -41,8 +23,17 @@ export const aiChatAPI = {
       console.error("AI Chat API Error:", error);
       return {
         message: "Xin lỗi, tôi đang gặp sự cố kỹ thuật. Vui lòng thử lại sau.",
-        suggestedDoctor: null,
+        suggestedDoctor: {
+          _id: "1",
+          fullName: "BS. Nguyễn Văn A",
+          specialty: "Nha khoa tổng quát",
+          keywords: ["nha khoa", "tổng quát"],
+          email: "doctor@example.com",
+          phone: "0123-456-789"
+        },
         timestamp: new Date(),
+        urgencyLevel: "low",
+        confidence: 0,
       };
     }
   },
@@ -67,7 +58,14 @@ export const aiChatAPI = {
       console.error("Image Chat API Error:", error);
       return {
         message: "Xin lỗi, tôi không thể phân tích hình ảnh ngay lúc này. Vui lòng thử lại sau.",
-        suggestedDoctor: null,
+        suggestedDoctor: {
+          _id: "1",
+          fullName: "BS. Nguyễn Văn A",
+          specialty: "Nha khoa tổng quát",
+          keywords: ["nha khoa", "tổng quát"],
+          email: "doctor@example.com",
+          phone: "0123-456-789"
+        },
         timestamp: new Date(),
       };
     }
@@ -134,3 +132,7 @@ export const aiChatAPI = {
     }
   },
 };
+
+// Re-export types for backward compatibility
+export type { AiResponse, ChatMessage, DoctorSuggestion };
+
