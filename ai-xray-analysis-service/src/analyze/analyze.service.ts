@@ -6,6 +6,7 @@ import * as FormData from 'form-data';
 import * as fs from 'fs';
 import { Model } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { GeminiService } from './gemini.service';
 import { Analysis, AnalysisDocument } from './schemas/analysis.schema';
 
@@ -65,6 +66,7 @@ export class AnalyzeService {
     private readonly configService: ConfigService,
     @InjectModel(Analysis.name) private analysisModel: Model<AnalysisDocument>,
     private readonly geminiService: GeminiService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {
     this.aiBackendUrl = this.configService.get<string>('AI_BACKEND_URL') || 'http://localhost:5002/diagnose';
   }

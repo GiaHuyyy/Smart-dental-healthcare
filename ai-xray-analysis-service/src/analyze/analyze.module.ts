@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { AnalyzeController } from './analyze.controller';
 import { AnalyzeService } from './analyze.service';
 import { GeminiService } from './gemini.service';
@@ -15,6 +16,7 @@ import { Analysis, AnalysisSchema } from './schemas/analysis.schema';
     HttpModule,
     ConfigModule,
     MongooseModule.forFeature([{ name: Analysis.name, schema: AnalysisSchema }]),
+    CloudinaryModule,
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, callback) => {

@@ -9,12 +9,16 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^2.8.2",
+    "cloudinary": "^2.7.0",
     "exact": "^1.0.1",
+    "multer": "^2.0.2",
     "next": "15.4.1",
     "next-auth": "^5.0.0-beta.29",
     "query-string": "^9.2.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-redux": "^9.2.0",
     "sonner": "^2.0.7"
   },
   "devDependencies": {
