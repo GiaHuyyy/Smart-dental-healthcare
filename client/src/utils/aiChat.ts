@@ -4,6 +4,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  imageUrl?: string; // Add optional image URL field
+  actionButtons?: string[]; // Add optional action buttons
 }
 
 export interface DoctorSuggestion {
@@ -20,17 +22,18 @@ export interface AiResponse {
 
 export const aiChatAPI = {
   // Get AI advice for patients
-  async getDentalAdvice(message: string, chatHistory: ChatMessage[] = []): Promise<AiResponse> {
+  async getDentalAdvice(message: string, chatHistory: ChatMessage[] = [], imageData?: string): Promise<AiResponse> {
     try {
       const response = await sendRequest<AiResponse>({
         method: "POST",
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat/advice`,
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/chat/dental-advice`,
         body: {
           message,
           chatHistory: chatHistory.map((msg) => ({
             role: msg.role,
             content: msg.content,
           })),
+          imageData,
         },
       });
       return response;
@@ -41,6 +44,46 @@ export const aiChatAPI = {
         suggestedDoctor: null,
         timestamp: new Date(),
       };
+    }
+  },
+
+  // Process image with chat context
+  async processImageWithChat(message: string, imageData: string, chatHistory: ChatMessage[] = []): Promise<AiResponse> {
+    try {
+      const response = await sendRequest<AiResponse>({
+        method: "POST",
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/chat/image-chat`,
+        body: {
+          message,
+          imageData,
+          chatHistory: chatHistory.map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          })),
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error("Image Chat API Error:", error);
+      return {
+        message: "Xin lỗi, tôi không thể phân tích hình ảnh ngay lúc này. Vui lòng thử lại sau.",
+        suggestedDoctor: null,
+        timestamp: new Date(),
+      };
+    }
+  },
+
+  // Get suggested questions
+  async getSuggestedQuestions(): Promise<string[]> {
+    try {
+      const response = await sendRequest<{ questions: string[] }>({
+        method: "GET",
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/chat/suggested-questions`,
+      });
+      return response.questions;
+    } catch (error) {
+      console.error("Suggested Questions API Error:", error);
+      return [];
     }
   },
 

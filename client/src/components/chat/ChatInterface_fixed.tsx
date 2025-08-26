@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { imageAnalysisAPI, ImageAnalysisResult } from "@/utils/imageAnalysis";
 
@@ -59,7 +58,6 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
 
     try {
       if (type === "ai") {
-        // All messages go through AI - no more hardcoded analysis actions
         // Analyze urgency first
         const urgency = await aiChatAPI.analyzeUrgency(inputMessage);
         setUrgencyLevel(urgency);
@@ -141,7 +139,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
 
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
-    // setShowQuickSuggestions(false);
+    setShowQuickSuggestions(false);
     setIsLoading(true);
 
     try {
@@ -209,15 +207,11 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
     setIsAnalyzingImage(true);
     setIsLoading(true);
 
-    // Create image preview URL
-    const imageUrl = URL.createObjectURL(file);
-
-    // Add user message showing uploaded image with preview
+    // Add user message showing uploaded image
     const userMessage: ChatMessage = {
       role: "user",
       content: `🖼️ Đã tải lên ảnh: ${file.name}`,
       timestamp: new Date(),
-      imageUrl: imageUrl, // Add image URL to message
     };
     setMessages((prev) => [...prev, userMessage]);
 
@@ -232,61 +226,13 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
       const result = analysisResponse.data;
       setAnalysisResult(result);
 
-      // Create a formatted analysis message that includes rich content with better styling
-      let analysisMessage = `🔍 **KẾT QUẢ PHÂN TÍCH ẢNH**\n${"═".repeat(50)}\n\n`;
-
-      // Add rich content to the message if available
-      if (result.richContent) {
-        // Add diagnosis with styling
-        if (result.richContent.analysis) {
-          analysisMessage += `📋 **CHẨN ĐOÁN:**\n`;
-          analysisMessage += `${result.richContent.analysis}\n\n`;
-        }
-
-        // Add sections with better formatting
-        if (result.richContent.sections && result.richContent.sections.length > 0) {
-          analysisMessage += `📊 **CHI TIẾT PHÂN TÍCH:**\n`;
-          result.richContent.sections.forEach((section, index) => {
-            if (section.heading && section.text) {
-              analysisMessage += `\n${index + 1}. **${section.heading}**\n`;
-              analysisMessage += `   ${section.text}\n`;
-            }
-            if (section.bullets && section.bullets.length > 0) {
-              section.bullets.forEach((bullet) => {
-                analysisMessage += `   • ${bullet}\n`;
-              });
-            }
-          });
-          analysisMessage += "\n";
-        }
-
-        // Add recommendations
-        if (result.richContent.recommendations) {
-          analysisMessage += "**� Khuyến nghị:**\n";
-          result.richContent.recommendations.forEach((rec) => {
-            analysisMessage += `• ${rec}\n`;
-          });
-          analysisMessage += "\n";
-        }
-
-        // Show action buttons only when we have meaningful analysis results
-        analysisMessage += `🔧 **CÁC HÀNH ĐỘNG TIẾP THEO:**\n`;
-        analysisMessage += `Sử dụng các nút bên dưới để tương tác`;
-      } else {
-        // If no rich content, show basic message from API
-        analysisMessage += result.message || "Đã hoàn thành phân tích ảnh.";
-      }
+      // Use the formatted message from chatbot service
+      const analysisMessage = result.message || "🔍 Phân tích ảnh hoàn tất";
 
       const aiMessage: ChatMessage = {
         role: "assistant",
         content: analysisMessage,
         timestamp: new Date(),
-        // Only show action buttons if we have rich content from AI analysis
-        actionButtons:
-          result.richContent &&
-          (result.richContent.analysis || result.richContent.recommendations || result.richContent.sections)
-            ? ["Giải thích thêm", "Đặt lịch khám", "Hướng dẫn chăm sóc", "Gợi ý bác sĩ", "Kết thúc"]
-            : undefined,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -297,7 +243,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
       }
 
       // Auto-hide quick suggestions after image upload
-    //   setShowQuickSuggestions(false);
+      setShowQuickSuggestions(false);
     } catch (error) {
       console.error("Error analyzing image:", error);
       const errorMessage: ChatMessage = {
@@ -320,6 +266,86 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
 
   const handleImageUploadClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleAnalysisAction = async (action: string) => {
+    // Add user message for the action
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: action,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
+    // Handle different actions
+    let responseMessage = "";
+
+    switch (action) {
+      case "Giải thích thêm":
+        responseMessage = "Tôi sẽ giải thích chi tiết hơn về kết quả phân tích:\n\n";
+        if (analysisResult?.richContent?.sections) {
+          analysisResult.richContent.sections.forEach((section) => {
+            if (section.heading && section.text) {
+              responseMessage += `🔸 **${section.heading}**: ${section.text}\n\n`;
+            }
+          });
+        }
+        responseMessage += "Bạn có câu hỏi gì khác về kết quả này không?";
+        break;
+
+      case "Đặt lịch khám":
+        responseMessage = "📅 **Đặt lịch khám**\n\n";
+        responseMessage += "Dựa trên kết quả phân tích, tôi khuyên bạn nên đặt lịch khám sớm nhất có thể.\n\n";
+        responseMessage += "Bạn có thể:\n";
+        responseMessage += "• Gọi hotline: 0123-456-789\n";
+        responseMessage += "• Đặt lịch online qua website\n";
+        responseMessage += "• Đến trực tiếp phòng khám\n\n";
+        if (suggestedDoctor) {
+          responseMessage += `💡 Gợi ý: Nên đặt lịch với ${suggestedDoctor.fullName} - chuyên khoa ${suggestedDoctor.specialty}`;
+        }
+        break;
+
+      case "Hướng dẫn tự chăm sóc":
+      case "Hướng dẫn chăm sóc":
+        responseMessage = "🏠 **Hướng dẫn tự chăm sóc tại nhà**\n\n";
+        responseMessage += "**Ngay lập tức:**\n";
+        responseMessage += "• Súc miệng bằng nước muối ấm (1 thìa muối + 1 cốc nước)\n";
+        responseMessage += "• Tránh thức ăn quá nóng, lạnh, cứng\n";
+        responseMessage += "• Đánh răng nhẹ nhàng với bàn chải mềm\n\n";
+        responseMessage += "**Lâu dài:**\n";
+        responseMessage += "• Đánh răng 2 lần/ngày với kem đánh răng có fluoride\n";
+        responseMessage += "• Sử dụng chỉ nha khoa hàng ngày\n";
+        responseMessage += "• Hạn chế đường và thức ăn có axit\n";
+        responseMessage += "• Khám định kỳ 6 tháng/lần\n\n";
+        responseMessage += "⚠️ **Lưu ý**: Nếu có biểu hiện đau tăng, sưng, hoặc sốt, hãy đến bác sĩ ngay lập tức!";
+        break;
+
+      case "Kết thúc":
+        responseMessage = "Cảm ơn bạn đã sử dụng dịch vụ phân tích ảnh của chúng tôi! 🙏\n\n";
+        responseMessage += "**Tóm tắt:**\n";
+        if (analysisResult?.richContent?.highlights) {
+          responseMessage += `• ${analysisResult.richContent.highlights.join("\n• ")}\n\n`;
+        }
+        responseMessage += "Nếu cần hỗ trợ thêm, đừng ngần ngại liên hệ với chúng tôi.\n\n";
+        responseMessage += "💊 Chúc bạn có răng miệng khỏe mạnh!";
+        // Reset analysis result
+        setAnalysisResult(null);
+        break;
+
+      default:
+        responseMessage = `Đã nhận được yêu cầu: ${action}. Cảm ơn bạn!`;
+    }
+
+    // Add AI response
+    const aiMessage: ChatMessage = {
+      role: "assistant",
+      content: responseMessage,
+      timestamp: new Date(),
+    };
+
+    setTimeout(() => {
+      setMessages((prev) => [...prev, aiMessage]);
+    }, 500);
   };
 
   const quickSuggestions = [
@@ -352,108 +378,6 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
         {labels[urgencyLevel]}
       </div>
     );
-  };
-
-  // Handle action button clicks
-  const handleAnalysisActionClick = async (action: string) => {
-    // Handle "Kết thúc" action specially - show confirmation then clear all messages
-    if (action.toLowerCase().includes("kết thúc")) {
-      // Add user message first
-      const userMessage: ChatMessage = {
-        role: "user",
-        content: action,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-
-      // Add goodbye message
-      const goodbyeMessage: ChatMessage = {
-        role: "assistant",
-        content:
-          "Cảm ơn bạn đã sử dụng dịch vụ tư vấn nha khoa! 🙏\n\nChúc bạn có răng miệng khỏe mạnh! 💊\n\nChat sẽ được xóa sau 3 giây...",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, goodbyeMessage]);
-
-      // Clear everything after 3 seconds
-      setTimeout(() => {
-        setMessages([]);
-        setAnalysisResult(null);
-        setShowQuickSuggestions(true);
-        setSuggestedDoctor(null);
-        setUrgencyLevel("low");
-      }, 3000);
-
-      return;
-    }
-
-    // Add user message for the action
-    const userMessage: ChatMessage = {
-      role: "user",
-      content: action,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-
-    setIsLoading(true);
-
-    try {
-      // For analysis-related actions, use AI to generate intelligent responses
-      let promptMessage = "";
-
-      // Include analysis context if available
-      const analysisContext = analysisResult?.richContent
-        ? `Dựa trên kết quả phân tích ảnh nha khoa với chẩn đoán: "${analysisResult.richContent.analysis}". `
-        : "";
-
-      if (action.toLowerCase().includes("giải thích thêm")) {
-        promptMessage = `${analysisContext}Tôi muốn hiểu rõ hơn về kết quả phân tích ảnh nha khoa. Hãy giải thích chi tiết về tình trạng răng miệng, nguyên nhân có thể, và mức độ nghiêm trọng.`;
-      } else if (action.toLowerCase().includes("đặt lịch khám")) {
-        promptMessage = `${analysisContext}Tôi muốn đặt lịch khám nha khoa. Hãy tư vấn loại hình điều trị cần thiết, độ ưu tiên, và hướng dẫn quy trình đặt lịch khám.`;
-      } else if (action.toLowerCase().includes("hướng dẫn chăm sóc")) {
-        promptMessage = `${analysisContext}Tôi muốn được hướng dẫn cách chăm sóc răng miệng tại nhà để cải thiện tình trạng hiện tại. Hãy đưa ra lời khuyên cụ thể và thực tế.`;
-      } else if (action.toLowerCase().includes("gợi ý bác sĩ")) {
-        promptMessage = `${analysisContext}Tôi muốn được gợi ý bác sĩ nha khoa chuyên khoa phù hợp với tình trạng của mình. Hãy tư vấn loại chuyên khoa cần thiết và tiêu chí chọn bác sĩ.`;
-      } else {
-        promptMessage = action; // Fallback to the action text itself
-      }
-
-      // Get AI response
-      const aiResponse = await aiChatAPI.getDentalAdvice(promptMessage, messages);
-
-      const aiMessage: ChatMessage = {
-        role: "assistant",
-        content: aiResponse.message,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-
-      // Update suggested doctor if provided
-      if (aiResponse.suggestedDoctor) {
-        setSuggestedDoctor(aiResponse.suggestedDoctor);
-      }
-    } catch (error) {
-      console.error("Error with analysis action:", error);
-      const errorMessage: ChatMessage = {
-        role: "assistant",
-        content: "Xin lỗi, đã có lỗi xảy ra khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Get icon for each button
-  const getButtonIcon = (buttonText: string) => {
-    if (buttonText.includes("Giải thích")) return "💡";
-    if (buttonText.includes("Đặt lịch")) return "📅";
-    if (buttonText.includes("Hướng dẫn")) return "🏠";
-    if (buttonText.includes("Gợi ý bác sĩ")) return "👨‍⚕️";
-    if (buttonText.includes("Kết thúc")) return "✅";
-    return "🔧";
   };
 
   return (
@@ -512,44 +436,10 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
           <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
             <div
               className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                message.role === "user"
-                  ? "bg-blue-500 text-white"
-                  : message.actionButtons && message.actionButtons.length > 0
-                  ? "bg-white text-gray-900 border border-gray-200 shadow-lg"
-                  : "bg-gray-100 text-gray-900"
+                message.role === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
               }`}
             >
-              {/* Show image if available */}
-              {message.imageUrl && (
-                <div className="mb-2">
-                  <Image
-                    src={message.imageUrl}
-                    alt="Uploaded image"
-                    width={200}
-                    height={200}
-                    className="max-w-full h-auto rounded-lg border object-cover"
-                    style={{ maxHeight: "200px" }}
-                  />
-                </div>
-              )}
               <div className="whitespace-pre-wrap">{message.content}</div>
-
-              {/* Show action buttons if available */}
-              {message.actionButtons && message.actionButtons.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {message.actionButtons.map((buttonText, buttonIndex) => (
-                    <button
-                      key={buttonIndex}
-                      onClick={() => handleAnalysisActionClick(buttonText)}
-                      className="px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
-                    >
-                      <span className="mr-1">{getButtonIcon(buttonText)}</span>
-                      {buttonText}
-                    </button>
-                  ))}
-                </div>
-              )}
-
               <div className={`text-xs mt-1 ${message.role === "user" ? "text-blue-100" : "text-gray-500"}`}>
                 {message.timestamp instanceof Date
                   ? message.timestamp.toLocaleTimeString()
@@ -558,6 +448,99 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
             </div>
           </div>
         ))}
+
+        {/* Analysis Result Simple Display */}
+        {analysisResult && (
+          <div className="flex justify-start">
+            <div className="max-w-lg bg-white border border-gray-200 rounded-lg shadow-sm">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">🔍</span>
+                  </div>
+                  <h3 className="font-medium text-gray-900">Kết quả phân tích ảnh</h3>
+                </div>
+              </div>
+
+              {/* Main Content */}
+              <div className="p-4">
+                <div className="space-y-3">
+                  {/* Main Analysis */}
+                  {analysisResult.richContent?.analysis && (
+                    <div>
+                      <span className="font-medium text-gray-900">Chẩn đoán: </span>
+                      <span className="text-gray-700">{analysisResult.richContent.analysis}</span>
+                    </div>
+                  )}
+
+                  {/* Sections */}
+                  {analysisResult.richContent?.sections?.map((section, idx) => (
+                    <div key={idx}>
+                      {section.heading && (
+                        <>
+                          <span className="font-medium text-gray-900">{section.heading}: </span>
+                          <span className="text-gray-700">{section.text}</span>
+                        </>
+                      )}
+                      {section.bullets && (
+                        <ul className="mt-1 ml-4 space-y-1">
+                          {section.bullets.map((bullet, bulletIdx) => (
+                            <li key={bulletIdx} className="text-gray-700 text-sm">
+                              • {bullet}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Recommendations */}
+                  {analysisResult.richContent?.recommendations && (
+                    <div>
+                      <span className="font-medium text-yellow-600">💡 Khuyến nghị</span>
+                      <ul className="mt-1 space-y-1">
+                        {analysisResult.richContent.recommendations.map((rec, idx) => (
+                          <li key={idx} className="text-gray-700 text-sm">
+                            • {rec}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons (Right Side) */}
+            <div className="ml-3 flex flex-col space-y-2">
+              <button
+                onClick={() => handleAnalysisAction("Giải thích thêm")}
+                className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                Giải thích thêm
+              </button>
+              <button
+                onClick={() => handleAnalysisAction("Đặt lịch khám")}
+                className="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-full text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                Đặt lịch khám
+              </button>
+              <button
+                onClick={() => handleAnalysisAction("Hướng dẫn chăm sóc")}
+                className="px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-full text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                Hướng dẫn tự chăm sóc
+              </button>
+              <button
+                onClick={() => handleAnalysisAction("Kết thúc")}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                Kết thúc
+              </button>
+            </div>
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex justify-start">
