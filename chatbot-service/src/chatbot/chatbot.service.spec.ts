@@ -15,4 +15,20 @@ describe('ChatbotService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+
+  it('creates a new session and responds to welcome', async () => {
+    const sessionId = 'test-session-1';
+    const userId = 'user-1';
+
+    const response = await service.processMessage(sessionId, userId, 'xin chào');
+
+    expect(response).toBeDefined();
+    expect(typeof response.message).toBe('string');
+
+  const session = service.getSession(sessionId);
+  expect(session).toBeDefined();
+  // use non-null assertion because we just checked it's defined
+  expect(session!.userId).toBe(userId);
+  expect(session!.messages.length).toBeGreaterThanOrEqual(2); // user + bot
+  });
 });

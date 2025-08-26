@@ -97,6 +97,7 @@
             border-radius: 18px;
             word-wrap: break-word;
             line-height: 1.4;
+            box-shadow: 0 6px 18px rgba(34, 34, 34, 0.06);
         }
 
         .message.user .message-content {
@@ -106,11 +107,91 @@
         }
 
         .message.bot .message-content {
-            background: white;
-            color: #333;
-            border: 1px solid #e0e0e0;
+            /* make ordinary bot messages visually consistent with analysis-result */
+            background: #f8f9ff; /* soft, slightly bluish background */
+            color: #1f2937;
+            border: 1px solid #d7e6ff;
             border-bottom-left-radius: 4px;
+            box-shadow: 0 6px 18px rgba(34, 34, 34, 0.03);
+            padding: 14px 18px;
         }
+
+        .message .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex: 0 0 36px;
+            margin-right: 10px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #eee;
+        }
+
+        .message.user .avatar { display: none; }
+
+        .badge {
+            display: inline-block;
+            background: #e6f7ff;
+            color: #0050b3;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            margin-right: 6px;
+            margin-bottom: 6px;
+        }
+
+        .rich-section {
+            margin-top: 8px;
+            background: #fbfdff;
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px dashed #e6f2ff;
+        }
+
+        .rich-section h4 { margin: 0 0 6px 0; color: #1a237e }
+
+        .product-card {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 10px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #ffffff, #fbfcff);
+            border: 1px solid #eef5ff;
+            max-width: 720px;
+        }
+
+        .product-card img { width: 84px; height: 84px; object-fit: cover; border-radius: 6px }
+
+        .message img.attachment { max-width: 260px; border-radius: 8px; display: block; margin-top: 8px }
+
+        /* upload progress */
+        .upload-progress {
+            display: none;
+            width: 100%;
+            max-width: 720px;
+            margin-top: 10px;
+        }
+
+        .upload-progress .bar {
+            height: 10px;
+            background: #e9eefb;
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid #eef5ff;
+        }
+
+        .upload-progress .bar > .fill {
+            height: 100%;
+            background: linear-gradient(90deg,#667eea,#764ba2);
+            width: 0%;
+            transition: width 0.15s linear;
+        }
+
+        .upload-progress .label { margin-top: 6px; font-size: 0.85rem; color: #333 }
 
         .message-options {
             display: flex;
@@ -215,6 +296,28 @@
             color: #666;
             font-style: italic;
         }
+        .typing-indicator .dots {
+            display: inline-block;
+            width: 36px;
+            text-align: left;
+        }
+        .typing-indicator .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin-right: 4px;
+            background: #667eea;
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: blink 1s infinite;
+        }
+        .typing-indicator .dot:nth-child(2) { animation-delay: 0.15s }
+        .typing-indicator .dot:nth-child(3) { animation-delay: 0.3s }
+        @keyframes blink {
+            0% { opacity: 0.3; transform: translateY(0) }
+            50% { opacity: 1; transform: translateY(-4px) }
+            100% { opacity: 0.3; transform: translateY(0) }
+        }
 
         .analysis-result {
             background: #f8f9ff;
@@ -298,7 +401,7 @@
             <p>Trợ lý thăm khám răng miệng thông minh</p>
         </div>
 
-        <div class="chat-messages" id="chatMessages">
+    <div class="chat-messages" id="chatMessages">
             <div class="welcome-screen" id="welcomeScreen">
                 <h2>Chào mừng đến với AI Dental Chatbot!</h2>
                 <p>Tôi sẽ giúp bạn thăm khám răng miệng và phân tích ảnh X-quang</p>
@@ -309,9 +412,7 @@
         <div class="chat-input" id="chatInput" style="display: none;">
             <div class="input-container">
                 <input type="file" class="file-input" id="fileInput" accept="image/*">
-                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                    📷
-                </button>
+                <button class="upload-btn" id="uploadBtn" title="Gửi ảnh (ảnh sẽ hiển thị trong chat)">📷</button>
                 <input type="text" class="message-input" id="messageInput" placeholder="Nhập tin nhắn của bạn..." onkeypress="handleKeyPress(event)">
                 <button class="send-btn" id="sendBtn" onclick="sendMessage()">Gửi</button>
             </div>
@@ -326,6 +427,7 @@
         let socket;
         let sessionId;
         let userId;
+    const chatOrigin = window.location.origin;
 
         function startChat() {
             document.getElementById('welcomeScreen').style.display = 'none';
@@ -337,6 +439,10 @@
             
             // Kết nối WebSocket
             connectWebSocket();
+            // quick-bind upload button to file input for better mobile support
+            document.getElementById('uploadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+            // create or ensure upload progress element exists
+            ensureUploadProgress();
         }
 
         function connectWebSocket() {
@@ -355,13 +461,22 @@
                 console.log('Disconnected from server');
                 document.getElementById('statusIndicator').style.background = '#f44336';
             });
-            
-            socket.on('message', (data) => {
-                addMessage('bot', data.content, data.options, data.analysisResult);
+
+            // typing indicator support
+            socket.on('typing', ({ typing }) => {
+                const el = document.getElementById('typingIndicator');
+                el.style.display = typing ? 'block' : 'none';
             });
-            
+
+            socket.on('message', (data) => {
+                // hide loading when a real server message arrives
+                hideLoading();
+                // data may include { content, options, analysisResult, richContent, attachments }
+                addMessage('bot', data.content || '', data.options || null, data.analysisResult || null, data.richContent || null, data.attachments || null);
+            });
+
             socket.on('error', (data) => {
-                addMessage('bot', '❌ ' + data.message);
+                addMessage('bot', '❌ ' + (data?.message || 'Lỗi từ server'));
             });
         }
 
@@ -371,6 +486,8 @@
             
             if (message) {
                 addMessage('user', message);
+                // show loading while waiting for server to analyze / reply
+                showLoading();
                 socket.emit('message', { sessionId, userId, message });
                 input.value = '';
             }
@@ -382,84 +499,243 @@
             }
         }
 
-        function addMessage(type, content, options = null, analysisResult = null) {
+        function addMessage(type, content, options = null, analysisResult = null, richContent = null, attachments = null) {
             const messagesContainer = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${type}`;
-            
+
+            if (type === 'bot') {
+                const avatar = document.createElement('div');
+                avatar.className = 'avatar';
+                avatar.innerHTML = '<span>🤖</span>';
+                messageDiv.appendChild(avatar);
+            }
+
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.innerHTML = content;
-            
+            // If we have an analysisResult, the server likely included a summarized message in `content`.
+            // To avoid duplication between the main message text and the structured analysis block,
+            // don't render the raw `content` when `analysisResult` is present. Otherwise show `content` as normal.
+            if (!analysisResult) {
+                contentDiv.innerHTML = content || '';
+            }
+
+            // attachments (images)
+            if (attachments && Array.isArray(attachments)) {
+                attachments.forEach(src => {
+                    const img = document.createElement('img');
+                    img.className = 'attachment';
+                    img.src = src;
+                    contentDiv.appendChild(img);
+                });
+            }
+
+            // richContent rendering (title, highlights, sections)
+            if (richContent) {
+                if (richContent.title) {
+                    const t = document.createElement('div');
+                    t.style.fontWeight = '700';
+                    t.style.marginTop = '8px';
+                    t.textContent = richContent.title;
+                    contentDiv.appendChild(t);
+                }
+
+                if (Array.isArray(richContent.highlights)) {
+                    const hwrap = document.createElement('div');
+                    hwrap.style.marginTop = '8px';
+                    richContent.highlights.forEach(h => {
+                        const b = document.createElement('span');
+                        b.className = 'badge';
+                        b.textContent = h;
+                        hwrap.appendChild(b);
+                    });
+                    contentDiv.appendChild(hwrap);
+                }
+
+                if (Array.isArray(richContent.sections)) {
+                    richContent.sections.forEach(sec => {
+                        const s = document.createElement('div');
+                        s.className = 'rich-section';
+                        const heading = sec.heading ? `<h4>${sec.heading}</h4>` : '';
+                        const text = sec.text ? `<div>${sec.text}</div>` : '';
+                        let bullets = '';
+                        if (Array.isArray(sec.bullets)) {
+                            bullets = '<ul>' + sec.bullets.map(b => `<li>${b}</li>`).join('') + '</ul>';
+                        }
+                        s.innerHTML = heading + text + bullets;
+                        contentDiv.appendChild(s);
+                    });
+                }
+            }
+
             messageDiv.appendChild(contentDiv);
-            
+
             // Thêm options nếu có
             if (options && options.length > 0) {
                 const optionsDiv = document.createElement('div');
                 optionsDiv.className = 'message-options';
-                
+
                 options.forEach(option => {
                     const btn = document.createElement('button');
                     btn.className = 'option-btn';
                     btn.textContent = option;
-                    btn.onclick = () => {
-                        document.getElementById('messageInput').value = option;
-                        sendMessage();
-                    };
+                    btn.onclick = () => handleOptionClick(option);
                     optionsDiv.appendChild(btn);
                 });
-                
+
                 messageDiv.appendChild(optionsDiv);
             }
-            
-            // Thêm kết quả phân tích nếu có
+
+            // analysisResult — render full detailed result merged into the main message
             if (analysisResult) {
-                const analysisDiv = document.createElement('div');
-                analysisDiv.className = 'analysis-result';
-                analysisDiv.innerHTML = `
-                    <h4>🔍 Kết quả phân tích AI</h4>
-                    <p><strong>Chẩn đoán:</strong> ${analysisResult.diagnosis}</p>
-                    <p><strong>Độ tin cậy:</strong> ${(analysisResult.confidence * 100).toFixed(1)}%</p>
-                    <p><strong>Mức độ:</strong> <span class="severity-${analysisResult.severity}">${analysisResult.severity}</span></p>
-                    <p><strong>Chi phí ước tính:</strong> ${analysisResult.estimatedCost.min.toLocaleString('vi-VN')} - ${analysisResult.estimatedCost.max.toLocaleString('vi-VN')} VND</p>
+                // remove any previous analysis-result blocks so only the latest is visible
+                const prev = messagesContainer.querySelectorAll('.analysis-result');
+                prev.forEach(n => n.remove());
+
+                const diag = analysisResult.diagnosis || analysisResult.label || '';
+                const confRaw = analysisResult.confidence;
+                const conf = typeof confRaw === 'number' ? (confRaw * 100).toFixed(1) + '%' : (confRaw || '');
+                const sev = (analysisResult.severity || '').toLowerCase();
+
+                let costHtml = '';
+                if (analysisResult.estimatedCost && analysisResult.estimatedCost.min != null) {
+                    costHtml = `<p><strong>Ước tính chi phí:</strong> ${Number(analysisResult.estimatedCost.min).toLocaleString('vi-VN')} - ${Number(analysisResult.estimatedCost.max).toLocaleString('vi-VN')} VND</p>`;
+                }
+
+                // build recommendations list
+                let recsHtml = '';
+                const recs = analysisResult.recommendations || analysisResult.recommendation || analysisResult.suggestions || analysisResult.advice || null;
+                if (Array.isArray(recs) && recs.length) {
+                    recsHtml = '<ul>' + recs.map(r => `<li>${r}</li>`).join('') + '</ul>';
+                } else if (typeof recs === 'string' && recs.trim()) {
+                    const parts = recs.split(/\n|•|-/).map(s => s.trim()).filter(Boolean);
+                    if (parts.length) recsHtml = '<ul>' + parts.map(p => `<li>${p}</li>`).join('') + '</ul>';
+                }
+
+                // full structured HTML inserted into the existing contentDiv (merge into one message)
+                const html = `
+                    <div class="analysis-result">
+                      <h4>🔍 Kết quả phân tích ảnh</h4>
+                      <p><strong>Chẩn đoán:</strong> ${diag}</p>
+                      <p><strong>Độ tin cậy:</strong> ${conf}</p>
+                      <p><strong>Mức độ:</strong> <span class="severity-${sev}">${sev}</span></p>
+                      ${costHtml}
+                      ${recsHtml ? '<h4>💡 Khuyến nghị</h4>' + recsHtml : ''}
+                    </div>
                 `;
-                messageDiv.appendChild(analysisDiv);
+
+                // set structured HTML into contentDiv (will replace any raw content)
+                contentDiv.innerHTML = html;
+
+                // attachments (images) remain visible below inside contentDiv
+                if (attachments && Array.isArray(attachments)) {
+                    attachments.forEach(src => {
+                        const img = document.createElement('img');
+                        img.className = 'attachment';
+                        img.src = src;
+                        contentDiv.appendChild(img);
+                    });
+                }
+
+                // add action quick-replies under analysis (inside contentDiv)
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'message-options';
+                const actions = ['Giải thích thêm', 'Đặt lịch khám', 'Hướng dẫn tự chăm sóc', 'Kết thúc'];
+                actions.forEach(a => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn';
+                    btn.textContent = a;
+                    btn.onclick = () => handleOptionClick(a);
+                    actionsDiv.appendChild(btn);
+                });
+
+                contentDiv.appendChild(actionsDiv);
             }
-            
+
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // Xử lý upload file
+        // Xử lý upload file with preview and inline user message
         document.getElementById('fileInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (file) {
-                uploadFile(file);
+                // show local preview immediately
+                const previewUrl = URL.createObjectURL(file);
+                addMessage('user', `📷 Đã gửi ảnh: ${file.name}`, null, null, null, [previewUrl]);
+                uploadFile(file, previewUrl);
             }
+            // reset input so same file can be reselected
+            event.target.value = '';
         });
 
-        function uploadFile(file) {
+        function uploadFile(file, previewUrl) {
             const formData = new FormData();
             formData.append('image', file);
             formData.append('sessionId', sessionId);
             formData.append('userId', userId);
-            
-            fetch('/chatbot/upload', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    addMessage('user', `📷 Đã gửi ảnh: ${file.name}`);
-                    addMessage('bot', data.data.message, data.data.options, data.data.analysisResult);
-                } else {
-                    addMessage('bot', '❌ Lỗi khi upload ảnh: ' + data.error);
+
+            showLoading();
+            showUploadProgress();
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/chatbot/upload');
+
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    updateUploadProgress(percent);
                 }
-            })
-            .catch(error => {
-                addMessage('bot', '❌ Lỗi khi upload ảnh: ' + error.message);
-            });
+            };
+
+            xhr.onload = function () {
+                hideUploadProgress();
+                hideLoading();
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        const serverMsg = data?.data?.message || 'Đã nhận ảnh. Xem kết quả bên dưới.';
+                        const attachments = data?.data?.attachments || (data?.data?.analysisResult?.images || null);
+                        const rich = data?.data?.richContent || (data?.data?.analysisResult ? { title: 'Kết quả phân tích', sections: [{ heading: 'Tóm tắt', text: JSON.stringify(data.data.analysisResult) }] } : null);
+                        addMessage('bot', serverMsg, data?.data?.options || null, data?.data?.analysisResult || null, rich, attachments || null);
+
+                        if (Array.isArray(data?.data?.products) && data.data.products.length) {
+                            data.data.products.forEach(p => {
+                                const prodHtml = `<div class="product-card">\n                                    <img src="${p.image || '/images/prod-placeholder.png'}" alt="${p.name}"/>\n                                    <div>\n                                      <div style=\"font-weight:700\">${p.name}</div>\n                                      <div style=\"color:#666;margin-top:6px\">${p.description || ''}</div>\n                                      <div style=\"margin-top:8px;color:#888\">${p.rating || '-'} ★ • ${p.reviews || 0} đánh giá</div>\n                                    </div>\n                                  </div>`;
+                                addMessage('bot', prodHtml, null, null, null, null);
+                            });
+                        }
+                    } catch (err) {
+                        addMessage('bot', '❌ Lỗi khi phân tích phản hồi server');
+                    }
+                } else {
+                    addMessage('bot', '❌ Upload thất bại: ' + xhr.statusText);
+                }
+            };
+
+            xhr.onerror = function () {
+                hideUploadProgress();
+                hideLoading();
+                addMessage('bot', '❌ Lỗi khi upload ảnh. Vui lòng thử lại.');
+            };
+
+            xhr.send(formData);
+        }
+
+        function showLoading() {
+            const el = document.getElementById('typingIndicator');
+            if (!el) return;
+            el.style.display = 'block';
+            // ensure inner dots exist
+            if (!el.querySelector('.dots')) {
+                el.innerHTML = 'AI đang phân tích <span class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
+            }
+        }
+
+        function hideLoading() {
+            const el = document.getElementById('typingIndicator');
+            if (!el) return;
+            el.style.display = 'none';
         }
 
         // Kiểm tra health
@@ -481,6 +757,58 @@
         // Kiểm tra health định kỳ
         setInterval(checkHealth, 30000);
         checkHealth();
+
+        // Upload progress UI helpers
+        function ensureUploadProgress() {
+            if (document.getElementById('uploadProgress')) return;
+            const container = document.createElement('div');
+            container.className = 'upload-progress';
+            container.id = 'uploadProgress';
+            container.innerHTML = `
+                <div class="bar"><div class="fill" style="width:0%"></div></div>
+                <div class="label">Uploading <span id="uploadPercent">0%</span></div>
+            `;
+            const parent = document.querySelector('.chat-input');
+            if (parent) parent.insertAdjacentElement('afterend', container);
+        }
+
+        function showUploadProgress() {
+            ensureUploadProgress();
+            const el = document.getElementById('uploadProgress');
+            if (el) el.style.display = 'block';
+            updateUploadProgress(0);
+        }
+
+        function updateUploadProgress(pct) {
+            const el = document.getElementById('uploadProgress');
+            if (!el) return;
+            const fill = el.querySelector('.fill');
+            const label = document.getElementById('uploadPercent');
+            if (fill) fill.style.width = pct + '%';
+            if (label) label.textContent = pct + '%';
+        }
+
+        function hideUploadProgress() {
+            const el = document.getElementById('uploadProgress');
+            if (el) el.style.display = 'none';
+            updateUploadProgress(0);
+        }
+
+        // Handle quick-reply buttons that should open file-picker
+        function handleOptionClick(option) {
+            const lower = option.toLowerCase();
+            if (lower.includes('gửi ảnh') || lower.includes('ảnh')) {
+                // open file picker
+                document.getElementById('fileInput').click();
+                // also send a placeholder message
+                addMessage('user', option);
+                return;
+            }
+
+            // default: send as text input to socket
+            addMessage('user', option);
+            if (socket && socket.connected) socket.emit('message', { sessionId, userId, message: option });
+        }
     </script>
 </body>
 </html>

@@ -45,38 +45,66 @@ export class ChatbotGateway implements OnGatewayInit, OnGatewayConnection, OnGat
 
   @SubscribeMessage('join')
   handleJoin(@MessageBody() data: { sessionId: string; userId: string }, @ConnectedSocket() client: Socket) {
-    const { sessionId, userId } = data;
+    const sessionId = data?.sessionId;
+    const userId = data?.userId;
+
+    if (!sessionId || !userId) {
+      client.emit('error', { message: 'sessionId và userId là bắt buộc khi join' });
+      return;
+    }
+
     client.join(sessionId);
     this.logger.log(`Client ${userId} joined session ${sessionId}`);
-    
-    // Gửi welcome message
+    // Gửi typing event -> response
+    this.server.to(sessionId).emit('typing', { typing: true });
     this.chatbotService.processMessage(sessionId, userId, 'xin chào')
       .then(response => {
         this.server.to(sessionId).emit('message', {
           type: 'bot',
           content: response.message,
           timestamp: new Date(),
-          options: response.options
+          options: response.options,
+          richContent: response.richContent
         });
+      })
+      .catch(err => {
+        this.logger.error(`Failed to process welcome message: ${err?.message || err}`);
+        client.emit('error', { message: 'Không thể gửi lời chào' });
+      })
+      .finally(() => {
+        this.server.to(sessionId).emit('typing', { typing: false });
       });
   }
 
   @SubscribeMessage('message')
   async handleMessage(@MessageBody() data: ChatRequest, @ConnectedSocket() client: Socket) {
     try {
-      const { sessionId, userId, message, attachments } = data;
-      
+      const sessionId = data?.sessionId;
+      const userId = data?.userId;
+      const message = data?.message;
+      const attachments = data?.attachments;
+
+      if (!sessionId || !userId || typeof message !== 'string') {
+        client.emit('error', { message: 'sessionId, userId, và message là bắt buộc' });
+        return;
+      }
+
+      // Emit typing indicator for UX
+      this.server.to(sessionId).emit('typing', { typing: true });
+
       // Xử lý message
       const response = await this.chatbotService.processMessage(sessionId, userId, message, attachments);
-      
+
       // Gửi response về client
       this.server.to(sessionId).emit('message', {
         type: 'bot',
         content: response.message,
         timestamp: new Date(),
         options: response.options,
-        analysisResult: response.analysisResult
+        analysisResult: response.analysisResult,
+        richContent: response.richContent
       });
+      this.server.to(sessionId).emit('typing', { typing: false });
       
     } catch (error) {
       this.logger.error(`Error processing message: ${error.message}`);
@@ -87,23 +115,35 @@ export class ChatbotGateway implements OnGatewayInit, OnGatewayConnection, OnGat
   @SubscribeMessage('upload_image')
   async handleImageUpload(@MessageBody() data: { sessionId: string; userId: string; imagePath: string }, @ConnectedSocket() client: Socket) {
     try {
-      const { sessionId, userId, imagePath } = data;
-      
+      const sessionId = data?.sessionId;
+      const userId = data?.userId;
+      const imagePath = data?.imagePath;
+
+      if (!sessionId || !userId || !imagePath) {
+        client.emit('error', { message: 'sessionId, userId và imagePath là bắt buộc' });
+        return;
+      }
+
+      // Emit typing indicator for UX
+      this.server.to(sessionId).emit('typing', { typing: true });
+
       // Xử lý upload ảnh
       const response = await this.chatbotService.processMessage(sessionId, userId, 'upload_image', [imagePath]);
-      
+
       // Gửi response về client
       this.server.to(sessionId).emit('message', {
         type: 'bot',
         content: response.message,
         timestamp: new Date(),
         options: response.options,
-        analysisResult: response.analysisResult
+        analysisResult: response.analysisResult,
+        richContent: response.richContent
       });
+      this.server.to(sessionId).emit('typing', { typing: false });
       
     } catch (error) {
-      this.logger.error(`Error processing image upload: ${error.message}`);
-      client.emit('error', { message: 'Có lỗi xảy ra khi xử lý ảnh' });
+  this.logger.error(`Error processing image upload: ${error?.message || error}`);
+  client.emit('error', { message: 'Có lỗi xảy ra khi xử lý ảnh' });
     }
   }
 }
