@@ -13,6 +13,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
+import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { MailModule } from './mail/mail.module';
 
 @Module({
@@ -30,6 +31,7 @@ import { MailModule } from './mail/mail.module';
     MailModule,
     UsersModule,
     AuthModule,
+    AiChatModule,
     AppointmentsModule,
     MedicalRecordsModule,
     NotificationsModule,

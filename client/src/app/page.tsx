@@ -1,6 +1,9 @@
-import Link from "next/link";
+"use client";
 
-export default async function HomePage() {
+import Link from "next/link";
+import Header from "@/components/Header";
+
+export default function HomePage() {
   const services = [
     {
       icon: "🦷",
@@ -48,35 +51,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">🦷</span>
-              </div>
-              <h1 className="ml-3 text-2xl font-bold text-gray-900">Smart Dental Healthcare</h1>
-            </div>
-            <nav className="flex items-center space-x-8">
-              <Link href="#services" className="text-gray-600 hover:text-gray-900">
-                Dịch vụ
-              </Link>
-              <Link href="#doctors" className="text-gray-600 hover:text-gray-900">
-                Bác sĩ
-              </Link>
-              <Link href="#about" className="text-gray-600 hover:text-gray-900">
-                Về chúng tôi
-              </Link>
-              <Link href="/auth/login" className="text-gray-600 hover:text-gray-900">
-                Đăng nhập
-              </Link>
-              <Link href="/auth/register" className="bg-sky-500 text-white px-4 py-2 rounded-md hover:bg-sky-600">
-                Đăng ký
-              </Link>
-            </nav>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section with Booking */}
       <section className="bg-gradient-to-br from-sky-500 to-sky-700 text-white py-20">
