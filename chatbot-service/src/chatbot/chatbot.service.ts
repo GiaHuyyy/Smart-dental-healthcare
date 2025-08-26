@@ -56,7 +56,7 @@ export class ChatbotService {
     private readonly configService: ConfigService,
   ) {
     this.aiAnalysisUrl = this.configService.get<string>('AI_ANALYSIS_URL') || 'http://localhost:3010/analyze';
-    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'AIzaSyDDcQCeNgxl98wPbG6-1650PFLXs1B1Yd0';
+    this.geminiApiKey = this.configService.get<string>('GEMINI_API_KEY') || 'your-api-key';
   }
 
   async processMessage(sessionId: string, userId: string, message: string, attachments?: string[]): Promise<BotResponse> {
