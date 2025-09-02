@@ -7,8 +7,7 @@ import {
   Patch,
   Post,
   Query,
-  Req,
-  UseGuards,
+  UseGuards
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/passport/jwt-auth.guard';
 import { Public } from 'src/decorator/customize';
@@ -17,10 +16,12 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @Public()
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
@@ -38,6 +39,8 @@ export class UsersController {
   @Get('patients')
   @Public()
   async findAllPatients() {
+    // This endpoint is public; pass null as the `user` param so the service
+    // does not mistake the query object for a user and incorrectly block access.
     return this.usersService.findAllPatients(null);
   }
 
@@ -60,11 +63,13 @@ export class UsersController {
   }
 
   @Patch()
+  @Public()
   update(@Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(updateUserDto);
   }
 
   @Delete(':id')
+  @Public()
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
   }

@@ -11,7 +11,7 @@ const navigation = [
   { name: "Lịch khám", href: "/doctor/schedule", icon: "📅" },
   { name: "Bệnh nhân", href: "/doctor/patients", icon: "👥" },
   { name: "Chat & Tư vấn", href: "/doctor/chat", icon: "💬" },
-  { name: "Hồ sơ điều trị", href: "/doctor/treatments", icon: "📋" },
+  { name: "Hồ sơ điều trị", href: "/doctor/medical-records", icon: "📋" },
   { name: "Đơn thuốc", href: "/doctor/prescriptions", icon: "💊" },
   { name: "Báo cáo", href: "/doctor/reports", icon: "📈" },
   { name: "Cài đặt", href: "/doctor/settings", icon: "⚙️" },

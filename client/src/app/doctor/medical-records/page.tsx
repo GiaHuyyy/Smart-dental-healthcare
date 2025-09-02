@@ -1,7 +1,12 @@
 'use client';
 
-import DentalChart from '@/components/medical-records/DentalChart';
+import CreateMedicalRecordModal from '@/components/medical-records/CreateMedicalRecordModal';
+import DoctorStatistics from '@/components/medical-records/DoctorStatistics';
+import EditMedicalRecordModal from '@/components/medical-records/EditMedicalRecordModal';
+import ExportMedicalRecord from '@/components/medical-records/ExportMedicalRecord';
+import MedicalRecordDetailModal from '@/components/medical-records/MedicalRecordDetailModal';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,28 +14,26 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
-  Activity,
-  AlertCircle,
-  Calendar,
-  CheckCircle,
-  Clock,
-  FileText,
-  Filter,
-  Search,
-  Stethoscope,
-  TrendingUp
+    Activity,
+    AlertCircle,
+    Calendar,
+    CheckCircle,
+    Clock,
+    Download,
+    Edit,
+    Eye,
+    FileText,
+    Filter,
+    Plus,
+    Search,
+    Stethoscope,
+    TrendingUp
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface MedicalRecord {
   _id: string;
-  patientId?: {
-    _id?: string;
-    fullName?: string;
-    email?: string;
-    phone?: string;
-  };
-  doctorId?: {
+  patientId: {
     _id?: string;
     fullName?: string;
     email?: string;
@@ -58,12 +61,18 @@ interface MedicalRecord {
   }>;
 }
 
-export default function PatientRecordsPage() {
+export default function DoctorMedicalRecordsPage() {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showStatistics, setShowStatistics] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const { toast } = useToast();
 
@@ -77,7 +86,7 @@ export default function PatientRecordsPage() {
 
   const fetchMedicalRecords = async () => {
     try {
-      const response = await fetch('/api/medical-records/patient', {
+      const response = await fetch('/api/medical-records/doctor', {
         headers: {
           'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
         }
@@ -111,10 +120,9 @@ export default function PatientRecordsPage() {
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(record =>
-  (record.patientId?.fullName || '') .toLowerCase().includes(searchTerm.toLowerCase()) ||
-  record.chiefComplaint.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.treatmentPlan?.toLowerCase().includes(searchTerm.toLowerCase())
+        (record.patientId?.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.chiefComplaint.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -139,6 +147,79 @@ export default function PatientRecordsPage() {
     }
 
     setFilteredRecords(filtered);
+  };
+
+  const handleCreateRecord = async (data: any) => {
+    try {
+      const response = await fetch('/api/medical-records', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Thành công",
+          description: "Hồ sơ bệnh án đã được tạo thành công",
+        });
+        setShowCreateModal(false);
+        fetchMedicalRecords();
+      } else {
+        toast({
+          title: "Lỗi",
+          description: "Không thể tạo hồ sơ bệnh án",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi tạo hồ sơ",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdateRecord = async (id: string, data: any) => {
+    try {
+      const response = await fetch(`/api/medical-records/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Thành công",
+          description: "Hồ sơ bệnh án đã được cập nhật thành công",
+        });
+        setShowEditModal(false);
+        fetchMedicalRecords();
+      } else {
+        toast({
+          title: "Lỗi",
+          description: "Không thể cập nhật hồ sơ bệnh án",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi cập nhật hồ sơ",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleExportRecord = (record: MedicalRecord) => {
+    setSelectedRecord(record);
+    setShowExportModal(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -168,7 +249,7 @@ export default function PatientRecordsPage() {
       <div 
         className="flex items-center justify-center min-h-screen"
         style={{
-          background: 'linear-gradient(135deg, #dcfce7 0%, #ffffff 50%, #bbf7d0 100%)',
+          background: 'linear-gradient(135deg, #dbeafe 0%, #ffffff 50%, #e0e7ff 100%)',
           backgroundAttachment: 'fixed',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
@@ -176,8 +257,8 @@ export default function PatientRecordsPage() {
         }}
       >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải hồ sơ bệnh án...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang tải dữ liệu...</p>
         </div>
       </div>
     );
@@ -187,7 +268,7 @@ export default function PatientRecordsPage() {
     <div 
       className="min-h-screen"
       style={{
-        background: 'linear-gradient(135deg, #dcfce7 0%, #ffffff 50%, #bbf7d0 100%)',
+        background: 'linear-gradient(135deg, #dbeafe 0%, #ffffff 50%, #e0e7ff 100%)',
         backgroundAttachment: 'fixed',
         backgroundSize: 'cover',
         backgroundRepeat: 'no-repeat',
@@ -199,40 +280,60 @@ export default function PatientRecordsPage() {
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 p-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                Hồ sơ bệnh án của tôi
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Hồ sơ điều trị
               </h1>
-              <p className="text-gray-600 mt-2 text-lg">Xem và theo dõi lịch sử điều trị của bạn</p>
+              <p className="text-gray-600 mt-2 text-lg">Quản lý hồ sơ bệnh án của bệnh nhân một cách hiệu quả</p>
             </div>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-green-600" />
-              <span className="text-green-600 font-medium">Tổng cộng: {records.length} hồ sơ</span>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowStatistics(!showStatistics)}
+                className="flex items-center gap-2 bg-white/80 hover:bg-white border-gray-200 backdrop-blur-sm"
+              >
+                <TrendingUp className="h-4 w-4" />
+                Thống kê
+              </Button>
+              <Button 
+                onClick={() => setShowCreateModal(true)} 
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Tạo hồ sơ mới
+              </Button>
             </div>
           </div>
         </div>
 
+        {/* Statistics Section */}
+        {showStatistics && (
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 p-6">
+            <DoctorStatistics doctorId="current-doctor-id" />
+          </div>
+        )}
+
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm font-medium">Tổng hồ sơ</p>
-                  <p className="text-3xl font-bold">{records.length}</p>
-                </div>
-                <FileText className="h-8 w-8 text-green-200" />
-              </div>
-            </CardContent>
-          </Card>
-          
           <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm font-medium">Đang điều trị</p>
+                  <p className="text-blue-100 text-sm font-medium">Tổng hồ sơ</p>
+                  <p className="text-3xl font-bold">{records.length}</p>
+                </div>
+                <FileText className="h-8 w-8 text-blue-200" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm font-medium">Đang điều trị</p>
                   <p className="text-3xl font-bold">{getStatusCount('active')}</p>
                 </div>
-                <Activity className="h-8 w-8 text-blue-200" />
+                <Activity className="h-8 w-8 text-green-200" />
               </div>
             </CardContent>
           </Card>
@@ -262,30 +363,21 @@ export default function PatientRecordsPage() {
           </Card>
         </div>
 
-        {/* Dental Chart Section */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <Stethoscope className="h-6 w-6 text-green-600" />
-            Sơ đồ răng
-          </h2>
-          <DentalChart records={records} />
-        </div>
-
         {/* Main Content */}
         <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="border-b border-gray-100">
               <TabsList className="grid w-full grid-cols-4 bg-transparent border-0 p-0 h-auto">
-                <TabsTrigger value="all" className="data-[state=active]:bg-green-50 data-[state=active]:text-green-600 data-[state=active]:border-green-200 rounded-none border-b-2 data-[state=active]:border-b-green-600 h-12">
+                <TabsTrigger value="all" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
                   Tất cả ({records.length})
                 </TabsTrigger>
-                <TabsTrigger value="recent" className="data-[state=active]:bg-green-50 data-[state=active]:text-green-600 data-[state=active]:border-green-200 rounded-none border-b-2 data-[state=active]:border-b-green-600 h-12">
+                <TabsTrigger value="recent" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
                   Gần đây
                 </TabsTrigger>
-                <TabsTrigger value="follow-up" className="data-[state=active]:bg-green-50 data-[state=active]:text-green-600 data-[state=active]:border-green-200 rounded-none border-b-2 data-[state=active]:border-b-green-600 h-12">
+                <TabsTrigger value="follow-up" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
                   Cần tái khám ({records.filter(r => r.isFollowUpRequired).length})
                 </TabsTrigger>
-                <TabsTrigger value="active" className="data-[state=active]:bg-green-50 data-[state=active]:text-green-600 data-[state=active]:border-green-200 rounded-none border-b-2 data-[state=active]:border-b-green-600 h-12">
+                <TabsTrigger value="active" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
                   Đang điều trị ({getStatusCount('active')})
                 </TabsTrigger>
               </TabsList>
@@ -297,10 +389,10 @@ export default function PatientRecordsPage() {
                 <div className="relative flex-1 w-full">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <Input
-                    placeholder="Tìm kiếm theo triệu chứng, chẩn đoán, kế hoạch điều trị..."
+                    placeholder="Tìm kiếm theo tên bệnh nhân, triệu chứng, chẩn đoán..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-12 h-12 text-lg border-gray-200 focus:border-green-500 focus:ring-green-500 bg-white/80 backdrop-blur-sm"
+                    className="pl-12 h-12 text-lg border-gray-200 focus:border-blue-500 focus:ring-blue-500 bg-white/80 backdrop-blur-sm"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -308,7 +400,7 @@ export default function PatientRecordsPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="h-12 px-4 border border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500 bg-white/80 backdrop-blur-sm"
+                    className="h-12 px-4 border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 bg-white/80 backdrop-blur-sm"
                   >
                     <option value="all">Tất cả trạng thái</option>
                     <option value="active">Đang điều trị</option>
@@ -327,29 +419,38 @@ export default function PatientRecordsPage() {
                       <FileText className="h-16 w-16 text-gray-400 mb-4" />
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">Không có hồ sơ nào</h3>
                       <p className="text-gray-500 text-center max-w-md">
-                        {activeTab === 'all' ? 'Bạn chưa có hồ sơ bệnh án nào. Hãy liên hệ với bác sĩ để được khám và tạo hồ sơ.' : 
-                         activeTab === 'follow-up' ? 'Không có lịch tái khám nào trong thời gian này.' :
+                        {activeTab === 'all' ? 'Chưa có hồ sơ bệnh án nào được tạo. Hãy bắt đầu bằng cách tạo hồ sơ đầu tiên.' : 
+                         activeTab === 'follow-up' ? 'Không có bệnh nhân nào cần tái khám trong thời gian này.' :
                          'Không có hồ sơ nào phù hợp với bộ lọc hiện tại.'}
                       </p>
+                      {activeTab === 'all' && (
+                        <Button 
+                          onClick={() => setShowCreateModal(true)}
+                          className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Tạo hồ sơ đầu tiên
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ) : (
                   filteredRecords.map((record) => (
-                    <Card key={record._id} className="hover:shadow-lg transition-all duration-300 border-gray-100 hover:border-green-200 group bg-white/80 backdrop-blur-sm">
+                    <Card key={record._id} className="hover:shadow-lg transition-all duration-300 border-gray-100 hover:border-blue-200 group bg-white/80 backdrop-blur-sm">
                       <CardContent className="p-6">
                         <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
                           <div className="flex-1 space-y-4">
                             {/* Header */}
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                               <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                                  <Stethoscope className="h-6 w-6" />
+                                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                                  {(record.patientId?.fullName || 'U').charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                  <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">
-                                    Khám ngày {format(new Date(record.recordDate), 'dd/MM/yyyy', { locale: vi })}
+                                  <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                    {record.patientId?.fullName || 'Chưa cập nhật'}
                                   </h3>
-                                  <p className="text-gray-500 text-sm">Bác sĩ: {record.doctorId?.fullName || 'Chưa cập nhật'}</p>
+                                  <p className="text-gray-500 text-sm">{record.patientId?.email || ''}</p>
                                 </div>
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -367,12 +468,12 @@ export default function PatientRecordsPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                               <div className="space-y-3">
                                 <div className="flex items-center gap-3 text-gray-700">
-                                  <Calendar className="h-5 w-5 text-green-500" />
+                                  <Calendar className="h-5 w-5 text-blue-500" />
                                   <span className="font-medium">Ngày khám:</span>
                                   <span>{format(new Date(record.recordDate), 'dd/MM/yyyy', { locale: vi })}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
-                                  <Stethoscope className="h-5 w-5 text-blue-500" />
+                                  <Stethoscope className="h-5 w-5 text-green-500" />
                                   <span className="font-medium">Triệu chứng:</span>
                                   <span className="text-gray-600">{record.chiefComplaint}</span>
                                 </div>
@@ -401,6 +502,43 @@ export default function PatientRecordsPage() {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Actions */}
+                          <div className="flex gap-2 lg:flex-col">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRecord(record);
+                                setShowDetailModal(true);
+                              }}
+                              className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 bg-white/80 backdrop-blur-sm"
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span className="hidden lg:inline">Xem</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRecord(record);
+                                setShowEditModal(true);
+                              }}
+                              className="flex items-center gap-2 hover:bg-green-50 hover:border-green-200 hover:text-green-600 bg-white/80 backdrop-blur-sm"
+                            >
+                              <Edit className="h-4 w-4" />
+                              <span className="hidden lg:inline">Sửa</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleExportRecord(record)}
+                              className="flex items-center gap-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 bg-white/80 backdrop-blur-sm"
+                            >
+                              <Download className="h-4 w-4" />
+                              <span className="hidden lg:inline">Xuất</span>
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -411,6 +549,44 @@ export default function PatientRecordsPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Modals */}
+      {showCreateModal && (
+        <CreateMedicalRecordModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateRecord}
+        />
+      )}
+
+      {showDetailModal && selectedRecord && (
+        <MedicalRecordDetailModal
+          isOpen={showDetailModal}
+          onClose={() => setShowDetailModal(false)}
+          record={selectedRecord}
+          onEdit={() => {
+            setShowDetailModal(false);
+            setShowEditModal(true);
+          }}
+        />
+      )}
+
+      {showEditModal && selectedRecord && (
+        <EditMedicalRecordModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          record={selectedRecord}
+          onSubmit={(data) => handleUpdateRecord(selectedRecord._id, data)}
+        />
+      )}
+
+      {showExportModal && selectedRecord && (
+        <ExportMedicalRecord
+          recordId={selectedRecord._id}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
     </div>
   );
 }
+

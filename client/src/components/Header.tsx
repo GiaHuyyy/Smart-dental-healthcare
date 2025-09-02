@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import LogoutButton from "./auth/LogoutButton";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import LogoutButton from "./auth/LogoutButton";
 
 export default function Header({ role = "Bệnh nhân" }) {
   const { data: session } = useSession();

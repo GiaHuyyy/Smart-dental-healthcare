@@ -11,7 +11,6 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import mongoose from 'mongoose';
 
 class VitalSignsDto {
   @IsString()
@@ -71,11 +70,11 @@ class ProcedureDto {
 export class CreateMedicalRecordDto {
   @IsMongoId()
   @IsNotEmpty()
-  patientId: mongoose.Schema.Types.ObjectId;
+  patientId: string;
 
   @IsMongoId()
   @IsNotEmpty()
-  doctorId: mongoose.Schema.Types.ObjectId;
+  doctorId: string;
 
   @IsDate()
   @Type(() => Date)
@@ -128,7 +127,7 @@ export class CreateMedicalRecordDto {
 
   @IsMongoId()
   @IsOptional()
-  appointmentId?: mongoose.Schema.Types.ObjectId;
+  appointmentId?: string;
 
   @IsBoolean()
   @IsOptional()

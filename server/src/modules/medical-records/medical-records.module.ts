@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { MedicalRecordsService } from './medical-records.service';
 import { MedicalRecordsController } from './medical-records.controller';
+import { MedicalRecordsService } from './medical-records.service';
 import { MedicalRecord, MedicalRecordSchema } from './schemas/medical-record.schemas';
 
 @Module({

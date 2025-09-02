@@ -6,6 +6,8 @@ export type MedicalRecordDocument = HydratedDocument<MedicalRecord>;
 
 @Schema({ timestamps: true })
 export class MedicalRecord {
+  _id: mongoose.Schema.Types.ObjectId;
+
   @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: User.name })
   patientId: mongoose.Schema.Types.ObjectId;
 
