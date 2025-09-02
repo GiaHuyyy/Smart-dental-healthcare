@@ -1,12 +1,12 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
 import { Public } from 'src/decorator/customize';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -45,6 +45,42 @@ export class UsersController {
   @Public()
   async findAllDoctors() {
     return this.usersService.findAllDoctors(null);
+  }
+
+  @Get('patients/stats')
+  @Public()
+  async getPatientStats(@Query('doctorId') doctorId?: string) {
+    return this.usersService.getPatientStats(doctorId);
+  }
+
+  @Get('patients/search')
+  @Public()
+  async searchPatients(@Query() query: any) {
+    return this.usersService.searchPatients(query);
+  }
+
+  @Get('patients/:id/details')
+  @Public()
+  async getPatientDetails(@Param('id') id: string, @Query('doctorId') doctorId?: string) {
+    return this.usersService.getPatientDetails(id, doctorId);
+  }
+
+  @Get('patients/:id/appointments')
+  @Public()
+  async getPatientAppointments(@Param('id') id: string, @Query() query: any) {
+    return this.usersService.getPatientAppointments(id, query);
+  }
+
+  @Get('patients/:id/prescriptions')
+  @Public()
+  async getPatientPrescriptions(@Param('id') id: string, @Query() query: any) {
+    return this.usersService.getPatientPrescriptions(id, query);
+  }
+
+  @Get('patients/:id/medical-records')
+  @Public()
+  async getPatientMedicalRecords(@Param('id') id: string, @Query() query: any) {
+    return this.usersService.getPatientMedicalRecords(id, query);
   }
 
   @Patch('activate-for-test')

@@ -148,4 +148,75 @@ export class PrescriptionsService {
       pending,
     };
   }
+
+  async getPatientPrescriptionHistory(patientId: string, query: any): Promise<any> {
+    try {
+      const { current = 1, pageSize = 10, status } = query;
+      
+      let filter: any = { patientId };
+      
+      if (status && status !== 'all') {
+        if (status === 'dispensed') {
+          filter.isDispensed = true;
+        } else if (status === 'pending') {
+          filter.isDispensed = false;
+        }
+      }
+
+      const skip = (current - 1) * pageSize;
+      const totalItems = await this.prescriptionModel.countDocuments(filter);
+      const totalPages = Math.ceil(totalItems / pageSize);
+
+      const prescriptions = await this.prescriptionModel
+        .find(filter)
+        .populate('doctorId', 'fullName specialty')
+        .populate('medicalRecordId')
+        .sort({ prescriptionDate: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .exec();
+
+      return {
+        success: true,
+        data: {
+          prescriptions,
+          pagination: {
+            current: +current,
+            pageSize: +pageSize,
+            totalItems,
+            totalPages
+          }
+        },
+        message: 'Lấy lịch sử đơn thuốc thành công'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy lịch sử đơn thuốc'
+      };
+    }
+  }
+
+  async getPatientRecentPrescriptions(patientId: string, limit: number = 5): Promise<any> {
+    try {
+      const prescriptions = await this.prescriptionModel
+        .find({ patientId })
+        .populate('doctorId', 'fullName specialty')
+        .populate('medicalRecordId')
+        .sort({ prescriptionDate: -1 })
+        .limit(limit)
+        .exec();
+
+      return {
+        success: true,
+        data: prescriptions,
+        message: 'Lấy đơn thuốc gần đây thành công'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy đơn thuốc gần đây'
+      };
+    }
+  }
 }

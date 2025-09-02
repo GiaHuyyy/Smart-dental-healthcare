@@ -1,20 +1,20 @@
+import { MailerService } from '@nestjs-modules/mailer';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import aqp from 'api-query-params';
+import dayjs from 'dayjs';
+import mongoose, { Model } from 'mongoose';
+import {
+    CodeAuthDto,
+    CreateAuthDto,
+    ResetPasswordDto,
+    VerifyResetCodeDto,
+} from 'src/auth/dto/create-auth.dto';
+import { hashPasswordHelper } from 'src/helpers/utils';
+import { v4 as uuidv4 } from 'uuid';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
-import mongoose, { Model } from 'mongoose';
-import { InjectModel } from '@nestjs/mongoose';
-import { hashPasswordHelper } from 'src/helpers/utils';
-import aqp from 'api-query-params';
-import {
-  CodeAuthDto,
-  CreateAuthDto,
-  VerifyResetCodeDto,
-  ResetPasswordDto,
-} from 'src/auth/dto/create-auth.dto';
-import { v4 as uuidv4 } from 'uuid';
-import dayjs from 'dayjs';
-import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class UsersService {
@@ -409,5 +409,174 @@ export class UsersService {
       })
       .select('fullName email specialty phone')
       .exec();
+  }
+
+  async getPatientStats(doctorId?: string) {
+    try {
+      const totalPatients = await this.userModel.countDocuments({ role: 'patient' });
+      const activePatients = await this.userModel.countDocuments({ 
+        role: 'patient', 
+        isActive: true 
+      });
+      
+      // Lấy số bệnh nhân mới trong tháng này
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      const newPatientsThisMonth = await this.userModel.countDocuments({
+        role: 'patient',
+        createdAt: { $gte: startOfMonth }
+      });
+
+      return {
+        success: true,
+        data: {
+          totalPatients,
+          activePatients,
+          newPatientsThisMonth,
+          inactivePatients: totalPatients - activePatients
+        },
+        message: 'Lấy thống kê bệnh nhân thành công'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy thống kê bệnh nhân'
+      };
+    }
+  }
+
+  async searchPatients(query: any) {
+    try {
+      const { search, status, current = 1, pageSize = 10 } = query;
+      
+      let filter: any = { role: 'patient' };
+      
+      if (search) {
+        filter.$or = [
+          { fullName: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+          { phone: { $regex: search, $options: 'i' } }
+        ];
+      }
+      
+      if (status && status !== 'all') {
+        if (status === 'active') {
+          filter.isActive = true;
+        } else if (status === 'inactive') {
+          filter.isActive = false;
+        }
+      }
+
+      const skip = (current - 1) * pageSize;
+      const totalItems = await this.userModel.countDocuments(filter);
+      const totalPages = Math.ceil(totalItems / pageSize);
+
+      const patients = await this.userModel
+        .find(filter)
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .exec();
+
+      return {
+        success: true,
+        data: {
+          patients,
+          pagination: {
+            current: +current,
+            pageSize: +pageSize,
+            totalItems,
+            totalPages
+          }
+        },
+        message: 'Tìm kiếm bệnh nhân thành công'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi tìm kiếm bệnh nhân'
+      };
+    }
+  }
+
+  async getPatientDetails(patientId: string, doctorId?: string) {
+    try {
+      const patient = await this.userModel
+        .findById(patientId)
+        .select('-password')
+        .exec();
+
+      if (!patient || patient.role !== 'patient') {
+        return {
+          success: false,
+          message: 'Không tìm thấy bệnh nhân'
+        };
+      }
+
+      return {
+        success: true,
+        data: patient,
+        message: 'Lấy thông tin bệnh nhân thành công'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy thông tin bệnh nhân'
+      };
+    }
+  }
+
+  async getPatientAppointments(patientId: string, query: any) {
+    try {
+      // Đây sẽ được implement trong appointments service
+      // Tạm thời trả về thông báo
+      return {
+        success: true,
+        data: [],
+        message: 'API này sẽ được implement trong appointments service'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy lịch hẹn của bệnh nhân'
+      };
+    }
+  }
+
+  async getPatientPrescriptions(patientId: string, query: any) {
+    try {
+      // Đây sẽ được implement trong prescriptions service
+      // Tạm thời trả về thông báo
+      return {
+        success: true,
+        data: [],
+        message: 'API này sẽ được implement trong prescriptions service'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy đơn thuốc của bệnh nhân'
+      };
+    }
+  }
+
+  async getPatientMedicalRecords(patientId: string, query: any) {
+    try {
+      // Đây sẽ được implement trong medical-records service
+      // Tạm thời trả về thông báo
+      return {
+        success: true,
+        data: [],
+        message: 'API này sẽ được implement trong medical-records service'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy hồ sơ bệnh án của bệnh nhân'
+      };
+    }
   }
 }

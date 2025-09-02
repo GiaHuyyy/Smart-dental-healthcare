@@ -84,4 +84,16 @@ export class PrescriptionsController {
   remove(@Param('id') id: string) {
     return this.prescriptionsService.remove(id);
   }
+
+  @Get('patient/:patientId/history')
+  @Public()
+  getPatientPrescriptionHistory(@Param('patientId') patientId: string, @Query() query: any) {
+    return this.prescriptionsService.getPatientPrescriptionHistory(patientId, query);
+  }
+
+  @Get('patient/:patientId/recent')
+  @Public()
+  getPatientRecentPrescriptions(@Param('patientId') patientId: string, @Query('limit') limit?: string) {
+    return this.prescriptionsService.getPatientRecentPrescriptions(patientId, limit ? +limit : 5);
+  }
 }

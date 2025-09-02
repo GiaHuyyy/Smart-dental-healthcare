@@ -99,6 +99,20 @@ export class AppointmentsController {
     return this.appointmentsService.findByDate(date, query);
   }
 
+  @Get('patient/:patientId/history')
+  @Public()
+  @ResponseMessage('Lấy lịch sử lịch hẹn của bệnh nhân thành công')
+  getPatientAppointmentHistory(@Param('patientId') patientId: string, @Query() query: any) {
+    return this.appointmentsService.getPatientAppointmentHistory(patientId, query);
+  }
+
+  @Get('patient/:patientId/upcoming')
+  @Public()
+  @ResponseMessage('Lấy lịch hẹn sắp tới của bệnh nhân thành công')
+  getPatientUpcomingAppointments(@Param('patientId') patientId: string) {
+    return this.appointmentsService.getPatientUpcomingAppointments(patientId);
+  }
+
   @Get('week/:startDate/:endDate')
   @Public()
   @ResponseMessage('Lấy danh sách lịch hẹn theo tuần thành công')

@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AlertCircle, Calendar, Edit, Eye, Pill, Plus, Printer, Search, Trash2, User } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Medication {
   name: string;

@@ -644,4 +644,77 @@ export class AppointmentsService {
       date: selectedDate.toISOString().split('T')[0],
     };
   }
+
+  async getPatientAppointmentHistory(patientId: string, query: any) {
+    try {
+      const { current = 1, pageSize = 10, status } = query;
+      
+      let filter: any = { patientId };
+      
+      if (status && status !== 'all') {
+        filter.status = status;
+      }
+
+      const skip = (current - 1) * pageSize;
+      const totalItems = await this.appointmentModel.countDocuments(filter);
+      const totalPages = Math.ceil(totalItems / pageSize);
+
+      const appointments = await this.appointmentModel
+        .find(filter)
+        .populate('doctorId', 'fullName specialty')
+        .populate('patientId', 'fullName phone email')
+        .sort({ appointmentDate: -1, startTime: -1 })
+        .skip(skip)
+        .limit(pageSize)
+        .exec();
+
+      return {
+        success: true,
+        data: {
+          appointments,
+          pagination: {
+            current: +current,
+            pageSize: +pageSize,
+            totalItems,
+            totalPages
+          }
+        },
+        message: 'Lấy lịch sử lịch hẹn thành công'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy lịch sử lịch hẹn'
+      };
+    }
+  }
+
+  async getPatientUpcomingAppointments(patientId: string) {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const upcomingAppointments = await this.appointmentModel
+        .find({
+          patientId,
+          appointmentDate: { $gte: today },
+          status: { $nin: ['cancelled', 'completed'] }
+        })
+        .populate('doctorId', 'fullName specialty')
+        .populate('patientId', 'fullName phone email')
+        .sort({ appointmentDate: 1, startTime: 1 })
+        .exec();
+
+      return {
+        success: true,
+        data: upcomingAppointments,
+        message: 'Lấy lịch hẹn sắp tới thành công'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy lịch hẹn sắp tới'
+      };
+    }
+  }
 }
