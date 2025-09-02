@@ -1,12 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/passport/jwt-auth.guard';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Public, ResponseMessage } from 'src/decorator/customize';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 
 @Controller('appointments')
-@UseGuards(JwtAuthGuard)
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
@@ -32,12 +30,14 @@ export class AppointmentsController {
   }
 
   @Patch(':id')
+  @Public()
   @ResponseMessage('Cập nhật lịch hẹn thành công')
   update(@Param('id') id: string, @Body() updateAppointmentDto: UpdateAppointmentDto) {
     return this.appointmentsService.update(id, updateAppointmentDto);
   }
 
   @Delete(':id')
+  @Public()
   @ResponseMessage('Xóa lịch hẹn thành công')
   remove(@Param('id') id: string) {
     return this.appointmentsService.remove(id);
@@ -58,42 +58,49 @@ export class AppointmentsController {
   }
 
   @Patch(':id/status')
+  @Public()
   @ResponseMessage('Cập nhật trạng thái lịch hẹn thành công')
   updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.appointmentsService.updateStatus(id, status);
   }
 
   @Patch(':id/reschedule')
+  @Public()
   @ResponseMessage('Đổi lịch hẹn thành công')
   reschedule(@Param('id') id: string, @Body('appointmentDate') appointmentDate: Date, @Body('appointmentTime') appointmentTime: string) {
     return this.appointmentsService.reschedule(id, appointmentDate, appointmentTime);
   }
 
   @Delete(':id/cancel')
+  @Public()
   @ResponseMessage('Hủy lịch hẹn thành công')
   cancel(@Param('id') id: string, @Body('reason') reason: string) {
     return this.appointmentsService.cancel(id, reason);
   }
 
   @Post(':id/confirm')
+  @Public()
   @ResponseMessage('Xác nhận lịch hẹn thành công')
   confirm(@Param('id') id: string) {
     return this.appointmentsService.confirm(id);
   }
 
   @Post(':id/complete')
+  @Public()
   @ResponseMessage('Hoàn thành lịch hẹn thành công')
   complete(@Param('id') id: string) {
     return this.appointmentsService.complete(id);
   }
 
   @Get('date/:date')
+  @Public()
   @ResponseMessage('Lấy danh sách lịch hẹn theo ngày thành công')
   findByDate(@Param('date') date: string, @Query() query: any) {
     return this.appointmentsService.findByDate(date, query);
   }
 
   @Get('week/:startDate/:endDate')
+  @Public()
   @ResponseMessage('Lấy danh sách lịch hẹn theo tuần thành công')
   findByWeek(@Param('startDate') startDate: string, @Param('endDate') endDate: string, @Query() query: any) {
     return this.appointmentsService.findByDateRange(startDate, endDate, query);

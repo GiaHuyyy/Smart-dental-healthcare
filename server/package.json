@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed:doctors": "ts-node src/scripts/seed-doctors.ts",
     "list:doctors": "ts-node src/scripts/list-doctors.ts",
+    "seed:medications": "node scripts/seed-medications.js",
+    "add:medications": "node scripts/add-more-medications.js",
     "check:cloudinary": "node scripts/check-cloudinary.js",
     "debug:cloudinary": "node scripts/debug-cloudinary.js",
     "test:cloudinary": "node scripts/test-cloudinary.js",

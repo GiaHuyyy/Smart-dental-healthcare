@@ -6,12 +6,10 @@ import {
     Post,
     Request,
     UploadedFile,
-    UseGuards,
     UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
 import { Public } from '../../decorator/customize';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import {
@@ -20,7 +18,6 @@ import {
 } from './image-analysis.service';
 
 @Controller('image-analysis')
-@UseGuards(JwtAuthGuard)
 export class ImageAnalysisController {
   private readonly logger = new Logger(ImageAnalysisController.name);
 

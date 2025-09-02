@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" style={{ ['--vsc-domain' as any]: JSON.stringify(process.env.NEXT_PUBLIC_VSC_DOMAIN || '') }}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ClientProviders>{children}</ClientProviders>
       </body>

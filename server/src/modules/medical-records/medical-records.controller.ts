@@ -1,12 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/passport/jwt-auth.guard';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { Public, ResponseMessage } from 'src/decorator/customize';
 import { CreateMedicalRecordDto } from './dto/create-medical-record.dto';
 import { UpdateMedicalRecordDto } from './dto/update-medical-record.dto';
 import { MedicalRecordsService } from './medical-records.service';
 
 @Controller('medical-records')
-@UseGuards(JwtAuthGuard)
 export class MedicalRecordsController {
   constructor(private readonly medicalRecordsService: MedicalRecordsService) {}
 
@@ -111,11 +109,11 @@ export class MedicalRecordsController {
     return this.medicalRecordsService.removeAttachment(id, attachmentId);
   }
 
-  @Patch(':id/status')
+  @Get('search/records')
   @Public()
-  @ResponseMessage('Cập nhật trạng thái hồ sơ thành công')
-  updateStatus(@Param('id') id: string, @Body('status') status: string) {
-    return this.medicalRecordsService.updateStatus(id, status);
+  @ResponseMessage('Tìm kiếm hồ sơ bệnh án thành công')
+  searchMedicalRecords(@Query() query: any) {
+    return this.medicalRecordsService.searchMedicalRecords(query);
   }
 
   @Get('statistics/doctor')
@@ -147,13 +145,6 @@ export class MedicalRecordsController {
   @ResponseMessage('Xuất hồ sơ bệnh án thành công')
   exportMedicalRecord(@Param('id') id: string, @Body() exportOptions: any) {
     return this.medicalRecordsService.exportMedicalRecord(id, exportOptions);
-  }
-
-  @Get('search/records')
-  @Public()
-  @ResponseMessage('Tìm kiếm hồ sơ bệnh án thành công')
-  searchMedicalRecords(@Query() query: any) {
-    return this.medicalRecordsService.searchMedicalRecords(query);
   }
 
   // Thêm endpoint để lấy hồ sơ theo appointment

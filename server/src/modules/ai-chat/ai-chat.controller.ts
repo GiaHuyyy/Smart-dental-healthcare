@@ -1,5 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { Public } from '../../decorator/customize';
 import { AiChatService } from './ai-chat.service';
 
@@ -59,8 +58,8 @@ export class AiChatController {
     return { sessionId, message: 'Phiên chat đã kết thúc' };
   }
 
+  @Public()
   @Post('analyze')
-  @UseGuards(JwtAuthGuard)
   async analyzeForDoctor(
     @Body() body: { chatHistory: any[]; patientInfo: any },
   ) {

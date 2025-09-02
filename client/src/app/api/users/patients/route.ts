@@ -2,19 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
     const { searchParams } = new URL(request.url);
     const queryString = searchParams.toString();
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
-    
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = request.headers.get('authorization')?.replace('Bearer ', '');
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const response = await fetch(
-      `${apiUrl}/api/v1/users/patients${queryString ? `?${queryString}` : ''}`,
-      { headers }
-    );
+  const target = `${apiUrl}/api/v1/users/patients${queryString ? `?${queryString}` : ''}`;
+  const response = await fetch(target, { headers });
 
     if (!response.ok) {
       const errorData = await response.text();

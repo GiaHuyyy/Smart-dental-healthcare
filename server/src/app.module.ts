@@ -1,22 +1,22 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { JwtAuthGuard } from './auth/passport/jwt-auth.guard';
+import { MailModule } from './mail/mail.module';
+import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { ImageAnalysisModule } from './modules/image-analysis/image-analysis.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
+import { MedicationsModule } from './modules/medications/medications.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PrescriptionsModule } from './modules/prescriptions/prescriptions.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
-import { AiChatModule } from './modules/ai-chat/ai-chat.module';
-import { ImageAnalysisModule } from './modules/image-analysis/image-analysis.module';
-import { ChatModule } from './modules/chat/chat.module';
-import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -38,18 +38,16 @@ import { MailModule } from './mail/mail.module';
     ChatModule,
     AppointmentsModule,
     MedicalRecordsModule,
+    MedicationsModule,
     NotificationsModule,
     PaymentsModule,
+    PrescriptionsModule,
     ReportsModule,
     ReviewsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: JwtAuthGuard,
-    },
   ],
 })
 export class AppModule {}
