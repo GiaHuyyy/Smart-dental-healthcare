@@ -55,79 +55,163 @@ export default function ImageAnalysisDisplay({
     );
   }
 
+  // Function to render rich content sections
+  const renderRichContent = () => {
+    if (!analysisResult.richContent) return null;
+
+    const { analysis, sections, recommendations } = analysisResult.richContent;
+
+    return (
+      <div className="space-y-6">
+        {/* Chẩn đoán */}
+        {analysis && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+            <h4 className="text-lg font-bold text-blue-800 mb-2 flex items-center">
+              <span className="text-2xl mr-2">📋</span>
+              CHẨN ĐOÁN
+            </h4>
+            <p className="text-blue-900 font-medium leading-relaxed">{analysis}</p>
+          </div>
+        )}
+
+        {/* Chi tiết phân tích */}
+        {sections && sections.length > 0 && (
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-500 p-4 rounded-r-lg">
+            <h4 className="text-lg font-bold text-emerald-800 mb-3 flex items-center">
+              <span className="text-2xl mr-2">📊</span>
+              CHI TIẾT PHÂN TÍCH
+            </h4>
+            <div className="space-y-3">
+              {sections.map((section: any, index: number) => (
+                <div key={index} className="bg-white/60 p-3 rounded-lg border border-emerald-200">
+                  {section.heading && (
+                    <h5 className="font-semibold text-emerald-900 mb-2">
+                      {index + 1}. {section.heading}
+                    </h5>
+                  )}
+                  {section.text && (
+                    <p className="text-emerald-800 text-sm leading-relaxed mb-2">
+                      {section.text}
+                    </p>
+                  )}
+                  {section.bullets && section.bullets.length > 0 && (
+                    <ul className="space-y-1">
+                      {section.bullets.map((bullet: string, bulletIndex: number) => (
+                        <li key={bulletIndex} className="flex items-start text-sm text-emerald-700">
+                          <span className="text-emerald-500 mr-2 mt-1">•</span>
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Khuyến nghị */}
+        {recommendations && recommendations.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 p-4 rounded-r-lg">
+            <h4 className="text-lg font-bold text-amber-800 mb-3 flex items-center">
+              <span className="text-2xl mr-2">💡</span>
+              KHUYẾN NGHỊ
+            </h4>
+            <ul className="space-y-2">
+              {recommendations.map((rec: string, index: number) => (
+                <li key={index} className="flex items-start bg-white/60 p-3 rounded-lg border border-amber-200">
+                  <span className="text-amber-500 mr-3 mt-1 text-lg">•</span>
+                  <span className="text-amber-900 font-medium leading-relaxed">{rec}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Hành động tiếp theo */}
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
+          <h4 className="text-lg font-bold text-purple-800 mb-3 flex items-center">
+            <span className="text-2xl mr-2">🔧</span>
+            CÁC HÀNH ĐỘNG TIẾP THEO
+          </h4>
+          <p className="text-purple-900 mb-3">Sử dụng các nút bên dưới để tương tác</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Kết quả phân tích ảnh</h3>
-        <span className="text-sm text-gray-500">AI Analysis</span>
+    <div className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-6 mb-6 shadow-lg">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-full mr-4">
+            <span className="text-white text-2xl">🔍</span>
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              KẾT QUẢ PHÂN TÍCH ẢNH
+            </h3>
+            <p className="text-gray-600 text-sm">AI Analysis Result</p>
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-green-400 to-blue-500 text-white px-4 py-2 rounded-full text-sm font-semibold">
+          AI Powered
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Hình ảnh */}
         {uploadedImage && (
-          <div className="relative h-64 bg-gray-100 rounded-lg overflow-hidden">
+          <div className="relative h-80 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden shadow-lg">
             <Image
               src={uploadedImage}
               alt="Uploaded X-ray"
               fill
               className="object-contain"
             />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
           </div>
         )}
 
         {/* Kết quả phân tích */}
-        <div className="space-y-3">
-          {analysisResult.richContent?.analysis && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Chẩn đoán</h4>
-              <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded">
-                {analysisResult.richContent.analysis}
-              </p>
-            </div>
-          )}
-
-          {analysisResult.richContent?.recommendations && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Khuyến nghị</h4>
-              <ul className="text-sm text-gray-700 space-y-1">
-                {analysisResult.richContent.recommendations.map((rec: string, index: number) => (
-                  <li key={index} className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    {rec}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <div className="space-y-4">
+          {renderRichContent()}
         </div>
       </div>
 
-      {/* Các action buttons */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          onClick={() => onActionClick("Giải thích thêm")}
-          className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
-          💡 Giải thích thêm
-        </button>
-        <button
-          onClick={() => onActionClick("Hướng dẫn chăm sóc")}
-          className="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-        >
-          🏠 Hướng dẫn chăm sóc
-        </button>
-        <button
-          onClick={() => onActionClick("Gợi ý bác sĩ")}
-          className="px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-        >
-          👨‍⚕️ Gợi ý bác sĩ
-        </button>
-        <button
-          onClick={() => onActionClick("Đặt lịch khám")}
-          className="px-3 py-2 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
-        >
-          📅 Đặt lịch khám
-        </button>
+      {/* Action buttons */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="flex flex-wrap gap-3 justify-center">
+          <button
+            onClick={() => onActionClick("Giải thích thêm")}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+          >
+            <span className="text-xl mr-2">💡</span>
+            Giải thích thêm
+          </button>
+          <button
+            onClick={() => onActionClick("Hướng dẫn chăm sóc")}
+            className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+          >
+            <span className="text-xl mr-2">🏠</span>
+            Hướng dẫn chăm sóc
+          </button>
+          <button
+            onClick={() => onActionClick("Gợi ý bác sĩ")}
+            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+          >
+            <span className="text-xl mr-2">👨‍⚕️</span>
+            Gợi ý bác sĩ
+          </button>
+          <button
+            onClick={() => onActionClick("Đặt lịch khám")}
+            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+          >
+            <span className="text-xl mr-2">📅</span>
+            Đặt lịch khám
+          </button>
+        </div>
       </div>
     </div>
   );

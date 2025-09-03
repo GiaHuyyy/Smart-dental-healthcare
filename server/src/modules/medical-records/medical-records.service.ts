@@ -13,8 +13,44 @@ export class MedicalRecordsService {
   ) {}
 
   async create(createMedicalRecordDto: CreateMedicalRecordDto): Promise<MedicalRecord> {
-    const newRecord = new this.medicalRecordModel(createMedicalRecordDto);
-    return newRecord.save();
+    console.log('📝 Creating medical record with data:', JSON.stringify(createMedicalRecordDto, null, 2));
+    
+    // Process and normalize the data for backward compatibility
+    const processedData = this.processCreateData(createMedicalRecordDto);
+    
+    console.log('📝 Processed data:', JSON.stringify(processedData, null, 2));
+    
+    const newRecord = new this.medicalRecordModel(processedData);
+    const savedRecord = await newRecord.save();
+    
+    console.log('✅ Medical record created successfully:', savedRecord._id);
+    return savedRecord;
+  }
+
+  private processCreateData(dto: CreateMedicalRecordDto): any {
+    const processedData = { ...dto };
+
+    // Ensure chiefComplaint exists (backward compatibility)
+    if (!processedData.chiefComplaint && processedData.chiefComplaints && processedData.chiefComplaints.length > 0) {
+      processedData.chiefComplaint = processedData.chiefComplaints.join(', ');
+    }
+
+    // Ensure diagnosis exists (backward compatibility)
+    if (!processedData.diagnosis && processedData.diagnoses && processedData.diagnoses.length > 0) {
+      processedData.diagnosis = processedData.diagnoses.join(', ');
+    }
+
+    // Ensure treatmentPlan exists (backward compatibility)
+    if (!processedData.treatmentPlan && processedData.treatmentPlans && processedData.treatmentPlans.length > 0) {
+      processedData.treatmentPlan = processedData.treatmentPlans.join(', ');
+    }
+
+    // Process medications - prefer detailed but fallback to simple
+    if (!processedData.medications && processedData.detailedMedications && processedData.detailedMedications.length > 0) {
+      processedData.medications = processedData.detailedMedications.map((med: any) => med.name);
+    }
+
+    return processedData;
   }
 
   async findAll(query: any): Promise<MedicalRecord[]> {

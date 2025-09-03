@@ -22,6 +22,7 @@ import { imageAnalysisAPI } from "@/utils/imageAnalysis";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import FormattedMessage from "./FormattedMessage";
 
 interface ChatInterfaceProps {
   type: "ai" | "doctor";
@@ -856,7 +857,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
                   />
                 </div>
               )}
-              <div className="whitespace-pre-wrap">{message.content}</div>
+              <FormattedMessage content={message.content} role={message.role} />
 
               {/* Show action buttons if available */}
               {message.actionButtons && message.actionButtons.length > 0 && (

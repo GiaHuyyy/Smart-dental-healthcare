@@ -17,8 +17,18 @@ export class MedicalRecord {
   @Prop({ required: true })
   recordDate: Date;
 
-  @Prop({ required: true })
+  // Chief complaints - support both single and multiple
+  @Prop()
   chiefComplaint: string;
+
+  @Prop({ type: [String] })
+  chiefComplaints: string[];
+
+  @Prop()
+  presentIllness: string;
+
+  @Prop()
+  physicalExamination: string;
 
   @Prop({ type: Object })
   vitalSigns: {
@@ -27,14 +37,38 @@ export class MedicalRecord {
     temperature?: number;
   };
 
+  // Diagnoses - support both single and multiple
   @Prop()
   diagnosis: string;
 
+  @Prop({ type: [String] })
+  diagnoses: string[];
+
+  @Prop({ type: [{ type: Object }] })
+  diagnosisGroups: {
+    diagnosis: string;
+    treatmentPlans: string[];
+  }[];
+
+  // Treatment plans - support both single and multiple
   @Prop()
   treatmentPlan: string;
 
   @Prop({ type: [String] })
+  treatmentPlans: string[];
+
+  // Medications - support both simple and detailed
+  @Prop({ type: [String] })
   medications: string[];
+
+  @Prop({ type: [{ type: Object }] })
+  detailedMedications: {
+    name: string;
+    dosage?: string;
+    frequency?: string;
+    duration?: string;
+    instructions?: string;
+  }[];
 
   @Prop()
   notes: string;
