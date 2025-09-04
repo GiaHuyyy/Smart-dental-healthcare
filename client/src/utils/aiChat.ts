@@ -3,7 +3,12 @@ import { sendRequest } from "./api";
 
 export const aiChatAPI = {
   // Get AI advice for patients
-  async getDentalAdvice(message: string, chatHistory: ChatMessage[] = [], sessionId?: string, imageData?: string): Promise<AiResponse> {
+  async getDentalAdvice(
+    message: string,
+    chatHistory: ChatMessage[] = [],
+    sessionId?: string,
+    imageData?: string
+  ): Promise<AiResponse> {
     try {
       const response = await sendRequest<AiResponse>({
         method: "POST",
@@ -29,7 +34,7 @@ export const aiChatAPI = {
           specialty: "Nha khoa tổng quát",
           keywords: ["nha khoa", "tổng quát"],
           email: "doctor@example.com",
-          phone: "0123-456-789"
+          phone: "0123-456-789",
         },
         timestamp: new Date(),
         urgencyLevel: "low",
@@ -64,7 +69,7 @@ export const aiChatAPI = {
           specialty: "Nha khoa tổng quát",
           keywords: ["nha khoa", "tổng quát"],
           email: "doctor@example.com",
-          phone: "0123-456-789"
+          phone: "0123-456-789",
         },
         timestamp: new Date(),
       };
@@ -136,3 +141,14 @@ export const aiChatAPI = {
 // Re-export types for backward compatibility
 export type { AiResponse, ChatMessage, DoctorSuggestion };
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  imageUrl?: string;
+  actionButtons?: string[];
+  isAnalysisResult?: boolean;
+  analysisData?: any;
+  isUrgent?: boolean;
+  messageType?: "normal" | "urgent" | "analysis" | "suggestion";
+}

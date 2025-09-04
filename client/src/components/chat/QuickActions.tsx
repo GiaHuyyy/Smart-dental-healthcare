@@ -17,13 +17,17 @@ export default function QuickActions({
 
   const getActionIcon = (action: string) => {
     const lowerAction = action.toLowerCase();
-    if (lowerAction.includes("đau")) return "😖";
-    if (lowerAction.includes("răng khôn")) return "🦷";
-    if (lowerAction.includes("tẩy trắng")) return "✨";
-    if (lowerAction.includes("niềng")) return "🦿";
-    if (lowerAction.includes("chảy máu")) return "🩸";
-    if (lowerAction.includes("chăm sóc")) return "🏠";
-    if (lowerAction.includes("phân tích")) return "📸";
+    if (lowerAction.includes("sâu răng") || lowerAction.includes("ê buốt")) return "😖";
+    if (lowerAction.includes("mọc lệch") || lowerAction.includes("chen chúc") || lowerAction.includes("khớp cắn"))
+      return "🦷";
+    if (lowerAction.includes("ố vàng") || lowerAction.includes("xỉn màu") || lowerAction.includes("không đều"))
+      return "✨";
+    if (lowerAction.includes("hàm hô") || lowerAction.includes("hàm móm") || lowerAction.includes("chấn thương"))
+      return "🔧";
+    if (lowerAction.includes("chảy máu lợi") || lowerAction.includes("chải răng")) return "🩸";
+    if (lowerAction.includes("răng sữa") || lowerAction.includes("trẻ") || lowerAction.includes("sợ đi khám"))
+      return "💊";
+    if (lowerAction.includes("phân tích") || lowerAction.includes("x-quang")) return "📸";
     if (lowerAction.includes("tư vấn")) return "💬";
     if (lowerAction.includes("đặt lịch")) return "📅";
     if (lowerAction.includes("gọi")) return "📞";
