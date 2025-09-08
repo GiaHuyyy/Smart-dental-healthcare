@@ -17,6 +17,7 @@ import { PrescriptionsModule } from './modules/prescriptions/prescriptions.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
+import { RealtimeChatModule } from './modules/realtime-chat/realtime-chat.module';
 
 @Module({
   imports: [
@@ -44,10 +45,9 @@ import { UsersModule } from './modules/users/users.module';
     PrescriptionsModule,
     ReportsModule,
     ReviewsModule,
+    RealtimeChatModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-  ],
+  providers: [AppService],
 })
 export class AppModule {}

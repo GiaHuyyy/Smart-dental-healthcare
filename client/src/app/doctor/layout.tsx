@@ -1,6 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
+import ChatButtonSimple from "@/components/chat/ChatButtonSimple";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -84,6 +85,11 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
         {/* Main content */}
         <main className="flex-1 p-6">{children}</main>
       </div>
+
+      {/* Chat Integration - Bỏ button chat ở góc phải */}
+      {/* <div className="fixed bottom-4 right-4 z-50">
+        <ChatButtonSimple type="doctor" />
+      </div> */}
     </div>
   );
 }
