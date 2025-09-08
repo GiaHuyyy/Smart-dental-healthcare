@@ -1,15 +1,15 @@
 import { Type } from 'class-transformer';
 import {
-  IsArray,
-  IsBoolean,
-  IsDate,
-  IsMongoId,
-  IsNotEmpty,
-  IsNumber,
-  IsObject,
-  IsOptional,
-  IsString,
-  ValidateNested,
+    IsArray,
+    IsBoolean,
+    IsDate,
+    IsMongoId,
+    IsNotEmpty,
+    IsNumber,
+    IsObject,
+    IsOptional,
+    IsString,
+    ValidateNested,
 } from 'class-validator';
 
 class VitalSignsDto {
@@ -24,6 +24,39 @@ class VitalSignsDto {
   @IsNumber()
   @IsOptional()
   temperature?: number;
+}
+
+class MedicationDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  dosage?: string;
+
+  @IsString()
+  @IsOptional()
+  frequency?: string;
+
+  @IsString()
+  @IsOptional()
+  duration?: string;
+
+  @IsString()
+  @IsOptional()
+  instructions?: string;
+}
+
+class DiagnosisGroupDto {
+  @IsString()
+  @IsNotEmpty()
+  diagnosis: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  treatmentPlans?: string[];
 }
 
 class DentalChartItemDto {
@@ -81,9 +114,23 @@ export class CreateMedicalRecordDto {
   @IsNotEmpty()
   recordDate: Date;
 
+  // Support both single and multiple chief complaints
   @IsString()
-  @IsNotEmpty()
-  chiefComplaint: string;
+  @IsOptional()
+  chiefComplaint?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  chiefComplaints?: string[];
+
+  @IsString()
+  @IsOptional()
+  presentIllness?: string;
+
+  @IsString()
+  @IsOptional()
+  physicalExamination?: string;
 
   @IsObject()
   @ValidateNested()
@@ -91,10 +138,23 @@ export class CreateMedicalRecordDto {
   @IsOptional()
   vitalSigns?: VitalSignsDto;
 
+  // Support both single and multiple diagnoses
   @IsString()
   @IsOptional()
   diagnosis?: string;
 
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  diagnoses?: string[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DiagnosisGroupDto)
+  @IsOptional()
+  diagnosisGroups?: DiagnosisGroupDto[];
+
+  // Support both single and multiple treatment plans
   @IsString()
   @IsOptional()
   treatmentPlan?: string;
@@ -102,7 +162,19 @@ export class CreateMedicalRecordDto {
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
+  treatmentPlans?: string[];
+
+  // Support both simple and detailed medications
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
   medications?: string[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MedicationDto)
+  @IsOptional()
+  detailedMedications?: MedicationDto[];
 
   @IsString()
   @IsOptional()

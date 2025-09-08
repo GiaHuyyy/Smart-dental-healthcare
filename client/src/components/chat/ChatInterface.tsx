@@ -18,11 +18,11 @@ import {
 } from "@/store/slices/imageAnalysisSlice";
 import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { sendRequest } from "@/utils/api";
+import { chatStorage } from "@/utils/chatStorage";
 import { imageAnalysisAPI } from "@/utils/imageAnalysis";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { chatStorage } from "@/utils/chatStorage";
 import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
 import { useSession } from "next-auth/react";
 

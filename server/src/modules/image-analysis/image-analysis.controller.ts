@@ -110,18 +110,20 @@ export class ImageAnalysisController {
       };
     } catch (error) {
       this.logger.error(`Image analysis failed: ${error.message}`);
-      
+
       // Provide more specific error messages
       let errorMessage = 'Lỗi phân tích ảnh. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.';
-      
-      if (error.message.includes('Cloudinary')) {
+
+      if (String(error.message).includes('GEMINI_API_KEY_INVALID_OR_EXPIRED')) {
+        errorMessage = 'Lỗi cấu hình API Gemini: API key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra biến môi trường GEMINI_API_KEY trong file .env.';
+      } else if (String(error.message).includes('Cloudinary')) {
         errorMessage = 'Lỗi cấu hình dịch vụ lưu trữ ảnh. Vui lòng liên hệ quản trị viên.';
-      } else if (error.message.includes('network') || error.message.includes('connection')) {
+      } else if (String(error.message).toLowerCase().includes('network') || String(error.message).toLowerCase().includes('connection')) {
         errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.';
-      } else if (error.message.includes('file')) {
+      } else if (String(error.message).toLowerCase().includes('file')) {
         errorMessage = 'Lỗi xử lý file ảnh. Vui lòng thử lại với ảnh khác.';
       }
-      
+
       return {
         success: false,
         error: errorMessage,
