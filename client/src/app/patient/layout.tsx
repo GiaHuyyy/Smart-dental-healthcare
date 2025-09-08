@@ -217,11 +217,14 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header role="Bệnh nhân" />
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-40">
+        <Header role="Bệnh nhân" />
+      </div>
 
-      <div className="flex h-[calc(100vh-74px)]">
-        {/* Sidebar */}
-        <nav className="w-64 bg-white shadow-sm">
+      <div className="flex h-screen pt-16">
+        {/* Fixed Sidebar */}
+        <nav className="w-64 bg-white shadow-sm fixed top-16 left-0 bottom-0 z-30 overflow-y-auto">
           <div className="p-4">
             <ul className="space-y-2">
               {navigation.map((item) => {
@@ -251,8 +254,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           </div>
         </nav>
 
-        {/* Main content */}
-        <main className="flex-1 p-6">{children}</main>
+        {/* Main content - scrollable */}
+        <main className="flex-1 ml-64 p-6 overflow-y-auto h-full">{children}</main>
       </div>
 
       {/* Centered broadcast modal overlay (blocks background until closed) */}

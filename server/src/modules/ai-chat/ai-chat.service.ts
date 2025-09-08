@@ -33,7 +33,7 @@ export class AiChatService {
 
   constructor(
     private usersService: UsersService,
-    private cloudinaryService: CloudinaryService
+    private cloudinaryService: CloudinaryService,
   ) {
     this.genAI = new GoogleGenerativeAI(
       process.env.GEMINI_API_KEY || 'your-gemini-api-key-here',
@@ -41,58 +41,44 @@ export class AiChatService {
     this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   }
 
-  private async getDoctorsFromDatabase() {
-    try {
-      const doctors = await this.usersService.findDoctors();
-      // Return DB doctor records but attach computed keywords so callers can match suggestions
-      return doctors.map((doctor) => ({
-        _id: doctor._id,
-        fullName: doctor.fullName,
-        email: doctor.email,
-        phone: doctor.phone,
-        specialty: doctor.specialty || 'Nha khoa tổng quát',
-        keywords: this.getKeywordsForSpecialty(doctor.specialty || ''),
-      }));
-    } catch (error) {
-      console.error('Failed to fetch doctors from database:', error);
-      // Fallback data if database fails
-      return [
-        {
-          fullName: 'BS. Nguyễn Văn A',
-          specialty: 'Nha khoa tổng quát, cấy ghép implant',
-          keywords: ['implant', 'cấy ghép', 'tổng quát'],
-        },
-        {
-          fullName: 'BS. Trần Thị B',
-          specialty: 'Chỉnh nha, niềng răng',
-          keywords: ['niềng', 'chỉnh nha', 'răng khấp khểnh'],
-        },
-        {
-          fullName: 'BS. Lê Văn C',
-          specialty: 'Phẫu thuật hàm mặt, răng khôn',
-          keywords: ['răng khôn', 'phẫu thuật', 'nhổ răng'],
-        },
-        {
-          fullName: 'BS. Phạm Thị D',
-          specialty: 'Nha chu, chảy máu nướu',
-          keywords: ['nướu', 'chảy máu', 'viêm nướu'],
-        },
-        {
-          fullName: 'BS. Hoàng Văn E',
-          specialty: 'Thẩm mỹ răng, tẩy trắng',
-          keywords: ['tẩy trắng', 'thẩm mỹ', 'răng đẹp'],
-        },
-      ];
-    }
-  }
-
   private getKeywordsForSpecialty(specialty: string): string[] {
     const specialtyKeywords: { [key: string]: string[] } = {
-      implant: ['implant', 'cấy ghép', 'tổng quát'],
-      'chỉnh nha': ['niềng', 'chỉnh nha', 'răng khấp khểnh'],
-      'phẫu thuật': ['răng khôn', 'phẫu thuật', 'nhổ răng'],
-      'nha chu': ['nướu', 'chảy máu', 'viêm nướu'],
-      'thẩm mỹ': ['tẩy trắng', 'thẩm mỹ', 'răng đẹp'],
+      'nha khoa tổng quát': [
+        'sâu răng',
+        'ê buốt',
+        'đau răng',
+        'khám tổng quát',
+      ],
+      'chỉnh nha': [
+        'mọc lệch',
+        'chen chúc',
+        'khớp cắn sai',
+        'niềng răng',
+        'chỉnh nha',
+      ],
+      'thẩm mỹ răng': [
+        'ố vàng',
+        'xỉn màu',
+        'không đều đẹp',
+        'tẩy trắng',
+        'thẩm mỹ',
+      ],
+      'phẫu thuật hàm mặt': [
+        'hàm hô',
+        'hàm móm',
+        'chấn thương',
+        'phẫu thuật',
+        'răng khôn',
+      ],
+      'nha chu': ['chảy máu lợi', 'chải răng', 'viêm nướu', 'nha chu'],
+      'nha khoa trẻ em': [
+        'răng sữa sâu',
+        'trẻ đau răng',
+        'sợ đi khám',
+        'trẻ em',
+      ],
+      'cấy ghép implant': ['implant', 'cấy ghép', 'mất răng'],
+      'nội nha': ['tủy răng', 'điều trị tủy', 'viêm tủy'],
     };
 
     const lowerSpecialty = specialty.toLowerCase();
@@ -104,10 +90,37 @@ export class AiChatService {
     return ['tổng quát'];
   }
 
-  async getDentalAdvice(userMessage: string, chatHistory: any[] = [], sessionId?: string): Promise<EnhancedAiResponse> {
+  private async getDoctorsFromDatabase() {
+    try {
+      console.log('🔍 Fetching doctors from database...');
+      const doctors = await this.usersService.findDoctors();
+      console.log(`✅ Found ${doctors.length} doctors in database`);
+
+      // Return DB doctor records but attach computed keywords so callers can match suggestions
+      return doctors.map((doctor) => ({
+        _id: doctor._id,
+        fullName: doctor.fullName,
+        email: doctor.email,
+        phone: doctor.phone,
+        specialty: doctor.specialty || 'Nha khoa tổng quát',
+        keywords: this.getKeywordsForSpecialty(doctor.specialty || ''),
+      }));
+    } catch (error) {
+      console.error('❌ Failed to fetch doctors from database:', error);
+      console.log('🔄 No fallback data - returning empty array');
+      // No fallback data - return empty array to force proper error handling
+      return [];
+    }
+  }
+
+  async getDentalAdvice(
+    userMessage: string,
+    chatHistory: any[] = [],
+    sessionId?: string,
+  ): Promise<EnhancedAiResponse> {
     // Get or create chat context
     const context = this.getOrCreateContext(sessionId);
-    
+
     // Update context based on message
     this.updateContext(context, userMessage, chatHistory);
 
@@ -137,9 +150,15 @@ export class AiChatService {
 
       // Enhanced analysis
       const urgencyLevel = await this.analyzeUrgency(userMessage);
-      const suggestedDoctor = await this.extractDoctorSuggestion(aiResponse, context);
+      const suggestedDoctor = await this.extractDoctorSuggestion(
+        aiResponse,
+        context,
+      );
       const quickActions = this.generateQuickActions(context, aiResponse);
-      const followUpQuestions = this.generateFollowUpQuestions(context, aiResponse);
+      const followUpQuestions = this.generateFollowUpQuestions(
+        context,
+        aiResponse,
+      );
       const nextSteps = this.generateNextSteps(context, urgencyLevel);
 
       // Update context
@@ -168,7 +187,8 @@ export class AiChatService {
     } catch (error) {
       console.error('Gemini API Error:', error);
       return {
-        message: 'Xin lỗi, tôi đang gặp sự cố kỹ thuật. Vui lòng thử lại sau hoặc liên hệ trực tiếp với phòng khám.',
+        message:
+          'Xin lỗi, tôi đang gặp sự cố kỹ thuật. Vui lòng thử lại sau hoặc liên hệ trực tiếp với phòng khám.',
         suggestedDoctor: null,
         timestamp: new Date(),
         context: { conversationType: 'initial', urgencyLevel: 'low' },
@@ -181,7 +201,7 @@ export class AiChatService {
 
   private getOrCreateContext(sessionId?: string): ChatContext {
     const id = sessionId || `session_${Date.now()}`;
-    
+
     if (!this.chatSessions.has(id)) {
       this.chatSessions.set(id, {
         sessionId: id,
@@ -192,33 +212,60 @@ export class AiChatService {
         lastInteraction: new Date(),
       });
     }
-    
+
     return this.chatSessions.get(id)!;
   }
 
-  private updateContext(context: ChatContext, message: string, chatHistory: any[]) {
+  private updateContext(
+    context: ChatContext,
+    message: string,
+    chatHistory: any[],
+  ) {
     // Analyze message to update context
     const lowerMessage = message.toLowerCase();
-    
+
     // Update conversation type
-    if (lowerMessage.includes('đau') || lowerMessage.includes('sưng') || lowerMessage.includes('chảy máu')) {
+    if (
+      lowerMessage.includes('đau') ||
+      lowerMessage.includes('sưng') ||
+      lowerMessage.includes('chảy máu')
+    ) {
       context.conversationType = 'symptom';
-    } else if (lowerMessage.includes('phân tích') || lowerMessage.includes('x-quang')) {
+    } else if (
+      lowerMessage.includes('phân tích') ||
+      lowerMessage.includes('x-quang')
+    ) {
       context.conversationType = 'analysis';
-    } else if (lowerMessage.includes('đặt lịch') || lowerMessage.includes('khám')) {
+    } else if (
+      lowerMessage.includes('đặt lịch') ||
+      lowerMessage.includes('khám')
+    ) {
       context.conversationType = 'booking';
     }
 
     // Extract symptoms
-    const symptomKeywords = ['đau răng', 'sưng nướu', 'chảy máu', 'răng khôn', 'sâu răng', 'viêm nướu'];
-    symptomKeywords.forEach(symptom => {
-      if (lowerMessage.includes(symptom) && !context.symptoms.includes(symptom)) {
+    const symptomKeywords = [
+      'đau răng',
+      'sưng nướu',
+      'chảy máu',
+      'răng khôn',
+      'sâu răng',
+      'viêm nướu',
+    ];
+    symptomKeywords.forEach((symptom) => {
+      if (
+        lowerMessage.includes(symptom) &&
+        !context.symptoms.includes(symptom)
+      ) {
         context.symptoms.push(symptom);
       }
     });
   }
 
-  private buildEnhancedSystemPrompt(doctors: any[], context: ChatContext): string {
+  private buildEnhancedSystemPrompt(
+    doctors: any[],
+    context: ChatContext,
+  ): string {
     return `
 Bạn là một trợ lý AI chuyên về nha khoa tại Smart Dental Healthcare, một phòng khám nha khoa tại Việt Nam.
 
@@ -245,12 +292,15 @@ CONTEXT HIỆN TẠI:
 CÁC BÁC SĨ CHUYÊN KHOA:
 ${doctors.map((d) => `- ${d.fullName}: ${d.specialty}`).join('\n')}
 
-TRIỆU CHỨNG KHẨN CẤP (khuyên gặp bác sĩ ngay):
-- Đau răng dữ dội kéo dài
-- Sưng mặt, sốt
-- Chảy máu nướu không ngừng
-- Răng bị gãy, vỡ
-- Nhiễm trùng miệng
+CHUYÊN KHOA CHÍNH:
+1. **Nha khoa tổng quát**: Khám tổng quát, tư vấn chung
+2. **Chỉnh nha**: Niềng răng, chỉnh hình răng
+3. **Thẩm mỹ răng**: Tẩy trắng, bọc sứ, veneer
+4. **Phẫu thuật hàm mặt**: Nhổ răng khôn, phẫu thuật
+5. **Nha khoa trẻ em**: Chăm sóc răng trẻ em
+6. **Nha chu**: Điều trị nướu, viêm lợi
+7. **Cấy ghép implant**: Thay thế răng mất
+8. **Nội nha**: Điều trị tủy răng
 
 FORMAT TRẢ LỜI:
 1. Phân tích triệu chứng (nếu có)
@@ -262,37 +312,64 @@ FORMAT TRẢ LỜI:
 Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
   }
 
-  private generateQuickActions(context: ChatContext, aiResponse: string): string[] {
+  private generateQuickActions(
+    context: ChatContext,
+    aiResponse: string,
+  ): string[] {
     const actions: string[] = [];
-    
+
     if (context.conversationType === 'symptom') {
-      actions.push('📸 Chụp ảnh triệu chứng', '👨‍⚕️ Tư vấn bác sĩ', '📅 Đặt lịch khám');
+      actions.push(
+        '📸 Chụp ảnh triệu chứng',
+        '👨‍⚕️ Tư vấn bác sĩ',
+        '📅 Đặt lịch khám',
+      );
     } else if (context.conversationType === 'analysis') {
-      actions.push('🔍 Phân tích chi tiết', '👨‍⚕️ Gợi ý bác sĩ', '📋 Tạo báo cáo');
+      actions.push(
+        '🔍 Phân tích chi tiết',
+        '👨‍⚕️ Gợi ý bác sĩ',
+        '📋 Tạo báo cáo',
+      );
     } else if (context.conversationType === 'booking') {
-      actions.push('📅 Xem lịch trống', '📞 Gọi đặt lịch', '💳 Thanh toán online');
+      actions.push(
+        '📅 Xem lịch trống',
+        '📞 Gọi đặt lịch',
+        '💳 Thanh toán online',
+      );
     }
-    
+
     actions.push('🏠 Hướng dẫn chăm sóc', '❓ Câu hỏi khác');
-    
+
     return actions;
   }
 
-  private generateFollowUpQuestions(context: ChatContext, aiResponse: string): string[] {
+  private generateFollowUpQuestions(
+    context: ChatContext,
+    aiResponse: string,
+  ): string[] {
     const questions: string[] = [];
-    
+
     if (context.conversationType === 'initial') {
-      questions.push('Bạn có triệu chứng gì cụ thể không?', 'Bạn đã từng điều trị nha khoa chưa?');
+      questions.push(
+        'Bạn có triệu chứng gì cụ thể không?',
+        'Bạn đã từng điều trị nha khoa chưa?',
+      );
     } else if (context.conversationType === 'symptom') {
-      questions.push('Triệu chứng này kéo dài bao lâu rồi?', 'Bạn có bị đau khi ăn uống không?');
+      questions.push(
+        'Triệu chứng này kéo dài bao lâu rồi?',
+        'Bạn có bị đau khi ăn uống không?',
+      );
     }
-    
+
     return questions;
   }
 
-  private generateNextSteps(context: ChatContext, urgencyLevel: string): string[] {
+  private generateNextSteps(
+    context: ChatContext,
+    urgencyLevel: string,
+  ): string[] {
     const steps: string[] = [];
-    
+
     if (urgencyLevel === 'high') {
       steps.push('Liên hệ phòng khám ngay', 'Đến cơ sở y tế gần nhất');
     } else if (urgencyLevel === 'medium') {
@@ -300,22 +377,28 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
     } else {
       steps.push('Duy trì vệ sinh răng miệng', 'Khám định kỳ 6 tháng/lần');
     }
-    
+
     return steps;
   }
 
-  private calculateConfidence(aiResponse: string, context: ChatContext): number {
+  private calculateConfidence(
+    aiResponse: string,
+    context: ChatContext,
+  ): number {
     let confidence = 0.7; // Base confidence
-    
+
     // Increase confidence based on context
     if (context.symptoms.length > 0) confidence += 0.1;
     if (context.conversationType !== 'initial') confidence += 0.1;
     if (aiResponse.length > 100) confidence += 0.1;
-    
+
     return Math.min(confidence, 1.0);
   }
 
-  private async extractDoctorSuggestion(aiResponse: string, context: ChatContext): Promise<any> {
+  private async extractDoctorSuggestion(
+    aiResponse: string,
+    context: ChatContext,
+  ): Promise<any> {
     // Get current doctors from database
     const doctors = await this.getDoctorsFromDatabase();
 
@@ -333,49 +416,72 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
   }
 
   async getQuickSuggestions(symptom: string) {
-    const suggestions = {
-      'đau răng': [
+    const doctors = await this.getDoctorsFromDatabase();
+
+    const baseSuggestions = {
+      'sâu răng': [
         'Súc miệng bằng nước muối ấm',
+        'Tránh đồ ngọt và lạnh',
         'Sử dụng thuốc giảm đau theo chỉ định',
-        'Tránh đồ ăn quá nóng hoặc lạnh',
-        'Đặt lịch khám với BS. Nguyễn Văn A',
       ],
-      'răng khôn': [
-        'Súc miệng bằng nước muối',
-        'Uống thuốc giảm đau',
-        'Chườm lạnh vùng sưng',
-        'Khám với BS. Lê Văn C về phẫu thuật',
+      'mọc lệch': [
+        'Thăm khám để đánh giá tình trạng',
+        'Chụp X-quang toàn hàm',
+        'Tư vấn phương án chỉnh nha',
       ],
-      'chảy máu nướu': [
+      'ố vàng': [
+        'Hạn chế cà phê, trà, thuốc lá',
+        'Đánh răng đúng cách 2 lần/ngày',
+        'Tư vấn phương pháp tẩy trắng',
+      ],
+      'hàm hô': [
+        'Thăm khám chuyên khoa',
+        'Đánh giá mức độ nghiêm trọng',
+        'Tư vấn phương án điều trị',
+      ],
+      'chảy máu lợi': [
         'Đánh răng nhẹ nhàng',
         'Sử dụng chỉ nha khoa',
         'Súc miệng bằng nước muối',
-        'Khám với BS. Phạm Thị D về nha chu',
       ],
-      'tẩy trắng': [
-        'Hạn chế cà phê, trà',
-        'Không hút thuốc',
-        'Đánh răng 2 lần/ngày',
-        'Tư vấn với BS. Hoàng Văn E',
-      ],
-      'niềng răng': [
-        'Kiểm tra độ tuổi phù hợp',
-        'Chụp X-quang răng',
-        'Đánh giá tình trạng nướu',
-        'Tư vấn với BS. Trần Thị B',
+      'răng sữa': [
+        'Giữ vệ sinh răng miệng cho trẻ',
+        'Tạo tâm lý tích cực cho trẻ',
+        'Thăm khám định kỳ',
       ],
     };
 
-    return (
-      suggestions[symptom.toLowerCase()] || [
+    let suggestions = Object.keys(baseSuggestions).reduce(
+      (acc, key) => {
+        if (symptom.toLowerCase().includes(key)) {
+          return baseSuggestions[key];
+        }
+        return acc;
+      },
+      [
         'Duy trì vệ sinh răng miệng tốt',
         'Đánh răng 2 lần/ngày',
         'Khám răng định kỳ 6 tháng/lần',
-        'Liên hệ phòng khám để được tư vấn cụ thể',
-      ]
+      ],
     );
+
+    // Add real doctor suggestion if available
+    if (doctors.length > 0) {
+      const appropriateDoctor =
+        doctors.find((doctor) => {
+          const keywords = doctor.keywords || [];
+          const symptomLower = symptom.toLowerCase();
+          return keywords.some((keyword) => symptomLower.includes(keyword));
+        }) || doctors[0];
+
+      suggestions.push(`Tư vấn với ${appropriateDoctor.fullName}`);
+    } else {
+      suggestions.push('Liên hệ phòng khám để được tư vấn cụ thể');
+    }
+
+    return suggestions;
   }
-  
+
   /**
    * Analyze chat history and patient info to produce a structured report for doctors.
    * Returns: { summary, urgency, suggestedActions, recommendedSpecialist, rawModelOutput }
@@ -389,7 +495,8 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
       convo += `${m.role === 'user' ? 'Bệnh nhân' : 'AI'}: ${m.content}\n`;
     });
 
-    convo += '\nThông tin bệnh nhân:\n' + JSON.stringify(patientInfo) + '\n\nJSON:';
+    convo +=
+      '\nThông tin bệnh nhân:\n' + JSON.stringify(patientInfo) + '\n\nJSON:';
 
     try {
       const result = await this.model.generateContent(convo);
@@ -398,7 +505,7 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
 
       // Try to extract JSON from model output
       const jsonTextMatch = text.match(/\{[\s\S]*\}/);
-  let parsed: any = null;
+      let parsed: any = null;
       if (jsonTextMatch) {
         try {
           parsed = JSON.parse(jsonTextMatch[0]);
@@ -417,7 +524,11 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
       const safeResponse = {
         summary: parsed?.summary || this.summarizeText(text, 120),
         urgency: parsed?.urgency || (await this.analyzeUrgency(text)),
-        suggestedActions: parsed?.suggestedActions || ['Clinical assessment', 'Consider X-ray', 'Provide symptomatic care'],
+        suggestedActions: parsed?.suggestedActions || [
+          'Clinical assessment',
+          'Consider X-ray',
+          'Provide symptomatic care',
+        ],
         recommendedSpecialist: parsed?.recommendedSpecialist || null,
         rawModelOutput: text,
       };
@@ -450,8 +561,16 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
       'chảy máu không ngừng',
       'gãy răng',
       'vỡ răng',
+      'chấn thương nghiêm trọng',
     ];
-    const mediumKeywords = ['đau', 'sưng', 'khó chịu', 'nhức'];
+    const mediumKeywords = [
+      'đau răng',
+      'ê buốt',
+      'sưng nướu',
+      'chảy máu lợi',
+      'răng mọc lệch',
+      'răng sâu',
+    ];
 
     const lowerMessage = message.toLowerCase();
 
@@ -470,27 +589,40 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
    * Suggest doctors using server database. Input may contain a diagnosis string, array of keywords, or symptom.
    * Returns an array of doctor records sorted by match score.
    */
-  async suggestDoctors(opts: { diagnosis?: string; keywords?: string[]; symptom?: string; limit?: number }) {
+  async suggestDoctors(opts: {
+    diagnosis?: string;
+    keywords?: string[];
+    symptom?: string;
+    limit?: number;
+  }) {
     const doctors = await this.getDoctorsFromDatabase();
     const terms: string[] = [];
-    if (opts.diagnosis) terms.push(...opts.diagnosis.toLowerCase().split(/\W+/));
+    if (opts.diagnosis)
+      terms.push(...opts.diagnosis.toLowerCase().split(/\W+/));
     if (opts.symptom) terms.push(...opts.symptom.toLowerCase().split(/\W+/));
-    if (opts.keywords && Array.isArray(opts.keywords)) terms.push(...opts.keywords.map(k => k.toLowerCase()));
+    if (opts.keywords && Array.isArray(opts.keywords))
+      terms.push(...opts.keywords.map((k) => k.toLowerCase()));
 
     // Score doctors by keyword overlap
-    const scored = doctors.map(d => {
-      const docKeywords = (d.keywords || []).map((k: string) => k.toLowerCase());
+    const scored = doctors.map((d) => {
+      const docKeywords = (d.keywords || []).map((k: string) =>
+        k.toLowerCase(),
+      );
       let score = 0;
       for (const t of terms) {
         if (!t) continue;
         if (docKeywords.includes(t)) score += 2;
-        else if (d.specialty && d.specialty.toLowerCase().includes(t)) score += 1;
+        else if (d.specialty && d.specialty.toLowerCase().includes(t))
+          score += 1;
       }
       return { doctor: d, score };
     });
 
     scored.sort((a, b) => b.score - a.score);
     const limit = opts.limit && opts.limit > 0 ? opts.limit : 5;
-    return scored.filter(s => s.score > 0).slice(0, limit).map(s => s.doctor);
+    return scored
+      .filter((s) => s.score > 0)
+      .slice(0, limit)
+      .map((s) => s.doctor);
   }
 }

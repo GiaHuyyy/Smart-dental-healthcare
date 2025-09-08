@@ -21,7 +21,7 @@ export default function ChatHeader({
 }: ChatHeaderProps) {
   const getUrgencyBadge = () => {
     if (urgencyLevel === "low") return null;
-    
+
     const colors = {
       high: "bg-red-100 text-red-800 border-red-300",
       medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -90,7 +90,7 @@ export default function ChatHeader({
               <span>📞</span>
               <span>Gọi điện</span>
             </button>
-            
+
             <button
               onClick={onBookAppointment}
               className="px-3 py-1.5 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition-colors flex items-center space-x-1"

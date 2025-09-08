@@ -38,6 +38,25 @@ export default function DoctorSchedule() {
   const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
   const [chiefComplaintInput, setChiefComplaintInput] = useState('');
 
+  // Utility functions
+  function validateObjectId(id: string | undefined | null): string {
+    if (!id) {
+      // Generate a valid MongoDB ObjectId format
+      return '507f1f77bcf86cd799439011';
+    }
+    
+    // Check if it's already a valid ObjectId (24 hex characters)
+    const objectIdRegex = /^[0-9a-fA-F]{24}$/;
+    if (objectIdRegex.test(id)) {
+      return id;
+    }
+    
+    // If not valid, generate a new one based on timestamp
+    const timestamp = Math.floor(Date.now() / 1000).toString(16);
+    const randomHex = Math.random().toString(16).substring(2, 18);
+    return (timestamp + randomHex).padEnd(24, '0').substring(0, 24);
+  }
+
   // Helper function to get auth token from localStorage
   function getAuthToken() {
     // Try localStorage first
@@ -1097,11 +1116,15 @@ export default function DoctorSchedule() {
       }
 
       // Create medical record with comprehensive data structure
-      const doctorId = session?.user?.id || session?.user?._id || localStorage.getItem('userId') || '507f1f77bcf86cd799439011'; // Fallback ObjectID
+      const doctorId = validateObjectId(session?.user?._id || localStorage.getItem('userId'));
+      const patientId = validateObjectId(currentTreatmentAppointment.patient._id || currentTreatmentAppointment.patient.id);
+      const currentAppointmentId = validateObjectId(currentTreatmentAppointment._id || currentTreatmentAppointment.id);
+
+      console.log('Creating medical record with IDs:', { doctorId, patientId, currentAppointmentId });
 
       const medicalRecordData = {
-        patientId: currentTreatmentAppointment.patient._id || currentTreatmentAppointment.patient.id,
-        appointmentId: currentTreatmentAppointment._id || currentTreatmentAppointment.id,
+        patientId: patientId,
+        appointmentId: currentAppointmentId,
         doctorId: doctorId,
 
         // Chief complaints - send both formats for compatibility
@@ -1181,9 +1204,65 @@ export default function DoctorSchedule() {
       const medicalRecordResult = await medicalRecordResponse.json();
       console.log('Medical record created successfully:', medicalRecordResult);
 
+      // Create prescription if there are medications
+      const hasMedications = treatmentForm.medications.some(med => med.name.trim() !== '');
+      if (hasMedications) {
+        try {
+          const prescriptionData = {
+            patientId: patientId,
+            doctorId: doctorId,
+            medicalRecordId: medicalRecordResult.data?._id || medicalRecordResult._id,
+            prescriptionDate: new Date(),
+            diagnosis: treatmentForm.diagnosisGroups
+              .filter(group => group.diagnosis.trim() !== '')
+              .map(group => group.diagnosis)
+              .join(', '),
+            medications: treatmentForm.medications
+              .filter(med => med.name.trim() !== '')
+              .map(med => ({
+                name: med.name,
+                dosage: med.dosage || 'Theo chỉ định',
+                frequency: med.frequency || 'Theo chỉ định',
+                duration: med.duration || 'Theo chỉ định',
+                instructions: med.instructions || 'Sử dụng theo hướng dẫn của bác sĩ',
+                quantity: 1, // Default quantity
+                unit: 'viên' // Default unit
+              })),
+            instructions: 'Sử dụng theo đúng chỉ dẫn của bác sĩ',
+            notes: treatmentForm.notes || '',
+            isFollowUpRequired: false
+          };
+
+          console.log('Creating prescription:', prescriptionData);
+
+          const prescriptionResponse = await fetch('/api/prescriptions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(prescriptionData),
+          });
+
+          if (prescriptionResponse.ok) {
+            const prescriptionResult = await prescriptionResponse.json();
+            console.log('Prescription created successfully:', prescriptionResult);
+            addToast('Đã tạo đơn thuốc thành công!', 'success');
+          } else {
+            console.warn('Failed to create prescription:', prescriptionResponse.status);
+            const errorText = await prescriptionResponse.text();
+            console.error('Prescription error:', errorText);
+            addToast('Tạo đơn thuốc thất bại, nhưng hồ sơ đã được lưu', 'error');
+          }
+        } catch (error) {
+          console.error('Error creating prescription:', error);
+          addToast('Lỗi khi tạo đơn thuốc, nhưng hồ sơ đã được lưu', 'error');
+        }
+      }
+
       // Update appointment status to completed
-      const appointmentId = currentTreatmentAppointment._id || currentTreatmentAppointment.id;
-      const appointmentUpdateResponse = await fetch(`/api/appointments/${appointmentId}`, {
+      const currentAppointmentIdForUpdate = currentTreatmentAppointment._id || currentTreatmentAppointment.id;
+      const appointmentUpdateResponse = await fetch(`/api/appointments/${currentAppointmentIdForUpdate}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1201,7 +1280,7 @@ export default function DoctorSchedule() {
 
       // Refresh appointments
       const updatedAppointments = appointments.map(appt =>
-        (appt._id || appt.id) === appointmentId
+        (appt._id || appt.id) === currentAppointmentId
           ? { ...appt, status: 'completed' }
           : appt
       );

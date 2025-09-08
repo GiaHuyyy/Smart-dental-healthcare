@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import PrescriptionList from "../../../../components/PrescriptionList";
 
 interface Patient {
   _id: string;
@@ -408,43 +409,19 @@ export default function PatientDetail() {
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Đơn thuốc gần đây</h3>
-              <Link href={`/api/prescriptions/patient/${patientId}/history`} className="text-blue-600 hover:text-blue-800 text-sm">
+              <h3 className="text-lg font-semibold text-gray-900">Đơn thuốc</h3>
+              <Link href={`/doctor/prescriptions?patientId=${patientId}`} className="text-blue-600 hover:text-blue-800 text-sm">
                 Xem tất cả
               </Link>
             </div>
           </div>
           <div className="p-6">
-            {prescriptions.length > 0 ? (
-              <div className="space-y-4">
-                {prescriptions.map((prescription) => (
-                  <div key={prescription._id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {formatDate(prescription.prescriptionDate)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Chẩn đoán: {prescription.diagnosis}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Bác sĩ: {prescription.doctorId.fullName} ({prescription.doctorId.specialty})
-                        </p>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        prescription.isDispensed 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {prescription.isDispensed ? 'Đã phát thuốc' : 'Chưa phát thuốc'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-8">Chưa có đơn thuốc nào</p>
-            )}
+            <PrescriptionList 
+              patientId={patientId} 
+              showDoctorInfo={true}
+              showPatientInfo={false}
+              limit={10}
+            />
           </div>
         </div>
       )}
