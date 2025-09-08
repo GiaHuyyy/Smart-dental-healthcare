@@ -10,6 +10,7 @@ import {
   AiChatMessage,
   AiChatMessageSchema,
 } from './schemas/ai-chat-message.schema';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import {
       { name: AiChatSession.name, schema: AiChatSessionSchema },
       { name: AiChatMessage.name, schema: AiChatMessageSchema },
     ]),
+    CloudinaryModule,
   ],
   controllers: [AiChatHistoryController],
   providers: [AiChatHistoryService],

@@ -22,6 +22,7 @@ import { chatStorage } from "@/utils/chatStorage";
 import { imageAnalysisAPI } from "@/utils/imageAnalysis";
 import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
+import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -292,11 +293,9 @@ export default function ChatInterface({
   // Create new session with welcome message
   const createNewSessionAndWelcome = useCallback(async () => {
     if (isCreatingSession) {
-      console.log("Đang tạo session, bỏ qua request duplicate");
       return;
     }
 
-    console.log("Bắt đầu tạo session mới...");
     setIsCreatingSession(true);
 
     const welcomeMessage: ChatMessage = {
@@ -310,10 +309,9 @@ export default function ChatInterface({
     // Create new session if user is logged in
     if (session?.user) {
       try {
-        const newSession = await createSession("", "low");
-        console.log("✅ Created new AI chat session:", newSession);
+        await createSession("", "low");
       } catch (err) {
-        console.error("❌ Failed to create AI chat session:", err);
+        console.error("Failed to create AI chat session:", err);
       }
     }
 
@@ -322,31 +320,19 @@ export default function ChatInterface({
 
   // Load AI chat history from database
   const loadAiChatHistory = useCallback(async () => {
-    console.log("=== Lịch sử chat AI ===");
-    console.log("Session user:", session?.user);
-    console.log("Type:", type);
-
     if (!session?.user || type !== "ai") {
-      console.log("Không load chat AI - user hoặc type không hợp lệ");
       return;
     }
 
-    console.log("Bắt đầu load lịch sử chat AI từ database...");
     setIsLoadingHistory(true);
     try {
       // Get user's most recent active session
       const userId =
         (session.user as { _id?: string; id?: string })?._id || (session.user as { _id?: string; id?: string })?.id;
 
-      console.log("User ID:", userId);
-      if (!userId) {
-        console.log("Không có user ID");
-        return;
-      }
+      if (!userId) return;
 
-      console.log("Đang tìm session gần nhất...");
       const sessionsResponse = await aiChatHistoryService.getUserSessions(userId, 1, 5); // Get up to 5 recent sessions
-      console.log("Sessions response:", sessionsResponse);
 
       if (sessionsResponse.sessions.length > 0) {
         // Check for active sessions from today
@@ -358,16 +344,12 @@ export default function ChatInterface({
           return sessionDate >= today && session.status === "active";
         });
 
-        console.log("Sessions từ hôm nay:", todaySessions);
-
         if (todaySessions.length > 0) {
           // Use the most recent session from today
           const latestSession = todaySessions[0];
-          console.log("Sử dụng session từ hôm nay:", latestSession);
 
           // Load messages from this session
           const messages = await aiChatHistoryService.getSessionMessages(latestSession._id!);
-          console.log("Messages từ database:", messages);
 
           if (messages.length > 0) {
             // Convert database messages to ChatMessage format
@@ -381,19 +363,12 @@ export default function ChatInterface({
               imageUrl: msg.imageUrl,
             }));
 
-            console.log("Converted chat messages:", chatMessages);
-            console.log(
-              "Messages có analysis data:",
-              chatMessages.filter((m) => m.analysisData && Object.keys(m.analysisData).length > 0)
-            );
-
             setMessages(chatMessages);
             setCurrentSession(latestSession);
             setHasLoadedFromDatabase(true);
-            console.log(`✅ Đã load ${chatMessages.length} tin nhắn từ database session ${latestSession._id}`);
             return;
           } else {
-            console.log("Session hôm nay không có messages, sử dụng session này cho chat mới");
+            // Session exists but no messages, reuse session
             setCurrentSession(latestSession);
             setHasLoadedFromDatabase(true);
 
@@ -411,7 +386,6 @@ export default function ChatInterface({
       }
 
       // No recent session found, create new session and welcome message
-      console.log("Tạo session mới với welcome message...");
       await createNewSessionAndWelcome();
       setHasLoadedFromDatabase(true);
     } catch (error) {
@@ -429,19 +403,8 @@ export default function ChatInterface({
   }, []);
 
   useEffect(() => {
-    console.log("useEffect - Check load AI chat:", {
-      type,
-      messagesLength: messages.length,
-      hasUser: !!session?.user,
-      hasLoadedFromDatabase,
-      userName: (session?.user as any)?.firstName || (session?.user as any)?.fullName || "Unknown",
-    });
-
     if (type === "ai" && !hasLoadedFromDatabase && session?.user) {
-      console.log("Điều kiện đủ để load AI chat history");
       loadAiChatHistory();
-    } else {
-      console.log("Không load AI chat history - điều kiện không đủ");
     }
   }, [type, session?.user, hasLoadedFromDatabase, loadAiChatHistory]);
 
@@ -701,13 +664,10 @@ export default function ChatInterface({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      alert("Vui lòng chọn file ảnh");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File quá lớn. Vui lòng chọn ảnh nhỏ hơn 5MB");
+    // Validate file using upload service
+    const validation = uploadService.validateImageFile(file);
+    if (!validation.isValid) {
+      alert(validation.error);
       return;
     }
 
@@ -715,7 +675,6 @@ export default function ChatInterface({
     if (!currentSession && session?.user) {
       try {
         await createSession("", "medium"); // Image analysis có urgency medium
-        console.log("Created new AI chat session for image analysis");
       } catch (err) {
         console.error("Failed to create AI chat session:", err);
       }
@@ -724,33 +683,43 @@ export default function ChatInterface({
     dispatch(setIsAnalyzing(true));
     setIsLoading(true);
 
-    const imageUrl = URL.createObjectURL(file);
-    dispatch(setUploadedImage(imageUrl));
+    // Create temporary URL for immediate display
+    const tempImageUrl = URL.createObjectURL(file);
+    dispatch(setUploadedImage(tempImageUrl));
 
     const userMessage: ChatMessage = {
       role: "user",
-      content: `🖼️ Đã tải lên ảnh: ${file.name}`,
+      content: `🖼️ Đang tải lên ảnh: ${file.name}`,
       timestamp: new Date(),
-      imageUrl: imageUrl,
+      imageUrl: tempImageUrl,
     };
     setMessages((prev) => [...prev, userMessage]);
 
-    // Lưu tin nhắn upload ảnh vào database
-    if (currentSession && session?.user) {
-      try {
-        await saveMessage({
-          role: "user",
-          content: `Tải lên ảnh để phân tích: ${file.name}`,
-          urgencyLevel: "medium",
-          messageType: "image_upload",
-        });
-        console.log("Saved image upload message to database");
-      } catch (err) {
-        console.error("Failed to save image upload message:", err);
-      }
-    }
-
     try {
+      // Upload image to Cloudinary first
+      const uploadResult = await uploadService.uploadImage(file);
+
+      // Update message with Cloudinary URL
+      setMessages((prev) =>
+        prev.map((msg, index) => (index === prev.length - 1 ? { ...msg, imageUrl: uploadResult.url } : msg))
+      );
+
+      // Lưu tin nhắn upload ảnh vào database với Cloudinary URL
+      if (currentSession && session?.user) {
+        try {
+          await saveMessage({
+            role: "user",
+            content: `Tải lên ảnh để phân tích: ${file.name}`,
+            urgencyLevel: "medium",
+            messageType: "image_upload",
+            imageUrl: uploadResult.url,
+          });
+        } catch (err) {
+          console.error("Failed to save image upload message:", err);
+        }
+      }
+
+      // Continue with analysis using the original file
       const analysisResponse = await imageAnalysisAPI.uploadAndAnalyze(file);
 
       if (!analysisResponse.success || !analysisResponse.data) {
@@ -779,9 +748,6 @@ export default function ChatInterface({
       // Lưu kết quả phân tích ảnh vào database
       if (currentSession && session?.user) {
         try {
-          console.log("🖼️ Lưu kết quả phân tích ảnh vào database...");
-          console.log("Analysis data:", result);
-
           await saveMessage({
             role: "assistant",
             content: result.richContent?.analysis || result.analysis || "Kết quả phân tích ảnh X-ray",
@@ -789,12 +755,9 @@ export default function ChatInterface({
             messageType: "image_analysis",
             analysisData: result,
           });
-          console.log("✅ Đã lưu kết quả phân tích ảnh vào database");
         } catch (err) {
-          console.error("❌ Lỗi khi lưu kết quả phân tích ảnh:", err);
+          console.error("Failed to save image analysis result:", err);
         }
-      } else {
-        console.log("⚠️ Không thể lưu kết quả phân tích - không có session hoặc user");
       }
 
       // Always set a suggested doctor for image analysis

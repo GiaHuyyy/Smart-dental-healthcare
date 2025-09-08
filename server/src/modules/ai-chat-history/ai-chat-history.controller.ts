@@ -8,7 +8,10 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AiChatHistoryService } from './ai-chat-history.service';
 import {
   CreateAiChatSessionDto,
@@ -17,11 +20,15 @@ import {
 } from './dto/ai-chat-history.dto';
 import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
 import { Public } from 'src/decorator/customize';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('ai-chat-history')
 @Public() // Remove this in production and use proper auth
 export class AiChatHistoryController {
-  constructor(private readonly aiChatHistoryService: AiChatHistoryService) {}
+  constructor(
+    private readonly aiChatHistoryService: AiChatHistoryService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   // Session endpoints
   @Post('sessions')
@@ -117,5 +124,24 @@ export class AiChatHistoryController {
     const summary =
       await this.aiChatHistoryService.generateSessionSummary(sessionId);
     return { summary };
+  }
+
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+
+    try {
+      const result = await this.cloudinaryService.uploadImage(file);
+      return {
+        success: true,
+        url: result.url,
+        public_id: result.public_id,
+      };
+    } catch (error) {
+      throw new Error(`Upload failed: ${error.message}`);
+    }
   }
 }
