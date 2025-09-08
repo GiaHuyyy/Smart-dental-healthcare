@@ -1,6 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
+import ChatButtonSimple from "@/components/chat/ChatButtonSimple";
 import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -322,6 +323,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           </div>
         </div>
       ) : null}
+
+      {/* Chat Integration - Bỏ button chat ở góc phải */}
+      {/* <div className="fixed bottom-4 right-4 z-50">
+        <ChatButtonSimple type="ai" />
+      </div> */}
     </div>
   );
 }

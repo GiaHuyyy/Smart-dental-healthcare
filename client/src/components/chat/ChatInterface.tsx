@@ -23,19 +23,66 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { chatStorage } from "@/utils/chatStorage";
+import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
+import { useSession } from "next-auth/react";
 
 interface ChatInterfaceProps {
-  type: "ai" | "doctor";
+  type: "ai" | "doctor" | "simple-doctor";
   doctorName?: string;
+  doctorId?: string;
+  conversationId?: string; // Database conversation ID
+  // Realtime chat props
+  currentUserId?: string;
+  currentUserRole?: "patient" | "doctor";
+  authToken?: string;
+  doctorsList?: any[];
+  patientsList?: any[];
+  // Preloaded messages from database
+  preloadedMessages?: any[];
+  isLoadingMessages?: boolean;
+  // Callback when new message is sent
+  onNewMessage?: (message: any) => void;
 }
 
-export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) {
+export default function ChatInterface({
+  type,
+  doctorName,
+  doctorId,
+  conversationId,
+  currentUserId,
+  currentUserRole,
+  authToken,
+  doctorsList = [],
+  patientsList = [],
+  preloadedMessages = [],
+  isLoadingMessages = false,
+  onNewMessage,
+}: ChatInterfaceProps) {
+  // Session and user data
+  const { data: session } = useSession();
+
   // Redux hooks
   const dispatch = useAppDispatch();
   const { analysisResult, uploadedImage, isAnalyzing } = useAppSelector((state) => state.imageAnalysis);
-  const { selectedDoctor, symptoms, urgencyLevel, chatHistory } = useAppSelector((state) => state.appointment);
+  const { urgencyLevel } = useAppSelector((state) => state.appointment);
 
-  // Local state
+  // Realtime chat context
+  const {
+    isConnected,
+    conversations,
+    activeConversation,
+    messages: realtimeMessages,
+    isTyping: isRealtimeTyping,
+    connectToChat,
+    disconnectFromChat,
+    startConversation,
+    selectConversation,
+    sendMessage: sendRealtimeMessage,
+    markMessageAsRead,
+    setTypingStatus,
+  } = useRealtimeChat();
+
+  // Local state for AI chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -45,15 +92,121 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
   const [doctorsLoaded, setDoctorsLoaded] = useState(false);
   const [showDoctorSuggestion, setShowDoctorSuggestion] = useState(true);
 
+  // Realtime chat UI state
+  const [showConversationList, setShowConversationList] = useState(false);
+  const [showChatWindow, setShowChatWindow] = useState(false);
+
+  // Doctor chat state
+  const [doctorMessages, setDoctorMessages] = useState<Array<{ role: string; content: string; timestamp: Date }>>([]);
+  const [doctorInput, setDoctorInput] = useState("");
+  const [isDoctorLoading, setIsDoctorLoading] = useState(false);
+  const [isDoctorTyping, setIsDoctorTyping] = useState(false);
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const doctorMessagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Initialize realtime chat connection
+  useEffect(() => {
+    if (type === "doctor" && session?.user && authToken) {
+      const currentUser = {
+        _id: (session.user as any)?._id || (session.user as any)?.id || currentUserId || "",
+        firstName: (session.user as any)?.firstName || "",
+        lastName: (session.user as any)?.lastName || "",
+        email: session.user.email || "",
+        role: currentUserRole || ("doctor" as "patient" | "doctor"),
+        specialization: (session.user as any)?.specialization || "",
+      };
+      connectToChat(authToken, currentUser);
+    }
+
+    return () => {
+      if (type === "doctor") {
+        disconnectFromChat();
+      }
+    };
+  }, [type, session, authToken, currentUserId, currentUserRole, connectToChat, disconnectFromChat]);
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  const scrollDoctorMessagesToBottom = () => {
+    doctorMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Auto scroll when messages change
+  useEffect(() => {
+    if (type === "ai") {
+      scrollToBottom();
+    } else if (type === "doctor") {
+      scrollDoctorMessagesToBottom();
+    }
+  }, [messages, doctorMessages, type]);
+
+  // Initialize doctor conversation
+  useEffect(() => {
+    if (type === "doctor" && doctorName) {
+      // Load preloaded messages from database
+      if (preloadedMessages && preloadedMessages.length > 0) {
+        const transformedMessages = preloadedMessages.map((msg: any) => {
+          // Handle populated senderId (object) vs direct senderId (string)
+          const senderIdValue =
+            typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId;
+          const senderIdString = senderIdValue.toString();
+          const currentUserIdString = currentUserId?.toString();
+          const isCurrentUserById = senderIdString === currentUserIdString;
+
+          // Also check by senderRole for additional validation
+          const isCurrentUserByRole = msg.senderRole === "patient";
+          const isCurrentUser = isCurrentUserById || isCurrentUserByRole;
+
+          console.log(`Message comparison:
+            senderId=${senderIdString},
+            currentUserId=${currentUserIdString},
+            isCurrentUserById=${isCurrentUserById},
+            senderRole=${msg.senderRole},
+            isCurrentUserByRole=${isCurrentUserByRole},
+            finalIsCurrentUser=${isCurrentUser}`);
+
+          return {
+            role: isCurrentUser ? "user" : "doctor",
+            content: msg.content,
+            timestamp: new Date(msg.createdAt || msg.timestamp),
+          };
+        });
+
+        setDoctorMessages(transformedMessages);
+        console.log("Loaded preloaded messages:", transformedMessages);
+        console.log("Current user ID:", currentUserId);
+        console.log(
+          "Message senders:",
+          preloadedMessages.map((msg: any) => ({
+            senderId:
+              typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId,
+            content: msg.content,
+            senderRole: msg.senderRole,
+            isCurrentUser:
+              (typeof msg.senderId === "object"
+                ? msg.senderId._id || msg.senderId.id || msg.senderId
+                : msg.senderId
+              ).toString() === currentUserId?.toString(),
+          }))
+        );
+      } else if (doctorMessages.length === 0) {
+        // Add welcome message if no messages yet
+        const welcomeMessage = {
+          role: "doctor",
+          content: `Xin chào! Tôi là ${doctorName}. Tôi có thể giúp gì cho bạn hôm nay?`,
+          timestamp: new Date(),
+        };
+        setDoctorMessages([welcomeMessage]);
+      }
+    }
+  }, [type, doctorName, preloadedMessages, currentUserId]);
 
   // Load doctors from API
   const loadDoctors = async () => {
@@ -559,6 +712,139 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
     }
   };
 
+  // Handle realtime chat functionality
+  const handleStartRealtimeConversation = async (otherUserId: string) => {
+    try {
+      const conversation = await startConversation(otherUserId);
+      selectConversation(conversation);
+      setShowChatWindow(true);
+      setShowConversationList(false);
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+    }
+  };
+
+  const handleRealtimeMessageSend = (content: string) => {
+    if (activeConversation) {
+      sendRealtimeMessage(content);
+    }
+  };
+
+  const handleCloseRealtimeChat = () => {
+    setShowChatWindow(false);
+    setShowConversationList(false);
+  };
+
+  // Doctor chat handlers
+  const handleDoctorSendMessage = async () => {
+    if (!doctorInput.trim() || isDoctorLoading) return;
+
+    const userMessage = {
+      role: "user",
+      content: doctorInput.trim(),
+      timestamp: new Date(),
+    };
+
+    setDoctorMessages((prev) => [...prev, userMessage]);
+    setDoctorInput("");
+    setIsDoctorLoading(true);
+
+    try {
+      // Get auth token from session
+      const token =
+        (session as any)?.access_token ||
+        (session as any)?.accessToken ||
+        localStorage.getItem("access_token") ||
+        sessionStorage.getItem("access_token");
+
+      // Send message to database via API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          conversationId: conversationId || doctorId, // Use conversationId if available, fallback to doctorId
+          senderId: currentUserId || "current_patient_id", // You'll need current user ID
+          content: userMessage.content,
+          type: "text",
+        }),
+      });
+
+      if (response.ok) {
+        const savedMessage = await response.json();
+        console.log("Message saved to database:", savedMessage);
+
+        // Notify parent component about new message
+        if (onNewMessage) {
+          onNewMessage(savedMessage);
+        }
+
+        // For now, add a placeholder doctor response
+        // In real implementation, doctor would respond through the realtime system
+        setTimeout(() => {
+          const doctorResponse = {
+            role: "doctor",
+            content: "Cảm ơn bạn đã liên hệ. Tôi đã nhận được tin nhắn và sẽ phản hồi sớm nhất có thể.",
+            timestamp: new Date(),
+          };
+          setDoctorMessages((prev) => [...prev, doctorResponse]);
+          setIsDoctorLoading(false);
+        }, 1000);
+      } else {
+        console.error("Failed to save message to database");
+        setIsDoctorLoading(false);
+      }
+    } catch (error) {
+      console.error("Error sending message to database:", error);
+      // Fallback to local message only
+      setTimeout(() => {
+        const doctorResponse = {
+          role: "doctor",
+          content: "Đã xảy ra lỗi khi gửi tin nhắn. Vui lòng thử lại sau.",
+          timestamp: new Date(),
+        };
+        setDoctorMessages((prev) => [...prev, doctorResponse]);
+        setIsDoctorLoading(false);
+      }, 1000);
+    }
+  };
+
+  const handleDoctorKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleDoctorSendMessage();
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Handle start conversation with doctor
+  const handleStartConversationWithDoctor = (doctor: DoctorSuggestion) => {
+    // Store doctor info in localStorage để trang chat có thể đọc
+    const conversationData = {
+      doctorId: doctor._id,
+      doctorName: doctor.fullName,
+      specialty: doctor.specialty,
+      timestamp: new Date().toISOString(),
+      symptoms: messages
+        .filter((msg) => msg.role === "user")
+        .map((msg) => msg.content)
+        .join("; "),
+    };
+
+    localStorage.setItem("newConversation", JSON.stringify(conversationData));
+
+    // Navigate to chat page
+    router.push("/patient/chat?newConversation=true");
+  };
+
   const getButtonIcon = (buttonText: string) => {
     if (buttonText.includes("Giải thích")) return "💡";
     if (buttonText.includes("Đặt lịch")) return "📅";
@@ -680,7 +966,10 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
 
                   {/* Action Buttons - No Icons */}
                   <div className="flex flex-wrap gap-2">
-                    <button className="text-sm bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors">
+                    <button
+                      className="text-sm bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors"
+                      onClick={() => handleStartConversationWithDoctor(suggestedDoctor)}
+                    >
                       Nhắn tin
                     </button>
                     <button className="text-sm bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors">
@@ -712,258 +1001,322 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
 
   return (
     <div className="flex-1 flex flex-col h-full max-h-full">
-      {/* Messages - Scrollable Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0">
-        {messages.map((message, index) => (
-          <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div
-              className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
-                message.role === "user"
-                  ? "bg-blue-500 text-white"
-                  : message.actionButtons && message.actionButtons.length > 0
-                  ? "bg-white text-gray-900 border border-gray-200 shadow-lg"
-                  : "bg-gray-100 text-gray-900"
-              }`}
-            >
-              {/* Show image if available */}
-              {message.imageUrl && (
-                <div className="mb-3">
-                  <Image
-                    src={message.imageUrl}
-                    alt="Uploaded image"
-                    width={200}
-                    height={200}
-                    className="max-w-full h-auto rounded-lg border object-cover"
-                    style={{ maxHeight: "200px" }}
-                  />
-                </div>
-              )}
-
-              {/* Render analysis result với spacing nhỏ hơn */}
-              {message.isAnalysisResult && message.analysisData ? (
-                <div className="space-y-2">
-                  {/* Header */}
-                  <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-                    <span className="text-blue-800 font-bold text-base">🔍 Kết quả phân tích ảnh</span>
-                  </div>
-
-                  {/* Chẩn đoán */}
-                  {message.analysisData.richContent?.analysis && (
-                    <div className="p-2 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                      <div className="text-sm font-semibold text-blue-700 mb-1 flex items-center">
-                        <span className="mr-1">📋</span>
-                        CHẨN ĐOÁN
-                      </div>
-                      <p className="text-blue-900 leading-normal text-sm">
-                        {message.analysisData.richContent.analysis}
-                      </p>
+      {/* Show different UI based on type */}
+      {type === "ai" ? (
+        // AI Chat Interface
+        <>
+          {/* Messages - Scrollable Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0">
+            {messages.map((message, index) => (
+              <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
+                    message.role === "user"
+                      ? "bg-blue-500 text-white"
+                      : message.actionButtons && message.actionButtons.length > 0
+                      ? "bg-white text-gray-900 border border-gray-200 shadow-lg"
+                      : "bg-gray-100 text-gray-900"
+                  }`}
+                >
+                  {/* Show image if available */}
+                  {message.imageUrl && (
+                    <div className="mb-3">
+                      <Image
+                        src={message.imageUrl}
+                        alt="Uploaded image"
+                        width={200}
+                        height={200}
+                        className="max-w-full h-auto rounded-lg border object-cover"
+                        style={{ maxHeight: "200px" }}
+                      />
                     </div>
                   )}
 
-                  {/* Chi tiết - Hiển thị tất cả */}
-                  {message.analysisData.richContent?.sections &&
-                    message.analysisData.richContent.sections.length > 0 && (
-                      <div className="p-2 bg-gray-50 rounded-lg border-l-4 border-gray-500">
-                        <div className="text-sm font-semibold text-gray-700 mb-1 flex items-center">
-                          <span className="mr-1">📊</span>
-                          CHI TIẾT PHÂN TÍCH
-                        </div>
-                        <div className="space-y-1">
-                          {message.analysisData.richContent.sections.map((section: any, index: number) => (
-                            <div key={index} className="bg-white rounded-md p-2 border border-gray-200">
-                              {section.heading && (
-                                <div className="font-semibold text-gray-800 mb-1 text-sm">
-                                  {index + 1}. {section.heading}
-                                </div>
-                              )}
-                              {section.text && (
-                                <div className="text-gray-700 mb-1 leading-normal text-sm">{section.text}</div>
-                              )}
-                              {section.bullets && section.bullets.length > 0 && (
-                                <ul className="space-y-0">
-                                  {section.bullets.map((bullet: string, bulletIndex: number) => (
-                                    <li key={bulletIndex} className="text-gray-700 flex items-start text-sm">
-                                      <span className="text-blue-500 mr-1 mt-0">•</span>
-                                      <span>{bullet}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                  {/* Render analysis result */}
+                  {message.isAnalysisResult && message.analysisData ? (
+                    <div className="space-y-2">
+                      {/* Header */}
+                      <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
+                        <span className="text-blue-800 font-bold text-base">🔍 Kết quả phân tích ảnh</span>
                       </div>
-                    )}
 
-                  {/* Khuyến nghị - Hiển thị tất cả */}
-                  {message.analysisData.richContent?.recommendations && (
-                    <div className="p-2 bg-green-50 rounded-lg border-l-4 border-green-500">
-                      <div className="text-sm font-semibold text-green-700 mb-1 flex items-center">
-                        <span className="mr-1">💡</span>
-                        KHUYẾN NGHỊ
-                      </div>
-                      <div className="space-y-0">
-                        {message.analysisData.richContent.recommendations.map((rec: string, index: number) => (
-                          <div key={index} className="text-green-800 flex items-start">
-                            <span className="text-green-600 mr-2 mt-0 font-bold">•</span>
-                            <span className="text-sm leading-normal">{rec}</span>
+                      {/* Chẩn đoán */}
+                      {message.analysisData.richContent?.analysis && (
+                        <div className="p-2 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                          <div className="text-sm font-semibold text-blue-700 mb-1 flex items-center">
+                            <span className="mr-1">📋</span>
+                            CHẨN ĐOÁN
                           </div>
-                        ))}
+                          <p className="text-blue-900 leading-normal text-sm">
+                            {message.analysisData.richContent.analysis}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Chi tiết */}
+                      {message.analysisData.richContent?.sections &&
+                        message.analysisData.richContent.sections.length > 0 && (
+                          <div className="p-2 bg-gray-50 rounded-lg border-l-4 border-gray-500">
+                            <div className="text-sm font-semibold text-gray-700 mb-1 flex items-center">
+                              <span className="mr-1">📊</span>
+                              CHI TIẾT PHÂN TÍCH
+                            </div>
+                            <div className="space-y-1">
+                              {message.analysisData.richContent.sections.map((section: any, index: number) => (
+                                <div key={index} className="bg-white rounded-md p-2 border border-gray-200">
+                                  {section.heading && (
+                                    <div className="font-semibold text-gray-800 mb-1 text-sm">
+                                      {index + 1}. {section.heading}
+                                    </div>
+                                  )}
+                                  {section.text && (
+                                    <div className="text-gray-700 mb-1 leading-normal text-sm">{section.text}</div>
+                                  )}
+                                  {section.bullets && section.bullets.length > 0 && (
+                                    <ul className="space-y-0">
+                                      {section.bullets.map((bullet: string, bulletIndex: number) => (
+                                        <li key={bulletIndex} className="text-gray-700 flex items-start text-sm">
+                                          <span className="text-blue-500 mr-1 mt-0">•</span>
+                                          <span>{bullet}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Khuyến nghị */}
+                      {message.analysisData.richContent?.recommendations && (
+                        <div className="p-2 bg-green-50 rounded-lg border-l-4 border-green-500">
+                          <div className="text-sm font-semibold text-green-700 mb-1 flex items-center">
+                            <span className="mr-1">💡</span>
+                            KHUYẾN NGHỊ
+                          </div>
+                          <div className="space-y-0">
+                            {message.analysisData.richContent.recommendations.map((rec: string, index: number) => (
+                              <div key={index} className="text-green-800 flex items-start">
+                                <span className="text-green-600 mr-2 mt-0 font-bold">•</span>
+                                <span className="text-sm leading-normal">{rec}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action prompt */}
+                      <div className="text-center p-2 bg-orange-50 rounded-lg border border-orange-200">
+                        <p className="text-orange-700 font-medium flex items-center justify-center text-sm">
+                          <span className="mr-1">🔧</span>
+                          Sử dụng các nút bên dưới để tương tác
+                        </p>
                       </div>
+                    </div>
+                  ) : (
+                    /* Regular AI message content */
+                    <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                  )}
+
+                  {/* Show action buttons if available */}
+                  {message.actionButtons && message.actionButtons.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {message.actionButtons.map((buttonText, buttonIndex) => (
+                        <button
+                          key={buttonIndex}
+                          onClick={() => handleAnalysisActionClick(buttonText)}
+                          className="px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
+                        >
+                          <span className="mr-1">{getButtonIcon(buttonText)}</span>
+                          {buttonText}
+                        </button>
+                      ))}
                     </div>
                   )}
 
-                  {/* Action prompt */}
-                  <div className="text-center p-2 bg-orange-50 rounded-lg border border-orange-200">
-                    <p className="text-orange-700 font-medium flex items-center justify-center text-sm">
-                      <span className="mr-1">🔧</span>
-                      Sử dụng các nút bên dưới để tương tác
-                    </p>
+                  <div className={`text-xs mt-2 ${message.role === "user" ? "text-blue-100" : "text-gray-500"}`}>
+                    {message.timestamp instanceof Date
+                      ? message.timestamp.toLocaleTimeString()
+                      : new Date(message.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
-              ) : (
-                /* Regular AI message content - Original format */
-                <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-              )}
+              </div>
+            ))}
 
-              {/* Show action buttons if available */}
-              {message.actionButtons && message.actionButtons.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {message.actionButtons.map((buttonText, buttonIndex) => (
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 px-4 py-2 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
+                    </div>
+                    <span className="text-sm text-gray-600">
+                      {isAnalyzing ? "Đang phân tích ảnh..." : "Đang soạn tin nhắn..."}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Suggestions */}
+            {showQuickSuggestions && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {quickSuggestions.map((suggestion, index) => (
                     <button
-                      key={buttonIndex}
-                      onClick={() => handleAnalysisActionClick(buttonText)}
-                      className="px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
+                      key={index}
+                      onClick={() => handleQuickSuggestion(suggestion)}
+                      className="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm transition-colors"
                     >
-                      <span className="mr-1">{getButtonIcon(buttonText)}</span>
-                      {buttonText}
+                      {suggestion}
                     </button>
                   ))}
                 </div>
-              )}
-
-              <div className={`text-xs mt-2 ${message.role === "user" ? "text-blue-100" : "text-gray-500"}`}>
-                {message.timestamp instanceof Date
-                  ? message.timestamp.toLocaleTimeString()
-                  : new Date(message.timestamp).toLocaleTimeString()}
               </div>
-            </div>
-          </div>
-        ))}
+            )}
 
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-100 px-4 py-2 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
-                </div>
-                <span className="text-sm text-gray-600">
-                  {isAnalyzing ? "Đang phân tích ảnh..." : "Đang soạn tin nhắn..."}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Suggestions */}
-        {type === "ai" && showQuickSuggestions && (
-          <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {quickSuggestions.map((suggestion, index) => (
+            {/* Clear Chat Button */}
+            {messages.length > 1 && (
+              <div className="text-center">
                 <button
-                  key={index}
-                  onClick={() => handleQuickSuggestion(suggestion)}
-                  className="px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-sm transition-colors"
+                  onClick={() => {
+                    if (confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) {
+                      setMessages([]);
+                      chatStorage.clearChat();
+                      setShowQuickSuggestions(true);
+                      setSuggestedDoctor(null);
+                      dispatch(clearAnalysisResult());
+                      dispatch(clearAppointmentData());
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm transition-colors"
                 >
-                  {suggestion}
+                  🗑️ Xóa lịch sử chat
                 </button>
-              ))}
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Doctor Suggestion Section */}
+          {renderDoctorSuggestion()}
+
+          {/* Input */}
+          <div className="p-2 border-t border-gray-200 bg-white flex-shrink-0">
+            <div className="flex items-center space-x-3">
+              <div className="flex-1">
+                <textarea
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Mô tả triệu chứng của bạn..."
+                  className="w-full p-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="flex flex-col space-y-1">
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!inputMessage.trim() || isLoading}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+                >
+                  ➤
+                </button>
+                <button
+                  onClick={handleImageUploadClick}
+                  disabled={isLoading || isAnalyzing}
+                  className="px-4 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs"
+                >
+                  📎 File
+                </button>
+              </div>
+            </div>
+
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
+          </div>
+        </>
+      ) : (
+        // Doctor Chat Interface - Simple input for conversations from AI suggestions
+        <>
+          {/* Messages - Scrollable Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0">
+            {isLoadingMessages ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                  <p className="text-gray-500 text-sm">Đang tải lịch sử chat...</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {doctorMessages.map((message, index) => (
+                  <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
+                        message.role === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
+                      }`}
+                    >
+                      <p className="text-sm leading-normal">{message.content}</p>
+                      <div className="text-xs opacity-70 mt-1">{formatTime(message.timestamp)}</div>
+                    </div>
+                  </div>
+                ))}
+                {isDoctorTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 px-4 py-3 rounded-lg">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            <div ref={doctorMessagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="border-t bg-white p-4">
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={doctorInput}
+                onChange={(e) => setDoctorInput(e.target.value)}
+                onKeyPress={handleDoctorKeyPress}
+                placeholder="Nhập tin nhắn cho bác sĩ..."
+                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={isDoctorLoading}
+              />
+              <button
+                onClick={handleDoctorSendMessage}
+                disabled={isDoctorLoading || !doctorInput.trim()}
+                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDoctorLoading ? "..." : "Gửi"}
+              </button>
             </div>
           </div>
-        )}
-
-        {/* Clear Chat Button */}
-        {type === "ai" && messages.length > 1 && (
-          <div className="text-center">
-            <button
-              onClick={() => {
-                if (confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) {
-                  setMessages([]);
-                  chatStorage.clearChat();
-                  setShowQuickSuggestions(true);
-                  setSuggestedDoctor(null);
-                  dispatch(clearAnalysisResult());
-                  dispatch(clearAppointmentData());
-                }
-              }}
-              className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm transition-colors"
-            >
-              🗑️ Xóa lịch sử chat
-            </button>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Doctor Suggestion Section */}
-      {renderDoctorSuggestion()}
-
-      {/* Input */}
-      <div className="p-2 border-t border-gray-200 bg-white flex-shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="flex-1">
-            <textarea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={type === "ai" ? "Mô tả triệu chứng của bạn..." : "Nhập tin nhắn..."}
-              className="w-full p-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={2}
-              disabled={isLoading}
-            />
-          </div>
-          <div className="flex flex-col space-y-1">
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isLoading}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
-            >
-              ➤
-            </button>
-            <button
-              onClick={handleImageUploadClick}
-              disabled={isLoading || isAnalyzing}
-              className="px-4 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs"
-            >
-              📎 File
-            </button>
-          </div>
-        </div>
-
-        <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
-
-        {/* Additional actions for doctor chat */}
-        {type === "doctor" && (
-          <div className="flex flex-wrap gap-2 mt-3">
-            <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">
-              Cần chụp X-quang
-            </button>
-            <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200">
-              Kê đơn thuốc
-            </button>
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
