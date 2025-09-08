@@ -2,7 +2,6 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { AlertCircle, Calendar, Edit, Eye, Pill, Plus, Printer, Search, Trash2, User } from 'lucide-react';
+import { AlertCircle, Calendar, Edit, Eye, Pill, Plus, Printer, Search, User } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import PrescriptionList from '../../../components/PrescriptionList';
 
 interface Medication {
   name: string;
@@ -51,15 +52,15 @@ interface Patient {
 }
 
 export default function DoctorPrescriptionsPage() {
+  const searchParams = useSearchParams();
+  const selectedPatientId = searchParams.get('patientId');
+  
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDetailDialog, setShowDetailDialog] = useState(false);
-  const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
-  const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
+  const [selectedPatientFilter, setSelectedPatientFilter] = useState(selectedPatientId || '');
   const { toast } = useToast();
 
   // Form state
@@ -641,8 +642,8 @@ export default function DoctorPrescriptionsPage() {
         </Dialog>
       </div>
 
-      <div className="mb-8">
-        <div className="relative max-w-md">
+      <div className="mb-8 flex gap-4">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
           <Input
             placeholder="Tìm kiếm theo tên bệnh nhân hoặc chẩn đoán..."
@@ -651,178 +652,32 @@ export default function DoctorPrescriptionsPage() {
             className="pl-10 h-12 text-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
           />
         </div>
-      </div>
-
-      <div className="grid gap-6">
-        {filteredPrescriptions.map((prescription) => (
-          <Card key={prescription._id} className="hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border-2 border-gray-100 hover:border-blue-200">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-xl font-bold flex items-center gap-2 text-blue-700">
-                    <User className="h-6 w-6 text-blue-600" />
-                    {prescription.patientId.fullName}
-                  </CardTitle>
-                  <p className="text-sm text-gray-600">
-                    {prescription.patientId.email} • {prescription.patientId.phone}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={prescription.isDispensed ? 'default' : 'secondary'}>
-                    {prescription.isDispensed ? 'Đã phát thuốc' : 'Chưa phát thuốc'}
-                  </Badge>
-                  <Badge variant={prescription.status === 'active' ? 'default' : 'destructive'}>
-                    {prescription.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
-                  </Badge>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                  <Label className="font-semibold flex items-center gap-2 text-red-700">
-                    <AlertCircle className="h-5 w-5 text-red-500" />
-                    Chẩn đoán:
-                  </Label>
-                  <p className="text-sm mt-2 text-red-800 font-medium">{prescription.diagnosis}</p>
-                </div>
-                <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
-                  <Label className="font-semibold flex items-center gap-2 text-blue-700">
-                    <Calendar className="h-5 w-5 text-blue-500" />
-                    Ngày kê đơn:
-                  </Label>
-                  <p className="text-sm mt-2 text-blue-800 font-medium">
-                    {format(new Date(prescription.prescriptionDate), 'dd/MM/yyyy', { locale: vi })}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <Label className="font-semibold flex items-center gap-2 text-lg text-green-700 mb-3">
-                  <Pill className="h-5 w-5 text-green-600" />
-                  Danh sách thuốc ({prescription.medications.length} loại):
-                </Label>
-                <div className="mt-3 space-y-3">
-                  {prescription.medications.slice(0, 3).map((med, index) => (
-                    <div key={index} className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200 hover:border-green-300 transition-all duration-300">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium">{med.name}</p>
-                          <p className="text-sm text-gray-600">
-                            {med.dosage} - {med.frequency} - {med.duration}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Số lượng: {med.quantity} {med.unit}
-                          </p>
-                          {med.instructions && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              Hướng dẫn: {med.instructions}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {prescription.medications.length > 3 && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      Và {prescription.medications.length - 3} loại thuốc khác...
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {prescription.instructions && (
-                <div className="mb-4">
-                  <Label className="font-semibold">Hướng dẫn chung:</Label>
-                  <p className="text-sm mt-1">{prescription.instructions}</p>
-                </div>
-              )}
-
-              {prescription.notes && (
-                <div className="mb-4">
-                  <Label className="font-semibold">Ghi chú:</Label>
-                  <p className="text-sm mt-1">{prescription.notes}</p>
-                </div>
-              )}
-
-              {prescription.isFollowUpRequired && prescription.followUpDate && (
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                  <Label className="font-semibold text-blue-800">Ngày tái khám:</Label>
-                  <p className="text-sm text-blue-700 mt-1">
-                    {format(new Date(prescription.followUpDate), 'dd/MM/yyyy', { locale: vi })}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-gray-200">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => openDetailDialog(prescription)}
-                  className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all duration-300"
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Xem chi tiết
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => openEditDialog(prescription)}
-                  className="hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-all duration-300"
-                >
-                  <Edit className="mr-2 h-4 w-4" />
-                  Chỉnh sửa
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handlePrintPrescription(prescription)}
-                  className="hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition-all duration-300"
-                >
-                  <Printer className="mr-2 h-4 w-4" />
-                  In đơn thuốc
-                </Button>
-                {!prescription.isDispensed && (
-                  <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={() => handleMarkAsDispensed(prescription._id)}
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                  >
-                    Đánh dấu đã phát
-                  </Button>
-                )}
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={() => handleDeletePrescription(prescription._id)}
-                  className="hover:bg-red-50 hover:border-red-300 transition-all duration-300"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Xóa
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredPrescriptions.length === 0 && (
-        <div className="text-center py-16">
-          <div className="bg-gradient-to-r from-blue-100 to-purple-100 rounded-full p-8 w-32 h-32 mx-auto mb-6 flex items-center justify-center">
-            <Pill className="h-16 w-16 text-blue-500" />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-700 mb-2">Không có đơn thuốc nào</h3>
-          <p className="text-gray-500 text-lg">Hãy tạo đơn thuốc đầu tiên cho bệnh nhân</p>
-          <Button 
-            onClick={() => setShowCreateDialog(true)}
-            className="mt-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            Tạo đơn thuốc đầu tiên
-          </Button>
+        
+        {/* Patient Filter */}
+        <div className="w-64">
+          <Select value={selectedPatientFilter} onValueChange={setSelectedPatientFilter}>
+            <SelectTrigger className="h-12 border-2 border-gray-200">
+              <SelectValue placeholder="Lọc theo bệnh nhân" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Tất cả bệnh nhân</SelectItem>
+              {patients.map(patient => (
+                <SelectItem key={patient._id} value={patient._id}>
+                  {patient.fullName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
+      </div>
+
+      {/* Use PrescriptionList Component */}
+      <PrescriptionList 
+        patientId={selectedPatientFilter || undefined}
+        doctorId={localStorage.getItem('userId') || undefined}
+        showPatientInfo={true}
+        showDoctorInfo={false}
+      />
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>

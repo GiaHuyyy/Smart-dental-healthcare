@@ -18,11 +18,12 @@ import {
 } from "@/store/slices/imageAnalysisSlice";
 import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { sendRequest } from "@/utils/api";
+import { chatStorage } from "@/utils/chatStorage";
 import { imageAnalysisAPI } from "@/utils/imageAnalysis";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { chatStorage } from "@/utils/chatStorage";
+import FormattedMessage from "./FormattedMessage";
 
 interface ChatInterfaceProps {
   type: "ai" | "doctor";
@@ -738,6 +739,7 @@ export default function ChatInterface({ type, doctorName }: ChatInterfaceProps) 
                   />
                 </div>
               )}
+              <FormattedMessage content={message.content} role={message.role} />
 
               {/* Render analysis result với spacing nhỏ hơn */}
               {message.isAnalysisResult && message.analysisData ? (

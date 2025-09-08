@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import PrescriptionList from "../../../../components/PrescriptionList";
 
 interface Patient {
   _id: string;
@@ -40,6 +41,24 @@ interface Prescription {
   };
 }
 
+interface MedicalRecord {
+  _id: string;
+  recordDate: string;
+  chiefComplaint: string;
+  diagnosis: string;
+  treatmentPlan: string;
+  status: string;
+  doctorId: {
+    _id: string;
+    fullName: string;
+    specialty: string;
+  };
+  isFollowUpRequired: boolean;
+  followUpDate?: string;
+  medications?: string[];
+  notes?: string;
+}
+
 export default function PatientDetail() {
   const params = useParams();
   const router = useRouter();
@@ -48,6 +67,7 @@ export default function PatientDetail() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -56,6 +76,7 @@ export default function PatientDetail() {
       fetchPatientDetails();
       fetchPatientAppointments();
       fetchPatientPrescriptions();
+      fetchMedicalRecords();
     }
   }, [patientId]);
 
@@ -99,6 +120,44 @@ export default function PatientDetail() {
       console.error('Error fetching prescriptions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMedicalRecords = async () => {
+    try {
+      // Add authorization header if available
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      const token = localStorage.getItem('token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/medical-records/patient/${patientId}`, {
+        headers
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to fetch medical records:', response.status, response.statusText);
+        setMedicalRecords([]);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data && !data.error) {
+        // Handle different response structures
+        const records = data.data || data.results || data;
+        setMedicalRecords(Array.isArray(records) ? records : []);
+      } else {
+        console.error('API returned error:', data.error || data.details);
+        setMedicalRecords([]);
+      }
+    } catch (error) {
+      console.error('Error fetching medical records:', error);
+      setMedicalRecords([]);
     }
   };
 
@@ -277,6 +336,10 @@ export default function PatientDetail() {
                   <span className="text-sm font-medium text-gray-900">{prescriptions.length}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Hồ sơ bệnh án</span>
+                  <span className="text-sm font-medium text-gray-900">{medicalRecords.length}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Lịch hẹn sắp tới</span>
                   <span className="text-sm font-medium text-gray-900">
                     {appointments.filter(apt => apt.status === 'scheduled' || apt.status === 'confirmed').length}
@@ -346,43 +409,19 @@ export default function PatientDetail() {
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-gray-900">Đơn thuốc gần đây</h3>
-              <Link href={`/api/prescriptions/patient/${patientId}/history`} className="text-blue-600 hover:text-blue-800 text-sm">
+              <h3 className="text-lg font-semibold text-gray-900">Đơn thuốc</h3>
+              <Link href={`/doctor/prescriptions?patientId=${patientId}`} className="text-blue-600 hover:text-blue-800 text-sm">
                 Xem tất cả
               </Link>
             </div>
           </div>
           <div className="p-6">
-            {prescriptions.length > 0 ? (
-              <div className="space-y-4">
-                {prescriptions.map((prescription) => (
-                  <div key={prescription._id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {formatDate(prescription.prescriptionDate)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Chẩn đoán: {prescription.diagnosis}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Bác sĩ: {prescription.doctorId.fullName} ({prescription.doctorId.specialty})
-                        </p>
-                      </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        prescription.isDispensed 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {prescription.isDispensed ? 'Đã phát thuốc' : 'Chưa phát thuốc'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-8">Chưa có đơn thuốc nào</p>
-            )}
+            <PrescriptionList 
+              patientId={patientId} 
+              showDoctorInfo={true}
+              showPatientInfo={false}
+              limit={10}
+            />
           </div>
         </div>
       )}
@@ -390,10 +429,127 @@ export default function PatientDetail() {
       {activeTab === 'medical-records' && (
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b">
-            <h3 className="text-lg font-semibold text-gray-900">Hồ sơ bệnh án</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">Hồ sơ bệnh án</h3>
+              <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm">
+                + Tạo hồ sơ mới
+              </button>
+            </div>
           </div>
           <div className="p-6">
-            <p className="text-gray-500 text-center py-8">Tính năng này sẽ được phát triển trong tương lai</p>
+            {medicalRecords.length > 0 ? (
+              <div className="space-y-6">
+                {medicalRecords.map((record) => (
+                  <div key={record._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900">
+                          Khám ngày {formatDate(record.recordDate)}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Bác sĩ: {record.doctorId.fullName} ({record.doctorId.specialty})
+                        </p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        record.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        record.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {record.status === 'completed' ? 'Hoàn thành' :
+                         record.status === 'active' ? 'Đang điều trị' :
+                         'Chờ xử lý'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h5 className="font-medium text-gray-900 mb-2">Triệu chứng chính</h5>
+                        <p className="text-gray-700 bg-gray-50 p-3 rounded-md">
+                          {record.chiefComplaint}
+                        </p>
+                      </div>
+
+                      {record.diagnosis && (
+                        <div>
+                          <h5 className="font-medium text-gray-900 mb-2">Chẩn đoán</h5>
+                          <p className="text-gray-700 bg-blue-50 p-3 rounded-md">
+                            {record.diagnosis}
+                          </p>
+                        </div>
+                      )}
+
+                      {record.treatmentPlan && (
+                        <div className="md:col-span-2">
+                          <h5 className="font-medium text-gray-900 mb-2">Kế hoạch điều trị</h5>
+                          <p className="text-gray-700 bg-green-50 p-3 rounded-md">
+                            {record.treatmentPlan}
+                          </p>
+                        </div>
+                      )}
+
+                      {record.medications && record.medications.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-gray-900 mb-2">Thuốc được kê</h5>
+                          <ul className="bg-purple-50 p-3 rounded-md space-y-1">
+                            {record.medications.map((medication, index) => (
+                              <li key={index} className="text-gray-700 flex items-start">
+                                <span className="text-purple-600 mr-2">•</span>
+                                {medication}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {record.notes && (
+                        <div>
+                          <h5 className="font-medium text-gray-900 mb-2">Ghi chú</h5>
+                          <p className="text-gray-700 bg-yellow-50 p-3 rounded-md">
+                            {record.notes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {record.isFollowUpRequired && (
+                      <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                        <div className="flex items-center">
+                          <span className="text-orange-600 mr-2">⚠️</span>
+                          <span className="font-medium text-orange-800">Cần tái khám</span>
+                          {record.followUpDate && (
+                            <span className="ml-2 text-orange-700">
+                              - Ngày {formatDate(record.followUpDate)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 flex justify-end space-x-2">
+                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        Chỉnh sửa
+                      </button>
+                      <button className="text-green-600 hover:text-green-800 text-sm font-medium">
+                        In hồ sơ
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có hồ sơ bệnh án</h3>
+                <p className="text-gray-500 mb-4">Bệnh nhân này chưa có hồ sơ bệnh án nào được tạo.</p>
+                <button className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+                  Tạo hồ sơ đầu tiên
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

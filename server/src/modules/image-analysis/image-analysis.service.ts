@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { HttpService } from '@nestjs/axios';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -55,8 +56,11 @@ export interface ImageAnalysisResult {
 export class ImageAnalysisService {
   private readonly logger = new Logger(ImageAnalysisService.name);
   private readonly geminiApiKey: string;
+  // keep URL for health check but use SDK for requests
   private readonly geminiApiUrl =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  private genAI: GoogleGenerativeAI;
+  private model: any;
 
   constructor(
     private readonly configService: ConfigService,
@@ -65,7 +69,17 @@ export class ImageAnalysisService {
   ) {
     this.geminiApiKey =
       this.configService.get<string>('GEMINI_API_KEY') || 'your-gemini-api-key';
-    this.logger.log(`Initializing ImageAnalysisService with Gemini API`);
+  this.logger.log(`Initializing ImageAnalysisService with Gemini API`);
+  // Initialize SDK client and model
+    try {
+      this.genAI = new GoogleGenerativeAI(this.geminiApiKey);
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    } catch (initError) {
+      this.logger.warn(`Failed to initialize Gemini SDK: ${initError?.message || initError}`);
+      // Keep service running; health checks will report issues.
+      this.genAI = null as any;
+      this.model = null as any;
+    }
   }
 
   async analyzeImage(
@@ -217,47 +231,42 @@ export class ImageAnalysisService {
         }
       }
 
-      // Call Gemini API
-      const requestBody = {
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Image,
-                },
-              },
-            ],
-          },
-        ],
-      };
+      // Call Gemini via SDK to ensure correct request schema for inline data
+      try {
+        if (!this.model) {
+          throw new Error('Gemini SDK not initialized (missing GEMINI_API_KEY)');
+        }
 
-      const response: any = await (firstValueFrom as any)(
-        this.httpService.post(
-          `${this.geminiApiUrl}?key=${this.geminiApiKey}`,
-          requestBody,
+        const result = await this.model.generateContent([
+          prompt,
           {
-            headers: {
-              'Content-Type': 'application/json',
+            inlineData: {
+              data: base64Image,
+              mimeType,
             },
-            timeout: 60000,
           },
-        ),
-      );
+        ]);
 
-      // Parse response from Gemini
-      const geminiResponse = response.data;
-      const analysisText = String(geminiResponse.candidates[0].content.parts[0].text || '');
+        // SDK returns a response helper
+        const response = await result.response;
+        const analysisText = String(response.text() || '');
 
-      // Parse and normalize result
-      const parsedResult = this.parseGeminiResponse(analysisText);
+        const parsedResult = this.parseGeminiResponse(analysisText);
+        this.logger.log('Gemini AI analysis completed successfully');
+        return parsedResult;
+      } catch (sdkError) {
+        // Detect API key related errors and annotate them for controller handling
+        const msg = String(sdkError?.message || sdkError);
+        this.logger.error(`Gemini SDK call failed: ${msg}`);
 
-      this.logger.log('Gemini AI analysis completed successfully');
-      return parsedResult;
+        if (msg.includes('API key expired') || msg.includes('API_KEY_INVALID') || msg.toLowerCase().includes('api key')) {
+          // Throw a clear error that the controller can map to user-friendly text
+          throw new Error(`GEMINI_API_KEY_INVALID_OR_EXPIRED: ${msg}`);
+        }
+
+        // rethrow original error for other handlers
+        throw sdkError;
+      }
     } catch (error) {
       this.logger.error(`Gemini AI analysis failed: ${error.message}`);
       // Return fallback analysis

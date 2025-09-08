@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const doctorId = searchParams.get('doctorId');
 
@@ -12,7 +13,7 @@ export async function GET(
     if (doctorId) apiParams.append('doctorId', doctorId);
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
-    const fullUrl = `${apiUrl}/api/v1/users/patients/${params.id}/details?${apiParams}`;
+    const fullUrl = `${apiUrl}/api/v1/users/patients/${id}/details?${apiParams}`;
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
