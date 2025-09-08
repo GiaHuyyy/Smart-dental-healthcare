@@ -20,9 +20,11 @@ import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { sendRequest } from "@/utils/api";
 import { chatStorage } from "@/utils/chatStorage";
 import { imageAnalysisAPI } from "@/utils/imageAnalysis";
+import { useAiChatHistory } from "@/hooks/useAiChatHistory";
+import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
 import { useSession } from "next-auth/react";
 
@@ -61,6 +63,16 @@ export default function ChatInterface({
   // Session and user data
   const { data: session } = useSession();
 
+  // AI Chat History hook
+  const {
+    currentSession,
+    createSession,
+    addMessage: saveMessage,
+    completeSession,
+    updateSession,
+    setCurrentSession,
+  } = useAiChatHistory();
+
   // Redux hooks
   const dispatch = useAppDispatch();
   const { analysisResult, uploadedImage, isAnalyzing } = useAppSelector((state) => state.imageAnalysis);
@@ -86,6 +98,9 @@ export default function ChatInterface({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [hasLoadedFromDatabase, setHasLoadedFromDatabase] = useState(false);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [suggestedDoctor, setSuggestedDoctor] = useState<DoctorSuggestion | null>(null);
   const [showQuickSuggestions, setShowQuickSuggestions] = useState(true);
   const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
@@ -274,39 +289,169 @@ export default function ChatInterface({
     scrollToBottom();
   }, [messages]);
 
+  // Create new session with welcome message
+  const createNewSessionAndWelcome = useCallback(async () => {
+    if (isCreatingSession) {
+      console.log("Đang tạo session, bỏ qua request duplicate");
+      return;
+    }
+
+    console.log("Bắt đầu tạo session mới...");
+    setIsCreatingSession(true);
+
+    const welcomeMessage: ChatMessage = {
+      role: "assistant",
+      content:
+        "Chào bạn! Tôi là trợ lý AI của Smart Dental Healthcare. Tôi có thể giúp bạn tư vấn sơ bộ về các vấn đề răng miệng. Hãy chia sẻ với tôi triệu chứng hoặc thắc mắc của bạn nhé!",
+      timestamp: new Date(),
+    };
+    setMessages([welcomeMessage]);
+
+    // Create new session if user is logged in
+    if (session?.user) {
+      try {
+        const newSession = await createSession("", "low");
+        console.log("✅ Created new AI chat session:", newSession);
+      } catch (err) {
+        console.error("❌ Failed to create AI chat session:", err);
+      }
+    }
+
+    setIsCreatingSession(false);
+  }, [session?.user, createSession, isCreatingSession]);
+
+  // Load AI chat history from database
+  const loadAiChatHistory = useCallback(async () => {
+    console.log("=== Lịch sử chat AI ===");
+    console.log("Session user:", session?.user);
+    console.log("Type:", type);
+
+    if (!session?.user || type !== "ai") {
+      console.log("Không load chat AI - user hoặc type không hợp lệ");
+      return;
+    }
+
+    console.log("Bắt đầu load lịch sử chat AI từ database...");
+    setIsLoadingHistory(true);
+    try {
+      // Get user's most recent active session
+      const userId =
+        (session.user as { _id?: string; id?: string })?._id || (session.user as { _id?: string; id?: string })?.id;
+
+      console.log("User ID:", userId);
+      if (!userId) {
+        console.log("Không có user ID");
+        return;
+      }
+
+      console.log("Đang tìm session gần nhất...");
+      const sessionsResponse = await aiChatHistoryService.getUserSessions(userId, 1, 5); // Get up to 5 recent sessions
+      console.log("Sessions response:", sessionsResponse);
+
+      if (sessionsResponse.sessions.length > 0) {
+        // Check for active sessions from today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Start of today
+
+        const todaySessions = sessionsResponse.sessions.filter((session) => {
+          const sessionDate = new Date(session.createdAt!);
+          return sessionDate >= today && session.status === "active";
+        });
+
+        console.log("Sessions từ hôm nay:", todaySessions);
+
+        if (todaySessions.length > 0) {
+          // Use the most recent session from today
+          const latestSession = todaySessions[0];
+          console.log("Sử dụng session từ hôm nay:", latestSession);
+
+          // Load messages from this session
+          const messages = await aiChatHistoryService.getSessionMessages(latestSession._id!);
+          console.log("Messages từ database:", messages);
+
+          if (messages.length > 0) {
+            // Convert database messages to ChatMessage format
+            const chatMessages: ChatMessage[] = messages.map((msg) => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+              timestamp: new Date(msg.createdAt!),
+              analysisData: msg.analysisData,
+              isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
+              actionButtons: msg.actionButtons,
+              imageUrl: msg.imageUrl,
+            }));
+
+            console.log("Converted chat messages:", chatMessages);
+            console.log(
+              "Messages có analysis data:",
+              chatMessages.filter((m) => m.analysisData && Object.keys(m.analysisData).length > 0)
+            );
+
+            setMessages(chatMessages);
+            setCurrentSession(latestSession);
+            setHasLoadedFromDatabase(true);
+            console.log(`✅ Đã load ${chatMessages.length} tin nhắn từ database session ${latestSession._id}`);
+            return;
+          } else {
+            console.log("Session hôm nay không có messages, sử dụng session này cho chat mới");
+            setCurrentSession(latestSession);
+            setHasLoadedFromDatabase(true);
+
+            // Just set welcome message without creating new session
+            const welcomeMessage: ChatMessage = {
+              role: "assistant",
+              content:
+                "Chào bạn! Tôi là trợ lý AI của Smart Dental Healthcare. Tôi có thể giúp bạn tư vấn sơ bộ về các vấn đề răng miệng. Hãy chia sẻ với tôi triệu chứng hoặc thắc mắc của bạn nhé!",
+              timestamp: new Date(),
+            };
+            setMessages([welcomeMessage]);
+            return;
+          }
+        }
+      }
+
+      // No recent session found, create new session and welcome message
+      console.log("Tạo session mới với welcome message...");
+      await createNewSessionAndWelcome();
+      setHasLoadedFromDatabase(true);
+    } catch (error) {
+      console.error("Error loading AI chat history:", error);
+      // Fallback to creating new session
+      await createNewSessionAndWelcome();
+      setHasLoadedFromDatabase(true);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [session?.user, type, setCurrentSession, createNewSessionAndWelcome]);
+
   useEffect(() => {
     loadDoctors();
   }, []);
 
   useEffect(() => {
-    if (type === "ai" && messages.length === 0) {
-      // Thử khôi phục lịch sử chat trước
-      const savedMessages = chatStorage.loadChat();
+    console.log("useEffect - Check load AI chat:", {
+      type,
+      messagesLength: messages.length,
+      hasUser: !!session?.user,
+      hasLoadedFromDatabase,
+      userName: (session?.user as any)?.firstName || (session?.user as any)?.fullName || "Unknown",
+    });
 
-      if (savedMessages.length > 0) {
-        setMessages(savedMessages);
-        console.log(`Restored ${savedMessages.length} messages from storage`);
-      } else {
-        // Nếu không có lịch sử, tạo tin nhắn chào mừng
-        const welcomeMessage: ChatMessage = {
-          role: "assistant",
-          content:
-            "Chào bạn! Tôi là trợ lý AI của Smart Dental Healthcare. Tôi có thể giúp bạn tư vấn sơ bộ về các vấn đề răng miệng. Hãy chia sẻ với tôi triệu chứng hoặc thắc mắc của bạn nhé!",
-          timestamp: new Date(),
-        };
-        setMessages([welcomeMessage]);
-      }
+    if (type === "ai" && !hasLoadedFromDatabase && session?.user) {
+      console.log("Điều kiện đủ để load AI chat history");
+      loadAiChatHistory();
+    } else {
+      console.log("Không load AI chat history - điều kiện không đủ");
     }
-  }, [type, messages.length]);
+  }, [type, session?.user, hasLoadedFromDatabase, loadAiChatHistory]);
 
-  // Lưu chat history mỗi khi messages thay đổi
-  useEffect(() => {
-    if (type === "ai" && messages.length > 1) {
-      // Bỏ qua tin nhắn chào mừng đầu tiên
-      chatStorage.saveChat(messages);
-      console.log(`Saved ${messages.length} messages to storage`);
-    }
-  }, [messages, type]);
+  // Remove localStorage saving since we're using database now
+  // useEffect(() => {
+  //   if (type === "ai" && messages.length > 1) {
+  //     chatStorage.saveChat(messages);
+  //     console.log(`Saved ${messages.length} messages to storage`);
+  //   }
+  // }, [messages, type]);
 
   // Message handlers
   const handleSendMessage = async () => {
@@ -324,6 +469,30 @@ export default function ChatInterface({
 
     try {
       if (type === "ai") {
+        // Tạo session mới nếu chưa có
+        if (!currentSession && session?.user) {
+          try {
+            await createSession("", "low");
+            console.log("Created new AI chat session");
+          } catch (err) {
+            console.error("Failed to create AI chat session:", err);
+          }
+        }
+
+        // Lưu tin nhắn user vào database
+        if (currentSession && session?.user) {
+          try {
+            await saveMessage({
+              role: "user",
+              content: inputMessage,
+              urgencyLevel: "medium", // Default value, will be updated after analysis
+            });
+            console.log("Saved user message to database");
+          } catch (err) {
+            console.error("Failed to save user message to database:", err);
+          }
+        }
+
         // Analyze urgency
         const urgency = await aiChatAPI.analyzeUrgency(inputMessage);
         dispatch(setUrgencyLevel(urgency));
@@ -338,6 +507,20 @@ export default function ChatInterface({
         };
 
         setMessages((prev) => [...prev, aiMessage]);
+
+        // Lưu tin nhắn AI vào database
+        if (currentSession && session?.user) {
+          try {
+            await saveMessage({
+              role: "assistant",
+              content: response.message,
+              urgencyLevel: urgency,
+            });
+            console.log("Saved AI message to database");
+          } catch (err) {
+            console.error("Failed to save AI message to database:", err);
+          }
+        }
 
         // Always set a suggested doctor for testing if none provided
         if (response.suggestedDoctor) {
@@ -356,6 +539,20 @@ export default function ChatInterface({
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, urgentMessage]);
+
+          // Lưu tin nhắn khẩn cấp vào database
+          if (currentSession && session?.user) {
+            try {
+              await saveMessage({
+                role: "assistant",
+                content: urgentMessage.content,
+                urgencyLevel: "high",
+              });
+              console.log("Saved urgent message to database");
+            } catch (err) {
+              console.error("Failed to save urgent message to database:", err);
+            }
+          }
         }
       } else {
         // Doctor chat simulation
@@ -402,6 +599,32 @@ export default function ChatInterface({
 
     try {
       if (type === "ai") {
+        // Tạo session mới nếu chưa có
+        if (!currentSession && session?.user) {
+          try {
+            await createSession("", "low");
+            console.log("Created new AI chat session for quick suggestion");
+          } catch (err) {
+            console.error("Failed to create AI chat session:", err);
+          }
+        }
+
+        // Lưu tin nhắn user vào database
+        if (currentSession && session?.user) {
+          try {
+            const urgency = await aiChatAPI.analyzeUrgency(cleanText);
+
+            await saveMessage({
+              role: "user",
+              content: cleanText,
+              urgencyLevel: urgency,
+            });
+            console.log("Saved quick suggestion user message to database");
+          } catch (err) {
+            console.error("Failed to save quick suggestion user message:", err);
+          }
+        }
+
         const urgency = await aiChatAPI.analyzeUrgency(cleanText);
         dispatch(setUrgencyLevel(urgency));
 
@@ -414,6 +637,20 @@ export default function ChatInterface({
         };
 
         setMessages((prev) => [...prev, aiMessage]);
+
+        // Lưu tin nhắn AI vào database
+        if (currentSession && session?.user) {
+          try {
+            await saveMessage({
+              role: "assistant",
+              content: response.message,
+              urgencyLevel: urgency,
+            });
+            console.log("Saved quick suggestion AI message to database");
+          } catch (err) {
+            console.error("Failed to save quick suggestion AI message:", err);
+          }
+        }
 
         if (response.suggestedDoctor) {
           validateAndSetSuggestedDoctor(response.suggestedDoctor);
@@ -430,6 +667,20 @@ export default function ChatInterface({
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, urgentMessage]);
+
+          // Lưu tin nhắn khẩn cấp vào database
+          if (currentSession && session?.user) {
+            try {
+              await saveMessage({
+                role: "assistant",
+                content: urgentMessage.content,
+                urgencyLevel: "high",
+              });
+              console.log("Saved quick suggestion urgent message to database");
+            } catch (err) {
+              console.error("Failed to save quick suggestion urgent message:", err);
+            }
+          }
         }
       }
     } catch (error) {
@@ -460,6 +711,16 @@ export default function ChatInterface({
       return;
     }
 
+    // Tạo session mới nếu chưa có
+    if (!currentSession && session?.user) {
+      try {
+        await createSession("", "medium"); // Image analysis có urgency medium
+        console.log("Created new AI chat session for image analysis");
+      } catch (err) {
+        console.error("Failed to create AI chat session:", err);
+      }
+    }
+
     dispatch(setIsAnalyzing(true));
     setIsLoading(true);
 
@@ -473,6 +734,21 @@ export default function ChatInterface({
       imageUrl: imageUrl,
     };
     setMessages((prev) => [...prev, userMessage]);
+
+    // Lưu tin nhắn upload ảnh vào database
+    if (currentSession && session?.user) {
+      try {
+        await saveMessage({
+          role: "user",
+          content: `Tải lên ảnh để phân tích: ${file.name}`,
+          urgencyLevel: "medium",
+          messageType: "image_upload",
+        });
+        console.log("Saved image upload message to database");
+      } catch (err) {
+        console.error("Failed to save image upload message:", err);
+      }
+    }
 
     try {
       const analysisResponse = await imageAnalysisAPI.uploadAndAnalyze(file);
@@ -499,6 +775,27 @@ export default function ChatInterface({
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Lưu kết quả phân tích ảnh vào database
+      if (currentSession && session?.user) {
+        try {
+          console.log("🖼️ Lưu kết quả phân tích ảnh vào database...");
+          console.log("Analysis data:", result);
+
+          await saveMessage({
+            role: "assistant",
+            content: result.richContent?.analysis || result.analysis || "Kết quả phân tích ảnh X-ray",
+            urgencyLevel: result.urgencyLevel || "medium",
+            messageType: "image_analysis",
+            analysisData: result,
+          });
+          console.log("✅ Đã lưu kết quả phân tích ảnh vào database");
+        } catch (err) {
+          console.error("❌ Lỗi khi lưu kết quả phân tích ảnh:", err);
+        }
+      } else {
+        console.log("⚠️ Không thể lưu kết quả phân tích - không có session hoặc user");
+      }
 
       // Always set a suggested doctor for image analysis
       if (result.suggestedDoctor) {
