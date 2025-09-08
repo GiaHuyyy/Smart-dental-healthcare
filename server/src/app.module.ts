@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { AiChatHistoryModule } from './modules/ai-chat-history/ai-chat-history.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { ImageAnalysisModule } from './modules/image-analysis/image-analysis.module';
@@ -35,6 +36,7 @@ import { RealtimeChatModule } from './modules/realtime-chat/realtime-chat.module
     UsersModule,
     AuthModule,
     AiChatModule,
+    AiChatHistoryModule,
     ImageAnalysisModule,
     ChatModule,
     AppointmentsModule,
