@@ -196,22 +196,6 @@ export default function ChatInterface({
         });
 
         setDoctorMessages(transformedMessages);
-        console.log("Loaded preloaded messages:", transformedMessages);
-        console.log("Current user ID:", currentUserId);
-        console.log(
-          "Message senders:",
-          preloadedMessages.map((msg: any) => ({
-            senderId:
-              typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId,
-            content: msg.content,
-            senderRole: msg.senderRole,
-            isCurrentUser:
-              (typeof msg.senderId === "object"
-                ? msg.senderId._id || msg.senderId.id || msg.senderId
-                : msg.senderId
-              ).toString() === currentUserId?.toString(),
-          }))
-        );
       } else if (doctorMessages.length === 0) {
         // Add welcome message if no messages yet
         const welcomeMessage = {
@@ -234,9 +218,8 @@ export default function ChatInterface({
       const list = res?.data || res?.users || res || [];
       setAvailableDoctors(Array.isArray(list) ? list : []);
       setDoctorsLoaded(true);
-      console.log("Loaded doctors from API:", list);
     } catch (e) {
-      console.log("Error loading doctors from API:", e);
+      console.error("Error loading doctors from API:", e);
       setAvailableDoctors([]);
       setDoctorsLoaded(true);
     }
@@ -245,7 +228,6 @@ export default function ChatInterface({
   // Validate and set suggested doctor
   const validateAndSetSuggestedDoctor = (suggestedDoctor: DoctorSuggestion) => {
     if (!doctorsLoaded || availableDoctors.length === 0) {
-      console.log("No doctors available, cannot validate suggestion");
       return false;
     }
 
@@ -277,10 +259,8 @@ export default function ChatInterface({
 
       setSuggestedDoctor(validatedDoctor);
       dispatch(setSelectedDoctor(validatedDoctor));
-      console.log("Validated and set doctor:", validatedDoctor.fullName);
       return true;
     } else {
-      console.log("Suggested doctor not found in available doctors:", suggestedDoctor.fullName);
       return false;
     }
   };
@@ -436,7 +416,6 @@ export default function ChatInterface({
         if (!currentSession && session?.user) {
           try {
             await createSession("", "low");
-            console.log("Created new AI chat session");
           } catch (err) {
             console.error("Failed to create AI chat session:", err);
           }
@@ -450,7 +429,6 @@ export default function ChatInterface({
               content: inputMessage,
               urgencyLevel: "medium", // Default value, will be updated after analysis
             });
-            console.log("Saved user message to database");
           } catch (err) {
             console.error("Failed to save user message to database:", err);
           }
@@ -479,7 +457,6 @@ export default function ChatInterface({
               content: response.message,
               urgencyLevel: urgency,
             });
-            console.log("Saved AI message to database");
           } catch (err) {
             console.error("Failed to save AI message to database:", err);
           }
@@ -490,7 +467,6 @@ export default function ChatInterface({
           validateAndSetSuggestedDoctor(response.suggestedDoctor);
         } else {
           // No fallback doctor - let the UI handle the case of no suggested doctor
-          console.log("No doctor suggestion from AI response");
         }
 
         // Add urgent message if needed
@@ -511,7 +487,6 @@ export default function ChatInterface({
                 content: urgentMessage.content,
                 urgencyLevel: "high",
               });
-              console.log("Saved urgent message to database");
             } catch (err) {
               console.error("Failed to save urgent message to database:", err);
             }
@@ -566,7 +541,6 @@ export default function ChatInterface({
         if (!currentSession && session?.user) {
           try {
             await createSession("", "low");
-            console.log("Created new AI chat session for quick suggestion");
           } catch (err) {
             console.error("Failed to create AI chat session:", err);
           }
@@ -582,7 +556,6 @@ export default function ChatInterface({
               content: cleanText,
               urgencyLevel: urgency,
             });
-            console.log("Saved quick suggestion user message to database");
           } catch (err) {
             console.error("Failed to save quick suggestion user message:", err);
           }
@@ -609,7 +582,6 @@ export default function ChatInterface({
               content: response.message,
               urgencyLevel: urgency,
             });
-            console.log("Saved quick suggestion AI message to database");
           } catch (err) {
             console.error("Failed to save quick suggestion AI message:", err);
           }
@@ -619,7 +591,6 @@ export default function ChatInterface({
           validateAndSetSuggestedDoctor(response.suggestedDoctor);
         } else {
           // No fallback doctor - let the UI handle the case of no suggested doctor
-          console.log("No doctor suggestion for quick suggestion");
         }
 
         if (urgency === "high") {
@@ -639,7 +610,6 @@ export default function ChatInterface({
                 content: urgentMessage.content,
                 urgencyLevel: "high",
               });
-              console.log("Saved quick suggestion urgent message to database");
             } catch (err) {
               console.error("Failed to save quick suggestion urgent message:", err);
             }
@@ -765,7 +735,6 @@ export default function ChatInterface({
         validateAndSetSuggestedDoctor(result.suggestedDoctor);
       } else {
         // No fallback doctor - let the UI handle the case of no suggested doctor
-        console.log("No doctor suggestion for image analysis");
       }
     } catch (error) {
       console.error("Error analyzing image:", error);
@@ -1034,7 +1003,6 @@ export default function ChatInterface({
 
       if (response.ok) {
         const savedMessage = await response.json();
-        console.log("Message saved to database:", savedMessage);
 
         // Notify parent component about new message
         if (onNewMessage) {

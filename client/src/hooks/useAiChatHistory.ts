@@ -77,10 +77,8 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
             : [],
         };
 
-        console.log("Sending session data:", sessionData);
         const newSession = await aiChatHistoryService.createSession(sessionData);
         setCurrentSession(newSession);
-        console.log("Created new AI chat session:", newSession);
         return newSession;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to create session";
@@ -105,7 +103,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
         if (currentSession?._id === sessionId) {
           setCurrentSession(updatedSession);
         }
-        console.log("Updated session:", updatedSession);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to update session";
         setError(errorMessage);
@@ -133,8 +130,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
             summary ||
             (await aiChatHistoryService.generateSessionSummary(currentSession._id!).then((res) => res.summary)),
         });
-
-        console.log("Completed session with action:", finalAction);
       } catch (err) {
         console.error("Error completing session:", err);
         throw err;
@@ -166,7 +161,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
           userId,
         });
 
-        console.log("Added message to session:", message);
         return message;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to add message";
@@ -185,7 +179,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
     try {
       const messages = await aiChatHistoryService.getSessionMessages(sessionId);
-      console.log("Loaded session messages:", messages);
       return messages;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load messages";
@@ -209,7 +202,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
       try {
         const result = await aiChatHistoryService.getUserSessions(userId, page, limit);
         setUserSessions(result.sessions);
-        console.log("Loaded user sessions:", result);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to load sessions";
         setError(errorMessage);
@@ -232,7 +224,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
       try {
         const sessions = await aiChatHistoryService.searchSessions(userId, query, filters);
-        console.log("Search results:", sessions);
         return sessions;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to search sessions";
@@ -257,7 +248,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
     try {
       const stats = await aiChatHistoryService.getUserStats(userId);
       setUserStats(stats);
-      console.log("Loaded user stats:", stats);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load stats";
       setError(errorMessage);
