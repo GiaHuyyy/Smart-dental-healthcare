@@ -139,8 +139,6 @@ export class UsersService {
         .sort({ createdAt: -1 })
         .exec();
 
-      console.log('Doctors found:', doctors.length);
-
       return {
         success: true,
         data: doctors,

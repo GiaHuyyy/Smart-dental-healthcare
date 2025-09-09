@@ -7,7 +7,7 @@ interface UseAiChatHistoryReturn {
   currentSession: AiChatSession | null;
   setCurrentSession: (session: AiChatSession | null) => void;
   getOrInitializeSession: () => Promise<AiChatSession>;
-  createSession: (symptoms?: string, urgencyLevel?: string) => Promise<AiChatSession>; // Legacy method
+  createSession: () => Promise<AiChatSession>; // Legacy method
   updateSession: (sessionId: string, updateData: Partial<AiChatSession>) => Promise<void>;
   completeSession: (finalAction: string, summary?: string) => Promise<void>;
 
@@ -20,7 +20,7 @@ interface UseAiChatHistoryReturn {
   // User sessions
   userSessions: AiChatSession[];
   loadUserSessions: (page?: number, limit?: number) => Promise<void>;
-  searchSessions: (query: string, filters?: any) => Promise<AiChatSession[]>;
+  searchSessions: (query: string, filters?: Record<string, unknown>) => Promise<AiChatSession[]>;
 
   // Analytics
   userStats: ChatStats | null;
@@ -41,22 +41,17 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
   const getCurrentUserId = useCallback(() => {
     if (!session?.user) {
-      console.log("No session user found");
       return null;
     }
 
     const user = session.user as any;
     const userId = user._id || user.id;
-    console.log("getCurrentUserId - user object:", user);
-    console.log("getCurrentUserId - extracted userId:", userId);
     return userId;
   }, [session]);
 
-  // Create new chat session
   // Get existing user session (for chat operations)
   const getOrInitializeSession = useCallback(async (): Promise<AiChatSession> => {
     const userId = getCurrentUserId();
-    console.log("Getting existing session for userId:", userId);
 
     if (!userId) {
       throw new Error("User not authenticated");
@@ -64,7 +59,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
     // If we already have a current session, return it
     if (currentSession && currentSession.status === "active") {
-      console.log("Returning existing current session:", currentSession);
       return currentSession;
     }
 
@@ -73,10 +67,8 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
     try {
       // Try to get existing active session
-      console.log("Checking for existing active session...");
       const existingSession = await aiChatHistoryService.getCurrentActiveSession(userId);
       if (existingSession) {
-        console.log("Found existing active session:", existingSession);
         setCurrentSession(existingSession);
         return existingSession;
       }
@@ -95,13 +87,9 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
   }, [getCurrentUserId, currentSession]);
 
   // Legacy createSession method - now just calls getOrInitializeSession
-  const createSession = useCallback(
-    async (symptoms?: string, urgencyLevel: string = "low"): Promise<AiChatSession> => {
-      console.log("createSession called - redirecting to getOrInitializeSession");
-      return await getOrInitializeSession();
-    },
-    [getOrInitializeSession]
-  );
+  const createSession = useCallback(async (): Promise<AiChatSession> => {
+    return await getOrInitializeSession();
+  }, [getOrInitializeSession]);
 
   // Update current session
   const updateSession = useCallback(
@@ -226,7 +214,7 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
   // Search sessions
   const searchSessions = useCallback(
-    async (query: string, filters?: any): Promise<AiChatSession[]> => {
+    async (query: string, filters?: Record<string, unknown>): Promise<AiChatSession[]> => {
       const userId = getCurrentUserId();
       if (!userId) return [];
 
@@ -278,9 +266,6 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
       const activeSession = await aiChatHistoryService.getCurrentActiveSession(userId);
       if (activeSession) {
         setCurrentSession(activeSession);
-        console.log("Loaded existing active session:", activeSession);
-      } else {
-        console.log("No existing active session found for user");
       }
     } catch (err) {
       console.error("Error loading existing active session:", err);
