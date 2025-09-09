@@ -4,11 +4,13 @@ import { UsersController } from './users.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from './schemas/user.schemas';
 import { MailModule } from '../../mail/mail.module';
+import { AiChatHistoryModule } from '../ai-chat-history/ai-chat-history.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    MailModule
+    MailModule,
+    AiChatHistoryModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],

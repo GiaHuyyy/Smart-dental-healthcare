@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
+import { TransformInterceptor } from './core/transform.interceptor';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { AiChatHistoryModule } from './modules/ai-chat-history/ai-chat-history.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
@@ -50,6 +52,12 @@ import { RealtimeChatModule } from './modules/realtime-chat/realtime-chat.module
     RealtimeChatModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // {
+    //   provide: APP_INTERCEPTOR,
+    //   useClass: TransformInterceptor,
+    // },
+  ],
 })
 export class AppModule {}

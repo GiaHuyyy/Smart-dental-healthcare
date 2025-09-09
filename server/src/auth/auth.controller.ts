@@ -34,6 +34,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
+  @ResponseMessage('Đăng ký tài khoản thành công')
   register(@Body() registerDto: CreateAuthDto) {
     return this.authService.register(registerDto);
   }
@@ -64,6 +65,7 @@ export class AuthController {
 
   @Post('check-code')
   @Public()
+  @ResponseMessage('Kích hoạt tài khoản thành công')
   checkCode(@Body() checkCodeDto: CodeAuthDto) {
     return this.authService.checkCode(checkCodeDto);
   }

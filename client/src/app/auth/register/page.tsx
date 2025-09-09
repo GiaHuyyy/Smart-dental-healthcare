@@ -50,7 +50,13 @@ export default function RegisterPage() {
       toast.error(res.message);
     } else {
       toast.success("Đăng ký thành công");
-      router.push(`/auth/verify/${res.data._id}`);
+      // Handle both wrapped and unwrapped response formats
+      const userId = res.data?._id || (res as any)._id;
+      if (userId) {
+        router.push(`/auth/verify/${userId}`);
+      } else {
+        toast.error("Không thể lấy ID người dùng");
+      }
     }
   };
 

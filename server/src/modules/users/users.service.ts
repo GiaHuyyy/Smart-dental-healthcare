@@ -5,22 +5,24 @@ import aqp from 'api-query-params';
 import dayjs from 'dayjs';
 import mongoose, { Model } from 'mongoose';
 import {
-    CodeAuthDto,
-    CreateAuthDto,
-    ResetPasswordDto,
-    VerifyResetCodeDto,
+  CodeAuthDto,
+  CreateAuthDto,
+  ResetPasswordDto,
+  VerifyResetCodeDto,
 } from 'src/auth/dto/create-auth.dto';
 import { hashPasswordHelper } from 'src/helpers/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
+import { AiChatHistoryService } from '../ai-chat-history/ai-chat-history.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     private readonly mailerService: MailerService,
+    private readonly aiChatHistoryService: AiChatHistoryService,
   ) {}
 
   async isEmailExists(email: string) {
@@ -242,10 +244,30 @@ export class UsersService {
     if (dayjs().isAfter(user.codeExpired)) {
       throw new BadRequestException('Mã kích hoạt đã hết hạn');
     } else {
+      // Activate user account
       await this.userModel.updateOne(
         { _id: id },
         { isActive: true, codeId: null, codeExpired: null },
       );
+
+      // Create AI chat session for patient after successful account activation
+      if (user.role === 'patient') {
+        try {
+          await this.aiChatHistoryService.initializeUserSession(id);
+          console.log(`Created AI chat session for patient: ${id}`);
+        } catch (error) {
+          console.error(
+            `Failed to create AI chat session for patient ${id}:`,
+            error,
+          );
+          // Don't throw error here, account activation should still succeed
+        }
+      }
+
+      return {
+        _id: user._id,
+        message: 'Kích hoạt tài khoản thành công',
+      };
     }
   }
 
@@ -413,20 +435,22 @@ export class UsersService {
 
   async getPatientStats(doctorId?: string) {
     try {
-      const totalPatients = await this.userModel.countDocuments({ role: 'patient' });
-      const activePatients = await this.userModel.countDocuments({ 
-        role: 'patient', 
-        isActive: true 
+      const totalPatients = await this.userModel.countDocuments({
+        role: 'patient',
       });
-      
+      const activePatients = await this.userModel.countDocuments({
+        role: 'patient',
+        isActive: true,
+      });
+
       // Lấy số bệnh nhân mới trong tháng này
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
-      
+
       const newPatientsThisMonth = await this.userModel.countDocuments({
         role: 'patient',
-        createdAt: { $gte: startOfMonth }
+        createdAt: { $gte: startOfMonth },
       });
 
       return {
@@ -435,14 +459,14 @@ export class UsersService {
           totalPatients,
           activePatients,
           newPatientsThisMonth,
-          inactivePatients: totalPatients - activePatients
+          inactivePatients: totalPatients - activePatients,
         },
-        message: 'Lấy thống kê bệnh nhân thành công'
+        message: 'Lấy thống kê bệnh nhân thành công',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy thống kê bệnh nhân'
+        message: error.message || 'Có lỗi xảy ra khi lấy thống kê bệnh nhân',
       };
     }
   }
@@ -450,17 +474,17 @@ export class UsersService {
   async searchPatients(query: any) {
     try {
       const { search, status, current = 1, pageSize = 10 } = query;
-      
+
       let filter: any = { role: 'patient' };
-      
+
       if (search) {
         filter.$or = [
           { fullName: { $regex: search, $options: 'i' } },
           { email: { $regex: search, $options: 'i' } },
-          { phone: { $regex: search, $options: 'i' } }
+          { phone: { $regex: search, $options: 'i' } },
         ];
       }
-      
+
       if (status && status !== 'all') {
         if (status === 'active') {
           filter.isActive = true;
@@ -489,15 +513,15 @@ export class UsersService {
             current: +current,
             pageSize: +pageSize,
             totalItems,
-            totalPages
-          }
+            totalPages,
+          },
         },
-        message: 'Tìm kiếm bệnh nhân thành công'
+        message: 'Tìm kiếm bệnh nhân thành công',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi tìm kiếm bệnh nhân'
+        message: error.message || 'Có lỗi xảy ra khi tìm kiếm bệnh nhân',
       };
     }
   }
@@ -512,19 +536,19 @@ export class UsersService {
       if (!patient || patient.role !== 'patient') {
         return {
           success: false,
-          message: 'Không tìm thấy bệnh nhân'
+          message: 'Không tìm thấy bệnh nhân',
         };
       }
 
       return {
         success: true,
         data: patient,
-        message: 'Lấy thông tin bệnh nhân thành công'
+        message: 'Lấy thông tin bệnh nhân thành công',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy thông tin bệnh nhân'
+        message: error.message || 'Có lỗi xảy ra khi lấy thông tin bệnh nhân',
       };
     }
   }
@@ -536,12 +560,13 @@ export class UsersService {
       return {
         success: true,
         data: [],
-        message: 'API này sẽ được implement trong appointments service'
+        message: 'API này sẽ được implement trong appointments service',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy lịch hẹn của bệnh nhân'
+        message:
+          error.message || 'Có lỗi xảy ra khi lấy lịch hẹn của bệnh nhân',
       };
     }
   }
@@ -553,12 +578,13 @@ export class UsersService {
       return {
         success: true,
         data: [],
-        message: 'API này sẽ được implement trong prescriptions service'
+        message: 'API này sẽ được implement trong prescriptions service',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy đơn thuốc của bệnh nhân'
+        message:
+          error.message || 'Có lỗi xảy ra khi lấy đơn thuốc của bệnh nhân',
       };
     }
   }
@@ -570,12 +596,13 @@ export class UsersService {
       return {
         success: true,
         data: [],
-        message: 'API này sẽ được implement trong medical-records service'
+        message: 'API này sẽ được implement trong medical-records service',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy hồ sơ bệnh án của bệnh nhân'
+        message:
+          error.message || 'Có lỗi xảy ra khi lấy hồ sơ bệnh án của bệnh nhân',
       };
     }
   }

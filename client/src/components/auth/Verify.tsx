@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { sendRequest } from "@/utils/api";
 
 interface VerifyProps {
-  id: string;
+  id: string | undefined;
 }
 
 export default function Verify({ id }: VerifyProps) {
@@ -16,6 +16,24 @@ export default function Verify({ id }: VerifyProps) {
   const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
+
+  // Handle case where id is not available
+  if (!id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600">Lỗi</h1>
+          <p className="text-gray-600 mt-2">ID xác thực không hợp lệ</p>
+          <Link
+            href="/auth/register"
+            className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Quay lại đăng ký
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,9 +54,10 @@ export default function Verify({ id }: VerifyProps) {
           code: verificationCode.trim(),
         },
       });
-      
+
       console.log("Verification response:", res);
-      if (res?.statusCode === 201) {
+      // Handle both wrapped and unwrapped response formats
+      if (res && !res.error && (res.data || (res as any)._id || res.message)) {
         toast.success("Xác thực thành công! Tài khoản đã được kích hoạt.");
         router.push("/auth/login");
       } else {
