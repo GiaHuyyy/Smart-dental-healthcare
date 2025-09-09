@@ -67,7 +67,7 @@ export default function ChatInterface({
   // AI Chat History hook
   const {
     currentSession,
-    createSession,
+    getOrInitializeSession,
     addMessage: saveMessage,
     completeSession,
     updateSession,
@@ -289,14 +289,14 @@ export default function ChatInterface({
     // Create new session if user is logged in
     if (session?.user) {
       try {
-        await createSession("", "low");
+        await getOrInitializeSession();
       } catch (err) {
-        console.error("Failed to create AI chat session:", err);
+        console.error("Failed to get/initialize AI chat session:", err);
       }
     }
 
     setIsCreatingSession(false);
-  }, [session?.user, createSession, isCreatingSession]);
+  }, [session?.user, getOrInitializeSession]);
 
   // Load AI chat history from database
   const loadAiChatHistory = useCallback(async () => {
@@ -412,12 +412,12 @@ export default function ChatInterface({
 
     try {
       if (type === "ai") {
-        // Tạo session mới nếu chưa có
+        // Đảm bảo có session (session đã được tạo khi user đăng nhập)
         if (!currentSession && session?.user) {
           try {
-            await createSession("", "low");
+            await getOrInitializeSession();
           } catch (err) {
-            console.error("Failed to create AI chat session:", err);
+            console.error("Failed to get/initialize AI chat session:", err);
           }
         }
 
@@ -537,12 +537,12 @@ export default function ChatInterface({
 
     try {
       if (type === "ai") {
-        // Tạo session mới nếu chưa có
+        // Đảm bảo có session (session đã được tạo khi user đăng nhập)
         if (!currentSession && session?.user) {
           try {
-            await createSession("", "low");
+            await getOrInitializeSession();
           } catch (err) {
-            console.error("Failed to create AI chat session:", err);
+            console.error("Failed to get/initialize AI chat session:", err);
           }
         }
 
@@ -641,12 +641,12 @@ export default function ChatInterface({
       return;
     }
 
-    // Tạo session mới nếu chưa có
+    // Đảm bảo có session (session đã được tạo khi user đăng nhập)
     if (!currentSession && session?.user) {
       try {
-        await createSession("", "medium"); // Image analysis có urgency medium
+        await getOrInitializeSession();
       } catch (err) {
-        console.error("Failed to create AI chat session:", err);
+        console.error("Failed to get/initialize AI chat session:", err);
       }
     }
 

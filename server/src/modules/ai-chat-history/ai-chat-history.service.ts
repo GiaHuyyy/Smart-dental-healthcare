@@ -105,6 +105,39 @@ export class AiChatHistoryService {
     return session;
   }
 
+  async initializeUserSession(userId: string): Promise<AiChatSessionDocument> {
+    // Check if user already has a session (active or inactive)
+    const existingSession = await this.aiChatSessionModel
+      .findOne({ userId: new Types.ObjectId(userId) })
+      .populate('suggestedDoctorId', 'firstName lastName specialization');
+
+    if (existingSession) {
+      // If session exists but is not active, reactivate it
+      if (existingSession.status !== 'active') {
+        existingSession.status = 'active';
+        await existingSession.save();
+      }
+      return existingSession;
+    }
+
+    // Create new session for new user
+    const sessionData = {
+      userId,
+      sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      symptoms: '',
+      urgencyLevel: 'low',
+      status: 'active',
+      tags: [],
+    };
+
+    const session = new this.aiChatSessionModel({
+      ...sessionData,
+      userId: new Types.ObjectId(userId),
+    });
+
+    return await session.save();
+  }
+
   // Message management
   async addMessage(
     createMessageDto: CreateAiChatMessageDto,

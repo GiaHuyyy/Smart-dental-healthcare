@@ -78,6 +78,30 @@ class AiChatHistoryService {
     return await response.json();
   }
 
+  async getCurrentActiveSession(userId: string): Promise<AiChatSession | null> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/active/${userId}`);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null; // No active session found
+      }
+      throw new Error(`Failed to get current active session: ${response.statusText}`);
+    }
+
+    // Check if response has content
+    const text = await response.text();
+    if (!text) {
+      return null; // Empty response means no active session
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Failed to parse session response:", error);
+      return null;
+    }
+  }
+
   async getUserSessions(
     userId: string,
     page: number = 1,
@@ -110,6 +134,21 @@ class AiChatHistoryService {
 
     if (!response.ok) {
       throw new Error(`Failed to update session: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async initializeUserSession(userId: string): Promise<AiChatSession> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/initialize/${userId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to initialize user session: ${response.statusText}`);
     }
 
     return await response.json();

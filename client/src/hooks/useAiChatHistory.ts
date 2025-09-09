@@ -6,7 +6,8 @@ interface UseAiChatHistoryReturn {
   // Session management
   currentSession: AiChatSession | null;
   setCurrentSession: (session: AiChatSession | null) => void;
-  createSession: (symptoms?: string, urgencyLevel?: string) => Promise<AiChatSession>;
+  getOrInitializeSession: () => Promise<AiChatSession>;
+  createSession: () => Promise<AiChatSession>; // Legacy method
   updateSession: (sessionId: string, updateData: Partial<AiChatSession>) => Promise<void>;
   completeSession: (finalAction: string, summary?: string) => Promise<void>;
 
@@ -19,7 +20,7 @@ interface UseAiChatHistoryReturn {
   // User sessions
   userSessions: AiChatSession[];
   loadUserSessions: (page?: number, limit?: number) => Promise<void>;
-  searchSessions: (query: string, filters?: any) => Promise<AiChatSession[]>;
+  searchSessions: (query: string, filters?: Record<string, unknown>) => Promise<AiChatSession[]>;
 
   // Analytics
   userStats: ChatStats | null;
@@ -40,57 +41,55 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
   const getCurrentUserId = useCallback(() => {
     if (!session?.user) {
-      console.log("No session user found");
       return null;
     }
 
     const user = session.user as any;
     const userId = user._id || user.id;
-    console.log("getCurrentUserId - user object:", user);
-    console.log("getCurrentUserId - extracted userId:", userId);
     return userId;
   }, [session]);
 
-  // Create new chat session
-  const createSession = useCallback(
-    async (symptoms?: string, urgencyLevel: string = "low"): Promise<AiChatSession> => {
-      const userId = getCurrentUserId();
-      console.log("Creating session with userId:", userId);
-      console.log("Session data:", session);
+  // Get existing user session (for chat operations)
+  const getOrInitializeSession = useCallback(async (): Promise<AiChatSession> => {
+    const userId = getCurrentUserId();
 
-      if (!userId) {
-        throw new Error("User not authenticated");
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // If we already have a current session, return it
+    if (currentSession && currentSession.status === "active") {
+      return currentSession;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Try to get existing active session
+      const existingSession = await aiChatHistoryService.getCurrentActiveSession(userId);
+      if (existingSession) {
+        setCurrentSession(existingSession);
+        return existingSession;
       }
 
-      setIsLoading(true);
-      setError(null);
+      // If no session exists, this means user hasn't been properly initialized
+      // This should not happen if backend properly created session during registration
+      throw new Error("No AI chat session found for user. Please contact support.");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to get session";
+      setError(errorMessage);
+      console.error("Error getting session:", err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getCurrentUserId, currentSession]);
 
-      try {
-        const sessionData = {
-          userId,
-          sessionId: aiChatHistoryService.generateSessionId(),
-          symptoms: symptoms || "",
-          urgencyLevel,
-          status: "active",
-          tags: symptoms
-            ? aiChatHistoryService.extractTags([{ content: symptoms, role: "user" } as AiChatMessage])
-            : [],
-        };
-
-        const newSession = await aiChatHistoryService.createSession(sessionData);
-        setCurrentSession(newSession);
-        return newSession;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to create session";
-        setError(errorMessage);
-        console.error("Error creating session:", err);
-        throw err;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [getCurrentUserId, session]
-  );
+  // Legacy createSession method - now just calls getOrInitializeSession
+  const createSession = useCallback(async (): Promise<AiChatSession> => {
+    return await getOrInitializeSession();
+  }, [getOrInitializeSession]);
 
   // Update current session
   const updateSession = useCallback(
@@ -215,7 +214,7 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
 
   // Search sessions
   const searchSessions = useCallback(
-    async (query: string, filters?: any): Promise<AiChatSession[]> => {
+    async (query: string, filters?: Record<string, unknown>): Promise<AiChatSession[]> => {
       const userId = getCurrentUserId();
       if (!userId) return [];
 
@@ -257,19 +256,40 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
     }
   }, [getCurrentUserId]);
 
-  // Auto-load user sessions on mount
+  // Load existing session for user (without creating new one)
+  const loadExistingSession = useCallback(async (): Promise<void> => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      setIsLoading(true);
+      const activeSession = await aiChatHistoryService.getCurrentActiveSession(userId);
+      if (activeSession) {
+        setCurrentSession(activeSession);
+      }
+    } catch (err) {
+      console.error("Error loading existing active session:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getCurrentUserId]);
+
+  // Auto-load existing session for user on mount (don't create new session)
   useEffect(() => {
     if (session?.user) {
+      // Only load existing session, don't create new one
+      loadExistingSession();
       loadUserSessions();
       loadUserStats();
     }
-  }, [session, loadUserSessions, loadUserStats]);
+  }, [session, loadExistingSession, loadUserSessions, loadUserStats]);
 
   return {
     // Session management
     currentSession,
     setCurrentSession,
-    createSession,
+    getOrInitializeSession,
+    createSession, // Legacy method
     updateSession,
     completeSession,
 

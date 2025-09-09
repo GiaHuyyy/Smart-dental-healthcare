@@ -62,6 +62,11 @@ export class AiChatHistoryController {
     return await this.aiChatHistoryService.updateSession(sessionId, updateDto);
   }
 
+  @Post('sessions/initialize/:userId')
+  async initializeUserSession(@Param('userId') userId: string) {
+    return await this.aiChatHistoryService.initializeUserSession(userId);
+  }
+
   // Message endpoints
   @Post('messages')
   async addMessage(@Body() createMessageDto: CreateAiChatMessageDto) {
