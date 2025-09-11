@@ -66,8 +66,11 @@ export class RealtimeChatService {
     return await this.conversationModel
       .find(query)
       .populate('lastMessage')
-      .populate('patientId', 'firstName lastName avatar email')
-      .populate('doctorId', 'firstName lastName avatar email specialization')
+      .populate('patientId', 'fullName firstName lastName avatar email')
+      .populate(
+        'doctorId',
+        'fullName firstName lastName avatar email specialty',
+      )
       .sort({ lastMessageAt: -1 });
   }
 

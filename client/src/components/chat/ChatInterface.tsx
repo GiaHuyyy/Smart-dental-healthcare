@@ -384,14 +384,6 @@ export default function ChatInterface({
     }
   }, [type, session?.user, hasLoadedFromDatabase, loadAiChatHistory]);
 
-  // Remove localStorage saving since we're using database now
-  // useEffect(() => {
-  //   if (type === "ai" && messages.length > 1) {
-  //     chatStorage.saveChat(messages);
-  //     console.log(`Saved ${messages.length} messages to storage`);
-  //   }
-  // }, [messages, type]);
-
   // Message handlers
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;

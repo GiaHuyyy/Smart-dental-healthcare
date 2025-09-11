@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -14,6 +14,7 @@ export default function PatientChatPage() {
   const [loadingMessages, setLoadingMessages] = useState<{ [key: string]: boolean }>({});
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const previousSelectedChatRef = useRef<string | null>(null);
 
   // Load conversations from database when component mounts
   useEffect(() => {
@@ -30,25 +31,67 @@ export default function PatientChatPage() {
               const conversations = await response.json();
               console.log("Raw conversations from API:", conversations);
 
-              // Transform conversations to match UI format
-              const transformedConversations = conversations.map((conv: any) => {
-                console.log("Processing conversation:", conv);
-                console.log("Doctor data:", conv.doctorId);
+              // Transform conversations and fetch doctor info for each
+              const transformedConversations = await Promise.all(
+                conversations.map(async (conv: any) => {
+                  console.log("Processing conversation:", conv);
+                  console.log("Doctor data:", conv.doctorId);
 
-                return {
-                  id: conv._id,
-                  doctorId: conv.doctorId._id || conv.doctorId,
-                  doctorName:
-                    conv.doctorId.fullName ||
-                    `${conv.doctorId.firstName || ""} ${conv.doctorId.lastName || ""}`.trim() ||
-                    "Bác sĩ",
-                  specialty: conv.doctorId.specialization || "Nha khoa tổng quát",
-                  lastMessage: conv.lastMessage?.content || "Cuộc hội thoại mới",
-                  timestamp: conv.updatedAt || conv.createdAt,
-                  unread: false,
-                  databaseId: conv._id,
-                };
-              });
+                  // Handle both populated and non-populated doctorId
+                  const doctorData = typeof conv.doctorId === "object" ? conv.doctorId : null;
+                  const doctorId = doctorData?._id || conv.doctorId;
+
+                  let doctorInfo = {
+                    name: "Bác sĩ",
+                    specialty: "Nha khoa tổng quát",
+                  };
+
+                  // If doctorId is just a string, fetch doctor info
+                  if (typeof conv.doctorId === "string") {
+                    try {
+                      console.log("Fetching doctor info for ID:", conv.doctorId);
+                      const doctorResponse = await fetch(
+                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/${conv.doctorId}`
+                      );
+                      console.log("Doctor API response status:", doctorResponse.status);
+
+                      if (doctorResponse.ok) {
+                        const doctor = await doctorResponse.json();
+                        console.log("Doctor data from API:", doctor);
+                        doctorInfo = {
+                          name:
+                            doctor.fullName || `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim() || "Bác sĩ",
+                          specialty: doctor.specialty || doctor.specialization || "Nha khoa tổng quát",
+                        };
+                        console.log("Processed doctor info:", doctorInfo);
+                      } else {
+                        console.error("Failed to fetch doctor info:", await doctorResponse.text());
+                      }
+                    } catch (error) {
+                      console.error("Error fetching doctor info:", error);
+                    }
+                  } else if (doctorData) {
+                    doctorInfo = {
+                      name:
+                        doctorData.fullName ||
+                        `${doctorData.firstName || ""} ${doctorData.lastName || ""}`.trim() ||
+                        "Bác sĩ",
+                      specialty: doctorData.specialty || doctorData.specialization || "Nha khoa tổng quát",
+                    };
+                  }
+
+                  return {
+                    id: conv._id,
+                    doctorId: doctorId,
+                    doctorName: doctorInfo.name,
+                    specialty: doctorInfo.specialty,
+                    lastMessage: conv.lastMessage?.content || "Cuộc hội thoại mới",
+                    timestamp: conv.updatedAt || conv.createdAt,
+                    unread: false,
+                    databaseId: conv._id,
+                  };
+                })
+              );
 
               setDoctorConversations(transformedConversations);
               console.log("Loaded conversations from database:", transformedConversations);
@@ -66,9 +109,14 @@ export default function PatientChatPage() {
   }, [session]);
 
   // Load messages for a specific conversation
-  const loadConversationMessages = async (conversationId: string) => {
-    if (conversationMessages[conversationId] || loadingMessages[conversationId]) {
-      return; // Already loaded or loading
+  const loadConversationMessages = async (conversationId: string, forceReload: boolean = false) => {
+    // Check loading state
+    const isCurrentlyLoading = loadingMessages[conversationId];
+    const hasMessages = conversationMessages[conversationId] && conversationMessages[conversationId].length > 0;
+
+    if (!forceReload && (isCurrentlyLoading || hasMessages)) {
+      console.log(`Skipping load for ${conversationId}: loading=${isCurrentlyLoading}, hasMessages=${hasMessages}`);
+      return; // Already loaded or loading (unless forced reload)
     }
 
     setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
@@ -76,6 +124,7 @@ export default function PatientChatPage() {
     try {
       const userId = (session?.user as any)?._id || (session?.user as any)?.id;
       if (userId) {
+        console.log(`Loading messages for conversation ${conversationId}...`);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/conversations/${conversationId}/messages?userId=${userId}&userRole=patient&limit=100`
         );
@@ -86,7 +135,9 @@ export default function PatientChatPage() {
             ...prev,
             [conversationId]: messages,
           }));
-          console.log(`Loaded messages for conversation ${conversationId}:`, messages);
+          console.log(`Loaded ${messages.length} messages for conversation ${conversationId}:`, messages);
+        } else {
+          console.error(`Failed to load messages for conversation ${conversationId}:`, response.status);
         }
       }
     } catch (error) {
@@ -99,9 +150,26 @@ export default function PatientChatPage() {
   // Load messages when conversation is selected
   useEffect(() => {
     if (selectedChat !== "ai" && selectedChat) {
-      loadConversationMessages(selectedChat);
+      // Check if this is a different conversation than previous
+      const isDifferentConversation = previousSelectedChatRef.current !== selectedChat;
+
+      console.log(`Selected chat changed to: ${selectedChat}, isDifferent: ${isDifferentConversation}`);
+
+      // Always load messages when switching conversations
+      // Clear existing messages for the conversation to force fresh load
+      if (isDifferentConversation) {
+        setConversationMessages((prev) => ({ ...prev, [selectedChat]: [] }));
+      }
+
+      loadConversationMessages(selectedChat, isDifferentConversation);
+
+      // Update previous selected chat ref
+      previousSelectedChatRef.current = selectedChat;
+    } else {
+      previousSelectedChatRef.current = null;
     }
-  }, [selectedChat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat]); // Intentionally excluding loadConversationMessages to avoid infinite loop
 
   // Handle new message callback
   const handleNewMessage = (newMessage: any) => {
@@ -365,6 +433,7 @@ export default function PatientChatPage() {
                   <>
                     {(() => {
                       const selectedConversation = doctorConversations.find((conv) => conv.id === selectedChat);
+                      console.log("Selected conversation:", selectedConversation);
                       return selectedConversation ? (
                         <>
                           <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-green-500">
