@@ -315,18 +315,14 @@ export default function ChatInterface({
       const sessionsResponse = await aiChatHistoryService.getUserSessions(userId, 1, 5); // Get up to 5 recent sessions
 
       if (sessionsResponse.sessions.length > 0) {
-        // Check for active sessions from today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Start of today
+        // Get the most recent active session (not just from today)
+        const activeSessions = sessionsResponse.sessions.filter((session) =>
+          session.status === "active"
+        );
 
-        const todaySessions = sessionsResponse.sessions.filter((session) => {
-          const sessionDate = new Date(session.createdAt!);
-          return sessionDate >= today && session.status === "active";
-        });
-
-        if (todaySessions.length > 0) {
-          // Use the most recent session from today
-          const latestSession = todaySessions[0];
+        if (activeSessions.length > 0) {
+          // Use the most recent active session
+          const latestSession = activeSessions[0];
 
           // Load messages from this session
           const messages = await aiChatHistoryService.getSessionMessages(latestSession._id!);

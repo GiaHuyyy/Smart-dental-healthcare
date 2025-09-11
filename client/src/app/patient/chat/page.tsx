@@ -386,13 +386,7 @@ export default function PatientChatPage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
-              {selectedChat === "ai" && (
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                  Lưu ý: Lịch sử chat AI chỉ được lưu trong vòng 24h
-                </span>
-              )}
-            </div>
+            <div className="flex items-center space-x-2">{/* Removed note about 24h chat history limit */}</div>
           </div>
         </div>
 
