@@ -14,10 +14,14 @@ export class Message {
   @Prop({ type: String, enum: ['patient', 'doctor'], required: true })
   senderRole: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false, default: '' })
   content: string;
 
-  @Prop({ type: String, enum: ['text', 'image', 'file'], default: 'text' })
+  @Prop({
+    type: String,
+    enum: ['text', 'image', 'video', 'file'],
+    default: 'text',
+  })
   messageType: string;
 
   @Prop({ type: String, default: null })
@@ -25,6 +29,9 @@ export class Message {
 
   @Prop({ type: String, default: null })
   fileName: string;
+
+  @Prop({ type: String, default: null }) // MIME type: image/jpeg, video/mp4, application/pdf, etc.
+  fileType: string;
 
   @Prop({ type: Number, default: null })
   fileSize: number;

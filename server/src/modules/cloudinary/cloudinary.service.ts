@@ -31,10 +31,16 @@ export class CloudinaryService {
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
     if (!cloudName || !apiKey || !apiSecret) {
-      this.logger.error('Cloudinary configuration missing. Please check your environment variables.');
-      this.logger.error(`CLOUDINARY_CLOUD_NAME: ${cloudName ? 'Set' : 'Missing'}`);
+      this.logger.error(
+        'Cloudinary configuration missing. Please check your environment variables.',
+      );
+      this.logger.error(
+        `CLOUDINARY_CLOUD_NAME: ${cloudName ? 'Set' : 'Missing'}`,
+      );
       this.logger.error(`CLOUDINARY_API_KEY: ${apiKey ? 'Set' : 'Missing'}`);
-      this.logger.error(`CLOUDINARY_API_SECRET: ${apiSecret ? 'Set' : 'Missing'}`);
+      this.logger.error(
+        `CLOUDINARY_API_SECRET: ${apiSecret ? 'Set' : 'Missing'}`,
+      );
       this.isConfigured = false;
       return;
     }
@@ -53,9 +59,13 @@ export class CloudinaryService {
     }
   }
 
-  async uploadImage(file: Express.Multer.File): Promise<{ url: string; public_id: string }> {
+  async uploadImage(
+    file: Express.Multer.File,
+  ): Promise<{ url: string; public_id: string }> {
     if (!this.isConfigured) {
-      throw new Error('Cloudinary is not configured. Please check your environment variables.');
+      throw new Error(
+        'Cloudinary is not configured. Please check your environment variables.',
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -66,8 +76,8 @@ export class CloudinaryService {
           transformation: [
             { width: 800, height: 600, crop: 'limit' },
             { quality: 'auto' },
-            { format: 'auto' }
-          ]
+            { format: 'auto' },
+          ],
         },
         (error, result) => {
           if (error) {
@@ -76,13 +86,15 @@ export class CloudinaryService {
           } else if (!result) {
             reject(new Error('Upload failed: No result returned'));
           } else {
-            this.logger.log(`Image uploaded successfully: ${result.secure_url}`);
+            this.logger.log(
+              `Image uploaded successfully: ${result.secure_url}`,
+            );
             resolve({
               url: result.secure_url,
-              public_id: result.public_id
+              public_id: result.public_id,
             });
           }
-        }
+        },
       );
 
       const readableStream = new Readable();
@@ -92,9 +104,86 @@ export class CloudinaryService {
     });
   }
 
-  async uploadImageFromBuffer(buffer: Buffer, filename: string): Promise<{ url: string; public_id: string }> {
+  async uploadFile(
+    file: Express.Multer.File,
+  ): Promise<{ url: string; public_id: string }> {
     if (!this.isConfigured) {
-      throw new Error('Cloudinary is not configured. Please check your environment variables.');
+      throw new Error(
+        'Cloudinary is not configured. Please check your environment variables.',
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      // Determine resource type based on file type
+      let resourceType: 'image' | 'video' | 'raw' = 'raw';
+      let options: any = {
+        folder: 'smart-dental-healthcare',
+        resource_type: resourceType,
+      };
+
+      if (file.mimetype.startsWith('image/')) {
+        resourceType = 'image';
+        options = {
+          ...options,
+          resource_type: resourceType,
+          transformation: [
+            { width: 800, height: 600, crop: 'limit' },
+            { quality: 'auto' },
+            { format: 'auto' },
+          ],
+        };
+      } else if (file.mimetype.startsWith('video/')) {
+        resourceType = 'video';
+        options = {
+          ...options,
+          resource_type: resourceType,
+          transformation: [
+            { width: 800, height: 600, crop: 'limit' },
+            { quality: 'auto' },
+          ],
+        };
+      } else {
+        // For documents, PDFs, etc. use raw
+        resourceType = 'raw';
+        options = {
+          ...options,
+          resource_type: resourceType,
+        };
+      }
+
+      const uploadStream = cloudinary.uploader.upload_stream(
+        options,
+        (error, result) => {
+          if (error) {
+            this.logger.error('Cloudinary upload error:', error);
+            reject(error);
+          } else if (!result) {
+            reject(new Error('Upload failed: No result returned'));
+          } else {
+            this.logger.log(`File uploaded successfully: ${result.secure_url}`);
+            resolve({
+              url: result.secure_url,
+              public_id: result.public_id,
+            });
+          }
+        },
+      );
+
+      const readableStream = new Readable();
+      readableStream.push(file.buffer);
+      readableStream.push(null);
+      readableStream.pipe(uploadStream);
+    });
+  }
+
+  async uploadImageFromBuffer(
+    buffer: Buffer,
+    filename: string,
+  ): Promise<{ url: string; public_id: string }> {
+    if (!this.isConfigured) {
+      throw new Error(
+        'Cloudinary is not configured. Please check your environment variables.',
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -106,8 +195,8 @@ export class CloudinaryService {
           transformation: [
             { width: 800, height: 600, crop: 'limit' },
             { quality: 'auto' },
-            { format: 'auto' }
-          ]
+            { format: 'auto' },
+          ],
         },
         (error, result) => {
           if (error) {
@@ -116,13 +205,15 @@ export class CloudinaryService {
           } else if (!result) {
             reject(new Error('Upload failed: No result returned'));
           } else {
-            this.logger.log(`Image uploaded successfully: ${result.secure_url}`);
+            this.logger.log(
+              `Image uploaded successfully: ${result.secure_url}`,
+            );
             resolve({
               url: result.secure_url,
-              public_id: result.public_id
+              public_id: result.public_id,
             });
           }
-        }
+        },
       );
 
       const readableStream = new Readable();
@@ -134,7 +225,9 @@ export class CloudinaryService {
 
   async deleteImage(public_id: string): Promise<void> {
     if (!this.isConfigured) {
-      throw new Error('Cloudinary is not configured. Please check your environment variables.');
+      throw new Error(
+        'Cloudinary is not configured. Please check your environment variables.',
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -152,12 +245,14 @@ export class CloudinaryService {
 
   async getImageUrl(public_id: string, options?: any): Promise<string> {
     if (!this.isConfigured) {
-      throw new Error('Cloudinary is not configured. Please check your environment variables.');
+      throw new Error(
+        'Cloudinary is not configured. Please check your environment variables.',
+      );
     }
 
     return cloudinary.url(public_id, {
       secure: true,
-      ...options
+      ...options,
     });
   }
 

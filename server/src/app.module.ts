@@ -21,6 +21,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
 import { RealtimeChatModule } from './modules/realtime-chat/realtime-chat.module';
+import { WebRTCModule } from './modules/webrtc/webrtc.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { RealtimeChatModule } from './modules/realtime-chat/realtime-chat.module
     ReportsModule,
     ReviewsModule,
     RealtimeChatModule,
+    WebRTCModule,
   ],
   controllers: [AppController],
   providers: [

@@ -9,7 +9,11 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Express } from 'express';
 import { Types } from 'mongoose';
 import { RealtimeChatService } from './realtime-chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -17,11 +21,15 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { MarkMessageReadDto } from './dto/chat-actions.dto';
 import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
 import { Public } from 'src/decorator/customize';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('realtime-chat')
 @Public()
 export class RealtimeChatController {
-  constructor(private readonly realtimeChatService: RealtimeChatService) {}
+  constructor(
+    private readonly realtimeChatService: RealtimeChatService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Post('conversations')
   async createConversation(
@@ -183,7 +191,7 @@ export class RealtimeChatController {
     @Body() sendMessageDto: Omit<SendMessageDto, 'conversationId'>,
     @Request() req: any,
   ) {
-    const userId = new Types.ObjectId(req.user.userId);
+    const userId = new Types.ObjectId(req.user.userId as string);
     const userRole = req.user.role;
 
     const fullSendMessageDto: SendMessageDto = {
@@ -204,7 +212,7 @@ export class RealtimeChatController {
     @Param('messageId') messageId: string,
     @Request() req: any,
   ) {
-    const userId = new Types.ObjectId(req.user.userId);
+    const userId = new Types.ObjectId(req.user.userId as string);
     const userRole = req.user.role;
 
     await this.realtimeChatService.markMessageAsRead(
@@ -224,7 +232,9 @@ export class RealtimeChatController {
     @Body() body: { userRole: 'patient' | 'doctor' },
     @Request() req: any,
   ) {
-    const userId = new Types.ObjectId(req.user?.userId || req.user?.id);
+    const userId = new Types.ObjectId(
+      (req.user?.userId || req.user?.id) as string,
+    );
     const userRole = body.userRole || req.user?.role;
 
     return await this.realtimeChatService.markConversationAsRead(
@@ -234,12 +244,112 @@ export class RealtimeChatController {
     );
   }
 
+  // Upload file for chat
+  @Post('upload-file')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body()
+    body: {
+      conversationId: string;
+      senderId: string;
+      senderRole: 'patient' | 'doctor';
+      content?: string; // Optional text content to accompany the file
+    },
+  ) {
+    console.log('=== UPLOAD FILE DEBUG ===');
+    console.log('File object:', file);
+    console.log('File buffer length:', file?.buffer?.length);
+    console.log('Body:', body);
+
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    if (!file.buffer || file.buffer.length === 0) {
+      throw new BadRequestException('File buffer is empty');
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size cannot exceed 10MB');
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'video/mp4',
+      'video/webm',
+      'video/ogg',
+      'video/avi',
+      'video/mov',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'text/csv',
+    ];
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Unsupported file type');
+    }
+
+    try {
+      // Upload to Cloudinary using the new uploadFile method
+      const uploadResult = await this.cloudinaryService.uploadFile(file);
+
+      // Determine message type based on MIME type
+      let messageType = 'file';
+      if (file.mimetype.startsWith('image/')) {
+        messageType = 'image';
+      } else if (file.mimetype.startsWith('video/')) {
+        messageType = 'video';
+      }
+
+      // Create message with file attachment
+      const sendMessageDto: SendMessageDto = {
+        conversationId: new Types.ObjectId(body.conversationId),
+        content: body.content || '', // Nếu không có text thì content là rỗng
+        messageType: messageType as 'text' | 'image' | 'video' | 'file',
+        fileUrl: uploadResult.url,
+        fileName: file.originalname,
+        fileType: file.mimetype,
+        fileSize: file.size,
+      };
+
+      // Send the message
+      const message = await this.realtimeChatService.sendMessage(
+        new Types.ObjectId(body.senderId),
+        body.senderRole, // Changed from userRole to senderRole
+        sendMessageDto,
+      );
+
+      return {
+        success: true,
+        message,
+        fileUrl: uploadResult.url,
+      };
+    } catch (error) {
+      console.error('File upload error:', error);
+      throw new BadRequestException('Failed to upload file');
+    }
+  }
+
   @Get('conversations/with/:otherUserId')
   async getConversationWithUser(
     @Param('otherUserId') otherUserId: string,
     @Request() req: any,
   ) {
-    const userId = new Types.ObjectId(req.user.userId);
+    const userId = new Types.ObjectId(req.user.userId as string);
     const userRole = req.user.role;
     const targetUserId = new Types.ObjectId(otherUserId);
 

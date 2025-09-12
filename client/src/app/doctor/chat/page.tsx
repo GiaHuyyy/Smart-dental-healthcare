@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
+import ChatHeader from "@/components/chat/ChatHeader";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -436,64 +437,46 @@ export default function DoctorChatPage() {
       {/* Main Chat Area - Takes remaining space */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Header with Sidebar Toggle */}
-        <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {/* Sidebar Toggle Button - Always visible */}
-              <button
-                onClick={() => setShowSidebar(!showSidebar)}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg mr-3 transition-colors"
-                title={showSidebar ? "Ẩn sidebar" : "Hiện sidebar"}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
+        <div className="flex items-center p-4 border-b border-gray-200 bg-white flex-shrink-0">
+          {/* Sidebar Toggle Button */}
+          <button
+            onClick={() => setShowSidebar(!showSidebar)}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg mr-3 transition-colors flex-shrink-0"
+            title={showSidebar ? "Ẩn sidebar" : "Hiện sidebar"}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
 
-              {/* Chat Title */}
-              <div className="flex items-center">
-                {(() => {
-                  const selectedConversation = patientConversations.find((conv) => conv.id === selectedChat);
-                  console.log("Selected conversation:", selectedConversation);
-                  return selectedConversation ? (
-                    <>
-                      <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-white text-sm">👤</span>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{selectedConversation.patientName}</h3>
-                        <p className="text-sm text-gray-600">
-                          <span className="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1"></span>
-                          {selectedConversation.patientEmail}
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      <h3 className="font-semibold text-gray-900">Chọn bệnh nhân để trò chuyện</h3>
-                      <p className="text-sm text-gray-600">Không có cuộc hội thoại nào được chọn</p>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-2">
-              {selectedChat && (
-                <>
-                  <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200">
-                    📞 Gọi điện
-                  </button>
-                  <button className="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200">
-                    📅 Đặt lịch
-                  </button>
-                  <button className="px-3 py-1 bg-purple-100 text-purple-700 rounded-md text-sm hover:bg-purple-200">
-                    📋 Hồ sơ
-                  </button>
-                </>
-              )}
-            </div>
+          {/* ChatHeader Component */}
+          <div className="flex-1 min-w-0">
+            {(() => {
+              const selectedConversation = patientConversations.find((conv) => conv.id === selectedChat);
+              return selectedConversation ? (
+                <ChatHeader
+                  type="patient"
+                  patientName={selectedConversation.patientName}
+                  patientId={selectedConversation.patientId}
+                  patientEmail={selectedConversation.patientEmail}
+                  isOnline={true}
+                  embedded={true}
+                  onCall={() => console.log("Call patient clicked")}
+                  onBookAppointment={() => console.log("Book appointment clicked")}
+                  onViewProfile={() => console.log("View patient profile clicked")}
+                />
+              ) : (
+                <div className="flex items-center">
+                  <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center mr-3">
+                    <span className="text-white text-sm">👤</span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Chọn bệnh nhân để trò chuyện</h3>
+                    <p className="text-sm text-gray-600">Không có cuộc hội thoại nào được chọn</p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
