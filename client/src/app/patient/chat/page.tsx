@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -170,6 +170,63 @@ export default function PatientChatPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChat]); // Intentionally excluding loadConversationMessages to avoid infinite loop
+
+  // Polling for new messages
+  const pollForNewMessages = useCallback(
+    async (conversationId: string) => {
+      try {
+        const userId = (session?.user as any)?._id || (session?.user as any)?.id;
+        if (userId) {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/conversations/${conversationId}/messages?userId=${userId}&userRole=patient&limit=100`
+          );
+
+          if (response.ok) {
+            const newMessages = await response.json();
+            const currentMessages = conversationMessages[conversationId] || [];
+
+            // Check if there are new messages
+            if (newMessages.length > currentMessages.length) {
+              console.log(
+                `🔄 Found ${
+                  newMessages.length - currentMessages.length
+                } new messages for conversation ${conversationId}`
+              );
+              setConversationMessages((prev) => ({
+                ...prev,
+                [conversationId]: newMessages,
+              }));
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error polling for new messages:", error);
+      }
+    },
+    [session, conversationMessages]
+  );
+
+  // Set up polling when conversation is selected
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout;
+
+    if (selectedChat && selectedChat !== "ai") {
+      // Start polling every 3 seconds for doctor conversations only
+      pollInterval = setInterval(() => {
+        pollForNewMessages(selectedChat);
+      }, 3000);
+
+      console.log(`📡 Started polling for conversation: ${selectedChat}`);
+    }
+
+    // Cleanup polling on conversation change or unmount
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        console.log(`🛑 Stopped polling for conversation: ${selectedChat}`);
+      }
+    };
+  }, [selectedChat, pollForNewMessages]);
 
   // Handle new message callback
   const handleNewMessage = (newMessage: any) => {

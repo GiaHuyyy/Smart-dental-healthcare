@@ -147,10 +147,23 @@ export class RealtimeChatController {
     });
 
     let userRole: 'patient' | 'doctor' = 'patient';
-    if (
-      conversation.doctorId &&
-      conversation.doctorId.toString() === body.senderId
-    ) {
+
+    // Extract actual IDs from potentially populated objects
+    const doctorIdStr = (
+      conversation.doctorId?._id || conversation.doctorId
+    )?.toString();
+    const patientIdStr = (
+      conversation.patientId?._id || conversation.patientId
+    )?.toString();
+
+    console.log('Doctor ID comparison:', {
+      doctorId: conversation.doctorId,
+      doctorIdExtracted: doctorIdStr,
+      senderId: body.senderId,
+      isEqual: doctorIdStr === body.senderId,
+    });
+
+    if (conversation.doctorId && doctorIdStr === body.senderId) {
       userRole = 'doctor';
     }
 

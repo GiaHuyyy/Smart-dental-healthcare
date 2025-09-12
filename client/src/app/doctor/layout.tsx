@@ -1,7 +1,6 @@
 "use client";
 
 import Header from "@/components/Header";
-import ChatButtonSimple from "@/components/chat/ChatButtonSimple";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -21,17 +20,11 @@ const navigation = [
 export default function DoctorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setIsLoading(false);
   }, [router]);
-
-  const handleLogout = () => {
-    router.push("/");
-  };
 
   if (isLoading) {
     return (
@@ -47,12 +40,15 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header role="Bác sĩ" />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-40">
+        <Header role="Bác sĩ" />
+      </div>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <nav className="w-64 bg-white shadow-sm min-h-screen">
+      <div className="flex h-screen pt-16">
+        {/* Fixed Sidebar */}
+        <nav className="w-64 bg-white shadow-sm fixed top-16 left-0 bottom-0 z-30 overflow-y-auto">
           <div className="p-4">
             <ul className="space-y-2">
               {navigation.map((item) => {
@@ -67,7 +63,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
                         isHomeItem
                           ? "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
                           : isActive
-                          ? "bg-sky-100 text-sky-700"
+                          ? "bg-emerald-100 text-emerald-700"
                           : "text-gray-600 hover:bg-gray-100"
                       }`}
                     >
@@ -81,15 +77,10 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
             </ul>
           </div>
         </nav>
-
-        {/* Main content */}
-        <main className="flex-1 p-6">{children}</main>
+        
+        {/* Main content - scrollable */}
+        <main className="flex-1 ml-64 p-6 overflow-y-auto h-full">{children}</main>
       </div>
-
-      {/* Chat Integration - Bỏ button chat ở góc phải */}
-      {/* <div className="fixed bottom-4 right-4 z-50">
-        <ChatButtonSimple type="doctor" />
-      </div> */}
     </div>
   );
 }
