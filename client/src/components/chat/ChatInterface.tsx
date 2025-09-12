@@ -1377,10 +1377,17 @@ export default function ChatInterface({
       "video/mp4",
       "video/webm",
       "video/ogg",
+      "video/avi",
+      "video/mov",
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       "text/plain",
+      "text/csv",
     ];
 
     if (!allowedTypes.includes(file.type)) {
@@ -1732,25 +1739,47 @@ export default function ChatInterface({
                                 </video>
                               ) : (
                                 <div className="flex items-center space-x-2 p-2 bg-white bg-opacity-20 rounded border">
-                                  <div className="text-lg">📄</div>
+                                  <div className="text-lg">
+                                    {(() => {
+                                      const fileType =
+                                        message.fileType || message.fileName?.split(".").pop()?.toLowerCase();
+                                      if (fileType?.includes("pdf")) return "📄";
+                                      if (fileType?.includes("doc")) return "📝";
+                                      if (
+                                        fileType?.includes("sheet") ||
+                                        fileType?.includes("excel") ||
+                                        fileType?.includes("xlsx")
+                                      )
+                                        return "📊";
+                                      if (
+                                        fileType?.includes("presentation") ||
+                                        fileType?.includes("powerpoint") ||
+                                        fileType?.includes("pptx")
+                                      )
+                                        return "📑";
+                                      if (fileType?.includes("text") || fileType?.includes("txt")) return "📋";
+                                      if (fileType?.includes("csv")) return "📈";
+                                      return "📁";
+                                    })()}
+                                  </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">
+                                    <p className="text-sm text-gray-900 font-medium truncate">
                                       {message.fileName || "File attachment"}
                                     </p>
                                     {message.fileSize && (
-                                      <p className="text-xs opacity-70">
+                                      <p className="text-xs text-gray-500 opacity-70">
                                         {(message.fileSize / 1024 / 1024).toFixed(2)} MB
                                       </p>
                                     )}
                                   </div>
-                                  <a
-                                    href={message.fileUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs underline opacity-80 hover:opacity-100"
-                                  >
-                                    Tải về
-                                  </a>
+                                    <a
+                                      href={message.fileUrl}
+                                      rel="noopener noreferrer"
+                                      download={message.fileName}
+                                      className="text-xs text-blue-600 underline opacity-80 hover:opacity-100"
+                                    >
+                                      Tải về
+                                    </a>
                                 </div>
                               )}
                             </div>
@@ -1850,7 +1879,7 @@ export default function ChatInterface({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
                 onChange={handleFileSelect}
                 className="hidden"
               />

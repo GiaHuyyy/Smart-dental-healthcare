@@ -286,10 +286,17 @@ export class RealtimeChatController {
       'video/mp4',
       'video/webm',
       'video/ogg',
+      'video/avi',
+      'video/mov',
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'text/plain',
+      'text/csv',
     ];
 
     if (!allowedTypes.includes(file.mimetype)) {
@@ -297,8 +304,8 @@ export class RealtimeChatController {
     }
 
     try {
-      // Upload to Cloudinary
-      const uploadResult = await this.cloudinaryService.uploadImage(file);
+      // Upload to Cloudinary using the new uploadFile method
+      const uploadResult = await this.cloudinaryService.uploadFile(file);
 
       // Determine message type based on MIME type
       let messageType = 'file';
@@ -311,7 +318,7 @@ export class RealtimeChatController {
       // Create message with file attachment
       const sendMessageDto: SendMessageDto = {
         conversationId: new Types.ObjectId(body.conversationId),
-        content: body.content || file.originalname, // Use user's text content if provided, fallback to filename
+        content: body.content || '', // Nếu không có text thì content là rỗng
         messageType: messageType as 'text' | 'image' | 'video' | 'file',
         fileUrl: uploadResult.url,
         fileName: file.originalname,

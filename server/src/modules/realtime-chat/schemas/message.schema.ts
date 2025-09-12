@@ -14,7 +14,7 @@ export class Message {
   @Prop({ type: String, enum: ['patient', 'doctor'], required: true })
   senderRole: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false, default: '' })
   content: string;
 
   @Prop({

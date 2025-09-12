@@ -12,9 +12,9 @@ export class SendMessageDto {
   @IsMongoId()
   conversationId: Types.ObjectId;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  content: string;
+  content?: string;
 
   @IsOptional()
   @IsEnum(['text', 'image', 'video', 'file'])
