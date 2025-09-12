@@ -63,7 +63,7 @@ export default function PatientDetail() {
   const params = useParams();
   const router = useRouter();
   const patientId = params.id as string;
-  
+
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -129,7 +129,7 @@ export default function PatientDetail() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      
+
       const token = localStorage.getItem('token');
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -138,7 +138,7 @@ export default function PatientDetail() {
       const response = await fetch(`/api/medical-records/patient/${patientId}`, {
         headers
       });
-      
+
       if (!response.ok) {
         console.error('Failed to fetch medical records:', response.status, response.statusText);
         setMedicalRecords([]);
@@ -174,11 +174,11 @@ export default function PatientDetail() {
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     return age;
   };
 
@@ -192,7 +192,7 @@ export default function PatientDetail() {
     };
 
     const statusInfo = statusMap[status] || { bg: 'bg-gray-100', text: 'text-gray-800', label: status };
-    
+
     return (
       <span className={`px-2 py-1 rounded-full text-xs ${statusInfo.bg} ${statusInfo.text}`}>
         {statusInfo.label}
@@ -416,8 +416,8 @@ export default function PatientDetail() {
             </div>
           </div>
           <div className="p-6">
-            <PrescriptionList 
-              patientId={patientId} 
+            <PrescriptionList
+              patientId={patientId}
               showDoctorInfo={true}
               showPatientInfo={false}
               limit={10}

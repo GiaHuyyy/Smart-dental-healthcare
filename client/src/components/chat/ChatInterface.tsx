@@ -45,6 +45,8 @@ interface ChatInterfaceProps {
   isLoadingMessages?: boolean;
   // Callback when new message is sent
   onNewMessage?: (message: any) => void;
+  // Callback when input is focused (for unread count reset)
+  onInputFocus?: () => void;
 }
 
 export default function ChatInterface({
@@ -60,6 +62,7 @@ export default function ChatInterface({
   preloadedMessages = [],
   isLoadingMessages = false,
   onNewMessage,
+  onInputFocus,
 }: ChatInterfaceProps) {
   // Session and user data
   const { data: session } = useSession();
@@ -126,24 +129,58 @@ export default function ChatInterface({
 
   // Initialize realtime chat connection
   useEffect(() => {
-    if (type === "doctor" && session?.user && authToken) {
-      const currentUser = {
-        _id: (session.user as any)?._id || (session.user as any)?.id || currentUserId || "",
-        firstName: (session.user as any)?.firstName || "",
-        lastName: (session.user as any)?.lastName || "",
-        email: session.user.email || "",
-        role: currentUserRole || ("doctor" as "patient" | "doctor"),
-        specialization: (session.user as any)?.specialization || "",
-      };
-      connectToChat(authToken, currentUser);
-    }
+    if (type === "doctor" && (doctorName || currentUserRole === "doctor")) {
+      console.log("✅ UseEffect running - Load preloaded messages from database");
+      // Load preloaded messages from database
+      if (preloadedMessages && preloadedMessages.length > 0) {
+        const transformedMessages = preloadedMessages.map((msg: any, index: number) => {
+          // Handle populated senderId (object) vs direct senderId (string)
+          const senderIdValue =
+            typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId;
+          const senderIdString = senderIdValue ? senderIdValue.toString() : "";
+          const currentUserIdString = currentUserId ? currentUserId.toString() : "";
 
-    return () => {
-      if (type === "doctor") {
-        disconnectFromChat();
+          // Simplified logic:
+          // - If current user sent this message -> role = "user" (appears on right side)
+          // - Otherwise -> role based on sender's role (appears on left side)
+          let messageRole: string;
+          const isCurrentUserMessage = senderIdString === currentUserIdString;
+
+          if (isCurrentUserMessage) {
+            messageRole = "user"; // Current user's messages go to right
+          } else {
+            // Other person's messages go to left
+            // For doctor interface: patient messages show as "patient"
+            // For patient interface: doctor messages show as "doctor"
+            messageRole = currentUserRole === "doctor" ? "patient" : "doctor";
+          }
+
+          console.log(`→ Transformed role: ${messageRole}`);
+
+          return {
+            role: messageRole,
+            content: msg.content,
+            timestamp: new Date(msg.createdAt || msg.timestamp),
+          };
+        });
+
+        console.log("Final transformed messages:", transformedMessages);
+        setDoctorMessages(transformedMessages);
+      } else if (preloadedMessages && preloadedMessages.length === 0 && doctorName) {
+        // Add welcome message if no messages in conversation yet
+        const welcomeMessage = {
+          role: currentUserRole === "doctor" ? "patient" : "doctor",
+          content:
+            currentUserRole === "doctor"
+              ? `Cuộc trò chuyện với bệnh nhân`
+              : `Xin chào! Tôi là ${doctorName}. Tôi có thể giúp gì cho bạn hôm nay?`,
+          timestamp: new Date(),
+        };
+        console.log("Setting welcome message:", welcomeMessage);
+        setDoctorMessages([welcomeMessage]);
       }
-    };
-  }, [type, session, authToken, currentUserId, currentUserRole, connectToChat, disconnectFromChat]);
+    }
+  }, [type, doctorName, preloadedMessages, currentUserId, currentUserRole]);
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -165,7 +202,7 @@ export default function ChatInterface({
 
   // Initialize doctor conversation
   useEffect(() => {
-    if (type === "doctor" && doctorName) {
+    if (type === "doctor" && (doctorName || currentUserRole === "doctor")) {
       // Load preloaded messages from database
       if (preloadedMessages && preloadedMessages.length > 0) {
         const transformedMessages = preloadedMessages.map((msg: any) => {
@@ -176,37 +213,40 @@ export default function ChatInterface({
           const currentUserIdString = currentUserId?.toString();
           const isCurrentUserById = senderIdString === currentUserIdString;
 
-          // Also check by senderRole for additional validation
-          const isCurrentUserByRole = msg.senderRole === "patient";
-          const isCurrentUser = isCurrentUserById || isCurrentUserByRole;
-
-          console.log(`Message comparison:
-            senderId=${senderIdString},
-            currentUserId=${currentUserIdString},
-            isCurrentUserById=${isCurrentUserById},
-            senderRole=${msg.senderRole},
-            isCurrentUserByRole=${isCurrentUserByRole},
-            finalIsCurrentUser=${isCurrentUser}`);
+          // For doctor interface: doctor's messages should show as "user" (right side)
+          // Patient's messages should show as "patient" (left side)
+          let messageRole: string;
+          if (currentUserRole === "doctor") {
+            // Doctor viewing: their own messages are "user", patient messages are "patient"
+            messageRole = msg.senderRole === "doctor" && isCurrentUserById ? "user" : "patient";
+          } else {
+            // Patient viewing: their own messages are "user", doctor messages are "doctor"
+            messageRole = msg.senderRole === "patient" && isCurrentUserById ? "user" : "doctor";
+          }
 
           return {
-            role: isCurrentUser ? "user" : "doctor",
+            role: messageRole,
             content: msg.content,
             timestamp: new Date(msg.createdAt || msg.timestamp),
           };
         });
 
         setDoctorMessages(transformedMessages);
-      } else if (doctorMessages.length === 0) {
-        // Add welcome message if no messages yet
+      } else if (preloadedMessages && preloadedMessages.length === 0 && doctorName) {
+        // Add welcome message if no messages in conversation yet
         const welcomeMessage = {
-          role: "doctor",
-          content: `Xin chào! Tôi là ${doctorName}. Tôi có thể giúp gì cho bạn hôm nay?`,
+          role: currentUserRole === "doctor" ? "patient" : "doctor",
+          content:
+            currentUserRole === "doctor"
+              ? `Cuộc trò chuyện với bệnh nhân`
+              : `Xin chào! Tôi là ${doctorName}. Tôi có thể giúp gì cho bạn hôm nay?`,
           timestamp: new Date(),
         };
+        console.log("Setting welcome message:", welcomeMessage);
         setDoctorMessages([welcomeMessage]);
       }
     }
-  }, [type, doctorName, preloadedMessages, currentUserId]);
+  }, [type, doctorName, preloadedMessages, currentUserId, currentUserRole, doctorMessages.length]);
 
   // Load doctors from API
   const loadDoctors = async () => {
@@ -315,18 +355,12 @@ export default function ChatInterface({
       const sessionsResponse = await aiChatHistoryService.getUserSessions(userId, 1, 5); // Get up to 5 recent sessions
 
       if (sessionsResponse.sessions.length > 0) {
-        // Check for active sessions from today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Start of today
+        // Get the most recent active session (not just from today)
+        const activeSessions = sessionsResponse.sessions.filter((session) => session.status === "active");
 
-        const todaySessions = sessionsResponse.sessions.filter((session) => {
-          const sessionDate = new Date(session.createdAt!);
-          return sessionDate >= today && session.status === "active";
-        });
-
-        if (todaySessions.length > 0) {
-          // Use the most recent session from today
-          const latestSession = todaySessions[0];
+        if (activeSessions.length > 0) {
+          // Use the most recent active session
+          const latestSession = activeSessions[0];
 
           // Load messages from this session
           const messages = await aiChatHistoryService.getSessionMessages(latestSession._id!);
@@ -387,14 +421,6 @@ export default function ChatInterface({
       loadAiChatHistory();
     }
   }, [type, session?.user, hasLoadedFromDatabase, loadAiChatHistory]);
-
-  // Remove localStorage saving since we're using database now
-  // useEffect(() => {
-  //   if (type === "ai" && messages.length > 1) {
-  //     chatStorage.saveChat(messages);
-  //     console.log(`Saved ${messages.length} messages to storage`);
-  //   }
-  // }, [messages, type]);
 
   // Message handlers
   const handleSendMessage = async () => {
@@ -969,7 +995,7 @@ export default function ChatInterface({
     if (!doctorInput.trim() || isDoctorLoading) return;
 
     const userMessage = {
-      role: "user",
+      role: currentUserRole === "doctor" ? "doctor" : "user",
       content: doctorInput.trim(),
       timestamp: new Date(),
     };
@@ -987,55 +1013,58 @@ export default function ChatInterface({
         sessionStorage.getItem("access_token");
 
       // Send message to database via API
+      console.log("=== DOCTOR SEND MESSAGE DEBUG ===");
+      console.log("conversationId:", conversationId);
+      console.log("doctorId:", doctorId);
+      console.log("currentUserId:", currentUserId);
+      console.log("currentUserRole:", currentUserRole);
+      console.log("token present:", !!token);
+
+      const requestBody = {
+        conversationId: conversationId, // Must use conversationId for doctor
+        senderId: currentUserId,
+        senderRole: currentUserRole || "doctor",
+        content: userMessage.content,
+        messageType: "text",
+      };
+
+      console.log("Request body:", requestBody);
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({
-          conversationId: conversationId || doctorId, // Use conversationId if available, fallback to doctorId
-          senderId: currentUserId || "current_patient_id", // You'll need current user ID
-          content: userMessage.content,
-          type: "text",
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log("Response status:", response.status);
 
       if (response.ok) {
         const savedMessage = await response.json();
+        console.log("✅ Message saved successfully:", savedMessage);
 
         // Notify parent component about new message
         if (onNewMessage) {
           onNewMessage(savedMessage);
         }
 
-        // For now, add a placeholder doctor response
-        // In real implementation, doctor would respond through the realtime system
-        setTimeout(() => {
-          const doctorResponse = {
-            role: "doctor",
-            content: "Cảm ơn bạn đã liên hệ. Tôi đã nhận được tin nhắn và sẽ phản hồi sớm nhất có thể.",
-            timestamp: new Date(),
-          };
-          setDoctorMessages((prev) => [...prev, doctorResponse]);
-          setIsDoctorLoading(false);
-        }, 1000);
+        // No auto-response when doctor is sending messages to patient
+        setIsDoctorLoading(false);
       } else {
-        console.error("Failed to save message to database");
+        const errorText = await response.text();
+        console.error("❌ Failed to save message to database:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+        });
         setIsDoctorLoading(false);
       }
     } catch (error) {
       console.error("Error sending message to database:", error);
-      // Fallback to local message only
-      setTimeout(() => {
-        const doctorResponse = {
-          role: "doctor",
-          content: "Đã xảy ra lỗi khi gửi tin nhắn. Vui lòng thử lại sau.",
-          timestamp: new Date(),
-        };
-        setDoctorMessages((prev) => [...prev, doctorResponse]);
-        setIsDoctorLoading(false);
-      }, 1000);
+      // Just show loading is done, no auto-response for doctor
+      setIsDoctorLoading(false);
     }
   };
 
@@ -1530,7 +1559,15 @@ export default function ChatInterface({
                 value={doctorInput}
                 onChange={(e) => setDoctorInput(e.target.value)}
                 onKeyPress={handleDoctorKeyPress}
-                placeholder="Nhập tin nhắn cho bác sĩ..."
+                onFocus={() => {
+                  console.log("Doctor input focused, onInputFocus available:", !!onInputFocus);
+                  if (onInputFocus) {
+                    onInputFocus();
+                  }
+                }}
+                placeholder={
+                  currentUserRole === "doctor" ? "Nhập tin nhắn cho bệnh nhân..." : "Nhập tin nhắn cho bác sĩ..."
+                }
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isDoctorLoading}
               />

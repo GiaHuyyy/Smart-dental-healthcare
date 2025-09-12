@@ -6,41 +6,27 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
-  Request,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AiChatHistoryService } from './ai-chat-history.service';
 import {
-  CreateAiChatSessionDto,
   CreateAiChatMessageDto,
   UpdateAiChatSessionDto,
 } from './dto/ai-chat-history.dto';
-import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
 import { Public } from 'src/decorator/customize';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('ai-chat-history')
-@Public() // Remove this in production and use proper auth
+@Public()
 export class AiChatHistoryController {
   constructor(
     private readonly aiChatHistoryService: AiChatHistoryService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  // Session endpoints
-  @Post('sessions')
-  async createSession(@Body() createSessionDto: CreateAiChatSessionDto) {
-    return await this.aiChatHistoryService.createSession(createSessionDto);
-  }
-
-  @Get('sessions/:sessionId')
-  async getSession(@Param('sessionId') sessionId: string) {
-    return await this.aiChatHistoryService.getSessionById(sessionId);
-  }
-
+  // Essential session endpoints
   @Get('users/:userId/sessions')
   async getUserSessions(
     @Param('userId') userId: string,
@@ -54,6 +40,11 @@ export class AiChatHistoryController {
     );
   }
 
+  @Get('sessions/:sessionId')
+  async getSession(@Param('sessionId') sessionId: string) {
+    return await this.aiChatHistoryService.getSessionById(sessionId);
+  }
+
   @Put('sessions/:sessionId')
   async updateSession(
     @Param('sessionId') sessionId: string,
@@ -62,12 +53,7 @@ export class AiChatHistoryController {
     return await this.aiChatHistoryService.updateSession(sessionId, updateDto);
   }
 
-  @Post('sessions/initialize/:userId')
-  async initializeUserSession(@Param('userId') userId: string) {
-    return await this.aiChatHistoryService.initializeUserSession(userId);
-  }
-
-  // Message endpoints
+  // Essential message endpoints
   @Post('messages')
   async addMessage(@Body() createMessageDto: CreateAiChatMessageDto) {
     return await this.aiChatHistoryService.addMessage(createMessageDto);
@@ -86,51 +72,7 @@ export class AiChatHistoryController {
     );
   }
 
-  @Get('sessions/:sessionId/full')
-  async getSessionWithMessages(@Param('sessionId') sessionId: string) {
-    return await this.aiChatHistoryService.getSessionMessagesWithSession(
-      sessionId,
-    );
-  }
-
-  // Analytics endpoints
-  @Get('users/:userId/stats')
-  async getUserStats(@Param('userId') userId: string) {
-    return await this.aiChatHistoryService.getUserChatStats(userId);
-  }
-
-  @Get('users/:userId/search')
-  async searchUserSessions(
-    @Param('userId') userId: string,
-    @Query('q') searchQuery: string = '',
-    @Query('urgency') urgencyLevel?: string,
-    @Query('hasImage') hasImage?: string,
-    @Query('tags') tags?: string,
-    @Query('dateFrom') dateFrom?: string,
-    @Query('dateTo') dateTo?: string,
-  ) {
-    const filters: any = {};
-
-    if (urgencyLevel) filters.urgencyLevel = urgencyLevel;
-    if (hasImage !== undefined) filters.hasImageAnalysis = hasImage === 'true';
-    if (tags) filters.tags = tags.split(',');
-    if (dateFrom) filters.dateFrom = new Date(dateFrom);
-    if (dateTo) filters.dateTo = new Date(dateTo);
-
-    return await this.aiChatHistoryService.searchSessions(
-      userId,
-      searchQuery,
-      Object.keys(filters).length > 0 ? filters : undefined,
-    );
-  }
-
-  @Post('sessions/:sessionId/summary')
-  async generateSummary(@Param('sessionId') sessionId: string) {
-    const summary =
-      await this.aiChatHistoryService.generateSessionSummary(sessionId);
-    return { summary };
-  }
-
+  // Image upload for chat
   @Post('upload-image')
   @UseInterceptors(FileInterceptor('image'))
   async uploadImage(@UploadedFile() file: Express.Multer.File) {

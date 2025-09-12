@@ -217,7 +217,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   }, [broadcastModal]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Fixed Header */}
       <div className="fixed top-0 left-0 right-0 z-40">
         <Header role="Bệnh nhân" />

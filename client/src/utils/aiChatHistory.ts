@@ -52,22 +52,6 @@ export interface ChatStats {
 
 class AiChatHistoryService {
   // Session methods
-  async createSession(sessionData: Omit<AiChatSession, "_id" | "createdAt" | "updatedAt">): Promise<AiChatSession> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(sessionData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create session: ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
   async getSession(sessionId: string): Promise<AiChatSession> {
     const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/${sessionId}`);
 
@@ -76,30 +60,6 @@ class AiChatHistoryService {
     }
 
     return await response.json();
-  }
-
-  async getCurrentActiveSession(userId: string): Promise<AiChatSession | null> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/active/${userId}`);
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null; // No active session found
-      }
-      throw new Error(`Failed to get current active session: ${response.statusText}`);
-    }
-
-    // Check if response has content
-    const text = await response.text();
-    if (!text) {
-      return null; // Empty response means no active session
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      console.error("Failed to parse session response:", error);
-      return null;
-    }
   }
 
   async getUserSessions(
@@ -139,38 +99,15 @@ class AiChatHistoryService {
     return await response.json();
   }
 
-  async initializeUserSession(userId: string): Promise<AiChatSession> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/initialize/${userId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to initialize user session: ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
   // Message methods
   async addMessage(messageData: Omit<AiChatMessage, "_id" | "createdAt" | "updatedAt">): Promise<AiChatMessage> {
-    const url = `${API_BASE_URL}/api/v1/ai-chat-history/messages`;
-    console.log("API_BASE_URL:", API_BASE_URL);
-    console.log("Full URL:", url);
-    console.log("Message data being sent:", messageData);
-
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(messageData),
     });
-
-    console.log("Response status:", response.status);
-    console.log("Response ok:", response.ok);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -188,71 +125,6 @@ class AiChatHistoryService {
 
     if (!response.ok) {
       throw new Error(`Failed to get session messages: ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  async getSessionWithMessages(sessionId: string): Promise<{
-    session: AiChatSession;
-    messages: AiChatMessage[];
-  }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/${sessionId}/full`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to get session with messages: ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  // Analytics methods
-  async getUserStats(userId: string): Promise<ChatStats> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/users/${userId}/stats`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to get user stats: ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  async searchSessions(
-    userId: string,
-    searchQuery?: string,
-    filters?: {
-      urgencyLevel?: string;
-      hasImageAnalysis?: boolean;
-      tags?: string[];
-      dateFrom?: Date;
-      dateTo?: Date;
-    }
-  ): Promise<AiChatSession[]> {
-    const params = new URLSearchParams();
-
-    if (searchQuery) params.append("q", searchQuery);
-    if (filters?.urgencyLevel) params.append("urgency", filters.urgencyLevel);
-    if (filters?.hasImageAnalysis !== undefined) params.append("hasImage", filters.hasImageAnalysis.toString());
-    if (filters?.tags && filters.tags.length > 0) params.append("tags", filters.tags.join(","));
-    if (filters?.dateFrom) params.append("dateFrom", filters.dateFrom.toISOString());
-    if (filters?.dateTo) params.append("dateTo", filters.dateTo.toISOString());
-
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/users/${userId}/search?${params.toString()}`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to search sessions: ${response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  async generateSessionSummary(sessionId: string): Promise<{ summary: string }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/${sessionId}/summary`, {
-      method: "POST",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to generate summary: ${response.statusText}`);
     }
 
     return await response.json();

@@ -66,8 +66,11 @@ export class RealtimeChatService {
     return await this.conversationModel
       .find(query)
       .populate('lastMessage')
-      .populate('patientId', 'firstName lastName avatar email')
-      .populate('doctorId', 'firstName lastName avatar email specialization')
+      .populate('patientId', 'fullName firstName lastName avatar email')
+      .populate(
+        'doctorId',
+        'fullName firstName lastName avatar email specialty',
+      )
       .sort({ lastMessageAt: -1 });
   }
 
@@ -92,16 +95,57 @@ export class RealtimeChatService {
       throw new NotFoundException('Conversation not found');
     }
 
-    if (
-      (senderRole === 'patient' &&
-        conversation.patientId.toString() !== senderId.toString()) ||
-      (senderRole === 'doctor' &&
-        conversation.doctorId.toString() !== senderId.toString())
-    ) {
+    console.log('=== PARTICIPANT VERIFICATION ===');
+    console.log('senderRole:', senderRole);
+    console.log('senderId:', senderId, 'type:', typeof senderId);
+    console.log(
+      'conversation.patientId:',
+      conversation.patientId,
+      'type:',
+      typeof conversation.patientId,
+    );
+    console.log(
+      'conversation.doctorId:',
+      conversation.doctorId,
+      'type:',
+      typeof conversation.doctorId,
+    );
+    console.log('senderId.toString():', senderId.toString());
+    console.log(
+      'conversation.patientId.toString():',
+      conversation.patientId.toString(),
+    );
+    console.log(
+      'conversation.doctorId.toString():',
+      conversation.doctorId.toString(),
+    );
+
+    // Extract actual IDs from potentially populated objects
+    const patientIdStr = (
+      conversation.patientId?._id || conversation.patientId
+    ).toString();
+    const doctorIdStr = (
+      conversation.doctorId?._id || conversation.doctorId
+    ).toString();
+    const senderIdStr = senderId.toString();
+
+    const isPatientMatch =
+      senderRole === 'patient' && patientIdStr === senderIdStr;
+    const isDoctorMatch =
+      senderRole === 'doctor' && doctorIdStr === senderIdStr;
+
+    console.log('isPatientMatch:', isPatientMatch);
+    console.log('isDoctorMatch:', isDoctorMatch);
+    console.log('isParticipant:', isPatientMatch || isDoctorMatch);
+
+    if (!isPatientMatch && !isDoctorMatch) {
+      console.log('❌ PARTICIPANT CHECK FAILED');
       throw new BadRequestException(
         'You are not a participant in this conversation',
       );
     }
+
+    console.log('✅ PARTICIPANT CHECK PASSED');
 
     // Create message
     const message = new this.messageModel({
@@ -207,6 +251,35 @@ export class RealtimeChatService {
     await this.conversationModel.findByIdAndUpdate(conversationId, {
       [updateField]: 0,
     });
+  }
+
+  // Mark conversation as read (reset unread count for user)
+  async markConversationAsRead(
+    conversationId: Types.ObjectId,
+    userId: Types.ObjectId,
+    userRole: 'patient' | 'doctor',
+  ): Promise<ConversationDocument> {
+    // Find conversation and verify it exists
+    const conversation = await this.conversationModel.findById(conversationId);
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    // Reset unread count for this user
+    const updateField =
+      userRole === 'patient' ? 'unreadPatientCount' : 'unreadDoctorCount';
+
+    const updatedConversation = await this.conversationModel.findByIdAndUpdate(
+      conversationId,
+      { [updateField]: 0 },
+      { new: true },
+    );
+
+    if (!updatedConversation) {
+      throw new NotFoundException('Failed to update conversation');
+    }
+
+    return updatedConversation;
   }
 
   async updateTypingStatus(
