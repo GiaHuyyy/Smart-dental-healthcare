@@ -87,7 +87,8 @@ export default function PatientChatPage() {
                     specialty: doctorInfo.specialty,
                     lastMessage: conv.lastMessage?.content || "Cuộc hội thoại mới",
                     timestamp: conv.updatedAt || conv.createdAt,
-                    unread: false,
+                    unread: conv.unreadPatientCount > 0,
+                    unreadCount: conv.unreadPatientCount || 0,
                     databaseId: conv._id,
                   };
                 })
@@ -196,6 +197,22 @@ export default function PatientChatPage() {
                 ...prev,
                 [conversationId]: newMessages,
               }));
+
+              // Update lastMessage in conversations sidebar
+              const latestMessage = newMessages[newMessages.length - 1];
+              if (latestMessage) {
+                setDoctorConversations((prev) =>
+                  prev.map((conv) =>
+                    conv.id === conversationId
+                      ? {
+                          ...conv,
+                          lastMessage: latestMessage.content,
+                          timestamp: latestMessage.createdAt || new Date().toISOString(),
+                        }
+                      : conv
+                  )
+                );
+              }
             }
           }
         }
@@ -211,10 +228,10 @@ export default function PatientChatPage() {
     let pollInterval: NodeJS.Timeout;
 
     if (selectedChat && selectedChat !== "ai") {
-      // Start polling every 3 seconds for doctor conversations only
+      // Start polling every 1 second for faster realtime
       pollInterval = setInterval(() => {
         pollForNewMessages(selectedChat);
-      }, 3000);
+      }, 1000);
 
       console.log(`📡 Started polling for conversation: ${selectedChat}`);
     }
@@ -236,6 +253,20 @@ export default function PatientChatPage() {
         ...prev,
         [selectedChat]: [...(prev[selectedChat] || []), newMessage],
       }));
+
+      // Update lastMessage and timestamp in conversations sidebar
+      setDoctorConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === selectedChat
+            ? {
+                ...conv,
+                lastMessage: newMessage.content,
+                timestamp: newMessage.createdAt || new Date().toISOString(),
+              }
+            : conv
+        )
+      );
+
       console.log("Added new message to conversation:", newMessage);
     }
   };
@@ -354,10 +385,27 @@ export default function PatientChatPage() {
       lastMessage: `Triệu chứng: ${conversationData.symptoms.substring(0, 50)}...`,
       timestamp: conversationData.timestamp,
       unread: false,
+      unreadCount: 0,
     };
 
     setDoctorConversations((prev) => [newConversation, ...prev]);
     setSelectedChat(newConversation.id);
+  };
+
+  // Format timestamp for display
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor(diffInHours * 60);
+      return `${diffInMinutes} phút trước`;
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)} giờ trước`;
+    } else {
+      return date.toLocaleDateString("vi-VN");
+    }
   };
 
   return (
@@ -423,11 +471,20 @@ export default function PatientChatPage() {
                           <span className="text-white text-sm">👨‍⚕️</span>
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{conversation.doctorName}</h4>
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-medium text-gray-900">{conversation.doctorName}</h4>
+                            <p className="text-xs text-gray-400">{formatTimestamp(conversation.timestamp)}</p>
+                          </div>
                           <p className="text-sm text-gray-600 truncate">{conversation.specialty}</p>
-                          <p className="text-xs text-gray-500 mt-1">{conversation.lastMessage}</p>
+                          <div className="flex justify-between items-center">
+                            <p className="text-xs text-gray-500 mt-1 truncate">{conversation.lastMessage}</p>
+                            {conversation.unread && (
+                              <div className="bg-red-500 text-white text-xs rounded-full px-[5px] py-[0.5px] mb-1">
+                                {conversation.unreadCount}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        {conversation.unread && <div className="w-2 h-2 rounded-full bg-red-500"></div>}
                       </div>
                     </div>
                   ))

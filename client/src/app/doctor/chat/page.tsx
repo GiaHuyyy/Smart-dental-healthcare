@@ -204,6 +204,22 @@ export default function DoctorChatPage() {
                 ...prev,
                 [conversationId]: newMessages,
               }));
+
+              // Update lastMessage in conversations sidebar
+              const latestMessage = newMessages[newMessages.length - 1];
+              if (latestMessage) {
+                setPatientConversations((prev) =>
+                  prev.map((conv) =>
+                    conv.id === conversationId
+                      ? {
+                          ...conv,
+                          lastMessage: latestMessage.content,
+                          timestamp: latestMessage.createdAt || new Date().toISOString(),
+                        }
+                      : conv
+                  )
+                );
+              }
             }
           }
         }
@@ -219,10 +235,10 @@ export default function DoctorChatPage() {
     let pollInterval: NodeJS.Timeout;
 
     if (selectedChat) {
-      // Start polling every 3 seconds
+      // Start polling every 1 second for faster realtime
       pollInterval = setInterval(() => {
         pollForNewMessages(selectedChat);
-      }, 3000);
+      }, 1000);
 
       console.log(`📡 Started polling for conversation: ${selectedChat}`);
     }
@@ -244,6 +260,20 @@ export default function DoctorChatPage() {
         ...prev,
         [selectedChat]: [...(prev[selectedChat] || []), newMessage],
       }));
+
+      // Update lastMessage and timestamp in conversations sidebar
+      setPatientConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === selectedChat
+            ? {
+                ...conv,
+                lastMessage: newMessage.content,
+                timestamp: newMessage.createdAt || new Date().toISOString(),
+              }
+            : conv
+        )
+      );
+
       console.log("Added new message to conversation:", newMessage);
     }
   };
