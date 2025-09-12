@@ -28,6 +28,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
 import { useSession } from "next-auth/react";
+import { useWebRTC } from "@/contexts/WebRTCContext";
+import CallButton from "@/components/call/CallButton";
+import IncomingCallModal from "@/components/call/IncomingCallModal";
+import VideoCallInterface from "@/components/call/VideoCallInterface";
 
 interface ChatInterfaceProps {
   type: "ai" | "doctor" | "simple-doctor";
@@ -66,6 +70,9 @@ export default function ChatInterface({
 }: ChatInterfaceProps) {
   // Session and user data
   const { data: session } = useSession();
+
+  // WebRTC hooks for video calling
+  const { isCallIncoming, incomingCall, isInCall } = useWebRTC();
 
   // AI Chat History hook
   const {
@@ -114,6 +121,9 @@ export default function ChatInterface({
   // Realtime chat UI state
   const [showConversationList, setShowConversationList] = useState(false);
   const [showChatWindow, setShowChatWindow] = useState(false);
+
+  // Video call state
+  const [showIncomingCallModal, setShowIncomingCallModal] = useState(false);
 
   // Doctor chat state
   const [doctorMessages, setDoctorMessages] = useState<
@@ -210,6 +220,15 @@ export default function ChatInterface({
       }
     }
   }, [type, doctorName, preloadedMessages, currentUserId, currentUserRole]);
+
+  // Video call: Show incoming call modal when there's an incoming call
+  useEffect(() => {
+    if (isCallIncoming && incomingCall) {
+      setShowIncomingCallModal(true);
+    } else {
+      setShowIncomingCallModal(false);
+    }
+  }, [isCallIncoming, incomingCall]);
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
@@ -1772,14 +1791,14 @@ export default function ChatInterface({
                                       </p>
                                     )}
                                   </div>
-                                    <a
-                                      href={message.fileUrl}
-                                      rel="noopener noreferrer"
-                                      download={message.fileName}
-                                      className="text-xs text-blue-600 underline opacity-80 hover:opacity-100"
-                                    >
-                                      Tải về
-                                    </a>
+                                  <a
+                                    href={message.fileUrl}
+                                    rel="noopener noreferrer"
+                                    download={message.fileName}
+                                    className="text-xs text-blue-600 underline opacity-80 hover:opacity-100"
+                                  >
+                                    Tải về
+                                  </a>
                                 </div>
                               )}
                             </div>
@@ -1895,6 +1914,11 @@ export default function ChatInterface({
           </div>
         </>
       )}
+
+      {/* Video Call Components */}
+      {isInCall && <VideoCallInterface />}
+
+      <IncomingCallModal isOpen={showIncomingCallModal} onClose={() => setShowIncomingCallModal(false)} />
     </div>
   );
 }

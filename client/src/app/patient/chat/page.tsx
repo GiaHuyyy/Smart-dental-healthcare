@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
+import ChatHeader from "@/components/chat/ChatHeader";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -562,62 +563,41 @@ export default function PatientChatPage() {
       {/* Main Chat Area - Takes remaining space */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Header with Sidebar Toggle */}
-        <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {/* Sidebar Toggle Button - Always visible */}
-              <button
-                onClick={() => setShowSidebar(!showSidebar)}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg mr-3 transition-colors"
-                title={showSidebar ? "Ẩn sidebar" : "Hiện sidebar"}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
+        <div className="flex items-center p-4 border-b border-gray-200 bg-white flex-shrink-0">
+          {/* Sidebar Toggle Button */}
+          <button
+            onClick={() => setShowSidebar(!showSidebar)}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg mr-3 transition-colors flex-shrink-0"
+            title={showSidebar ? "Ẩn sidebar" : "Hiện sidebar"}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
 
-              {/* Chat Title */}
-              <div className="flex items-center">
-                {selectedChat === "ai" ? (
-                  <>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-blue-500">
-                      <span className="text-white text-sm">🤖</span>
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">AI Tư vấn</h3>
-                      <p className="text-sm text-gray-600">
-                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-1"></span>
-                        Tư vấn sơ bộ về nha khoa
-                      </p>
-                    </div>
-                  </>
+          {/* ChatHeader Component */}
+          <div className="flex-1 min-w-0">
+            {selectedChat === "ai" ? (
+              <ChatHeader type="ai" />
+            ) : (
+              (() => {
+                const selectedConversation = doctorConversations.find((conv) => conv.id === selectedChat);
+                return selectedConversation ? (
+                  <ChatHeader
+                    type="doctor"
+                    doctorName={selectedConversation.doctorName}
+                    doctorId={selectedConversation.doctorId}
+                    specialty={selectedConversation.specialty}
+                    isOnline={true}
+                    onCall={() => console.log("Call clicked")}
+                    onBookAppointment={() => console.log("Book appointment clicked")}
+                    onViewProfile={() => console.log("View profile clicked")}
+                  />
                 ) : (
-                  <>
-                    {(() => {
-                      const selectedConversation = doctorConversations.find((conv) => conv.id === selectedChat);
-                      console.log("Selected conversation:", selectedConversation);
-                      return selectedConversation ? (
-                        <>
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-green-500">
-                            <span className="text-white text-sm">👨‍⚕️</span>
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">{selectedConversation.doctorName}</h3>
-                            <p className="text-sm text-gray-600">
-                              <span className="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1"></span>
-                              {selectedConversation.specialty}
-                            </p>
-                          </div>
-                        </>
-                      ) : null;
-                    })()}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-2">{/* Removed note about 24h chat history limit */}</div>
+                  <ChatHeader type="ai" />
+                );
+              })()
+            )}
           </div>
         </div>
 
