@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -214,6 +215,23 @@ export class RealtimeChatController {
     );
 
     return { success: true };
+  }
+
+  // Mark conversation as read (reset unread count for user)
+  @Patch('conversations/:conversationId/mark-read')
+  async markConversationAsRead(
+    @Param('conversationId') conversationId: string,
+    @Body() body: { userRole: 'patient' | 'doctor' },
+    @Request() req: any,
+  ) {
+    const userId = new Types.ObjectId(req.user?.userId || req.user?.id);
+    const userRole = body.userRole || req.user?.role;
+
+    return await this.realtimeChatService.markConversationAsRead(
+      new Types.ObjectId(conversationId),
+      userId,
+      userRole,
+    );
   }
 
   @Get('conversations/with/:otherUserId')

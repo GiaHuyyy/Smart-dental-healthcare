@@ -45,6 +45,8 @@ interface ChatInterfaceProps {
   isLoadingMessages?: boolean;
   // Callback when new message is sent
   onNewMessage?: (message: any) => void;
+  // Callback when input is focused (for unread count reset)
+  onInputFocus?: () => void;
 }
 
 export default function ChatInterface({
@@ -60,6 +62,7 @@ export default function ChatInterface({
   preloadedMessages = [],
   isLoadingMessages = false,
   onNewMessage,
+  onInputFocus,
 }: ChatInterfaceProps) {
   // Session and user data
   const { data: session } = useSession();
@@ -1556,6 +1559,12 @@ export default function ChatInterface({
                 value={doctorInput}
                 onChange={(e) => setDoctorInput(e.target.value)}
                 onKeyPress={handleDoctorKeyPress}
+                onFocus={() => {
+                  console.log("Doctor input focused, onInputFocus available:", !!onInputFocus);
+                  if (onInputFocus) {
+                    onInputFocus();
+                  }
+                }}
                 placeholder={
                   currentUserRole === "doctor" ? "Nhập tin nhắn cho bệnh nhân..." : "Nhập tin nhắn cho bác sĩ..."
                 }

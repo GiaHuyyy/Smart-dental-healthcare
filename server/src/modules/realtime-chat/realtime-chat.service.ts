@@ -253,6 +253,35 @@ export class RealtimeChatService {
     });
   }
 
+  // Mark conversation as read (reset unread count for user)
+  async markConversationAsRead(
+    conversationId: Types.ObjectId,
+    userId: Types.ObjectId,
+    userRole: 'patient' | 'doctor',
+  ): Promise<ConversationDocument> {
+    // Find conversation and verify it exists
+    const conversation = await this.conversationModel.findById(conversationId);
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    // Reset unread count for this user
+    const updateField =
+      userRole === 'patient' ? 'unreadPatientCount' : 'unreadDoctorCount';
+
+    const updatedConversation = await this.conversationModel.findByIdAndUpdate(
+      conversationId,
+      { [updateField]: 0 },
+      { new: true },
+    );
+
+    if (!updatedConversation) {
+      throw new NotFoundException('Failed to update conversation');
+    }
+
+    return updatedConversation;
+  }
+
   async updateTypingStatus(
     conversationId: Types.ObjectId,
     userId: Types.ObjectId,

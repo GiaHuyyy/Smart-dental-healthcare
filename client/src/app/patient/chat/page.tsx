@@ -208,6 +208,15 @@ export default function PatientChatPage() {
                           ...conv,
                           lastMessage: latestMessage.content,
                           timestamp: latestMessage.createdAt || new Date().toISOString(),
+                          // Update unreadCount if new messages are from doctor (not current patient)
+                          unreadCount:
+                            latestMessage.senderRole === "doctor"
+                              ? (conv.unreadCount || 0) + (newMessages.length - currentMessages.length)
+                              : conv.unreadCount,
+                          unread:
+                            latestMessage.senderRole === "doctor"
+                              ? (conv.unreadCount || 0) + (newMessages.length - currentMessages.length) > 0
+                              : conv.unread,
                         }
                       : conv
                   )
@@ -262,12 +271,45 @@ export default function PatientChatPage() {
                 ...conv,
                 lastMessage: newMessage.content,
                 timestamp: newMessage.createdAt || new Date().toISOString(),
+                // Update unreadCount if message is from doctor
+                unreadCount: newMessage.senderRole === "doctor" ? (conv.unreadCount || 0) + 1 : conv.unreadCount,
+                unread: newMessage.senderRole === "doctor" ? true : conv.unread,
               }
             : conv
         )
       );
 
       console.log("Added new message to conversation:", newMessage);
+    }
+  };
+
+  // Mark conversation as read (reset unreadCount to 0)
+  const markConversationAsRead = async (conversationId: string) => {
+    try {
+      const userId = (session?.user as any)?._id || (session?.user as any)?.id;
+      if (userId) {
+        // Update local state immediately
+        setDoctorConversations((prev) =>
+          prev.map((conv) => (conv.id === conversationId ? { ...conv, unread: false, unreadCount: 0 } : conv))
+        );
+
+        // Call API to mark as read in backend
+        await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/conversations/${conversationId}/mark-read`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: userId,
+              userRole: "patient",
+            }),
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error marking conversation as read:", error);
     }
   };
 
@@ -464,7 +506,13 @@ export default function PatientChatPage() {
                       className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors mb-2 ${
                         selectedChat === conversation.id ? "bg-blue-50 border-blue-300" : "bg-white hover:bg-gray-50"
                       }`}
-                      onClick={() => setSelectedChat(conversation.id)}
+                      onClick={() => {
+                        setSelectedChat(conversation.id);
+                        // Mark conversation as read when clicked
+                        if (conversation.unreadCount > 0) {
+                          markConversationAsRead(conversation.id);
+                        }
+                      }}
                     >
                       <div className="flex items-start">
                         <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
@@ -591,6 +639,14 @@ export default function PatientChatPage() {
                   preloadedMessages={conversationMessages[selectedChat] || []}
                   isLoadingMessages={loadingMessages[selectedChat] || false}
                   onNewMessage={handleNewMessage}
+                  onInputFocus={() => {
+                    console.log("Patient input focused, selectedConversation:", selectedConversation);
+                    // Mark conversation as read when input is focused
+                    if (selectedConversation.unreadCount > 0) {
+                      console.log("Calling markConversationAsRead for patient input focus");
+                      markConversationAsRead(selectedConversation.id);
+                    }
+                  }}
                 />
               ) : (
                 <ChatInterface type="ai" />
