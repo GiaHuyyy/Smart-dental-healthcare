@@ -85,6 +85,7 @@ export class RealtimeChatService {
       messageType = 'text',
       fileUrl,
       fileName,
+      fileType,
       fileSize,
       replyTo,
     } = sendMessageDto;
@@ -156,6 +157,7 @@ export class RealtimeChatService {
       messageType,
       fileUrl,
       fileName,
+      fileType,
       fileSize,
       replyTo,
     });
@@ -211,6 +213,9 @@ export class RealtimeChatService {
 
     return await this.messageModel
       .find({ conversationId, isDeleted: false })
+      .select(
+        'conversationId senderId senderRole content messageType fileUrl fileName fileType fileSize isRead readAt createdAt updatedAt',
+      )
       .populate('senderId', 'firstName lastName avatar')
       .populate('replyTo')
       .sort({ createdAt: 1 }) // Changed from -1 to 1 (oldest first)

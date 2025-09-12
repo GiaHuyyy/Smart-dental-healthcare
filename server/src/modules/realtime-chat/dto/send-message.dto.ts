@@ -17,7 +17,7 @@ export class SendMessageDto {
   content: string;
 
   @IsOptional()
-  @IsEnum(['text', 'image', 'file'])
+  @IsEnum(['text', 'image', 'video', 'file'])
   messageType?: string = 'text';
 
   @IsOptional()
@@ -27,6 +27,10 @@ export class SendMessageDto {
   @IsOptional()
   @IsString()
   fileName?: string;
+
+  @IsOptional()
+  @IsString()
+  fileType?: string;
 
   @IsOptional()
   fileSize?: number;

@@ -116,10 +116,25 @@ export default function ChatInterface({
   const [showChatWindow, setShowChatWindow] = useState(false);
 
   // Doctor chat state
-  const [doctorMessages, setDoctorMessages] = useState<Array<{ role: string; content: string; timestamp: Date }>>([]);
+  const [doctorMessages, setDoctorMessages] = useState<
+    Array<{
+      role: string;
+      content: string;
+      timestamp: Date;
+      messageType?: string;
+      fileUrl?: string;
+      fileName?: string;
+      fileType?: string;
+      fileSize?: number;
+    }>
+  >([]);
   const [doctorInput, setDoctorInput] = useState("");
   const [isDoctorLoading, setIsDoctorLoading] = useState(false);
   const [isDoctorTyping, setIsDoctorTyping] = useState(false);
+
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -157,15 +172,29 @@ export default function ChatInterface({
 
           console.log(`→ Transformed role: ${messageRole}`);
 
+          console.log(`→ Original message:`, msg);
+          console.log(`→ Message RAW fields:`, Object.keys(msg));
+          console.log(`→ Message type: ${msg.messageType}, File URL: ${msg.fileUrl}, Content: ${msg.content}`);
+
           return {
             role: messageRole,
             content: msg.content,
             timestamp: new Date(msg.createdAt || msg.timestamp),
+            messageType: msg.messageType,
+            fileUrl: msg.fileUrl,
+            fileName: msg.fileName,
+            fileType: msg.fileType,
+            fileSize: msg.fileSize,
           };
         });
 
         console.log("Final transformed messages:", transformedMessages);
         setDoctorMessages(transformedMessages);
+
+        // Log to verify state after setting
+        setTimeout(() => {
+          console.log("📊 Doctor messages state after setting:", doctorMessages);
+        }, 100);
       } else if (preloadedMessages && preloadedMessages.length === 0 && doctorName) {
         // Add welcome message if no messages in conversation yet
         const welcomeMessage = {
@@ -209,8 +238,8 @@ export default function ChatInterface({
           // Handle populated senderId (object) vs direct senderId (string)
           const senderIdValue =
             typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId;
-          const senderIdString = senderIdValue.toString();
-          const currentUserIdString = currentUserId?.toString();
+          const senderIdString = senderIdValue ? senderIdValue.toString() : "";
+          const currentUserIdString = currentUserId ? currentUserId.toString() : "";
           const isCurrentUserById = senderIdString === currentUserIdString;
 
           // For doctor interface: doctor's messages should show as "user" (right side)
@@ -228,6 +257,11 @@ export default function ChatInterface({
             role: messageRole,
             content: msg.content,
             timestamp: new Date(msg.createdAt || msg.timestamp),
+            messageType: msg.messageType,
+            fileUrl: msg.fileUrl,
+            fileName: msg.fileName,
+            fileType: msg.fileType,
+            fileSize: msg.fileSize,
           };
         });
 
@@ -992,16 +1026,11 @@ export default function ChatInterface({
 
   // Doctor chat handlers
   const handleDoctorSendMessage = async () => {
-    if (!doctorInput.trim() || isDoctorLoading) return;
+    // If we have a file but no text, allow file-only send
+    // If we have text but no file, allow text-only send
+    // If we have both, send both together
+    if ((!doctorInput.trim() && !selectedFile) || isDoctorLoading) return;
 
-    const userMessage = {
-      role: currentUserRole === "doctor" ? "doctor" : "user",
-      content: doctorInput.trim(),
-      timestamp: new Date(),
-    };
-
-    setDoctorMessages((prev) => [...prev, userMessage]);
-    setDoctorInput("");
     setIsDoctorLoading(true);
 
     try {
@@ -1012,59 +1041,129 @@ export default function ChatInterface({
         localStorage.getItem("access_token") ||
         sessionStorage.getItem("access_token");
 
-      // Send message to database via API
-      console.log("=== DOCTOR SEND MESSAGE DEBUG ===");
-      console.log("conversationId:", conversationId);
-      console.log("doctorId:", doctorId);
-      console.log("currentUserId:", currentUserId);
-      console.log("currentUserRole:", currentUserRole);
-      console.log("token present:", !!token);
+      let savedMessage;
 
-      const requestBody = {
-        conversationId: conversationId, // Must use conversationId for doctor
-        senderId: currentUserId,
-        senderRole: currentUserRole || "doctor",
-        content: userMessage.content,
-        messageType: "text",
-      };
+      // If we have a file to upload
+      if (selectedFile) {
+        console.log("=== DOCTOR SEND MESSAGE WITH FILE DEBUG ===");
+        console.log("conversationId:", conversationId);
+        console.log("File:", selectedFile.name, selectedFile.size, selectedFile.type);
+        console.log("Text content:", doctorInput.trim());
 
-      console.log("Request body:", requestBody);
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("conversationId", conversationId || "");
+        formData.append("senderId", currentUserId || "");
+        formData.append("senderRole", currentUserRole || "doctor");
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log("Response status:", response.status);
-
-      if (response.ok) {
-        const savedMessage = await response.json();
-        console.log("✅ Message saved successfully:", savedMessage);
-
-        // Notify parent component about new message
-        if (onNewMessage) {
-          onNewMessage(savedMessage);
+        // Include text content if provided
+        if (doctorInput.trim()) {
+          formData.append("content", doctorInput.trim());
         }
 
-        // No auto-response when doctor is sending messages to patient
-        setIsDoctorLoading(false);
-      } else {
-        const errorText = await response.text();
-        console.error("❌ Failed to save message to database:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
+        // Log FormData contents for debugging
+        console.log("FormData contents:");
+        for (let [key, value] of formData.entries()) {
+          console.log(key, value);
+        }
+
+        const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/upload-file`, {
+          method: "POST",
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: formData,
         });
-        setIsDoctorLoading(false);
+
+        console.log("Upload response status:", uploadResponse.status);
+
+        if (uploadResponse.ok) {
+          const result = await uploadResponse.json();
+          savedMessage = result.message; // Extract message from response
+          console.log("✅ File message saved successfully:", savedMessage);
+          console.log("→ Saved message content:", savedMessage.content);
+          console.log("→ Saved message fileUrl:", savedMessage.fileUrl);
+          console.log("→ Saved message messageType:", savedMessage.messageType);
+
+          // Clear file selection
+          setSelectedFile(null);
+          setUploadPreview(null);
+        } else {
+          const errorText = await uploadResponse.text();
+          console.error("❌ Failed to upload file:", {
+            status: uploadResponse.status,
+            statusText: uploadResponse.statusText,
+            error: errorText,
+          });
+          throw new Error(`File upload failed: ${errorText}`);
+        }
+      } else {
+        // Text-only message
+        console.log("=== DOCTOR SEND TEXT MESSAGE DEBUG ===");
+        console.log("conversationId:", conversationId);
+        console.log("currentUserId:", currentUserId);
+        console.log("currentUserRole:", currentUserRole);
+
+        const requestBody = {
+          conversationId: conversationId,
+          senderId: currentUserId,
+          senderRole: currentUserRole || "doctor",
+          content: doctorInput.trim(),
+          messageType: "text",
+        };
+
+        console.log("Request body:", requestBody);
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        console.log("Response status:", response.status);
+
+        if (response.ok) {
+          savedMessage = await response.json();
+          console.log("✅ Text message saved successfully:", savedMessage);
+        } else {
+          const errorText = await response.text();
+          console.error("❌ Failed to save message to database:", {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+          });
+          throw new Error(`Message send failed: ${errorText}`);
+        }
       }
-    } catch (error) {
-      console.error("Error sending message to database:", error);
-      // Just show loading is done, no auto-response for doctor
+
+      // Add message to UI
+      const userMessage = {
+        role: currentUserRole === "doctor" ? "doctor" : "user",
+        content: savedMessage.content,
+        timestamp: new Date(),
+        messageType: savedMessage.messageType,
+        fileUrl: savedMessage.fileUrl,
+        fileName: savedMessage.fileName,
+        fileSize: savedMessage.fileSize,
+      };
+
+      setDoctorMessages((prev) => [...prev, userMessage]);
+      setDoctorInput("");
+
+      // Notify parent component about new message
+      if (onNewMessage) {
+        onNewMessage(savedMessage);
+      }
+
       setIsDoctorLoading(false);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setIsDoctorLoading(false);
+      // Optionally show error to user
+      alert("Có lỗi xảy ra khi gửi tin nhắn. Vui lòng thử lại.");
     }
   };
 
@@ -1254,6 +1353,61 @@ export default function ChatInterface({
     }
 
     return null;
+  };
+
+  // File upload handling functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      alert("Kích thước file không được vượt quá 10MB");
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "video/mp4",
+      "video/webm",
+      "video/ogg",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      alert("Định dạng file không được hỗ trợ");
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Create preview for images and videos
+    if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setUploadPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setUploadPreview(null);
+    }
+  };
+
+  const cancelFileUpload = () => {
+    setSelectedFile(null);
+    setUploadPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -1517,18 +1671,98 @@ export default function ChatInterface({
               </div>
             ) : (
               <>
-                {doctorMessages.map((message, index) => (
-                  <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
-                        message.role === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
-                      }`}
-                    >
-                      <p className="text-sm leading-normal">{message.content}</p>
-                      <div className="text-xs opacity-70 mt-1">{formatTime(message.timestamp)}</div>
+                {doctorMessages.map((message, index) => {
+                  console.log(`📝 Rendering message ${index}:`, {
+                    messageType: message.messageType,
+                    fileUrl: message.fileUrl,
+                    content: message.content,
+                    fullMessage: message,
+                  });
+
+                  return (
+                    <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
+                          message.role === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
+                        }`}
+                      >
+                        {/* Render file attachment */}
+                        {(() => {
+                          const hasFile = message.messageType && message.messageType !== "text" && message.fileUrl;
+                          console.log("🔍 File render check:", {
+                            messageType: message.messageType,
+                            isNotText: message.messageType !== "text",
+                            hasFileUrl: !!message.fileUrl,
+                            hasFile: hasFile,
+                            content: message.content,
+                          });
+                          return hasFile ? (
+                            <div className="mb-2">
+                              {(() => {
+                                console.log("🖼️ Rendering file message:", {
+                                  messageType: message.messageType,
+                                  fileUrl: message.fileUrl,
+                                  fileName: message.fileName,
+                                  content: message.content,
+                                });
+                                return null;
+                              })()}
+                              {message.messageType === "image" ? (
+                                <img
+                                  src={message.fileUrl}
+                                  alt={message.fileName || "Image"}
+                                  className="max-w-full h-auto rounded border object-cover"
+                                  style={{ maxHeight: "200px", maxWidth: "200px" }}
+                                  onError={(e) => {
+                                    console.error("Image load error:", e);
+                                    console.log("Failed URL:", message.fileUrl);
+                                  }}
+                                  onLoad={() => {
+                                    console.log("✅ Image loaded successfully:", message.fileUrl);
+                                  }}
+                                />
+                              ) : message.messageType === "video" ? (
+                                <video
+                                  src={message.fileUrl}
+                                  controls
+                                  className="max-w-full h-auto rounded border"
+                                  style={{ maxHeight: "200px" }}
+                                >
+                                  Your browser does not support the video tag.
+                                </video>
+                              ) : (
+                                <div className="flex items-center space-x-2 p-2 bg-white bg-opacity-20 rounded border">
+                                  <div className="text-lg">📄</div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">
+                                      {message.fileName || "File attachment"}
+                                    </p>
+                                    {message.fileSize && (
+                                      <p className="text-xs opacity-70">
+                                        {(message.fileSize / 1024 / 1024).toFixed(2)} MB
+                                      </p>
+                                    )}
+                                  </div>
+                                  <a
+                                    href={message.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs underline opacity-80 hover:opacity-100"
+                                  >
+                                    Tải về
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          ) : null;
+                        })()}{" "}
+                        {/* Render text content */}
+                        <p className="text-sm leading-normal">{message.content}</p>
+                        <div className="text-xs opacity-70 mt-1">{formatTime(message.timestamp)}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {isDoctorTyping && (
                   <div className="flex justify-start">
                     <div className="bg-gray-100 px-4 py-3 rounded-lg">
@@ -1553,6 +1787,37 @@ export default function ChatInterface({
 
           {/* Input Area */}
           <div className="border-t bg-white p-4">
+            {/* File preview area */}
+            {selectedFile && (
+              <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {uploadPreview ? (
+                      selectedFile.type.startsWith("image/") ? (
+                        <img src={uploadPreview} alt="Preview" className="w-12 h-12 object-cover rounded" />
+                      ) : selectedFile.type.startsWith("video/") ? (
+                        <video src={uploadPreview} className="w-12 h-12 object-cover rounded" />
+                      ) : (
+                        <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">📄</div>
+                      )
+                    ) : (
+                      <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">📄</div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                      <p className="text-xs text-gray-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={cancelFileUpload}
+                    className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex space-x-2">
               <input
                 type="text"
@@ -1571,9 +1836,28 @@ export default function ChatInterface({
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isDoctorLoading}
               />
+
+              {/* File upload button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title="Đính kèm file"
+              >
+                📎
+              </button>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
               <button
                 onClick={handleDoctorSendMessage}
-                disabled={isDoctorLoading || !doctorInput.trim()}
+                disabled={isDoctorLoading || (!doctorInput.trim() && !selectedFile)}
                 className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isDoctorLoading ? "..." : "Gửi"}
