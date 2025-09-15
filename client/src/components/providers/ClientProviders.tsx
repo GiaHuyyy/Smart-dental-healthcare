@@ -6,6 +6,9 @@ import { Provider } from "react-redux";
 import { Toaster } from "sonner";
 import { RealtimeChatProvider } from "@/contexts/RealtimeChatContext";
 import { WebRTCProvider } from "@/contexts/WebRTCContext";
+import { CallProvider } from "@/contexts/CallProvider";
+import IncomingCallModal from "@/components/call/IncomingCallModal";
+import VideoCallInterface from "@/components/call/VideoCallInterface";
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -13,8 +16,14 @@ export default function ClientProviders({ children }: { children: React.ReactNod
       <SessionProvider>
         <RealtimeChatProvider>
           <WebRTCProvider>
-            {children}
-            <Toaster expand={false} position="top-right" richColors closeButton />
+            <CallProvider>
+              {children}
+              <Toaster expand={false} position="top-right" richColors closeButton />
+
+              {/* Global Call Components */}
+              <IncomingCallModal />
+              <VideoCallInterface />
+            </CallProvider>
           </WebRTCProvider>
         </RealtimeChatProvider>
       </SessionProvider>
