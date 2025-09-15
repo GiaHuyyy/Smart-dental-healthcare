@@ -91,6 +91,145 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('webrtc-joined', { success: true });
   }
 
+  @SubscribeMessage('call-user')
+  handleCallUser(
+    @MessageBody()
+    data: {
+      callerId: string;
+      receiverId: string;
+      callerName: string;
+      callerRole: string;
+      isVideoCall: boolean;
+      signal: any;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `Call initiated from ${data.callerId} to ${data.receiverId} (${data.isVideoCall ? 'video' : 'audio'})`,
+    );
+
+    const receiver = this.connectedUsers.get(data.receiverId);
+
+    if (receiver) {
+      // Send incoming call notification to receiver
+      this.server.to(receiver.socketId).emit('incoming-call', {
+        callerId: data.callerId,
+        callerName: data.callerName,
+        callerRole: data.callerRole,
+        isVideoCall: data.isVideoCall,
+        signal: data.signal,
+      });
+
+      // Confirm to caller that call was initiated
+      client.emit('call-initiated', { receiverId: data.receiverId });
+    } else {
+      // Receiver not online
+      client.emit('call-failed', {
+        receiverId: data.receiverId,
+        reason: 'User not online',
+      });
+    }
+  }
+
+  @SubscribeMessage('answer-call')
+  handleAnswerCall(
+    @MessageBody()
+    data: {
+      callerId: string;
+      receiverId: string;
+      signal: any;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `Call answered by ${data.receiverId} from ${data.callerId}`,
+    );
+
+    const caller = this.connectedUsers.get(data.callerId);
+
+    if (caller) {
+      // Send answer signal to caller
+      this.server.to(caller.socketId).emit('call-accepted', {
+        receiverId: data.receiverId,
+        signal: data.signal,
+      });
+    }
+  }
+
+  @SubscribeMessage('reject-call')
+  handleRejectCall(
+    @MessageBody() data: { callerId: string; receiverId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `Call rejected by ${data.receiverId} from ${data.callerId}`,
+    );
+
+    const caller = this.connectedUsers.get(data.callerId);
+
+    if (caller) {
+      // Notify caller that call was rejected
+      this.server.to(caller.socketId).emit('call-rejected', {
+        receiverId: data.receiverId,
+      });
+    }
+  }
+
+  @SubscribeMessage('ice-candidate')
+  handleIceCandidate(
+    @MessageBody()
+    data: {
+      callerId: string;
+      receiverId: string;
+      candidate: RTCIceCandidateInit;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `ICE candidate exchange between ${data.callerId} and ${data.receiverId}`,
+    );
+
+    // Determine the recipient (the other party)
+    const currentUserId = data.callerId;
+    const otherUserId = data.receiverId;
+
+    const recipient = this.connectedUsers.get(otherUserId);
+
+    if (recipient) {
+      this.server.to(recipient.socketId).emit('ice-candidate', {
+        callerId: data.callerId,
+        receiverId: data.receiverId,
+        candidate: data.candidate,
+      });
+    }
+  }
+
+  @SubscribeMessage('end-call')
+  handleEndCall(
+    @MessageBody() data: { callerId: string; receiverId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `Call ended between ${data.callerId} and ${data.receiverId}`,
+    );
+
+    const caller = this.connectedUsers.get(data.callerId);
+    const receiver = this.connectedUsers.get(data.receiverId);
+
+    // Notify both parties that call ended
+    if (caller && caller.socketId !== client.id) {
+      this.server.to(caller.socketId).emit('call-ended', {
+        otherUserId: data.receiverId,
+      });
+    }
+
+    if (receiver && receiver.socketId !== client.id) {
+      this.server.to(receiver.socketId).emit('call-ended', {
+        otherUserId: data.callerId,
+      });
+    }
+  }
+
   @SubscribeMessage('call-request')
   handleCallRequest(
     @MessageBody() data: CallRequest,

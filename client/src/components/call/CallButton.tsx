@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useWebRTC } from "@/contexts/WebRTCContext";
+import { useCallContext } from "@/contexts/CallProvider";
 
 interface CallButtonProps {
   recipientId: string;
@@ -10,25 +10,31 @@ interface CallButtonProps {
   className?: string;
   showIcon?: boolean;
   children?: React.ReactNode;
+  isVideoCall?: boolean;
 }
 
-const CallButton: React.FC<CallButtonProps> = ({ 
-  recipientId, 
-  recipientName, 
-  recipientRole, 
+const CallButton: React.FC<CallButtonProps> = ({
+  recipientId,
+  recipientName,
+  recipientRole,
   className = "",
   showIcon = true,
-  children 
+  children,
+  isVideoCall = true,
 }) => {
-  const { initiateCall, isInCall, callStatus } = useWebRTC();
+  const { callUser, callState } = useCallContext();
 
-  const handleStartCall = () => {
-    if (!isInCall) {
-      initiateCall(recipientId, recipientName, recipientRole, "video");
+  const handleStartCall = async () => {
+    if (!callState.inCall) {
+      try {
+        await callUser(recipientId, recipientName, recipientRole, isVideoCall);
+      } catch (error) {
+        console.error("Failed to start call:", error);
+      }
     }
   };
 
-  const isDisabled = isInCall || callStatus === "calling" || callStatus === "ringing";
+  const isDisabled = callState.inCall || callState.isReceivingCall || callState.callConnectionStatus === "connecting";
 
   // If children is provided, render custom content
   if (children) {
@@ -36,8 +42,8 @@ const CallButton: React.FC<CallButtonProps> = ({
       <button
         onClick={handleStartCall}
         disabled={isDisabled}
-        className={`${className} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        title={isDisabled ? "Đang trong cuộc gọi" : `Gọi video cho ${recipientName}`}
+        className={`${className} ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        title={isDisabled ? "Đang trong cuộc gọi" : `${isVideoCall ? "Gọi video" : "Gọi thoại"} cho ${recipientName}`}
       >
         {children}
       </button>
@@ -58,14 +64,22 @@ const CallButton: React.FC<CallButtonProps> = ({
         transition-colors duration-200
         ${className}
       `}
-      title={isDisabled ? "Đang trong cuộc gọi" : `Gọi video cho ${recipientName}`}
+      title={isDisabled ? "Đang trong cuộc gọi" : `${isVideoCall ? "Gọi video" : "Gọi thoại"} cho ${recipientName}`}
     >
       {showIcon && (
         <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+          {isVideoCall ? (
+            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+          ) : (
+            <path
+              fillRule="evenodd"
+              d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
+              clipRule="evenodd"
+            />
+          )}
         </svg>
       )}
-      {isDisabled ? "Đang gọi..." : "Gọi video"}
+      {isDisabled ? "Đang gọi..." : isVideoCall ? "Gọi video" : "Gọi thoại"}
     </button>
   );
 };
