@@ -9,6 +9,8 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { RealtimeChatService } from '../realtime-chat/realtime-chat.service';
+import { Types } from 'mongoose';
 
 interface CallOffer {
   callerId: string;
@@ -56,6 +58,18 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     string,
     { socketId: string; userId: string; userRole: string; userName: string }
   >();
+  private activeCalls = new Map<
+    string,
+    {
+      messageId: string;
+      callerId: string;
+      receiverId: string;
+      callType: 'audio' | 'video';
+      startedAt: Date;
+    }
+  >();
+
+  constructor(private readonly realtimeChatService: RealtimeChatService) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`WebRTC Client connected: ${client.id}`);
@@ -92,7 +106,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('call-user')
-  handleCallUser(
+  async handleCallUser(
     @MessageBody()
     data: {
       callerId: string;
@@ -108,36 +122,88 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       `Call initiated from ${data.callerId} to ${data.receiverId} (${data.isVideoCall ? 'video' : 'audio'})`,
     );
 
-    const receiver = this.connectedUsers.get(data.receiverId);
+    try {
+      // Check if there's already an active call between these users
+      const callKey = `${data.callerId}-${data.receiverId}`;
 
-    if (receiver) {
-      // Send incoming call notification to receiver
-      this.server.to(receiver.socketId).emit('incoming-call', {
+      if (this.activeCalls.has(callKey)) {
+        this.logger.log(
+          `Call already in progress between ${data.callerId} and ${data.receiverId}, ignoring duplicate`,
+        );
+        return;
+      }
+
+      // Create call history message
+      const callMessage = await this.realtimeChatService.createCallMessage(
+        data.callerId,
+        data.receiverId,
+        data.callerRole as 'doctor' | 'patient',
+        {
+          callType: data.isVideoCall ? 'video' : 'audio',
+          callStatus: 'missed', // Initial status, will be updated
+          callDuration: 0,
+          startedAt: new Date(),
+        },
+      );
+
+      // Store active call info
+      this.activeCalls.set(callKey, {
+        messageId: (callMessage as any)._id.toString(),
         callerId: data.callerId,
-        callerName: data.callerName,
-        callerRole: data.callerRole,
-        isVideoCall: data.isVideoCall,
-        signal: data.signal,
+        receiverId: data.receiverId,
+        callType: data.isVideoCall ? 'video' : 'audio',
+        startedAt: new Date(),
       });
 
-      // Confirm to caller that call was initiated
-      client.emit('call-initiated', { receiverId: data.receiverId });
-    } else {
-      // Receiver not online
+      const receiver = this.connectedUsers.get(data.receiverId);
+
+      if (receiver) {
+        // Send incoming call notification to receiver
+        this.server.to(receiver.socketId).emit('incoming-call', {
+          callerId: data.callerId,
+          callerName: data.callerName,
+          callerRole: data.callerRole,
+          isVideoCall: data.isVideoCall,
+          signal: data.signal,
+          messageId: (callMessage as any)._id.toString(),
+        });
+
+        // Confirm to caller that call was initiated
+        client.emit('call-initiated', {
+          receiverId: data.receiverId,
+          messageId: (callMessage as any)._id.toString(),
+        });
+      } else {
+        // Receiver not online - update call status to missed
+        await this.realtimeChatService.updateCallStatus(
+          (callMessage as any)._id.toString(),
+          'missed',
+          0,
+        );
+        this.activeCalls.delete(callKey);
+
+        client.emit('call-failed', {
+          receiverId: data.receiverId,
+          reason: 'User not online',
+        });
+      }
+    } catch (error) {
+      this.logger.error('Failed to create call message:', error);
       client.emit('call-failed', {
         receiverId: data.receiverId,
-        reason: 'User not online',
+        reason: 'Internal error',
       });
     }
   }
 
   @SubscribeMessage('answer-call')
-  handleAnswerCall(
+  async handleAnswerCall(
     @MessageBody()
     data: {
       callerId: string;
       receiverId: string;
       signal: any;
+      messageId?: string;
     },
     @ConnectedSocket() client: Socket,
   ) {
@@ -145,33 +211,67 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       `Call answered by ${data.receiverId} from ${data.callerId}`,
     );
 
-    const caller = this.connectedUsers.get(data.callerId);
+    try {
+      // Update call status to answered
+      const callKey = `${data.callerId}-${data.receiverId}`;
+      const activeCall = this.activeCalls.get(callKey);
 
-    if (caller) {
-      // Send answer signal to caller
-      this.server.to(caller.socketId).emit('call-accepted', {
-        receiverId: data.receiverId,
-        signal: data.signal,
-      });
+      if (activeCall) {
+        await this.realtimeChatService.updateCallStatus(
+          activeCall.messageId,
+          'answered',
+          0,
+        );
+      }
+
+      const caller = this.connectedUsers.get(data.callerId);
+
+      if (caller) {
+        // Send answer signal to caller
+        this.server.to(caller.socketId).emit('call-accepted', {
+          receiverId: data.receiverId,
+          signal: data.signal,
+        });
+      }
+    } catch (error) {
+      this.logger.error('Failed to update call status to answered:', error);
     }
   }
 
   @SubscribeMessage('reject-call')
-  handleRejectCall(
-    @MessageBody() data: { callerId: string; receiverId: string },
+  async handleRejectCall(
+    @MessageBody()
+    data: { callerId: string; receiverId: string; messageId?: string },
     @ConnectedSocket() client: Socket,
   ) {
     this.logger.log(
       `Call rejected by ${data.receiverId} from ${data.callerId}`,
     );
 
-    const caller = this.connectedUsers.get(data.callerId);
+    try {
+      // Update call status to rejected
+      const callKey = `${data.callerId}-${data.receiverId}`;
+      const activeCall = this.activeCalls.get(callKey);
 
-    if (caller) {
-      // Notify caller that call was rejected
-      this.server.to(caller.socketId).emit('call-rejected', {
-        receiverId: data.receiverId,
-      });
+      if (activeCall) {
+        await this.realtimeChatService.updateCallStatus(
+          activeCall.messageId,
+          'rejected',
+          0,
+        );
+        this.activeCalls.delete(callKey);
+      }
+
+      const caller = this.connectedUsers.get(data.callerId);
+
+      if (caller) {
+        // Notify caller that call was rejected
+        this.server.to(caller.socketId).emit('call-rejected', {
+          receiverId: data.receiverId,
+        });
+      }
+    } catch (error) {
+      this.logger.error('Failed to update call status to rejected:', error);
     }
   }
 
@@ -205,28 +305,50 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('end-call')
-  handleEndCall(
-    @MessageBody() data: { callerId: string; receiverId: string },
+  async handleEndCall(
+    @MessageBody()
+    data: { callerId: string; receiverId: string; messageId?: string },
     @ConnectedSocket() client: Socket,
   ) {
     this.logger.log(
       `Call ended between ${data.callerId} and ${data.receiverId}`,
     );
 
-    const caller = this.connectedUsers.get(data.callerId);
-    const receiver = this.connectedUsers.get(data.receiverId);
+    try {
+      // Update call status to completed with duration
+      const callKey = `${data.callerId}-${data.receiverId}`;
+      const activeCall = this.activeCalls.get(callKey);
 
-    // Notify both parties that call ended
-    if (caller && caller.socketId !== client.id) {
-      this.server.to(caller.socketId).emit('call-ended', {
-        otherUserId: data.receiverId,
-      });
-    }
+      if (activeCall) {
+        const callDuration = Math.floor(
+          (new Date().getTime() - activeCall.startedAt.getTime()) / 1000,
+        );
 
-    if (receiver && receiver.socketId !== client.id) {
-      this.server.to(receiver.socketId).emit('call-ended', {
-        otherUserId: data.callerId,
-      });
+        await this.realtimeChatService.updateCallStatus(
+          activeCall.messageId,
+          'completed',
+          callDuration,
+        );
+        this.activeCalls.delete(callKey);
+      }
+
+      const caller = this.connectedUsers.get(data.callerId);
+      const receiver = this.connectedUsers.get(data.receiverId);
+
+      // Notify both parties that call ended
+      if (caller && caller.socketId !== client.id) {
+        this.server.to(caller.socketId).emit('call-ended', {
+          otherUserId: data.receiverId,
+        });
+      }
+
+      if (receiver && receiver.socketId !== client.id) {
+        this.server.to(receiver.socketId).emit('call-ended', {
+          otherUserId: data.callerId,
+        });
+      }
+    } catch (error) {
+      this.logger.error('Failed to update call status to completed:', error);
     }
   }
 
