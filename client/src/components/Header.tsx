@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LogoutButton from "./auth/LogoutButton";
+import { User, Bell, Smile } from "lucide-react";
 
 export default function Header({ role = "Bệnh nhân" }) {
   const { data: session } = useSession();
@@ -60,7 +61,7 @@ export default function Header({ role = "Bệnh nhân" }) {
           <div className="flex items-center">
             <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold">🦷</span>
+                <Smile className="w-5 h-5 text-white" />
               </div>
               <span className="ml-2 text-xl font-bold text-gray-900">Smart Dental</span>
             </Link>
@@ -79,7 +80,11 @@ export default function Header({ role = "Bệnh nhân" }) {
             {session?.user ? (
               // Logged in user
               <>
-                {!isHomePage && <button className="p-2 text-gray-400 hover:text-gray-600">🔔</button>}
+                {!isHomePage && (
+                  <button className="p-2 text-gray-400 hover:text-gray-600">
+                    <Bell className="w-5 h-5" />
+                  </button>
+                )}
 
                 {/* User info and dropdown */}
                 <div className="relative" ref={dropdownRef}>
@@ -87,10 +92,10 @@ export default function Header({ role = "Bệnh nhân" }) {
                     <span className="text-sm font-medium">{session.user.email}</span>
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
-                      className="w-8 h-8 bg-gray-300 rounded-full hover:bg-gray-400 transition-colors cursor-pointer"
+                      className="w-8 h-8 bg-gray-300 rounded-full hover:bg-gray-400 transition-colors cursor-pointer flex items-center justify-center"
                       aria-label="User menu"
                     >
-                      👤
+                      <User className="w-5 h-5 text-gray-700" />
                     </button>
                   </div>
 

@@ -24,6 +24,19 @@ import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
+import {
+  Lightbulb,
+  Calendar,
+  Wrench,
+  Stethoscope,
+  Check,
+  FileText,
+  File,
+  PieChart,
+  X,
+  Search,
+  BarChart2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
@@ -553,7 +566,7 @@ export default function ChatInterface({
           const urgentMessage: ChatMessage = {
             role: "assistant",
             content:
-              "⚠️ **KHẨN CẤP** ⚠️\n\nTình trạng của bạn có thể cần được xử lý ngay lập tức. Vui lòng liên hệ phòng khám ngay hoặc đến cơ sở y tế gần nhất.\n\n📞 Hotline: 0123-456-789",
+              "**KHẨN CẤP**\n\nTình trạng của bạn có thể cần được xử lý ngay lập tức. Vui lòng liên hệ phòng khám ngay hoặc đến cơ sở y tế gần nhất. Hotline: 0123-456-789",
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, urgentMessage]);
@@ -676,7 +689,7 @@ export default function ChatInterface({
           const urgentMessage: ChatMessage = {
             role: "assistant",
             content:
-              "⚠️ **KHẨN CẤP** ⚠️\n\nTình trạng của bạn có thể cần được xử lý ngay lập tức. Vui lòng liên hệ phòng khám ngay hoặc đến cơ sở y tế gần nhất.\n\n📞 Hotline: 0123-456-789",
+              "**KHẨN CẤP**\n\nTình trạng của bạn có thể cần được xử lý ngay lập tức. Vui lòng liên hệ phòng khám ngay hoặc đến cơ sở y tế gần nhất. Hotline: 0123-456-789",
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, urgentMessage]);
@@ -738,7 +751,7 @@ export default function ChatInterface({
 
     const userMessage: ChatMessage = {
       role: "user",
-      content: `🖼️ Đang tải lên ảnh: ${file.name}`,
+      content: `Đang tải lên ảnh: ${file.name}`,
       timestamp: new Date(),
       imageUrl: tempImageUrl,
     };
@@ -863,7 +876,7 @@ export default function ChatInterface({
 
     // Add symptoms if provided
     if (symptoms) {
-      comprehensiveNotes += `🔍 TRIỆU CHỨNG: ${symptoms}\n\n`;
+      comprehensiveNotes += `TRIỆU CHỨNG: ${symptoms}\n\n`;
     }
 
     // Add urgency level
@@ -873,14 +886,14 @@ export default function ChatInterface({
 
     // Add analysis result if available
     if (analysisResult) {
-      comprehensiveNotes += `🔍 KẾT QUẢ PHÂN TÍCH AI:\n${
+      comprehensiveNotes += `KẾT QUẢ PHÂN TÍCH AI:\n${
         analysisResult.richContent?.analysis || analysisResult.analysis || "Đã phân tích hình ảnh X-ray"
       }\n\n`;
     }
 
     // Add chat history as context
     if (messages.length > 0) {
-      comprehensiveNotes += `💬 LỊCH SỬ CHAT:\n`;
+      comprehensiveNotes += `LỊCH SỬ CHAT:\n`;
       messages.forEach((msg, index) => {
         if (msg.role === "user") {
           comprehensiveNotes += `Bệnh nhân: ${msg.content}\n`;
@@ -1221,12 +1234,12 @@ export default function ChatInterface({
   };
 
   const getButtonIcon = (buttonText: string) => {
-    if (buttonText.includes("Giải thích")) return "💡";
-    if (buttonText.includes("Đặt lịch")) return "📅";
-    if (buttonText.includes("Hướng dẫn")) return "🏠";
-    if (buttonText.includes("Gợi ý bác sĩ")) return "👨‍⚕️";
-    if (buttonText.includes("Kết thúc")) return "✅";
-    return "🔧";
+    if (buttonText.includes("Giải thích")) return <Lightbulb className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Đặt lịch")) return <Calendar className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Hướng dẫn")) return <Wrench className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Gợi ý bác sĩ")) return <Stethoscope className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Kết thúc")) return <Check className="w-4 h-4 mr-1" />;
+    return <Wrench className="w-4 h-4 mr-1" />;
   };
 
   const getUrgencyBadge = () => {
@@ -1252,13 +1265,13 @@ export default function ChatInterface({
   };
 
   const quickSuggestions = [
-    "😖 Sâu răng, ê buốt khi ăn đồ ngọt hoặc lạnh",
-    "🦷 Răng mọc lệch, chen chúc, khớp cắn sai",
-    "✨ Răng ố vàng, xỉn màu, không đều đẹp",
-    "🔧 Hàm hô, móm hoặc chấn thương vùng hàm mặt",
-    "🩸 Chảy máu lợi khi chải răng",
-    "💊 Răng sữa sâu, trẻ đau răng hoặc sợ đi khám răng",
-    "📸 Phân tích ảnh X-quang/răng",
+    "Sâu răng, ê buốt khi ăn đồ ngọt hoặc lạnh",
+    "Răng mọc lệch, chen chúc, khớp cắn sai",
+    "Răng ố vàng, xỉn màu, không đều đẹp",
+    "Hàm hô, móm hoặc chấn thương vùng hàm mặt",
+    "Chảy máu lợi khi chải răng",
+    "Răng sữa sâu, trẻ đau răng hoặc sợ đi khám răng",
+    "Phân tích ảnh X-quang/răng",
   ];
 
   // Render doctor suggestion section với nút toggle
@@ -1474,14 +1487,16 @@ export default function ChatInterface({
                     <div className="space-y-2">
                       {/* Header */}
                       <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-                        <span className="text-blue-800 font-bold text-base">🔍 Kết quả phân tích ảnh</span>
+                        <span className="text-blue-800 font-bold text-base">
+                          <Search className="inline w-4 h-4 mr-2" /> Kết quả phân tích ảnh
+                        </span>
                       </div>
 
                       {/* Chẩn đoán */}
                       {message.analysisData.richContent?.analysis && (
                         <div className="p-2 bg-blue-50 rounded-lg border-l-4 border-blue-500">
                           <div className="text-sm font-semibold text-blue-700 mb-1 flex items-center">
-                            <span className="mr-1">📋</span>
+                            <FileText className="w-4 h-4 mr-1" />
                             CHẨN ĐOÁN
                           </div>
                           <p className="text-blue-900 leading-normal text-sm">
@@ -1495,7 +1510,7 @@ export default function ChatInterface({
                         message.analysisData.richContent.sections.length > 0 && (
                           <div className="p-2 bg-gray-50 rounded-lg border-l-4 border-gray-500">
                             <div className="text-sm font-semibold text-gray-700 mb-1 flex items-center">
-                              <span className="mr-1">📊</span>
+                              <BarChart2 className="w-4 h-4 mr-1" />
                               CHI TIẾT PHÂN TÍCH
                             </div>
                             <div className="space-y-1">
@@ -1529,7 +1544,7 @@ export default function ChatInterface({
                       {message.analysisData.richContent?.recommendations && (
                         <div className="p-2 bg-green-50 rounded-lg border-l-4 border-green-500">
                           <div className="text-sm font-semibold text-green-700 mb-1 flex items-center">
-                            <span className="mr-1">💡</span>
+                            <Lightbulb className="w-4 h-4 mr-1" />
                             KHUYẾN NGHỊ
                           </div>
                           <div className="space-y-0">
@@ -1546,7 +1561,7 @@ export default function ChatInterface({
                       {/* Action prompt */}
                       <div className="text-center p-2 bg-orange-50 rounded-lg border border-orange-200">
                         <p className="text-orange-700 font-medium flex items-center justify-center text-sm">
-                          <span className="mr-1">🔧</span>
+                          <Wrench className="w-4 h-4 mr-1" />
                           Sử dụng các nút bên dưới để tương tác
                         </p>
                       </div>
@@ -1762,23 +1777,24 @@ export default function ChatInterface({
                                     {(() => {
                                       const fileType =
                                         message.fileType || message.fileName?.split(".").pop()?.toLowerCase();
-                                      if (fileType?.includes("pdf")) return "📄";
-                                      if (fileType?.includes("doc")) return "📝";
+                                      if (fileType?.includes("pdf")) return <FileText className="w-5 h-5" />;
+                                      if (fileType?.includes("doc")) return <FileText className="w-5 h-5" />;
                                       if (
                                         fileType?.includes("sheet") ||
                                         fileType?.includes("excel") ||
                                         fileType?.includes("xlsx")
                                       )
-                                        return "📊";
+                                        return <PieChart className="w-5 h-5" />;
                                       if (
                                         fileType?.includes("presentation") ||
                                         fileType?.includes("powerpoint") ||
                                         fileType?.includes("pptx")
                                       )
-                                        return "📑";
-                                      if (fileType?.includes("text") || fileType?.includes("txt")) return "📋";
-                                      if (fileType?.includes("csv")) return "📈";
-                                      return "📁";
+                                        return <File className="w-5 h-5" />;
+                                      if (fileType?.includes("text") || fileType?.includes("txt"))
+                                        return <FileText className="w-5 h-5" />;
+                                      if (fileType?.includes("csv")) return <PieChart className="w-5 h-5" />;
+                                      return <File className="w-5 h-5" />;
                                     })()}
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -1860,7 +1876,7 @@ export default function ChatInterface({
                     onClick={cancelFileUpload}
                     className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
                   >
-                    ✕
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>

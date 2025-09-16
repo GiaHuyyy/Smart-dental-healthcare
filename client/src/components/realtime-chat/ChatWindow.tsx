@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, X, Minimize2, Maximize2, MoreVertical } from "lucide-react";
+import { Send, X, Minimize2, Maximize2, MoreVertical, Phone, Video } from "lucide-react";
 import CallMessage from "../call/CallMessage";
 import CallButton from "../call/CallButton";
-import { FaPhone, FaVideo } from "react-icons/fa";
 
 interface Message {
   _id: string;
@@ -195,7 +194,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             className="p-1 hover:bg-blue-700 rounded text-white bg-transparent border-none"
             showIcon={true}
           >
-            <FaPhone size={16} />
+            <Phone size={16} />
           </CallButton>
           <CallButton
             recipientId={otherUser._id}
@@ -205,7 +204,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             className="p-1 hover:bg-blue-700 rounded text-white bg-transparent border-none"
             showIcon={true}
           >
-            <FaVideo size={16} />
+            <Video size={16} />
           </CallButton>
           <button className="p-1 hover:bg-blue-700 rounded">
             <MoreVertical size={16} />

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { FaPhone, FaVideo, FaPhoneSlash } from "react-icons/fa";
+import { Phone, Video, PhoneOff } from "lucide-react";
 import { useCallContext } from "@/contexts/CallProvider";
 import { toast } from "sonner";
 
@@ -51,7 +51,7 @@ export default function IncomingCallDialog() {
             className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300"
             title="Từ chối"
           >
-            <FaPhoneSlash size={20} />
+            <PhoneOff size={20} />
           </button>
 
           <button
@@ -59,7 +59,7 @@ export default function IncomingCallDialog() {
             className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-white transition-colors hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300"
             title={callState.isVideoCall ? "Trả lời với video" : "Trả lời"}
           >
-            {callState.isVideoCall ? <FaVideo size={20} /> : <FaPhone size={20} />}
+            {callState.isVideoCall ? <Video size={20} /> : <Phone size={20} />}
           </button>
         </div>
       </div>

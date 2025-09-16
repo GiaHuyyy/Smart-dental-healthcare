@@ -1,3 +1,5 @@
+import { Users, Check, Clock, Pill, Calendar } from "lucide-react";
+
 export default function DoctorDashboard() {
   return (
     <div className="space-y-6">
@@ -12,7 +14,7 @@ export default function DoctorDashboard() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <span className="text-2xl">👥</span>
+              <Users className="w-7 h-7 text-blue-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Bệnh nhân hôm nay</p>
@@ -24,7 +26,7 @@ export default function DoctorDashboard() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
-              <span className="text-2xl">✅</span>
+              <Check className="w-7 h-7 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Đã khám</p>
@@ -36,7 +38,7 @@ export default function DoctorDashboard() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-yellow-100 rounded-lg">
-              <span className="text-2xl">⏰</span>
+              <Clock className="w-7 h-7 text-yellow-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Đang chờ</p>
@@ -48,7 +50,7 @@ export default function DoctorDashboard() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-purple-100 rounded-lg">
-              <span className="text-2xl">💊</span>
+              <Pill className="w-7 h-7 text-purple-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Đơn thuốc</p>

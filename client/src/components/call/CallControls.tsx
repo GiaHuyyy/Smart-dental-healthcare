@@ -2,7 +2,7 @@
 
 import React from "react";
 import CallButton from "./CallButton";
-import { FaPhone, FaVideo } from "react-icons/fa";
+import { Phone, Video } from "lucide-react";
 
 interface CallControlsProps {
   recipientId: string;
@@ -23,7 +23,7 @@ const CallControls: React.FC<CallControlsProps> = ({ recipientId, recipientName,
         className="bg-green-600 hover:bg-green-700 focus:ring-green-500"
         showIcon={false}
       >
-        <FaPhone className="w-4 h-4 mr-2" />
+        <Phone className="w-4 h-4 mr-2" />
         Gọi thoại
       </CallButton>
 
@@ -36,7 +36,7 @@ const CallControls: React.FC<CallControlsProps> = ({ recipientId, recipientName,
         className="bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
         showIcon={false}
       >
-        <FaVideo className="w-4 h-4 mr-2" />
+        <Video className="w-4 h-4 mr-2" />
         Gọi video
       </CallButton>
     </div>

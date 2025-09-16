@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { FaPhone, FaVideo, FaPhoneSlash } from "react-icons/fa";
-import { BsArrowDownLeft, BsArrowUpRight } from "react-icons/bs";
+import { Phone, Video, PhoneOff, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 
 interface CallMessageProps {
   callData: {
@@ -42,18 +41,14 @@ const CallMessage: React.FC<CallMessageProps> = ({ callData, isOutgoing, timesta
 
   const getCallIcon = () => {
     if (callData.callStatus === "missed" || callData.callStatus === "rejected") {
-      return <FaPhoneSlash size={16} color="#ef4444" />;
+      return <PhoneOff size={16} color="#ef4444" />;
     }
 
-    return callData.callType === "video" ? (
-      <FaVideo size={16} color="#22c55e" />
-    ) : (
-      <FaPhone size={16} color="#22c55e" />
-    );
+    return callData.callType === "video" ? <Video size={16} color="#22c55e" /> : <Phone size={16} color="#22c55e" />;
   };
 
   const getDirectionIcon = () => {
-    return isOutgoing ? <BsArrowUpRight size={12} color="#6b7280" /> : <BsArrowDownLeft size={12} color="#6b7280" />;
+    return isOutgoing ? <ArrowUpRight size={12} color="#6b7280" /> : <ArrowDownLeft size={12} color="#6b7280" />;
   };
 
   const getCallStatusColor = (): string => {

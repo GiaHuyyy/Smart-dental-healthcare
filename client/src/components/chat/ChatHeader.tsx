@@ -1,6 +1,7 @@
 "use client";
 
 import CallButton from "@/components/call/CallButton";
+import { User, Bot, Phone, Calendar, FileText, Video, Lightbulb, Lock, Zap } from "lucide-react";
 
 interface ChatHeaderProps {
   type: "ai" | "doctor" | "patient";
@@ -46,7 +47,13 @@ export default function ChatHeader({
             }`}
           >
             <span className="text-white text-sm font-medium">
-              {type === "ai" ? "🤖" : type === "doctor" ? "👨‍⚕️" : "👤"}
+              {type === "ai" ? (
+                <Bot className="w-4 h-4" />
+              ) : type === "doctor" ? (
+                <User className="w-4 h-4" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
             </span>
           </div>
           <div className="min-w-0 flex-1">
@@ -81,7 +88,7 @@ export default function ChatHeader({
                 className="flex items-center space-x-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100 transition-colors whitespace-nowrap"
                 title="Gọi điện"
               >
-                <span>📞</span>
+                <Phone className="w-4 h-4" />
                 <span className="hidden sm:inline">Gọi điện</span>
               </button>
 
@@ -91,7 +98,7 @@ export default function ChatHeader({
                 className="flex items-center space-x-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm hover:bg-green-100 transition-colors whitespace-nowrap"
                 title="Đặt lịch hẹn"
               >
-                <span>📅</span>
+                <Calendar className="w-4 h-4" />
                 <span className="hidden sm:inline">Đặt lịch</span>
               </button>
 
@@ -101,7 +108,7 @@ export default function ChatHeader({
                 className="flex items-center space-x-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm hover:bg-purple-100 transition-colors whitespace-nowrap"
                 title="Xem hồ sơ bác sĩ"
               >
-                <span>📋</span>
+                <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">Hồ sơ</span>
               </button>
 
@@ -114,7 +121,7 @@ export default function ChatHeader({
                   className="flex items-center space-x-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition-colors whitespace-nowrap"
                 >
                   <span className="flex items-center space-x-1">
-                    <span>📹</span>
+                    <Video className="w-4 h-4" />
                     <span className="hidden sm:inline">Gọi video</span>
                   </span>
                 </CallButton>
@@ -131,7 +138,7 @@ export default function ChatHeader({
                 className="flex items-center space-x-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100 transition-colors whitespace-nowrap"
                 title="Gọi điện cho bệnh nhân"
               >
-                <span>📞</span>
+                <Phone className="w-4 h-4" />
                 <span className="hidden sm:inline">Gọi điện</span>
               </button>
 
@@ -141,7 +148,7 @@ export default function ChatHeader({
                 className="flex items-center space-x-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm hover:bg-green-100 transition-colors whitespace-nowrap"
                 title="Đặt lịch khám cho bệnh nhân"
               >
-                <span>📅</span>
+                <Calendar className="w-4 h-4" />
                 <span className="hidden sm:inline">Đặt lịch</span>
               </button>
 
@@ -151,7 +158,7 @@ export default function ChatHeader({
                 className="flex items-center space-x-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm hover:bg-purple-100 transition-colors whitespace-nowrap"
                 title="Xem hồ sơ bệnh nhân"
               >
-                <span>📋</span>
+                <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">Hồ sơ</span>
               </button>
 
@@ -164,7 +171,7 @@ export default function ChatHeader({
                   className="flex items-center space-x-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition-colors whitespace-nowrap"
                 >
                   <span className="flex items-center space-x-1">
-                    <span>📹</span>
+                    <Video className="w-4 h-4" />
                     <span className="hidden sm:inline">Gọi video</span>
                   </span>
                 </CallButton>
@@ -176,7 +183,11 @@ export default function ChatHeader({
           {type === "ai" && (
             <div className="flex items-center space-x-2">
               <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>💡 Tư vấn 24/7 • 🔒 Bảo mật thông tin • ⚡ Phản hồi nhanh</span>
+                <span className="inline-flex items-center space-x-2">
+                  <Lightbulb className="w-4 h-4" />
+                  <span>Tư vấn 24/7</span> <Lock className="w-3 h-3 mx-2" /> <span>Bảo mật thông tin</span>{" "}
+                  <Zap className="w-3 h-3 mx-2" /> <span>Phản hồi nhanh</span>
+                </span>
                 <span>Phiên bản 2.0</span>
               </div>
               <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium ml-2">

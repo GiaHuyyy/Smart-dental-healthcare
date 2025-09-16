@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Users, Check, Calendar } from "lucide-react";
 
 interface Patient {
   _id: string;
@@ -50,11 +51,11 @@ export default function DoctorPatients() {
 
   const testConnection = async () => {
     try {
-      const response = await fetch('/api/test');
+      const response = await fetch("/api/test");
       const data = await response.json();
-      console.log('Connection test:', data);
+      console.log("Connection test:", data);
     } catch (error) {
-      console.error('Connection test failed:', error);
+      console.error("Connection test failed:", error);
     }
   };
 
@@ -63,10 +64,10 @@ export default function DoctorPatients() {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams();
-      params.append('current', currentPage.toString());
-      params.append('pageSize', pageSize.toString());
-      if (debouncedSearch) params.append('search', debouncedSearch);
-      if (selectedFilter) params.append('status', selectedFilter);
+      params.append("current", currentPage.toString());
+      params.append("pageSize", pageSize.toString());
+      if (debouncedSearch) params.append("search", debouncedSearch);
+      if (selectedFilter) params.append("status", selectedFilter);
 
       const response = await fetch(`/api/users/patients/search?${params}`);
       const data = await response.json();
@@ -76,7 +77,7 @@ export default function DoctorPatients() {
         const patientsResult = data.data?.patients ?? data.data ?? [];
         setPatients(Array.isArray(patientsResult) ? patientsResult : []);
         const tp = data.data?.pagination?.totalPages ?? data.data?.totalPages ?? 1;
-        setTotalPages(typeof tp === 'number' ? tp : Number(tp) || 1);
+        setTotalPages(typeof tp === "number" ? tp : Number(tp) || 1);
       } else if (Array.isArray(data)) {
         // proxy returned raw array
         setPatients(data);
@@ -85,14 +86,14 @@ export default function DoctorPatients() {
         setPatients(Array.isArray(data.patients) ? data.patients : []);
         setTotalPages(data.pagination?.totalPages ?? 1);
       } else {
-        console.error('Error fetching patients:', data?.message ?? 'Unknown response');
-        setError(data?.message || 'Không thể tải danh sách bệnh nhân');
+        console.error("Error fetching patients:", data?.message ?? "Unknown response");
+        setError(data?.message || "Không thể tải danh sách bệnh nhân");
         setPatients([]);
         setTotalPages(1);
       }
     } catch (error) {
-      console.error('Error fetching patients:', error);
-      setError('Lỗi kết nối server');
+      console.error("Error fetching patients:", error);
+      setError("Lỗi kết nối server");
       // Fallback data để hiển thị
       setPatients([]);
       setTotalPages(1);
@@ -113,26 +114,26 @@ export default function DoctorPatients() {
       } else {
         // Try to read raw payload shapes
         const raw = data?.data ?? data;
-        if (raw && typeof raw === 'object') {
+        if (raw && typeof raw === "object") {
           setStats(raw as PatientStats);
         } else {
-          console.error('Error fetching stats:', data?.message ?? 'Unknown response');
+          console.error("Error fetching stats:", data?.message ?? "Unknown response");
           setStats({
             totalPatients: 0,
             activePatients: 0,
             newPatientsThisMonth: 0,
-            inactivePatients: 0
+            inactivePatients: 0,
           });
         }
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error("Error fetching stats:", error);
       // Fallback stats để hiển thị
       setStats({
         totalPatients: 0,
         activePatients: 0,
         newPatientsThisMonth: 0,
-        inactivePatients: 0
+        inactivePatients: 0,
       });
     }
   };
@@ -142,7 +143,7 @@ export default function DoctorPatients() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
+    return new Date(dateString).toLocaleDateString("vi-VN");
   };
 
   const calculateAge = (dateOfBirth: string) => {
@@ -150,27 +151,19 @@ export default function DoctorPatients() {
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     return age;
   };
 
   const getStatusBadge = (isActive: boolean) => {
     if (isActive) {
-      return (
-        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-          Đang hoạt động
-        </span>
-      );
+      return <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Đang hoạt động</span>;
     } else {
-      return (
-        <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
-          Không hoạt động
-        </span>
-      );
+      return <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Không hoạt động</span>;
     }
   };
 
@@ -181,9 +174,7 @@ export default function DoctorPatients() {
           <h1 className="text-2xl font-bold text-gray-900">Quản lý bệnh nhân</h1>
           <p className="text-gray-600">Danh sách và thông tin bệnh nhân</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-          Thêm bệnh nhân
-        </button>
+        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Thêm bệnh nhân</button>
       </div>
 
       {/* Error Message */}
@@ -192,7 +183,11 @@ export default function DoctorPatients() {
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="ml-3">
@@ -236,13 +231,11 @@ export default function DoctorPatients() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <span className="text-2xl">👥</span>
+              <Users className="w-7 h-7 text-blue-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Tổng bệnh nhân</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats ? stats.totalPatients : '...'}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{stats ? stats.totalPatients : "..."}</p>
             </div>
           </div>
         </div>
@@ -250,13 +243,11 @@ export default function DoctorPatients() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
-              <span className="text-2xl">✅</span>
+              <Check className="w-7 h-7 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Đang hoạt động</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats ? stats.activePatients : '...'}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{stats ? stats.activePatients : "..."}</p>
             </div>
           </div>
         </div>
@@ -264,13 +255,11 @@ export default function DoctorPatients() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-yellow-100 rounded-lg">
-              <span className="text-2xl">📅</span>
+              <Calendar className="w-7 h-7 text-yellow-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Mới tháng này</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats ? stats.newPatientsThisMonth : '...'}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{stats ? stats.newPatientsThisMonth : "..."}</p>
             </div>
           </div>
         </div>
@@ -282,9 +271,7 @@ export default function DoctorPatients() {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Không hoạt động</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats ? stats.inactivePatients : '...'}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{stats ? stats.inactivePatients : "..."}</p>
             </div>
           </div>
         </div>
@@ -293,11 +280,9 @@ export default function DoctorPatients() {
       {/* Patients List */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Danh sách bệnh nhân ({patients.length})
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">Danh sách bệnh nhân ({patients.length})</h2>
         </div>
-        
+
         {loading ? (
           <div className="p-6 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -306,11 +291,7 @@ export default function DoctorPatients() {
         ) : patients.length === 0 ? (
           <div className="p-6 text-center">
             <p className="text-gray-500">Không có bệnh nhân nào</p>
-            {error && (
-              <p className="text-sm text-red-500 mt-2">
-                Lỗi: {error}
-              </p>
-            )}
+            {error && <p className="text-sm text-red-500 mt-2">Lỗi: {error}</p>}
           </div>
         ) : (
           <>
@@ -340,17 +321,19 @@ export default function DoctorPatients() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {patients.map((patient) => (
-                    <tr key={patient._id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handlePatientClick(patient._id)}>
+                    <tr
+                      key={patient._id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handlePatientClick(patient._id)}
+                    >
                       <td className="px-6 py-4">
                         <div>
                           <p className="font-medium text-gray-900">{patient.fullName}</p>
                           <p className="text-sm text-gray-600">
-                            {patient.dateOfBirth ? `${calculateAge(patient.dateOfBirth)} tuổi` : 'Chưa cập nhật'}
-                            {patient.gender && ` • ${patient.gender === 'male' ? 'Nam' : 'Nữ'}`}
+                            {patient.dateOfBirth ? `${calculateAge(patient.dateOfBirth)} tuổi` : "Chưa cập nhật"}
+                            {patient.gender && ` • ${patient.gender === "male" ? "Nam" : "Nữ"}`}
                           </p>
-                          {patient.address && (
-                            <p className="text-sm text-gray-500">{patient.address}</p>
-                          )}
+                          {patient.address && <p className="text-sm text-gray-500">{patient.address}</p>}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -360,17 +343,13 @@ export default function DoctorPatients() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {patient.dateOfBirth ? formatDate(patient.dateOfBirth) : 'Chưa cập nhật'}
+                        {patient.dateOfBirth ? formatDate(patient.dateOfBirth) : "Chưa cập nhật"}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {formatDate(patient.createdAt)}
-                      </td>
-                      <td className="px-6 py-4">
-                        {getStatusBadge(patient.isActive)}
-                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{formatDate(patient.createdAt)}</td>
+                      <td className="px-6 py-4">{getStatusBadge(patient.isActive)}</td>
                       <td className="px-6 py-4">
                         <div className="flex space-x-2">
-                          <button 
+                          <button
                             className="text-blue-600 hover:text-blue-800 text-sm"
                             onClick={(e) => {
                               e.stopPropagation();

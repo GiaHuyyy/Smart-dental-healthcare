@@ -1,4 +1,5 @@
 "use client";
+import { Bot, Stethoscope, User } from "lucide-react";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
@@ -483,7 +484,7 @@ export default function PatientChatPage() {
                 >
                   <div className="flex items-start">
                     <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-white text-sm">🤖</span>
+                      <Bot className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">AI Tư vấn</h4>
@@ -517,7 +518,7 @@ export default function PatientChatPage() {
                     >
                       <div className="flex items-start">
                         <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm">👨‍⚕️</span>
+                          <Stethoscope className="w-4 h-4 text-white" />
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between items-center">

@@ -2,26 +2,27 @@
 
 import Link from "next/link";
 import Header from "@/components/Header";
+import { Search, Star, Smile, Sparkles, Wrench, Hospital, Phone, Mail, MapPin, X, Check } from "lucide-react";
 
 export default function HomePage() {
   const services = [
     {
-      icon: "🦷",
+      icon: <Smile className="w-8 h-8 text-sky-600" />,
       title: "Khám tổng quát",
       description: "Kiểm tra sức khỏe răng miệng định kỳ",
     },
     {
-      icon: "✨",
+      icon: <Sparkles className="w-8 h-8 text-sky-600" />,
       title: "Tẩy trắng răng",
       description: "Làm trắng răng an toàn, hiệu quả",
     },
     {
-      icon: "🔧",
+      icon: <Wrench className="w-8 h-8 text-sky-600" />,
       title: "Chỉnh nha",
       description: "Niềng răng, chỉnh hình hàm răng",
     },
     {
-      icon: "🏥",
+      icon: <Hospital className="w-8 h-8 text-sky-600" />,
       title: "Phẫu thuật",
       description: "Nhổ răng khôn, cấy ghép implant",
     },
@@ -82,7 +83,7 @@ export default function HomePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Tìm kiếm</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-400">🔍</span>
+                      <Search className="w-5 h-5 text-gray-400" />
                     </div>
                     <input
                       type="text"
@@ -104,8 +105,18 @@ export default function HomePage() {
             <div className="mt-6">
               <p className="text-sm text-gray-600 mb-3">Bạn đang tìm kiếm:</p>
               <div className="flex flex-wrap gap-2">
-                <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-sm">Nha khoa tổng quát ✕</span>
-                <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-sm">Chỉnh nha ✕</span>
+                <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-sm">
+                  Nha khoa tổng quát{" "}
+                  <span className="ml-2 inline-block">
+                    <X className="w-3 h-3" />
+                  </span>
+                </span>
+                <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-sm">
+                  Chỉnh nha{" "}
+                  <span className="ml-2 inline-block">
+                    <X className="w-3 h-3" />
+                  </span>
+                </span>
               </div>
             </div>
           </div>
@@ -155,7 +166,7 @@ export default function HomePage() {
                 <p className="text-sky-600 font-medium mb-1">{doctor.specialty}</p>
                 <p className="text-gray-600 text-sm mb-3">{doctor.experience}</p>
                 <div className="flex items-center justify-center">
-                  <span className="text-yellow-400">⭐</span>
+                  <Star className="text-yellow-400 w-5 h-5" />
                   <span className="ml-1 text-sm font-medium">{doctor.rating}</span>
                 </div>
               </div>
@@ -177,25 +188,25 @@ export default function HomePage() {
               <div className="space-y-4">
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-green-600">✓</span>
+                    <Check className="w-4 h-4 text-green-600" />
                   </div>
                   <span className="text-gray-700">Đặt lịch online dễ dàng</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-green-600">✓</span>
+                    <Check className="w-4 h-4 text-green-600" />
                   </div>
                   <span className="text-gray-700">Bác sĩ chuyên nghiệp, giàu kinh nghiệm</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-green-600">✓</span>
+                    <Check className="w-4 h-4 text-green-600" />
                   </div>
                   <span className="text-gray-700">Trang thiết bị hiện đại</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-green-600">✓</span>
+                    <Check className="w-4 h-4 text-green-600" />
                   </div>
                   <span className="text-gray-700">Theo dõi điều trị trực tuyến</span>
                 </div>
@@ -259,7 +270,7 @@ export default function HomePage() {
             <div>
               <div className="flex items-center mb-4">
                 <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center mr-2">
-                  <span className="text-white font-bold">🦷</span>
+                  <Smile className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-lg font-bold">Smart Dental</span>
               </div>
@@ -288,9 +299,18 @@ export default function HomePage() {
             <div>
               <h4 className="text-lg font-semibold mb-4">Liên hệ</h4>
               <ul className="space-y-2 text-gray-400">
-                <li>📞 1900 1234</li>
-                <li>📧 info@smartdental.vn</li>
-                <li>📍 TP. Hồ Chí Minh</li>
+                <li>
+                  <Phone className="inline w-4 h-4 mr-2" />
+                  1900 1234
+                </li>
+                <li>
+                  <Mail className="inline w-4 h-4 mr-2" />
+                  info@smartdental.vn
+                </li>
+                <li>
+                  <MapPin className="inline w-4 h-4 mr-2" />
+                  TP. Hồ Chí Minh
+                </li>
               </ul>
             </div>
           </div>

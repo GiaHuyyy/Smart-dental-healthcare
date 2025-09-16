@@ -4,17 +4,29 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  Home,
+  BarChart2,
+  Calendar,
+  Users,
+  MessageSquare,
+  FileText,
+  Pill,
+  TrendingUp,
+  Settings,
+  Smile,
+} from "lucide-react";
 
 const navigation = [
-  { name: "Trang chủ", href: "/", icon: "🏠", isHome: true },
-  { name: "Tổng quan", href: "/doctor", icon: "📊" },
-  { name: "Lịch khám", href: "/doctor/schedule", icon: "📅" },
-  { name: "Bệnh nhân", href: "/doctor/patients", icon: "👥" },
-  { name: "Chat & Tư vấn", href: "/doctor/chat", icon: "💬" },
-  { name: "Hồ sơ điều trị", href: "/doctor/medical-records", icon: "📋" },
-  { name: "Đơn thuốc", href: "/doctor/prescriptions", icon: "💊" },
-  { name: "Báo cáo", href: "/doctor/reports", icon: "📈" },
-  { name: "Cài đặt", href: "/doctor/settings", icon: "⚙️" },
+  { name: "Trang chủ", href: "/", icon: <Home className="w-4 h-4" />, isHome: true },
+  { name: "Tổng quan", href: "/doctor", icon: <BarChart2 className="w-4 h-4" /> },
+  { name: "Lịch khám", href: "/doctor/schedule", icon: <Calendar className="w-4 h-4" /> },
+  { name: "Bệnh nhân", href: "/doctor/patients", icon: <Users className="w-4 h-4" /> },
+  { name: "Chat & Tư vấn", href: "/doctor/chat", icon: <MessageSquare className="w-4 h-4" /> },
+  { name: "Hồ sơ điều trị", href: "/doctor/medical-records", icon: <FileText className="w-4 h-4" /> },
+  { name: "Đơn thuốc", href: "/doctor/prescriptions", icon: <Pill className="w-4 h-4" /> },
+  { name: "Báo cáo", href: "/doctor/reports", icon: <TrendingUp className="w-4 h-4" /> },
+  { name: "Cài đặt", href: "/doctor/settings", icon: <Settings className="w-4 h-4" /> },
 ];
 
 export default function DoctorLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +43,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">🦷</span>
+            <Smile className="w-8 h-8 text-white" />
           </div>
           <p className="text-gray-600">Đang tải...</p>
         </div>
@@ -77,7 +89,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
             </ul>
           </div>
         </nav>
-        
+
         {/* Main content - scrollable */}
         <main className="flex-1 ml-64 p-6 overflow-y-auto h-full">{children}</main>
       </div>
