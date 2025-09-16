@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { sendRequest } from "@/utils/api";
+import { Smile, Mail, AlertTriangle, Phone, Clock } from "lucide-react";
 
 interface VerifyProps {
   id: string | undefined;
@@ -103,7 +104,7 @@ export default function Verify({ id }: VerifyProps) {
         <div className="text-center">
           <Link href="/" className="flex items-center justify-center">
             <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">🦷</span>
+              <Smile className="w-8 h-8 text-white" />
             </div>
             <span className="ml-3 text-2xl font-bold text-gray-900">Smart Dental</span>
           </Link>
@@ -117,7 +118,7 @@ export default function Verify({ id }: VerifyProps) {
             {/* Email Icon */}
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">📧</span>
+                <Mail className="w-8 h-8 text-blue-600" />
               </div>
               <h3 className="text-lg font-medium text-gray-900">Kiểm tra email của bạn</h3>
               <p className="text-sm text-gray-600 mt-2">Chúng tôi đã gửi mã xác thực đến email của bạn</p>
@@ -144,7 +145,7 @@ export default function Verify({ id }: VerifyProps) {
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <span className="text-yellow-400">⚠️</span>
+                    <AlertTriangle className="w-6 h-6 text-yellow-400" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-yellow-800">
@@ -193,12 +194,17 @@ export default function Verify({ id }: VerifyProps) {
           <h4 className="text-lg font-medium text-gray-900 mb-3">Cần hỗ trợ?</h4>
           <div className="space-y-2 text-sm text-gray-600">
             <p>
-              📞 Hotline: <strong className="text-blue-600">1900 1234</strong>
+              <Phone className="inline w-4 h-4 mr-2" />
+              Hotline: <strong className="text-blue-600">1900 1234</strong>
             </p>
             <p>
-              📧 Email: <strong className="text-blue-600">support@smartdental.vn</strong>
+              <Mail className="inline w-4 h-4 mr-2" />
+              Email: <strong className="text-blue-600">support@smartdental.vn</strong>
             </p>
-            <p>🕒 Thời gian hỗ trợ: 8:00 - 22:00 hàng ngày</p>
+            <p>
+              <Clock className="inline w-4 h-4 mr-2" />
+              Thời gian hỗ trợ: 8:00 - 22:00 hàng ngày
+            </p>
           </div>
         </div>
       </div>

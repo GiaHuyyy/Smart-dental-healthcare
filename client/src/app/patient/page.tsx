@@ -1,3 +1,5 @@
+import { Calendar, Check, Clock } from "lucide-react";
+
 export default function PatientDashboard() {
   return (
     <div className="space-y-6">
@@ -12,7 +14,7 @@ export default function PatientDashboard() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <span className="text-2xl">📅</span>
+              <Calendar className="w-7 h-7 text-blue-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Lịch hẹn tiếp theo</p>
@@ -24,7 +26,7 @@ export default function PatientDashboard() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-green-100 rounded-lg">
-              <span className="text-2xl">✅</span>
+              <Check className="w-7 h-7 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Đã hoàn thành</p>
@@ -36,7 +38,7 @@ export default function PatientDashboard() {
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="p-2 bg-yellow-100 rounded-lg">
-              <span className="text-2xl">⏰</span>
+              <Clock className="w-7 h-7 text-yellow-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Đang chờ</p>

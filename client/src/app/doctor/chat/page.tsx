@@ -1,4 +1,5 @@
 "use client";
+import { User, Menu } from "lucide-react";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
@@ -383,7 +384,20 @@ export default function DoctorChatPage() {
                     >
                       <div className="flex items-start">
                         <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
-                          <span className="text-white text-sm">👤</span>
+                          <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6"
+                            />
+                          </svg>
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between items-center">
@@ -444,9 +458,7 @@ export default function DoctorChatPage() {
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg mr-3 transition-colors flex-shrink-0"
             title={showSidebar ? "Ẩn sidebar" : "Hiện sidebar"}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Menu className="w-5 h-5" />
           </button>
 
           {/* ChatHeader Component */}
@@ -468,7 +480,7 @@ export default function DoctorChatPage() {
               ) : (
                 <div className="flex items-center">
                   <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center mr-3">
-                    <span className="text-white text-sm">👤</span>
+                    <User className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">Chọn bệnh nhân để trò chuyện</h3>

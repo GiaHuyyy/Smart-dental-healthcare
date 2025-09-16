@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, X, Minimize2, Maximize2, Phone, Video, MoreVertical } from "lucide-react";
+import { Send, X, Minimize2, Maximize2, MoreVertical, Phone, Video } from "lucide-react";
+import CallMessage from "../call/CallMessage";
+import CallButton from "../call/CallButton";
 
 interface Message {
   _id: string;
@@ -11,9 +13,16 @@ interface Message {
     avatar?: string;
   };
   senderRole: "patient" | "doctor";
-  messageType: "text" | "image" | "file";
+  messageType: "text" | "image" | "file" | "call";
   createdAt: string;
   isRead: boolean;
+  callData?: {
+    callType: "audio" | "video";
+    callStatus: "missed" | "answered" | "rejected" | "completed";
+    callDuration: number;
+    startedAt: string;
+    endedAt?: string;
+  };
 }
 
 interface Conversation {
@@ -177,12 +186,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>
         <div className="flex space-x-1">
-          <button className="p-1 hover:bg-blue-700 rounded">
+          <CallButton
+            recipientId={otherUser._id}
+            recipientName={getDisplayName(otherUser)}
+            recipientRole={currentUserRole === "patient" ? "doctor" : "patient"}
+            isVideoCall={false}
+            className="p-1 hover:bg-blue-700 rounded text-white bg-transparent border-none"
+            showIcon={true}
+          >
             <Phone size={16} />
-          </button>
-          <button className="p-1 hover:bg-blue-700 rounded">
+          </CallButton>
+          <CallButton
+            recipientId={otherUser._id}
+            recipientName={getDisplayName(otherUser)}
+            recipientRole={currentUserRole === "patient" ? "doctor" : "patient"}
+            isVideoCall={true}
+            className="p-1 hover:bg-blue-700 rounded text-white bg-transparent border-none"
+            showIcon={true}
+          >
             <Video size={16} />
-          </button>
+          </CallButton>
           <button className="p-1 hover:bg-blue-700 rounded">
             <MoreVertical size={16} />
           </button>
@@ -202,14 +225,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             key={message._id}
             className={`flex ${message.senderId._id === currentUserId ? "justify-end" : "justify-start"}`}
           >
-            <div
-              className={`max-w-xs p-2 rounded-lg ${
-                message.senderId._id === currentUserId ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-800"
-              }`}
-            >
-              <p className="text-sm">{message.content}</p>
-              <p className="text-xs opacity-70 mt-1">{formatTime(message.createdAt)}</p>
-            </div>
+            {message.messageType === "call" && message.callData ? (
+              <CallMessage
+                callData={message.callData}
+                isOutgoing={message.senderId._id === currentUserId}
+                timestamp={message.createdAt}
+              />
+            ) : (
+              <div
+                className={`max-w-xs p-2 rounded-lg ${
+                  message.senderId._id === currentUserId ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                <p className="text-sm">{message.content}</p>
+                <p className="text-xs opacity-70 mt-1">{formatTime(message.createdAt)}</p>
+              </div>
+            )}
           </div>
         ))}
 

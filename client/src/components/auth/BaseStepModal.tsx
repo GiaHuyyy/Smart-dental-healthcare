@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import { X, Check } from "lucide-react";
 
 interface BaseStepModalProps {
   isModalOpen: boolean;
@@ -53,9 +54,7 @@ export default function BaseStepModal({
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-6 h-6" />
         </button>
 
         {/* Step indicator */}
@@ -69,17 +68,7 @@ export default function BaseStepModal({
                     step <= currentStep ? colors.active : colors.inactive
                   }`}
                 >
-                  {step < currentStep ? (
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  ) : (
-                    step
-                  )}
+                  {step < currentStep ? <Check className="w-4 h-4" /> : step}
                 </div>
                 {step < totalSteps && (
                   <div className={`w-8 h-0.5 mx-2 ${step < currentStep ? colors.line : "bg-gray-200"}`}></div>

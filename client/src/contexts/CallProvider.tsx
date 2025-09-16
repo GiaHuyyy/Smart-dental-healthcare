@@ -558,6 +558,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   const peerConnectionRef = useRef<any>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentMessageIdRef = useRef(null);
+  const hasShownConnectedToast = useRef(false);
+  const isInitiatingCall = useRef(false);
 
   // Get current user info
   const currentUserId = (session?.user as any)?._id || (session?.user as any)?.id;
@@ -635,12 +637,16 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Check if already in call
-      if (callState.inCall) {
+      if (callState.inCall || isInitiatingCall.current) {
         toast.error("Bạn đang trong cuộc gọi khác");
         return;
       }
 
+      isInitiatingCall.current = true;
       console.log("Initiating call to:", receiverId, receiverName, receiverRole);
+
+      // Reset toast flag for new call
+      hasShownConnectedToast.current = false;
 
       // Send call start message to chat
       if (sendMessage) {
@@ -668,10 +674,14 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         stream,
         isVideoCall,
         onSignal: (signal: any) => {
+          const firstName = (session?.user as any)?.firstName || "";
+          const lastName = (session?.user as any)?.lastName || "";
+          const callerName = `${firstName} ${lastName}`.trim() || "Người dùng";
+
           socket.emit("call-user", {
             callerId: currentUserId,
             receiverId,
-            callerName: (session?.user as any)?.firstName + " " + (session?.user as any)?.lastName,
+            callerName,
             callerRole: currentUserRole,
             isVideoCall,
             signal,
@@ -698,6 +708,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       console.error("Error initiating call:", error);
       toast.error("Không thể bắt đầu cuộc gọi");
       endCall();
+    } finally {
+      isInitiatingCall.current = false;
     }
   };
 
@@ -736,7 +748,8 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      startCallTimer();
+      // Don't start timer here - wait for call-accepted event
+      // startCallTimer(); // REMOVED - timer starts when connection is established
     } catch (error) {
       console.error("Error answering call:", error);
       toast.error("Không thể trả lời cuộc gọi");
@@ -753,6 +766,10 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
         reason,
       });
     }
+
+    // Reset flags
+    hasShownConnectedToast.current = false;
+    isInitiatingCall.current = false;
 
     // Reset call state
     setCallState({
@@ -791,16 +808,19 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
 
   // End call
   const endCall = () => {
-    if (socket && callState.inCall) {
+    // Always emit end-call signal regardless of current state
+    if (socket && (callState.inCall || callState.isReceivingCall)) {
+      const otherUserId = callState.receiverId || callState.caller;
+
       socket.emit("end-call", {
         callerId: currentUserId,
-        receiverId: callState.receiverId,
+        receiverId: otherUserId,
         messageId: currentMessageIdRef.current,
         callDuration: callState.callDuration,
       });
 
-      // Send call end message to chat
-      if (sendMessage && callState.receiverId) {
+      // Send call end message to chat only if we were actually in call
+      if (sendMessage && otherUserId && callState.inCall) {
         const duration = formatDuration(callState.callDuration);
         const callEndMessage = `📞 Cuộc gọi ${
           callState.isVideoCall ? "video" : "thoại"
@@ -810,6 +830,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
     }
 
     rejectCall();
+    isInitiatingCall.current = false;
     toast.success("Cuộc gọi đã kết thúc");
   };
 
@@ -909,7 +930,12 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       }
 
       startCallTimer();
-      toast.success("Cuộc gọi đã được kết nối");
+
+      // Only show toast if not already shown for this call
+      if (!hasShownConnectedToast.current) {
+        hasShownConnectedToast.current = true;
+        toast.success("Cuộc gọi đã được kết nối");
+      }
     });
 
     // Call rejected

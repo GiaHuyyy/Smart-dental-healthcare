@@ -1,6 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
+import { Home, BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings } from "lucide-react";
 import ChatButtonSimple from "@/components/chat/ChatButtonSimple";
 import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
@@ -9,14 +10,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const navigation = [
-  { name: "Trang chủ", href: "/", icon: "🏠", isHome: true },
-  { name: "Tổng quan", href: "/patient", icon: "📊" },
-  { name: "Đặt lịch hẹn", href: "/patient/appointments", icon: "📅" },
-  { name: "Chat & Tư vấn", href: "/patient/chat", icon: "💬" },
-  { name: "Hồ sơ điều trị", href: "/patient/records", icon: "📋" },
-  { name: "Đơn thuốc", href: "/patient/prescriptions", icon: "💊" },
-  { name: "Thanh toán", href: "/patient/payments", icon: "💳" },
-  { name: "Cài đặt", href: "/patient/settings", icon: "⚙️" },
+  { name: "Trang chủ", href: "/", icon: <Home className="w-4 h-4" />, isHome: true },
+  { name: "Tổng quan", href: "/patient", icon: <BarChart2 className="w-4 h-4" /> },
+  { name: "Đặt lịch hẹn", href: "/patient/appointments", icon: <Calendar className="w-4 h-4" /> },
+  { name: "Chat & Tư vấn", href: "/patient/chat", icon: <MessageSquare className="w-4 h-4" /> },
+  { name: "Hồ sơ điều trị", href: "/patient/records", icon: <FileText className="w-4 h-4" /> },
+  { name: "Đơn thuốc", href: "/patient/prescriptions", icon: <Pill className="w-4 h-4" /> },
+  { name: "Thanh toán", href: "/patient/payments", icon: <CreditCard className="w-4 h-4" /> },
+  { name: "Cài đặt", href: "/patient/settings", icon: <Settings className="w-4 h-4" /> },
 ];
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
@@ -266,7 +267,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             <div className="flex items-start gap-4">
               <div className="flex-none">
                 <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xl">
-                  📅
+                  <Calendar className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
               <div className="flex-1">

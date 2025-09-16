@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Search, FileText, BarChart2, Lightbulb, Wrench, Stethoscope, Calendar, Check } from "lucide-react";
 
 interface ChatMessageProps {
   role: "user" | "assistant";
@@ -27,12 +28,12 @@ export default function ChatMessage({
   const hasActions = actionButtons && actionButtons.length > 0;
 
   const getButtonIcon = (buttonText: string) => {
-    if (buttonText.includes("Giải thích")) return "💡";
-    if (buttonText.includes("Đặt lịch")) return "📅";
-    if (buttonText.includes("Hướng dẫn")) return "🏠";
-    if (buttonText.includes("Gợi ý bác sĩ")) return "👨‍⚕️";
-    if (buttonText.includes("Kết thúc")) return "✅";
-    return "🔧";
+    if (buttonText.includes("Giải thích")) return <Lightbulb className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Đặt lịch")) return <Calendar className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Hướng dẫn")) return <Wrench className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Gợi ý bác sĩ")) return <Stethoscope className="w-4 h-4 mr-1" />;
+    if (buttonText.includes("Kết thúc")) return <Check className="w-4 h-4 mr-1" />;
+    return <Wrench className="w-4 h-4 mr-1" />;
   };
 
   return (
@@ -65,14 +66,17 @@ export default function ChatMessage({
           <div className="space-y-2">
             {/* Header */}
             <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-              <span className="text-blue-800 font-bold text-base">🔍 Kết quả phân tích ảnh</span>
+              <span className="text-blue-800 font-bold text-base inline-flex items-center">
+                <Search className="w-4 h-4 mr-2" />
+                Kết quả phân tích ảnh
+              </span>
             </div>
 
             {/* Chẩn đoán */}
             {analysisData.richContent?.analysis && (
               <div className="p-2 bg-blue-50 rounded-lg border-l-4 border-blue-500">
                 <div className="text-sm font-semibold text-blue-700 mb-1 flex items-center">
-                  <span className="mr-1">📋</span>
+                  <FileText className="w-4 h-4 mr-1" />
                   CHẨN ĐOÁN
                 </div>
                 <p className="text-blue-900 leading-normal text-sm">{analysisData.richContent.analysis}</p>
@@ -83,7 +87,7 @@ export default function ChatMessage({
             {analysisData.richContent?.sections && analysisData.richContent.sections.length > 0 && (
               <div className="p-2 bg-gray-50 rounded-lg border-l-4 border-gray-500">
                 <div className="text-sm font-semibold text-gray-700 mb-1 flex items-center">
-                  <span className="mr-1">📊</span>
+                  <BarChart2 className="w-4 h-4 mr-1" />
                   CHI TIẾT PHÂN TÍCH
                 </div>
                 <div className="space-y-1">
@@ -115,7 +119,7 @@ export default function ChatMessage({
             {analysisData.richContent?.recommendations && (
               <div className="p-2 bg-green-50 rounded-lg border-l-4 border-green-500">
                 <div className="text-sm font-semibold text-green-700 mb-1 flex items-center">
-                  <span className="mr-1">💡</span>
+                  <Lightbulb className="w-4 h-4 mr-1" />
                   KHUYẾN NGHỊ
                 </div>
                 <div className="space-y-0">
@@ -132,7 +136,7 @@ export default function ChatMessage({
             {/* Action prompt */}
             <div className="text-center p-2 bg-orange-50 rounded-lg border border-orange-200">
               <p className="text-orange-700 font-medium flex items-center justify-center text-sm">
-                <span className="mr-1">🔧</span>
+                <Wrench className="w-4 h-4 mr-1" />
                 Sử dụng các nút bên dưới để tương tác
               </p>
             </div>

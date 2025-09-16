@@ -1,4 +1,6 @@
-"use client";
+import { User } from "lucide-react";
+
+("use client");
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,8 +53,8 @@ interface MedicalRecordForm {
 export default function TreatmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const appointmentId = searchParams.get('appointmentId');
-  const patientId = searchParams.get('patientId');
+  const appointmentId = searchParams.get("appointmentId");
+  const patientId = searchParams.get("patientId");
   const { toast } = useToast();
 
   const [appointment, setAppointment] = useState<Appointment | null>(null);
@@ -60,26 +62,26 @@ export default function TreatmentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [medicalRecord, setMedicalRecord] = useState<MedicalRecordForm>({
-    patientId: patientId || '',
-    appointmentId: appointmentId || '',
-    chiefComplaint: '',
-    diagnosis: '',
-    treatmentPlan: '',
-    medications: [''],
-    notes: '',
-    status: 'active',
+    patientId: patientId || "",
+    appointmentId: appointmentId || "",
+    chiefComplaint: "",
+    diagnosis: "",
+    treatmentPlan: "",
+    medications: [""],
+    notes: "",
+    status: "active",
     isFollowUpRequired: false,
-    followUpDate: '',
-    dentalChart: []
+    followUpDate: "",
+    dentalChart: [],
   });
 
   useEffect(() => {
     if (!appointmentId || !patientId) {
       toast({
         title: "Lỗi",
-        description: "Thiếu thông tin cuộc hẹn hoặc bệnh nhân"
+        description: "Thiếu thông tin cuộc hẹn hoặc bệnh nhân",
       });
-      router.push('/doctor/schedule');
+      router.push("/doctor/schedule");
       return;
     }
 
@@ -89,17 +91,17 @@ export default function TreatmentPage() {
 
   const fetchAppointmentDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       };
-      
+
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers["Authorization"] = `Bearer ${token}`;
       }
 
       const response = await fetch(`/api/appointments/${appointmentId}`, {
-        headers
+        headers,
       });
 
       if (response.ok) {
@@ -108,34 +110,34 @@ export default function TreatmentPage() {
       } else {
         // Fallback to mock data if API fails
         setAppointment({
-          _id: appointmentId || '',
-          appointmentDate: new Date().toISOString().split('T')[0],
-          startTime: '09:00',
-          appointmentType: 'Khám tổng quát',
-          status: 'in-progress',
+          _id: appointmentId || "",
+          appointmentDate: new Date().toISOString().split("T")[0],
+          startTime: "09:00",
+          appointmentType: "Khám tổng quát",
+          status: "in-progress",
           patient: {
-            _id: patientId || '',
-            fullName: 'Đang tải...',
-            email: '',
-            phone: ''
-          }
+            _id: patientId || "",
+            fullName: "Đang tải...",
+            email: "",
+            phone: "",
+          },
         });
       }
     } catch (error) {
-      console.error('Error fetching appointment:', error);
+      console.error("Error fetching appointment:", error);
       // Fallback to mock data
       setAppointment({
-        _id: appointmentId || '',
-        appointmentDate: new Date().toISOString().split('T')[0],
-        startTime: '09:00',
-        appointmentType: 'Khám tổng quát',
-        status: 'in-progress',
+        _id: appointmentId || "",
+        appointmentDate: new Date().toISOString().split("T")[0],
+        startTime: "09:00",
+        appointmentType: "Khám tổng quát",
+        status: "in-progress",
         patient: {
-          _id: patientId || '',
-          fullName: 'Đang tải...',
-          email: '',
-          phone: ''
-        }
+          _id: patientId || "",
+          fullName: "Đang tải...",
+          email: "",
+          phone: "",
+        },
       });
     }
   };
@@ -144,72 +146,72 @@ export default function TreatmentPage() {
     try {
       const response = await fetch(`/api/users/patients/${patientId}/details`);
       const data = await response.json();
-      
+
       if (data.success) {
         setPatient(data.data);
-        setAppointment(prev => prev ? { ...prev, patient: data.data } : null);
+        setAppointment((prev) => (prev ? { ...prev, patient: data.data } : null));
       }
     } catch (error) {
-      console.error('Error fetching patient:', error);
+      console.error("Error fetching patient:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleInputChange = (field: keyof MedicalRecordForm, value: any) => {
-    setMedicalRecord(prev => ({
+    setMedicalRecord((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const handleMedicationChange = (index: number, value: string) => {
     const newMedications = [...medicalRecord.medications];
     newMedications[index] = value;
-    setMedicalRecord(prev => ({
+    setMedicalRecord((prev) => ({
       ...prev,
-      medications: newMedications
+      medications: newMedications,
     }));
   };
 
   const addMedication = () => {
-    setMedicalRecord(prev => ({
+    setMedicalRecord((prev) => ({
       ...prev,
-      medications: [...prev.medications, '']
+      medications: [...prev.medications, ""],
     }));
   };
 
   const removeMedication = (index: number) => {
     const newMedications = medicalRecord.medications.filter((_, i) => i !== index);
-    setMedicalRecord(prev => ({
+    setMedicalRecord((prev) => ({
       ...prev,
-      medications: newMedications
+      medications: newMedications,
     }));
   };
 
   const handleDentalChartUpdate = (toothNumber: number, field: string, value: string) => {
-    const existingIndex = medicalRecord.dentalChart.findIndex(item => item.toothNumber === toothNumber);
-    
+    const existingIndex = medicalRecord.dentalChart.findIndex((item) => item.toothNumber === toothNumber);
+
     if (existingIndex >= 0) {
       const newDentalChart = [...medicalRecord.dentalChart];
       newDentalChart[existingIndex] = {
         ...newDentalChart[existingIndex],
-        [field]: value
+        [field]: value,
       };
-      setMedicalRecord(prev => ({
+      setMedicalRecord((prev) => ({
         ...prev,
-        dentalChart: newDentalChart
+        dentalChart: newDentalChart,
       }));
     } else {
       const newItem = {
         toothNumber,
-        condition: field === 'condition' ? value : '',
-        treatment: field === 'treatment' ? value : '',
-        notes: field === 'notes' ? value : ''
+        condition: field === "condition" ? value : "",
+        treatment: field === "treatment" ? value : "",
+        notes: field === "notes" ? value : "",
       };
-      setMedicalRecord(prev => ({
+      setMedicalRecord((prev) => ({
         ...prev,
-        dentalChart: [...prev.dentalChart, newItem]
+        dentalChart: [...prev.dentalChart, newItem],
       }));
     }
   };
@@ -218,50 +220,50 @@ export default function TreatmentPage() {
     if (!medicalRecord.chiefComplaint || !medicalRecord.diagnosis) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng điền đầy đủ triệu chứng chính và chẩn đoán"
+        description: "Vui lòng điền đầy đủ triệu chứng chính và chẩn đoán",
       });
       return;
     }
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       };
-      
+
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const response = await fetch('/api/medical-records', {
-        method: 'POST',
+      const response = await fetch("/api/medical-records", {
+        method: "POST",
         headers,
         body: JSON.stringify({
           ...medicalRecord,
-          medications: medicalRecord.medications.filter(med => med.trim() !== ''),
-          recordDate: new Date().toISOString()
-        })
+          medications: medicalRecord.medications.filter((med) => med.trim() !== ""),
+          recordDate: new Date().toISOString(),
+        }),
       });
 
       if (response.ok) {
         toast({
           title: "Thành công",
-          description: "Đã lưu hồ sơ bệnh án thành công"
+          description: "Đã lưu hồ sơ bệnh án thành công",
         });
-        
+
         // Update appointment status to completed
-        await updateAppointmentStatus('completed');
-        
-        router.push('/doctor/schedule');
+        await updateAppointmentStatus("completed");
+
+        router.push("/doctor/schedule");
       } else {
-        throw new Error('Failed to save medical record');
+        throw new Error("Failed to save medical record");
       }
     } catch (error) {
-      console.error('Error saving medical record:', error);
+      console.error("Error saving medical record:", error);
       toast({
         title: "Lỗi",
-        description: "Không thể lưu hồ sơ bệnh án"
+        description: "Không thể lưu hồ sơ bệnh án",
       });
     } finally {
       setSaving(false);
@@ -270,27 +272,27 @@ export default function TreatmentPage() {
 
   const updateAppointmentStatus = async (status: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       };
-      
+
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers["Authorization"] = `Bearer ${token}`;
       }
 
       await fetch(`/api/appointments/${appointmentId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers,
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status }),
       });
     } catch (error) {
-      console.error('Error updating appointment status:', error);
+      console.error("Error updating appointment status:", error);
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
+    return new Date(dateString).toLocaleDateString("vi-VN");
   };
 
   const calculateAge = (dateOfBirth: string) => {
@@ -298,11 +300,11 @@ export default function TreatmentPage() {
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     return age;
   };
 
@@ -319,8 +321,8 @@ export default function TreatmentPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <button 
-            onClick={() => router.push('/doctor/schedule')}
+          <button
+            onClick={() => router.push("/doctor/schedule")}
             className="text-blue-600 hover:text-blue-800 mb-2 inline-block"
           >
             ← Quay lại lịch khám
@@ -329,18 +331,11 @@ export default function TreatmentPage() {
           <p className="text-gray-600">Tạo hồ sơ bệnh án cho cuộc hẹn</p>
         </div>
         <div className="flex space-x-3">
-          <Button 
-            variant="outline" 
-            onClick={() => router.push('/doctor/schedule')}
-          >
+          <Button variant="outline" onClick={() => router.push("/doctor/schedule")}>
             Hủy
           </Button>
-          <Button 
-            onClick={saveMedicalRecord}
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {saving ? 'Đang lưu...' : 'Lưu hồ sơ'}
+          <Button onClick={saveMedicalRecord} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+            {saving ? "Đang lưu..." : "Lưu hồ sơ"}
           </Button>
         </div>
       </div>
@@ -351,7 +346,7 @@ export default function TreatmentPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                👤 Thông tin bệnh nhân
+                <User className="w-4 h-4" /> Thông tin bệnh nhân
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -365,13 +360,13 @@ export default function TreatmentPage() {
                     <div>
                       <label className="text-sm font-medium text-gray-700">Tuổi</label>
                       <p className="text-gray-900">
-                        {patient.dateOfBirth ? `${calculateAge(patient.dateOfBirth)} tuổi` : 'Chưa cập nhật'}
+                        {patient.dateOfBirth ? `${calculateAge(patient.dateOfBirth)} tuổi` : "Chưa cập nhật"}
                       </p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700">Giới tính</label>
                       <p className="text-gray-900">
-                        {patient.gender === 'male' ? 'Nam' : patient.gender === 'female' ? 'Nữ' : 'Chưa cập nhật'}
+                        {patient.gender === "male" ? "Nam" : patient.gender === "female" ? "Nữ" : "Chưa cập nhật"}
                       </p>
                     </div>
                     <div>
@@ -418,7 +413,7 @@ export default function TreatmentPage() {
                 </label>
                 <Textarea
                   value={medicalRecord.chiefComplaint}
-                  onChange={(e) => handleInputChange('chiefComplaint', e.target.value)}
+                  onChange={(e) => handleInputChange("chiefComplaint", e.target.value)}
                   placeholder="Mô tả triệu chứng chính mà bệnh nhân đến khám..."
                   rows={3}
                 />
@@ -430,19 +425,17 @@ export default function TreatmentPage() {
                 </label>
                 <Textarea
                   value={medicalRecord.diagnosis}
-                  onChange={(e) => handleInputChange('diagnosis', e.target.value)}
+                  onChange={(e) => handleInputChange("diagnosis", e.target.value)}
                   placeholder="Chẩn đoán bệnh lý sau khi thăm khám..."
                   rows={3}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Kế hoạch điều trị
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Kế hoạch điều trị</label>
                 <Textarea
                   value={medicalRecord.treatmentPlan}
-                  onChange={(e) => handleInputChange('treatmentPlan', e.target.value)}
+                  onChange={(e) => handleInputChange("treatmentPlan", e.target.value)}
                   placeholder="Mô tả kế hoạch điều trị chi tiết..."
                   rows={4}
                 />
@@ -497,7 +490,7 @@ export default function TreatmentPage() {
                   type="checkbox"
                   id="followUp"
                   checked={medicalRecord.isFollowUpRequired}
-                  onChange={(e) => handleInputChange('isFollowUpRequired', e.target.checked)}
+                  onChange={(e) => handleInputChange("isFollowUpRequired", e.target.checked)}
                   className="rounded"
                 />
                 <label htmlFor="followUp" className="text-sm font-medium text-gray-700">
@@ -507,14 +500,12 @@ export default function TreatmentPage() {
 
               {medicalRecord.isFollowUpRequired && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ngày tái khám
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ngày tái khám</label>
                   <Input
                     type="date"
                     value={medicalRecord.followUpDate}
-                    onChange={(e) => handleInputChange('followUpDate', e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => handleInputChange("followUpDate", e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
                   />
                 </div>
               )}
@@ -529,7 +520,7 @@ export default function TreatmentPage() {
             <CardContent>
               <Textarea
                 value={medicalRecord.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
+                onChange={(e) => handleInputChange("notes", e.target.value)}
                 placeholder="Ghi chú thêm về quá trình điều trị, lưu ý đặc biệt..."
                 rows={4}
               />

@@ -316,4 +316,72 @@ export class RealtimeChatService {
 
     return conversation;
   }
+
+  async createCallMessage(
+    senderId: string,
+    receiverId: string,
+    senderRole: 'patient' | 'doctor',
+    callData: {
+      callType: 'audio' | 'video';
+      callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
+      callDuration: number;
+      startedAt: Date;
+      endedAt?: Date;
+    },
+  ): Promise<MessageDocument> {
+    // Find or create conversation
+    const patientId = senderRole === 'patient' ? senderId : receiverId;
+    const doctorId = senderRole === 'doctor' ? senderId : receiverId;
+
+    let conversation = await this.getConversationByParticipants(
+      new Types.ObjectId(patientId),
+      new Types.ObjectId(doctorId),
+    );
+
+    if (!conversation) {
+      conversation = await this.createConversation({
+        patientId: new Types.ObjectId(patientId),
+        doctorId: new Types.ObjectId(doctorId),
+      });
+    }
+
+    // Create message
+    const message = new this.messageModel({
+      conversationId: conversation._id,
+      senderId: new Types.ObjectId(senderId),
+      senderRole,
+      content: '',
+      messageType: 'call',
+      callData,
+    });
+
+    const savedMessage = await message.save();
+
+    // Update conversation's last message
+    conversation.lastMessage = savedMessage._id as Types.ObjectId;
+    await conversation.save();
+
+    return savedMessage;
+  }
+
+  async updateCallStatus(
+    messageId: string,
+    callStatus: 'missed' | 'answered' | 'rejected' | 'completed',
+    callDuration: number = 0,
+    endedAt: Date = new Date(),
+  ): Promise<MessageDocument> {
+    const message = await this.messageModel.findById(messageId);
+    if (!message || message.messageType !== 'call') {
+      throw new NotFoundException('Call message not found');
+    }
+
+    message.callData = {
+      ...message.callData,
+      callStatus,
+      callDuration,
+      endedAt,
+    };
+
+    return await message.save();
+  }
 }

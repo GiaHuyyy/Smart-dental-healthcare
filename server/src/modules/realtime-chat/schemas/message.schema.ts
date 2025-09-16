@@ -19,7 +19,7 @@ export class Message {
 
   @Prop({
     type: String,
-    enum: ['text', 'image', 'video', 'file'],
+    enum: ['text', 'image', 'video', 'file', 'call'],
     default: 'text',
   })
   messageType: string;
@@ -56,6 +56,27 @@ export class Message {
 
   @Prop({ type: Types.ObjectId, ref: 'Message', default: null })
   replyTo: Types.ObjectId;
+
+  @Prop({
+    type: {
+      callType: { type: String, enum: ['audio', 'video'] },
+      callStatus: {
+        type: String,
+        enum: ['missed', 'answered', 'rejected', 'completed'],
+      },
+      callDuration: { type: Number, default: 0 }, // in seconds
+      startedAt: { type: Date },
+      endedAt: { type: Date },
+    },
+    default: null,
+  })
+  callData: {
+    callType: 'audio' | 'video';
+    callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
+    callDuration: number;
+    startedAt: Date;
+    endedAt: Date;
+  };
 
   @Prop({ type: Object, default: null })
   metadata: any; // For future extensions

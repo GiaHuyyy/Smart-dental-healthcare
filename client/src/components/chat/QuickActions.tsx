@@ -1,5 +1,23 @@
 "use client";
 
+import {
+  Frown,
+  Smile,
+  Sparkles,
+  Wrench,
+  Droplet,
+  Pill,
+  Camera,
+  MessageSquare,
+  Calendar,
+  Phone,
+  Truck,
+  MapPin,
+  Clipboard,
+  CreditCard,
+  HelpCircle,
+} from "lucide-react";
+
 interface QuickActionsProps {
   actions: string[];
   onActionClick: (action: string) => void;
@@ -17,27 +35,27 @@ export default function QuickActions({
 
   const getActionIcon = (action: string) => {
     const lowerAction = action.toLowerCase();
-    if (lowerAction.includes("sâu răng") || lowerAction.includes("ê buốt")) return "😖";
+    if (lowerAction.includes("sâu răng") || lowerAction.includes("ê buốt")) return <Frown className="w-5 h-5" />;
     if (lowerAction.includes("mọc lệch") || lowerAction.includes("chen chúc") || lowerAction.includes("khớp cắn"))
-      return "🦷";
+      return <Smile className="w-5 h-5" />;
     if (lowerAction.includes("ố vàng") || lowerAction.includes("xỉn màu") || lowerAction.includes("không đều"))
-      return "✨";
+      return <Sparkles className="w-5 h-5" />;
     if (lowerAction.includes("hàm hô") || lowerAction.includes("hàm móm") || lowerAction.includes("chấn thương"))
-      return "🔧";
-    if (lowerAction.includes("chảy máu lợi") || lowerAction.includes("chải răng")) return "🩸";
+      return <Wrench className="w-5 h-5" />;
+    if (lowerAction.includes("chảy máu lợi") || lowerAction.includes("chải răng"))
+      return <Droplet className="w-5 h-5" />;
     if (lowerAction.includes("răng sữa") || lowerAction.includes("trẻ") || lowerAction.includes("sợ đi khám"))
-      return "💊";
-    if (lowerAction.includes("phân tích") || lowerAction.includes("x-quang")) return "📸";
-    if (lowerAction.includes("tư vấn")) return "💬";
-    if (lowerAction.includes("đặt lịch")) return "📅";
-    if (lowerAction.includes("gọi")) return "📞";
-    if (lowerAction.includes("cấp cứu")) return "🚑";
-    if (lowerAction.includes("tìm")) return "📍";
-    if (lowerAction.includes("báo cáo")) return "📋";
-    if (lowerAction.includes("xem lịch")) return "📅";
-    if (lowerAction.includes("thanh toán")) return "💳";
-    if (lowerAction.includes("câu hỏi")) return "❓";
-    return "🔧";
+      return <Pill className="w-5 h-5" />;
+    if (lowerAction.includes("phân tích") || lowerAction.includes("x-quang")) return <Camera className="w-5 h-5" />;
+    if (lowerAction.includes("tư vấn")) return <MessageSquare className="w-5 h-5" />;
+    if (lowerAction.includes("đặt lịch") || lowerAction.includes("xem lịch")) return <Calendar className="w-5 h-5" />;
+    if (lowerAction.includes("gọi")) return <Phone className="w-5 h-5" />;
+    if (lowerAction.includes("cấp cứu")) return <Truck className="w-5 h-5" />;
+    if (lowerAction.includes("tìm")) return <MapPin className="w-5 h-5" />;
+    if (lowerAction.includes("báo cáo")) return <Clipboard className="w-5 h-5" />;
+    if (lowerAction.includes("thanh toán")) return <CreditCard className="w-5 h-5" />;
+    if (lowerAction.includes("câu hỏi")) return <HelpCircle className="w-5 h-5" />;
+    return <Wrench className="w-5 h-5" />;
   };
 
   return (

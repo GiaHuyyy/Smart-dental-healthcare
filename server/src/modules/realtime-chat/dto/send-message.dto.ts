@@ -17,7 +17,7 @@ export class SendMessageDto {
   content?: string;
 
   @IsOptional()
-  @IsEnum(['text', 'image', 'video', 'file'])
+  @IsEnum(['text', 'image', 'video', 'file', 'call'])
   messageType?: string = 'text';
 
   @IsOptional()
@@ -38,4 +38,16 @@ export class SendMessageDto {
   @IsOptional()
   @IsMongoId()
   replyTo?: Types.ObjectId;
+
+  @IsOptional()
+  callData?: {
+    callType: 'audio' | 'video';
+    callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
+    callDuration: number;
+    startedAt: Date;
+    endedAt?: Date;
+  };
+
+  @IsOptional()
+  receiverId?: Types.ObjectId;
 }
