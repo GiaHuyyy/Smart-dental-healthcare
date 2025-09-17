@@ -676,7 +676,7 @@ export default function DoctorPrescriptionsPage() {
         </div>
 
         {/* Patient Filter */}
-        <div className="w-64">
+        <div className="w-30">
           <Select value={selectedPatientFilter} onValueChange={setSelectedPatientFilter}>
             <SelectTrigger className="h-12 border-2 border-gray-200">
               <SelectValue placeholder="Lọc theo bệnh nhân" />

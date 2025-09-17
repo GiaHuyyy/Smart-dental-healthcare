@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { name: "Trang chủ", href: "/", icon: <Home className="w-4 h-4" />, isHome: true },
   { name: "Tổng quan", href: "/doctor", icon: <BarChart2 className="w-4 h-4" /> },
   { name: "Lịch khám", href: "/doctor/schedule", icon: <Calendar className="w-4 h-4" /> },
   { name: "Bệnh nhân", href: "/doctor/patients", icon: <Users className="w-4 h-4" /> },
@@ -56,48 +55,57 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Fixed Sidebar */}
+      <nav className="w-30 bg-white shadow-sm fixed top-0 left-0 bottom-0 z-30 overflow-y-auto">
+        <div className="py-4 px-2">
+          <div className="flex items-center justify-center mb-6">
+            <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
+              <div
+                style={{ backgroundColor: "var(--color-primary)" }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center"
+              >
+                <Smile className="w-5 h-5 text-white" />
+              </div>
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href;
+
+              const linkClasses = `flex flex-col items-center justify-center py-2 text-sm rounded-md transition-colors ${
+                isActive ? "bg-primary-100 text-primary" : "text-gray-600 hover:bg-gray-100"
+              }`;
+
+              const iconEl = item.icon ? (
+                <span
+                  className="w-4 h-4 inline-flex items-center justify-center"
+                  style={{ color: isActive ? "var(--color-primary-600)" : undefined }}
+                >
+                  {item.icon}
+                </span>
+              ) : null;
+
+              return (
+                <li key={item.name}>
+                  <Link href={item.href} className={linkClasses}>
+                    <span>{iconEl}</span>
+                    {item.name}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </nav>
+
       {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-40">
+      <div className="fixed top-0 left-30 right-0 z-40">
         <Header role="Bác sĩ" />
       </div>
 
       <div className="flex h-screen pt-16">
-        {/* Fixed Sidebar */}
-        <nav className="w-64 bg-white shadow-sm fixed top-16 left-0 bottom-0 z-30 overflow-y-auto">
-          <div className="p-4">
-            <ul className="space-y-2">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href;
-                const isHomeItem = item.isHome;
-
-                return (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors`}
-                      style={{
-                        backgroundColor: isHomeItem
-                          ? "rgba(106,166,177,0.06)"
-                          : isActive
-                          ? "rgba(106,166,177,0.08)"
-                          : undefined,
-                        color: isHomeItem || isActive ? "var(--color-primary-600)" : undefined,
-                        border: isHomeItem ? `1px solid rgba(90,152,162,0.12)` : undefined,
-                      }}
-                    >
-                      <span className="mr-3">{item.icon}</span>
-                      {item.name}
-                      {isHomeItem && <span className="ml-auto text-xs">↗</span>}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </nav>
-
         {/* Main content - scrollable */}
-        <main className="flex-1 ml-64 p-6 overflow-y-auto h-full">{children}</main>
+        <main className="flex-1 ml-30 p-6 overflow-y-auto h-full">{children}</main>
       </div>
     </div>
   );

@@ -1,8 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
-import { Home, BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings } from "lucide-react";
-import ChatButtonSimple from "@/components/chat/ChatButtonSimple";
+import { BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings, Smile } from "lucide-react";
 import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -10,7 +9,6 @@ import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 
 const navigation = [
-  { name: "Trang chủ", href: "/", icon: <Home className="w-4 h-4" />, isHome: true },
   { name: "Tổng quan", href: "/patient", icon: <BarChart2 className="w-4 h-4" /> },
   { name: "Đặt lịch hẹn", href: "/patient/appointments", icon: <Calendar className="w-4 h-4" /> },
   { name: "Chat & Tư vấn", href: "/patient/chat", icon: <MessageSquare className="w-4 h-4" /> },
@@ -219,53 +217,57 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-40">
-        <Header role="Bệnh nhân" />
-      </div>
+      {/* Fixed Sidebar */}
+      <nav className="w-30 bg-white shadow-sm fixed top-0 left-0 bottom-0 z-30 overflow-y-auto">
+        <div className="py-4 px-2">
+          <div className="flex items-center justify-center mb-6">
+            <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
+              <div
+                style={{ backgroundColor: "var(--color-primary)" }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center"
+              >
+                <Smile className="w-5 h-5 text-white" />
+              </div>
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href;
+
+              const linkClasses = `flex flex-col items-center justify-center py-2 text-sm rounded-md transition-colors ${
+                isActive ? "bg-primary-100 text-primary" : "text-gray-600 hover:bg-gray-100"
+              }`;
+
+              const iconEl = item.icon ? (
+                <span
+                  className="w-4 h-4 inline-flex items-center justify-center"
+                  style={{ color: isActive ? "var(--color-primary-600)" : undefined }}
+                >
+                  {item.icon}
+                </span>
+              ) : null;
+
+              return (
+                <li key={item.name}>
+                  <Link href={item.href} className={linkClasses}>
+                    <span>{iconEl}</span>
+                    {item.name}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </nav>
 
       <div className="flex h-screen pt-16">
-        {/* Fixed Sidebar */}
-        <nav className="w-64 bg-white shadow-sm fixed top-16 left-0 bottom-0 z-30 overflow-y-auto">
-          <div className="p-4">
-            <ul className="space-y-2">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href;
-                const isHomeItem = item.isHome;
-
-                const linkClasses = `flex items-center px-4 py-2 text-sm rounded-md transition-colors ${
-                  isHomeItem
-                    ? "bg-primary-100 text-primary hover:bg-primary-50 border border-primary-outline"
-                    : isActive
-                    ? "bg-primary-100 text-primary"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`;
-
-                const iconEl = item.icon ? (
-                  <span
-                    className="w-4 h-4 inline-flex items-center justify-center"
-                    style={{ color: isActive || isHomeItem ? "var(--color-primary-600)" : undefined }}
-                  >
-                    {item.icon}
-                  </span>
-                ) : null;
-
-                return (
-                  <li key={item.name}>
-                    <Link href={item.href} className={linkClasses}>
-                      <span className="mr-3">{iconEl}</span>
-                      {item.name}
-                      {isHomeItem && <span className="ml-auto text-xs">↗</span>}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </nav>
+        {/* Fixed Header */}
+        <div className="fixed top-0 left-30 right-0 z-40">
+          <Header role="Bệnh nhân" />
+        </div>
 
         {/* Main content - scrollable */}
-        <main className="flex-1 ml-64 p-6 overflow-y-auto h-full">{children}</main>
+        <main className="flex-1 ml-30 p-6 overflow-y-auto h-full">{children}</main>
       </div>
 
       {/* Centered broadcast modal overlay (blocks background until closed) */}

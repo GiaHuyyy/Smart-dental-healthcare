@@ -56,22 +56,29 @@ export default function Header({ role = "Bệnh nhân" }) {
 
   return (
     <header style={{ backgroundColor: "var(--color-surface)" }} className="shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-2">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
-              <div
-                style={{ backgroundColor: "var(--color-primary)" }}
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-              >
-                <Smile className="w-5 h-5 text-white" />
-              </div>
-              <span className="ml-3 text-xl font-bold text-gray-900">Smart Dental</span>
-            </Link>
+            {isHomePage && (
+              <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
+                <div
+                  style={{ backgroundColor: "var(--color-primary)" }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center"
+                >
+                  <Smile className="w-5 h-5 text-white" />
+                </div>
+                <span className="ml-3 text-xl font-bold text-gray-900">Smart Dental</span>
+              </Link>
+            )}
             {!isHomePage && (
               <span
-                style={{ backgroundColor: "var(--color-accent)", color: "var(--color-primary-600)" }}
-                className={`ml-4 px-2 py-1 rounded-full text-sm`}
+                style={{
+                  background: "linear-gradient(90deg, var(--color-primary) 60%, var(--color-accent) 100%)",
+                  color: "#fff",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  letterSpacing: "0.5px",
+                }}
+                className="px-3 py-1 rounded-full text-base font-semibold shadow-sm"
               >
                 {role}
               </span>
