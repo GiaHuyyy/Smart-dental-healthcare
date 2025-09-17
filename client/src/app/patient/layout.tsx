@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
+import ShellLayout from "@/components/ShellLayout";
 
 const navigation = [
   { name: "Tổng quan", href: "/patient", icon: <BarChart2 className="w-4 h-4" /> },
@@ -151,7 +152,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             if (seenRef.current.has(id)) return;
             seenRef.current.add(id);
             // show centered modal immediately and mark read
-            setBroadcastModal({ id, title: payload.title || "Thông báo", message: payload.message || "" });
+            setBroadcastModal({
+              id: payload.id || id,
+              title: payload.title || "Thông báo",
+              message: payload.message || "",
+            });
             if (id && typeof id === "string")
               sendRequest<any>({
                 method: "PATCH",
@@ -216,130 +221,12 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   }, [broadcastModal]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Fixed Sidebar */}
-      <nav className="w-30 bg-white shadow-sm fixed top-0 left-0 bottom-0 z-30 overflow-y-auto">
-        <div className="py-4 px-2">
-          <div className="flex items-center justify-center mb-6">
-            <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
-              <div
-                style={{ backgroundColor: "var(--color-primary)" }}
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
-              >
-                <Smile className="w-5 h-5 text-white" />
-              </div>
-            </Link>
-          </div>
-          <ul className="space-y-2">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href;
-
-              const linkClasses = `flex flex-col items-center justify-center py-2 text-sm rounded-md transition-colors ${
-                isActive ? "bg-primary-100 text-primary" : "text-gray-600 hover:bg-gray-100"
-              }`;
-
-              const iconEl = item.icon ? (
-                <span
-                  className="w-4 h-4 inline-flex items-center justify-center"
-                  style={{ color: isActive ? "var(--color-primary-600)" : undefined }}
-                >
-                  {item.icon}
-                </span>
-              ) : null;
-
-              return (
-                <li key={item.name}>
-                  <Link href={item.href} className={linkClasses}>
-                    <span>{iconEl}</span>
-                    {item.name}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </nav>
-
-      <div className="flex h-screen pt-16">
-        {/* Fixed Header */}
-        <div className="fixed top-0 left-30 right-0 z-40">
-          <Header role="Bệnh nhân" />
-        </div>
-
-        {/* Main content - scrollable */}
-        <main className="flex-1 ml-30 p-6 overflow-y-auto h-full">{children}</main>
+    <ShellLayout navigation={navigation}>
+      <div className="fixed top-0 left-30 right-0 z-40">
+        <Header />
       </div>
 
-      {/* Centered broadcast modal overlay (blocks background until closed) */}
-      {broadcastModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-none">
-                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-xl">
-                  <Calendar className="w-6 h-6" style={{ color: "var(--color-primary-600)" }} />
-                </div>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900">{broadcastModal.title}</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Bác sĩ đã cập nhật thời gian khám của bạn — vui lòng kiểm tra chi tiết bên dưới.
-                </p>
-              </div>
-            </div>
-
-            {(() => {
-              const parsed = parseRescheduleMessage(broadcastModal.message);
-              if (parsed) {
-                return (
-                  <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-lg border border-red-100 bg-red-50 shadow-sm">
-                      <div className="text-xs font-medium text-red-600">Giờ cũ</div>
-                      <div className="mt-1 text-sm text-red-800 font-semibold">
-                        {formatDateTime(parsed.oldDate, parsed.oldTime)}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-lg border border-emerald-100 bg-emerald-50 shadow-md">
-                      <div className="text-xs font-medium text-emerald-700">Giờ mới</div>
-                      <div className="mt-1 text-lg font-bold text-emerald-900">
-                        {formatDateTime(parsed.newDate, parsed.newTime)}
-                      </div>
-                    </div>
-                    <div className="md:col-span-2 text-sm text-gray-600 mt-2">
-                      Nếu giờ mới không phù hợp, vui lòng liên hệ phòng khám hoặc nhấn &quot;Liên hệ&quot; để được trợ
-                      giúp.
-                    </div>
-                  </div>
-                );
-              }
-              return <p className="mt-4 text-sm text-gray-700">{broadcastModal.message}</p>;
-            })()}
-
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                onClick={() => {
-                  window.location.href = "/patient/settings";
-                }}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Liên hệ
-              </button>
-              <button
-                ref={modalCloseRef}
-                onClick={closeBroadcastModal}
-                className={"px-4 py-2 btn-primary-filled rounded"}
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Chat Integration - Bỏ button chat ở góc phải */}
-      {/* <div className="fixed bottom-4 right-4 z-50">
-        <ChatButtonSimple type="ai" />
-      </div> */}
-    </div>
+      <>{children}</>
+    </ShellLayout>
   );
 }
