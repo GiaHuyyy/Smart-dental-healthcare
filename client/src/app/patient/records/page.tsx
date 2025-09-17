@@ -1,6 +1,7 @@
 "use client";
 
-import DentalChart from "@/components/medical-records/DentalChart";
+import dynamic from "next/dynamic";
+const DentalChart = dynamic(() => import("@/components/medical-records/DentalChart"), { ssr: false });
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import {
   Stethoscope,
   TrendingUp,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 interface MedicalRecord {
   _id: string;
@@ -67,15 +68,7 @@ export default function PatientRecordsPage() {
   const [activeTab, setActiveTab] = useState("all");
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchMedicalRecords();
-  }, []);
-
-  useEffect(() => {
-    filterRecords();
-  }, [records, searchTerm, statusFilter, activeTab]);
-
-  const fetchMedicalRecords = async () => {
+  const fetchMedicalRecords = React.useCallback(async () => {
     try {
       const response = await fetch("/api/medical-records/patient", {
         headers: {
@@ -91,21 +84,19 @@ export default function PatientRecordsPage() {
         toast({
           title: "Lỗi",
           description: errorData.message || "Không thể tải danh sách hồ sơ bệnh án",
-          variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Lỗi",
         description: "Có lỗi xảy ra khi tải dữ liệu",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const filterRecords = () => {
+  const filterRecords = React.useCallback(() => {
     let filtered = records;
 
     // Filter by search term
@@ -140,7 +131,17 @@ export default function PatientRecordsPage() {
     }
 
     setFilteredRecords(filtered);
-  };
+  }, [records, searchTerm, statusFilter, activeTab]);
+
+  React.useEffect(() => {
+    fetchMedicalRecords();
+  }, [fetchMedicalRecords]);
+
+  React.useEffect(() => {
+    filterRecords();
+  }, [filterRecords]);
+
+  // filterRecords is memoized above with React.useCallback
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {

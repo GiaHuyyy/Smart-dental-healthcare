@@ -1,9 +1,9 @@
 "use client";
 
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Smile, Pill, FileText } from "lucide-react";
-
 interface DentalChartProps {
   records: Array<{
     dentalChart: Array<{
@@ -16,35 +16,36 @@ interface DentalChartProps {
 }
 
 export default function DentalChart({ records }: DentalChartProps) {
-  // Tạo sơ đồ răng từ tất cả hồ sơ
-  const allTeeth = new Map<number, any>();
-
-  records.forEach((record) => {
-    record.dentalChart.forEach((tooth) => {
-      if (!allTeeth.has(tooth.toothNumber)) {
-        allTeeth.set(tooth.toothNumber, {
-          condition: tooth.condition,
-          treatment: tooth.treatment,
-          notes: tooth.notes,
-          lastUpdated: new Date(),
-        });
+  // Memoize heavy computations so re-renders don't re-calc layout
+  const { allTeeth, teethArray } = React.useMemo(() => {
+    const map = new Map<number, { condition?: string; treatment?: string; notes?: string; lastUpdated?: Date }>();
+    for (const record of records) {
+      for (const tooth of record.dentalChart || []) {
+        if (!map.has(tooth.toothNumber)) {
+          map.set(tooth.toothNumber, {
+            condition: tooth.condition,
+            treatment: tooth.treatment,
+            notes: tooth.notes,
+            lastUpdated: new Date(),
+          });
+        }
       }
+    }
+
+    const arr = Array.from({ length: 32 }, (_, i) => {
+      const toothNumber = i + 1;
+      const toothData = map.get(toothNumber);
+      return {
+        number: toothNumber,
+        condition: toothData?.condition || "normal",
+        treatment: toothData?.treatment || "",
+        notes: toothData?.notes || "",
+        hasData: !!toothData,
+      };
     });
-  });
 
-  // Tạo mảng 32 răng (1-32)
-  const teethArray = Array.from({ length: 32 }, (_, i) => {
-    const toothNumber = i + 1;
-    const toothData = allTeeth.get(toothNumber);
-
-    return {
-      number: toothNumber,
-      condition: toothData?.condition || "normal",
-      treatment: toothData?.treatment || "",
-      notes: toothData?.notes || "",
-      hasData: !!toothData,
-    };
-  });
+    return { allTeeth: map, teethArray: arr };
+  }, [records]);
 
   const getToothColor = (condition: string, hasTreatment: boolean) => {
     if (hasTreatment) {
@@ -80,7 +81,15 @@ export default function DentalChart({ records }: DentalChartProps) {
   };
 
   // Tạo layout vòng cung cho hàm răng
-  const createArcLayout = (teeth: any[], isUpper: boolean) => {
+  type ToothItem = {
+    number: number;
+    condition: string;
+    treatment: string;
+    notes: string;
+    hasData: boolean;
+  };
+
+  const createArcLayout = (teeth: ToothItem[], isUpper: boolean) => {
     const radius = 120;
     const centerX = 200;
     const centerY = isUpper ? 80 : 120;
@@ -135,7 +144,7 @@ export default function DentalChart({ records }: DentalChartProps) {
                   className={`
                     absolute w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold
                     ${getToothColor(tooth.condition, !!tooth.treatment)}
-                    ${tooth.hasData ? "ring-2 ring-offset-1 ring-blue-200 animate-pulse" : ""}
+              ${tooth.hasData ? "ring-2 ring-offset-1 ring-blue-200" : ""}
                     cursor-pointer transition-all duration-200 hover:scale-110 hover:shadow-lg
                   `}
                   style={{
@@ -281,7 +290,7 @@ export default function DentalChart({ records }: DentalChartProps) {
                         Răng {toothNumber}
                       </span>
                       <Badge variant="outline" className="text-xs">
-                        {getConditionLabel(toothData.condition)}
+                        {getConditionLabel(toothData.condition || "normal")}
                       </Badge>
                     </div>
                     {toothData.treatment && (

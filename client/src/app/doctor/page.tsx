@@ -1,148 +1,169 @@
-import { Users, Check, Clock, Pill, Calendar } from "lucide-react";
+import { Users, Check, Clock, Pill, Calendar, MessageSquare } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export default function DoctorDashboard() {
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard Bác sĩ</h1>
-        <p className="text-gray-600">Tổng quan hoạt động hôm nay</p>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-primary-100 rounded-lg">
-              <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Bệnh nhân hôm nay</p>
-              <p className="text-2xl font-bold text-gray-900">8</p>
-            </div>
-          </div>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Bảng điều khiển bác sĩ</h1>
+          <p className="text-gray-600 mt-1">Tổng quan hoạt động và lịch khám hôm nay</p>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Check className="w-7 h-7 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Đã khám</p>
-              <p className="text-2xl font-bold text-gray-900">5</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Clock className="w-7 h-7 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Đang chờ</p>
-              <p className="text-2xl font-bold text-gray-900">3</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Pill className="w-7 h-7 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Đơn thuốc</p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <button className="btn-primary-filled px-4 py-2 rounded-lg">Thêm lịch</button>
+          <button className="btn-primary-outline px-3 py-2 rounded-lg">Tạo đơn thuốc</button>
         </div>
       </div>
 
-      {/* Today's Schedule & Recent Patients */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Today's Schedule */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Lịch khám hôm nay</h2>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <div>
-                <p className="font-medium">Nguyễn Văn A</p>
-                <p className="text-sm text-gray-600">Khám định kỳ</p>
-                <p className="text-sm text-gray-500">09:00 - 09:30</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 bg-primary-100 rounded-md">
+                <Users className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
               </div>
-              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Hoàn thành</span>
-            </div>
+              Bệnh nhân hôm nay
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">8</div>
+            <div className="text-sm text-gray-500 mt-1">Lượt khám đã lên lịch</div>
+          </CardContent>
+        </Card>
 
-            <div
-              className="flex items-center justify-between p-3 bg-primary-100 rounded-lg"
-              style={{ borderLeft: "4px solid var(--color-primary-600)" }}
-            >
-              <div>
-                <p className="font-medium">Trần Thị B</p>
-                <p className="text-sm text-gray-600">Nhổ răng khôn</p>
-                <p className="text-sm text-gray-500">10:00 - 10:45</p>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 bg-primary-100 rounded-md">
+                <Check className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
               </div>
-              <span
-                className="px-2 py-1 rounded-full text-xs"
-                style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }}
-              >
-                Đang khám
-              </span>
-            </div>
+              Đã khám
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">5</div>
+            <div className="text-sm text-gray-500 mt-1">Ca đã hoàn thành</div>
+          </CardContent>
+        </Card>
 
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium">Lê Văn C</p>
-                <p className="text-sm text-gray-600">Tẩy trắng răng</p>
-                <p className="text-sm text-gray-500">11:00 - 12:00</p>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 bg-primary-100 rounded-md">
+                <Clock className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
               </div>
-              <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">Chờ khám</span>
-            </div>
-          </div>
+              Đang chờ
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">3</div>
+            <div className="text-sm text-gray-500 mt-1">Bệnh nhân đang chờ</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="p-2 bg-primary-100 rounded-md">
+                <Pill className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
+              </div>
+              Đơn thuốc
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">12</div>
+            <div className="text-sm text-gray-500 mt-1">Đơn đang chờ xử lý</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Lịch khám hôm nay</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-start gap-4 p-3 rounded-md bg-gray-50">
+                  <div className="p-3 bg-primary-100 rounded-md">
+                    <Calendar className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
+                  </div>
+                  <div>
+                    <div className="font-medium">Nguyễn Văn A</div>
+                    <div className="text-sm text-gray-500">09:00 - Khám định kỳ</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 p-3 rounded-md bg-white shadow-sm">
+                  <div className="p-3 bg-primary-100 rounded-md">
+                    <Calendar className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
+                  </div>
+                  <div>
+                    <div className="font-medium">Trần Thị B</div>
+                    <div className="text-sm text-gray-500">10:00 - Nhổ răng</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 p-3 rounded-md bg-gray-50">
+                  <div className="p-3 bg-primary-100 rounded-md">
+                    <Calendar className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
+                  </div>
+                  <div>
+                    <div className="font-medium">Lê Văn C</div>
+                    <div className="text-sm text-gray-500">11:00 - Tẩy trắng răng</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Hoạt động gần đây</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                  <div>
+                    <div className="font-medium">Hoàn thành điều trị Nguyễn Văn A</div>
+                    <div className="text-sm text-gray-500">09:30 - Khám định kỳ</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                  <div>
+                    <div className="font-medium">Kê đơn thuốc Phạm Thị D</div>
+                    <div className="text-sm text-gray-500">08:45 - Viêm nướu</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Recent Activities */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Hoạt động gần đây</h2>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-              <div>
-                <p className="font-medium">Hoàn thành điều trị cho Nguyễn Văn A</p>
-                <p className="text-sm text-gray-600">Khám định kỳ - 09:30</p>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tin nhắn mới</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-primary-100 rounded-md">
+                    <MessageSquare className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
+                  </div>
+                  <div>
+                    <div className="font-medium">Bệnh nhân: Nguyễn Thị X</div>
+                    <div className="text-sm text-gray-500">Yêu cầu tư vấn</div>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 rounded-full mt-2" style={{ background: "var(--color-primary)" }}></div>
-              <div>
-                <p className="font-medium">Kê đơn thuốc cho Phạm Thị D</p>
-                <p className="text-sm text-gray-600">Viêm nướu - 08:45</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-              <div>
-                <p className="font-medium">Cập nhật hồ sơ bệnh nhân</p>
-                <p className="text-sm text-gray-600">Hoàng Văn E - 08:30</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
-              <div>
-                <p className="font-medium">Xác nhận lịch hẹn mới</p>
-                <p className="text-sm text-gray-600">Nguyễn Thị F - 08:00</p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

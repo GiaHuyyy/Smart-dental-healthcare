@@ -4,7 +4,6 @@ import Header from "@/components/Header";
 import { BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings, Smile } from "lucide-react";
 import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import ShellLayout from "@/components/ShellLayout";
@@ -127,7 +126,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
     // initial fetch
     fetchNotifications();
-    const t = setInterval(fetchNotifications, 6000);
+    // poll less frequently to reduce network churn during navigation
+    const t = setInterval(fetchNotifications, 30000);
 
     // listen for BroadcastChannel messages for immediate intra-browser delivery
     let bc: BroadcastChannel | null = null;
@@ -157,11 +157,15 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               title: payload.title || "Thông báo",
               message: payload.message || "",
             });
-            if (id && typeof id === "string")
-              sendRequest<any>({
-                method: "PATCH",
-                url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/notifications/${id}/read`,
-              }).catch(() => {});
+            if (id && typeof id === "string") {
+              // best-effort mark-as-read; don't await
+              try {
+                sendRequest<any>({
+                  method: "PATCH",
+                  url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/notifications/${id}/read`,
+                }).catch(() => {});
+              } catch (e) {}
+            }
           } catch (e) {
             console.warn("bc onmessage handler failed", e);
           }
