@@ -29,6 +29,12 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Mật khẩu xác nhận không khớp");
+      return;
+    }
+
     const { fullName, email, phone, password, dateOfBirth, gender, address, specialty, licenseNumber } = formData;
     const res = await sendRequest<IBackendRes<any>>({
       url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/register`,
@@ -46,12 +52,11 @@ export default function RegisterPage() {
         role: userType,
       },
     });
-    console.log("Registration response:", res);
+
     if (res.error) {
       toast.error(res.message);
     } else {
       toast.success("Đăng ký thành công");
-      // Handle both wrapped and unwrapped response formats
       const userId = res.data?._id || (res as any)._id;
       if (userId) {
         router.push(`/auth/verify/${userId}`);
@@ -62,104 +67,152 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="flex items-center justify-center">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Smile className="text-white w-6 h-6" />
+          <Link href="/" className="flex items-center justify-center group">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+              <Smile className="text-white w-8 h-8" />
             </div>
-            <span className="ml-3 text-2xl font-bold text-gray-900">Smart Dental</span>
+            <div className="ml-4">
+              <span className="text-2xl font-bold text-gray-900">Smart Dental</span>
+              <div className="text-sm text-gray-500 -mt-1">Healthcare Platform</div>
+            </div>
           </Link>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">Tạo tài khoản mới</h2>
-          <p className="mt-2 text-sm text-gray-600">Điền thông tin để tạo tài khoản</p>
+          <div className="healthcare-card-elevated p-8 mt-8">
+            <h2 className="healthcare-heading text-2xl text-center">Tạo tài khoản mới</h2>
+            <p className="healthcare-body text-center mt-2">Điền thông tin để tham gia hệ thống chăm sóc sức khỏe</p>
+          </div>
         </div>
 
         {/* User Type Selection */}
-        <div className="flex space-x-4 mb-8">
-          <button
-            type="button"
-            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
-              userType === "patient"
-                ? "border-green-500 bg-green-50 text-green-700"
-                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-            onClick={() => setUserType("patient")}
-          >
-            <div className="text-center">
-              <User className="text-2xl mx-auto" />
-              <p className="mt-1 font-medium">Bệnh nhân</p>
-            </div>
-          </button>
-          <button
-            type="button"
-            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
-              userType === "doctor"
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-            onClick={() => setUserType("doctor")}
-          >
-            <div className="text-center">
-              <Stethoscope className="text-2xl mx-auto" />
-              <p className="mt-1 font-medium">Bác sĩ</p>
-            </div>
-          </button>
+        <div className="healthcare-card-elevated p-6 mb-8">
+          <div className="flex space-x-4">
+            <button
+              type="button"
+              className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
+                userType === "patient"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
+              }`}
+              onClick={() => setUserType("patient")}
+            >
+              <div className="text-center">
+                <div
+                  className={`w-12 h-12 mx-auto mb-2 rounded-lg flex items-center justify-center ${
+                    userType === "patient" ? "bg-blue-100" : "bg-gray-100"
+                  }`}
+                >
+                  <User className="w-6 h-6" />
+                </div>
+                <p className="font-semibold">Bệnh nhân</p>
+                <p className="text-xs text-gray-500 mt-1">Đặt lịch & theo dõi sức khỏe</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
+                userType === "doctor"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
+              }`}
+              onClick={() => setUserType("doctor")}
+            >
+              <div className="text-center">
+                <div
+                  className={`w-12 h-12 mx-auto mb-2 rounded-lg flex items-center justify-center ${
+                    userType === "doctor" ? "bg-blue-100" : "bg-gray-100"
+                  }`}
+                >
+                  <Stethoscope className="w-6 h-6" />
+                </div>
+                <p className="font-semibold">Bác sĩ</p>
+                <p className="text-xs text-gray-500 mt-1">Quản lý bệnh nhân & điều trị</p>
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Registration Form */}
         <form onSubmit={handleSubmit}>
-          <div className="bg-white p-8 rounded-lg shadow space-y-6">
-            {/* Basic Information */}
+          <div className="healthcare-card-elevated p-8 space-y-8">
+            {/* Basic Information Section */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin cơ bản</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <h3 className="healthcare-subheading mb-6 text-lg border-b border-gray-200 pb-2">Thông tin cơ bản</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Họ và tên</label>
+                  <label htmlFor="fullName" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Họ và tên *
+                  </label>
                   <input
+                    id="fullName"
+                    name="fullName"
                     type="text"
                     required
-                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Nhập họ và tên đầy đủ"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Email *
+                  </label>
                   <input
+                    id="email"
+                    name="email"
                     type="email"
                     required
-                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Nhập địa chỉ email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Số điện thoại</label>
+                  <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Số điện thoại *
+                  </label>
                   <input
+                    id="phone"
+                    name="phone"
                     type="tel"
                     required
-                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Nhập số điện thoại"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Ngày sinh</label>
+                  <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Ngày sinh *
+                  </label>
                   <input
+                    id="dateOfBirth"
+                    name="dateOfBirth"
                     type="date"
                     required
-                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Giới tính</label>
+                  <label htmlFor="gender" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Giới tính *
+                  </label>
                   <select
+                    id="gender"
+                    name="gender"
                     required
-                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                   >
@@ -169,12 +222,18 @@ export default function RegisterPage() {
                     <option value="other">Khác</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Địa chỉ</label>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="address" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Địa chỉ *
+                  </label>
                   <input
+                    id="address"
+                    name="address"
                     type="text"
                     required
-                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Nhập địa chỉ đầy đủ"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   />
@@ -185,30 +244,37 @@ export default function RegisterPage() {
             {/* Doctor-specific fields */}
             {userType === "doctor" && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin chuyên môn</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h3 className="healthcare-subheading mb-6 text-lg border-b border-gray-200 pb-2">
+                  Thông tin nghề nghiệp
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Chuyên khoa</label>
-                    <select
-                      required
-                      className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={formData.specialty}
-                      onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                    >
-                      <option value="">Chọn chuyên khoa</option>
-                      <option value="general">Nha khoa tổng quát</option>
-                      <option value="orthodontics">Chỉnh nha</option>
-                      <option value="cosmetic">Thẩm mỹ răng</option>
-                      <option value="surgery">Phẫu thuật hàm mặt</option>
-                      <option value="pediatric">Nha khoa trẻ em</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Số chứng chỉ hành nghề</label>
+                    <label htmlFor="specialty" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Chuyên khoa *
+                    </label>
                     <input
+                      id="specialty"
+                      name="specialty"
                       type="text"
                       required
-                      className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Ví dụ: Nha khoa tổng quát, Chỉnh hình..."
+                      value={formData.specialty}
+                      onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="licenseNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Số chứng chỉ hành nghề *
+                    </label>
+                    <input
+                      id="licenseNumber"
+                      name="licenseNumber"
+                      type="text"
+                      required
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Nhập số chứng chỉ hành nghề"
                       value={formData.licenseNumber}
                       onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
                     />
@@ -217,43 +283,54 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Security */}
+            {/* Password Section */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Bảo mật</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <h3 className="healthcare-subheading mb-6 text-lg border-b border-gray-200 pb-2">Thông tin bảo mật</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Mật khẩu</label>
+                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Mật khẩu *
+                  </label>
                   <div className="relative">
                     <input
+                      id="password"
+                      name="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Tối thiểu 6 ký tự"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Xác nhận mật khẩu</label>
+                  <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Xác nhận mật khẩu *
+                  </label>
                   <div className="relative">
                     <input
+                      id="confirmPassword"
+                      name="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
                       required
-                      className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Nhập lại mật khẩu"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
                     >
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -262,44 +339,18 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Terms and Conditions */}
-            <div className="flex items-center">
-              <input
-                id="agree-terms"
-                type="checkbox"
-                required
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="agree-terms" className="ml-2 block text-sm text-gray-700">
-                Tôi đồng ý với{" "}
-                <Link href="/terms" className="text-blue-600 hover:text-blue-800">
-                  điều khoản sử dụng
-                </Link>{" "}
-                và{" "}
-                <Link href="/privacy" className="text-blue-600 hover:text-blue-800">
-                  chính sách bảo mật
-                </Link>
-              </label>
-            </div>
-
             {/* Submit Button */}
-            <div className="pt-4">
-              <button
-                type="submit"
-                className={`w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                  userType === "patient"
-                    ? "bg-green-600 hover:bg-green-700 focus:ring-green-500"
-                    : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
-                }`}
-              >
-                Tạo tài khoản
+            <div className="pt-6">
+              <button type="submit" className="btn-healthcare-primary w-full py-4 text-lg font-semibold">
+                Tạo tài khoản {userType === "doctor" ? "Bác sĩ" : "Bệnh nhân"}
               </button>
             </div>
 
-            <div className="text-center">
+            {/* Login Link */}
+            <div className="text-center pt-4">
               <p className="text-sm text-gray-600">
                 Đã có tài khoản?{" "}
-                <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-800">
+                <Link href="/auth/login" className="font-semibold text-blue-600 hover:text-blue-800 transition-colors">
                   Đăng nhập ngay
                 </Link>
               </p>

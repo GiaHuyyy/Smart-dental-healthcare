@@ -1425,511 +1425,814 @@ export default function DoctorSchedule() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lịch khám</h1>
-          <p className="text-gray-600">Quản lý lịch khám và cuộc hẹn</p>
-        </div>
-        <div className="flex space-x-2">
-          <button
-            className={`px-4 py-2 rounded-md ${
-              selectedView === "day" ? "btn-primary-filled" : "bg-gray-200 text-gray-700"
-            }`}
-            onClick={() => setSelectedView("day")}
-          >
-            Ngày
-          </button>
-          <button
-            className={`px-4 py-2 rounded-md ${
-              selectedView === "week" ? "btn-primary-filled" : "bg-gray-200 text-gray-700"
-            }`}
-            onClick={() => setSelectedView("week")}
-          >
-            Tuần
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">{new Date(selectedDate).toLocaleDateString()}</h2>
-          <div className="flex items-center space-x-2">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2"
-            />
-            <input
-              placeholder="Tìm tên hoặc số điện thoại"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="border border-gray-200 rounded px-2 py-1"
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-200 rounded px-2 py-1"
-            >
-              <option value="all">Tất cả</option>
-              <option value="pending">Chờ khám</option>
-              <option value="confirmed">Đã xác nhận</option>
-              <option value="in-progress">Đang khám</option>
-              <option value="completed">Hoàn thành</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div>
-            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
-              <p className="text-2xl font-bold" style={{ color: "var(--color-accent)" }}>
-                {appointments.length}
-              </p>
-              <p className="text-sm text-[var(--color-muted)]">Tổng lịch hẹn</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header Section */}
+        <div className="healthcare-card-elevated p-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                style={{
+                  backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
+                }}
+              >
+                <Calendar className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="healthcare-heading text-3xl">Lịch khám</h1>
+                <p className="healthcare-body mt-1">Quản lý lịch khám và cuộc hẹn</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
-              <p className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>
-                {statusCounts["completed"] || 0}
-              </p>
-              <p className="text-sm text-[var(--color-muted)]">Hoàn thành</p>
-            </div>
-          </div>
-          <div>
-            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
-              <p className="text-2xl font-bold" style={{ color: "var(--color-primary)" }}>
-                {statusCounts["in-progress"] || 0}
-              </p>
-              <p className="text-sm text-[var(--color-muted)]">Đang khám</p>
-            </div>
-          </div>
-          <div>
-            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
-              <p className="text-2xl font-bold" style={{ color: "var(--color-danger)" }}>
-                {statusCounts["pending"] || 0}
-              </p>
-              <p className="text-sm text-[var(--color-muted)]">Chờ khám</p>
+            <div className="flex space-x-2">
+              <button
+                className={`px-4 py-2 rounded-md ${
+                  selectedView === "day" ? "btn-healthcare-primary" : "btn-healthcare-secondary"
+                }`}
+                onClick={() => setSelectedView("day")}
+              >
+                Ngày
+              </button>
+              <button
+                className={`px-4 py-2 rounded-md ${
+                  selectedView === "week" ? "btn-healthcare-primary" : "btn-healthcare-secondary"
+                }`}
+                onClick={() => setSelectedView("week")}
+              >
+                Tuần
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <h3 className="font-medium text-gray-900 mb-3">Lịch theo giờ</h3>
-            <div className="space-y-1 max-h-96 overflow-y-auto">
-              {timeSlots.map((time) => {
-                const appointment = visibleAppointments.find(
-                  (apt: any) => apt.startTime?.startsWith(time) || apt.time === time
-                );
-                const apptStatus = appointment ? normalizeStatus(appointment.status) : "";
-                return (
-                  <div key={time} className="flex items-center min-h-[50px] border-b border-gray-100">
-                    <div className="w-16 text-sm text-gray-500 font-mono">{time}</div>
-                    <div className="flex-1 ml-4">
-                      {appointment ? (
-                        <div
-                          className={`p-2 rounded`}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">{new Date(selectedDate).toLocaleDateString()}</h2>
+            <div className="flex items-center space-x-2">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2"
+              />
+              <input
+                placeholder="Tìm tên hoặc số điện thoại"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border border-gray-200 rounded px-2 py-1"
+              />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-gray-200 rounded px-2 py-1"
+              >
+                <option value="all">Tất cả</option>
+                <option value="pending">Chờ khám</option>
+                <option value="confirmed">Đã xác nhận</option>
+                <option value="in-progress">Đang khám</option>
+                <option value="completed">Hoàn thành</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <div>
+              <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+                <p className="text-2xl font-bold" style={{ color: "var(--color-accent)" }}>
+                  {appointments.length}
+                </p>
+                <p className="text-sm text-[var(--color-muted)]">Tổng lịch hẹn</p>
+              </div>
+            </div>
+            <div>
+              <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+                <p className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>
+                  {statusCounts["completed"] || 0}
+                </p>
+                <p className="text-sm text-[var(--color-muted)]">Hoàn thành</p>
+              </div>
+            </div>
+            <div>
+              <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+                <p className="text-2xl font-bold" style={{ color: "var(--color-primary)" }}>
+                  {statusCounts["in-progress"] || 0}
+                </p>
+                <p className="text-sm text-[var(--color-muted)]">Đang khám</p>
+              </div>
+            </div>
+            <div>
+              <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+                <p className="text-2xl font-bold" style={{ color: "var(--color-danger)" }}>
+                  {statusCounts["pending"] || 0}
+                </p>
+                <p className="text-sm text-[var(--color-muted)]">Chờ khám</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-medium text-gray-900 mb-3">Lịch theo giờ</h3>
+              <div className="space-y-1 max-h-96 overflow-y-auto">
+                {timeSlots.map((time) => {
+                  const appointment = visibleAppointments.find(
+                    (apt: any) => apt.startTime?.startsWith(time) || apt.time === time
+                  );
+                  const apptStatus = appointment ? normalizeStatus(appointment.status) : "";
+                  return (
+                    <div key={time} className="flex items-center min-h-[50px] border-b border-gray-100">
+                      <div className="w-16 text-sm text-gray-500 font-mono">{time}</div>
+                      <div className="flex-1 ml-4">
+                        {appointment ? (
+                          <div
+                            className={`p-2 rounded`}
+                            style={
+                              apptStatus === "confirmed"
+                                ? {
+                                    background: "var(--color-primary-outline)",
+                                    borderLeft: "4px solid var(--color-primary-600)",
+                                  }
+                                : apptStatus === "in-progress"
+                                ? { background: "var(--color-success)", borderLeft: "4px solid var(--color-success)" }
+                                : { background: "var(--color-warning)", borderLeft: "4px solid var(--color-warning)" }
+                            }
+                          >
+                            <p className="font-medium text-sm">
+                              {appointment.patient?.fullName || appointment.patient}
+                            </p>
+                            <p className="text-xs text-gray-600">{appointment.appointmentType || appointment.type}</p>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-400">Trống</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-medium text-gray-900 mb-3">Chi tiết cuộc hẹn</h3>
+              <div className="space-y-3">
+                {visibleAppointments.length === 0 && <p className="text-sm text-gray-500">Không có lịch hẹn.</p>}
+                {visibleAppointments.map((appointment: any) => {
+                  const apptStatus = normalizeStatus(appointment.status);
+                  const id = appointment._id || appointment.id;
+                  return (
+                    <div key={id} className="bg-gray-50 rounded-lg p-4 border">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-medium">{appointment.patient?.fullName || appointment.patient}</h4>
+                          <p className="text-sm text-gray-600">{appointment.appointmentType || appointment.type}</p>
+                        </div>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs`}
                           style={
                             apptStatus === "confirmed"
-                              ? {
-                                  background: "var(--color-primary-outline)",
-                                  borderLeft: "4px solid var(--color-primary-600)",
-                                }
+                              ? { background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }
                               : apptStatus === "in-progress"
-                              ? { background: "var(--color-success)", borderLeft: "4px solid var(--color-success)" }
-                              : { background: "var(--color-warning)", borderLeft: "4px solid var(--color-warning)" }
+                              ? { background: "var(--color-success)", color: "#0f5132" }
+                              : { background: "var(--color-warning)", color: "#663c00" }
                           }
                         >
-                          <p className="font-medium text-sm">{appointment.patient?.fullName || appointment.patient}</p>
-                          <p className="text-xs text-gray-600">{appointment.appointmentType || appointment.type}</p>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-400">Trống</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-medium text-gray-900 mb-3">Chi tiết cuộc hẹn</h3>
-            <div className="space-y-3">
-              {visibleAppointments.length === 0 && <p className="text-sm text-gray-500">Không có lịch hẹn.</p>}
-              {visibleAppointments.map((appointment: any) => {
-                const apptStatus = normalizeStatus(appointment.status);
-                const id = appointment._id || appointment.id;
-                return (
-                  <div key={id} className="bg-gray-50 rounded-lg p-4 border">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium">{appointment.patient?.fullName || appointment.patient}</h4>
-                        <p className="text-sm text-gray-600">{appointment.appointmentType || appointment.type}</p>
+                          {statusLabelMap[apptStatus] || (appointment.status && appointment.status.toString())}
+                        </span>
                       </div>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs`}
-                        style={
-                          apptStatus === "confirmed"
-                            ? { background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }
-                            : apptStatus === "in-progress"
-                            ? { background: "var(--color-success)", color: "#0f5132" }
-                            : { background: "var(--color-warning)", color: "#663c00" }
-                        }
-                      >
-                        {statusLabelMap[apptStatus] || (appointment.status && appointment.status.toString())}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>
-                        <Clock className="inline w-4 h-4 mr-1" />
-                        {appointment.startTime || appointment.time} (
-                        {appointment.duration || appointment.durationMinutes || 30} phút)
-                      </p>
-                      <p>
-                        <Phone className="inline w-4 h-4 mr-1" />
-                        {appointment.patient?.phone || appointment.phone || "—"}
-                      </p>
-                      {appointment.notes && (
+                      <div className="text-sm text-gray-600 space-y-1">
                         <p>
-                          <Edit className="inline w-4 h-4 mr-1" />
-                          {appointment.notes}
+                          <Clock className="inline w-4 h-4 mr-1" />
+                          {appointment.startTime || appointment.time} (
+                          {appointment.duration || appointment.durationMinutes || 30} phút)
                         </p>
-                      )}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button onClick={() => viewRecord(appointment.patient)} className="text-primary text-sm">
-                        <User className="inline w-4 h-4 mr-1" style={{ color: "var(--color-primary)" }} />
-                        Xem hồ sơ
-                      </button>
-                      {apptStatus !== "in-progress" && apptStatus !== "completed" && (
-                        <button
-                          disabled={!!apptLoading[id]}
-                          onClick={() => updateStatus(id, "confirm")}
-                          className="text-green-600 hover:text-green-800 text-sm"
-                        >
-                          {apptLoading[id] ? "..." : "✅ Xác nhận"}
+                        <p>
+                          <Phone className="inline w-4 h-4 mr-1" />
+                          {appointment.patient?.phone || appointment.phone || "—"}
+                        </p>
+                        {appointment.notes && (
+                          <p>
+                            <Edit className="inline w-4 h-4 mr-1" />
+                            {appointment.notes}
+                          </p>
+                        )}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button onClick={() => viewRecord(appointment.patient)} className="text-primary text-sm">
+                          <User className="inline w-4 h-4 mr-1" style={{ color: "var(--color-primary)" }} />
+                          Xem hồ sơ
                         </button>
-                      )}
-                      {apptStatus === "completed" ? (
-                        <button
-                          disabled={!!apptLoading[id]}
-                          onClick={() => startTreatment(appointment)}
-                          className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-                        >
-                          {apptLoading[id] ? (
-                            "..."
-                          ) : (
-                            <>
-                              <Edit className="inline w-4 h-4 mr-1" />
-                              Xem lại điều trị
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <button
-                          disabled={!!apptLoading[id]}
-                          onClick={() => startTreatment(appointment)}
-                          className="text-purple-600 hover:text-purple-800 text-sm"
-                        >
-                          {apptLoading[id] ? (
-                            "..."
-                          ) : (
-                            <>
-                              <Hospital className="inline w-4 h-4 mr-1" />
-                              Điều trị
-                            </>
-                          )}
-                        </button>
-                      )}
-                      {apptStatus !== "completed" && (
-                        <>
+                        {apptStatus !== "in-progress" && apptStatus !== "completed" && (
                           <button
                             disabled={!!apptLoading[id]}
-                            onClick={() => confirmAndCancel(id)}
-                            className="text-gray-600 hover:text-gray-800 text-sm"
+                            onClick={() => updateStatus(id, "confirm")}
+                            className="text-green-600 hover:text-green-800 text-sm"
+                          >
+                            {apptLoading[id] ? "..." : "✅ Xác nhận"}
+                          </button>
+                        )}
+                        {apptStatus === "completed" ? (
+                          <button
+                            disabled={!!apptLoading[id]}
+                            onClick={() => startTreatment(appointment)}
+                            className="text-purple-600 hover:text-purple-800 text-sm font-medium"
                           >
                             {apptLoading[id] ? (
                               "..."
                             ) : (
                               <>
-                                <X className="inline w-4 h-4 mr-1" />
-                                Hủy
+                                <Edit className="inline w-4 h-4 mr-1" />
+                                Xem lại điều trị
                               </>
                             )}
                           </button>
+                        ) : (
                           <button
                             disabled={!!apptLoading[id]}
-                            onClick={() => rescheduleAppointment(id)}
-                            className="text-yellow-600 hover:text-yellow-800 text-sm"
+                            onClick={() => startTreatment(appointment)}
+                            className="text-purple-600 hover:text-purple-800 text-sm"
                           >
-                            <Calendar className="inline w-4 h-4 mr-1" />
-                            Đổi lịch
+                            {apptLoading[id] ? (
+                              "..."
+                            ) : (
+                              <>
+                                <Hospital className="inline w-4 h-4 mr-1" />
+                                Điều trị
+                              </>
+                            )}
                           </button>
-                        </>
-                      )}
+                        )}
+                        {apptStatus !== "completed" && (
+                          <>
+                            <button
+                              disabled={!!apptLoading[id]}
+                              onClick={() => confirmAndCancel(id)}
+                              className="text-gray-600 hover:text-gray-800 text-sm"
+                            >
+                              {apptLoading[id] ? (
+                                "..."
+                              ) : (
+                                <>
+                                  <X className="inline w-4 h-4 mr-1" />
+                                  Hủy
+                                </>
+                              )}
+                            </button>
+                            <button
+                              disabled={!!apptLoading[id]}
+                              onClick={() => rescheduleAppointment(id)}
+                              className="text-yellow-600 hover:text-yellow-800 text-sm"
+                            >
+                              <Calendar className="inline w-4 h-4 mr-1" />
+                              Đổi lịch
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* toasts */}
-        <div className="fixed right-4 bottom-4 space-y-2 z-50">
-          {toasts.map((t) => (
-            <div
-              key={t.id}
-              className={`px-4 py-2 rounded shadow ${
-                t.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-              }`}
-            >
-              {t.text}
-            </div>
-          ))}
-        </div>
-        {/* Reschedule Modal */}
-        {rescheduleOpen && (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg w-full max-w-3xl p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium">Đổi lịch cuộc hẹn</h3>
-                <button onClick={closeReschedule} className="text-gray-600">
-                  Đóng
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1">
-                  <label className="block text-sm text-gray-600 mb-2">Chọn ngày</label>
-                  <input
-                    type="date"
-                    value={rescheduleDate}
-                    onChange={(e) => setRescheduleDate(e.target.value)}
-                    className="border p-2 rounded w-full"
-                  />
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-600">Chọn khung giờ (nhấn hoặc kéo thả)</p>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    {timeSlots.map((time) => {
-                      const occupied = visibleAppointments.some(
-                        (apt: any) =>
-                          (apt.appointmentDate || apt.date) &&
-                          new Date(apt.appointmentDate || apt.date).toISOString().slice(0, 10) === rescheduleDate &&
-                          ((apt.startTime && apt.startTime.startsWith(time)) || apt.time === time)
-                      );
-                      return (
-                        <div
-                          key={time}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={(e) => handleSlotDrop(e, time)}
-                          onClick={() => handleSlotClick(time)}
-                          className={`p-3 rounded border cursor-pointer text-center ${
-                            rescheduleSlot === time
-                              ? "bg-primary-100"
-                              : occupied
-                              ? "bg-gray-100 text-gray-400"
-                              : "bg-white"
-                          }`}
-                          style={rescheduleSlot === time ? { borderColor: "var(--color-primary-600)" } : undefined}
-                        >
-                          <div className="text-sm font-mono">{time}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-end space-x-2">
-                <button onClick={closeReschedule} className="px-4 py-2 border rounded">
-                  Hủy
-                </button>
-                <button
-                  disabled={!rescheduleSlot}
-                  onClick={confirmReschedule}
-                  className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-                >
-                  Xác nhận
-                </button>
+                  );
+                })}
               </div>
             </div>
           </div>
-        )}
 
-        {/* Treatment Modal */}
-        {treatmentModalOpen && currentTreatmentAppointment && (
-          <div className="fixed inset-0 bg-opacity-15 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-300">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-xl font-semibold">Thăm khám và điều trị</h3>
-                    <p className="text-gray-600">Bệnh nhân: {currentTreatmentAppointment.patient?.fullName || "N/A"}</p>
-                  </div>
-                  <button onClick={closeTreatmentModal} className="text-gray-600 hover:text-gray-800">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+          {/* toasts */}
+          <div className="fixed right-4 bottom-4 space-y-2 z-50">
+            {toasts.map((t) => (
+              <div
+                key={t.id}
+                className={`px-4 py-2 rounded shadow ${
+                  t.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                }`}
+              >
+                {t.text}
+              </div>
+            ))}
+          </div>
+          {/* Reschedule Modal */}
+          {rescheduleOpen && (
+            <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+              <div className="bg-white rounded-lg w-full max-w-3xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium">Đổi lịch cuộc hẹn</h3>
+                  <button onClick={closeReschedule} className="text-gray-600">
+                    Đóng
                   </button>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Patient Info */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-3">Thông tin bệnh nhân</h4>
-                    <div className="space-y-2 text-sm">
-                      <p>
-                        <span className="font-medium">Họ tên:</span> {currentTreatmentAppointment.patient?.fullName}
-                      </p>
-                      <p>
-                        <span className="font-medium">Điện thoại:</span> {currentTreatmentAppointment.patient?.phone}
-                      </p>
-                      <p>
-                        <span className="font-medium">Email:</span> {currentTreatmentAppointment.patient?.email}
-                      </p>
-                      <p>
-                        <span className="font-medium">Ngày khám:</span>{" "}
-                        {new Date(currentTreatmentAppointment.appointmentDate).toLocaleDateString("vi-VN")}
-                      </p>
-                      <p>
-                        <span className="font-medium">Giờ khám:</span> {currentTreatmentAppointment.startTime}
-                      </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-1">
+                    <label className="block text-sm text-gray-600 mb-2">Chọn ngày</label>
+                    <input
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={(e) => setRescheduleDate(e.target.value)}
+                      className="border p-2 rounded w-full"
+                    />
+                    <div className="mt-4">
+                      <p className="text-sm text-gray-600">Chọn khung giờ (nhấn hoặc kéo thả)</p>
                     </div>
                   </div>
 
-                  {/* Treatment Form */}
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-medium">
-                          Lý do khám <span className="text-red-500">*</span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => toggleSuggestions("chiefComplaint")}
-                          className="text-blue-600 hover:text-blue-800 text-xs"
-                        >
-                          💡 Gợi ý
-                        </button>
-                      </div>
-
-                      {/* Chief Complaints Tags Display */}
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {treatmentForm.chiefComplaints.map((complaint, index) => (
-                          <span
-                            key={`complaint-${index}-${complaint}`}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 border border-blue-200"
+                  <div className="md:col-span-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {timeSlots.map((time) => {
+                        const occupied = visibleAppointments.some(
+                          (apt: any) =>
+                            (apt.appointmentDate || apt.date) &&
+                            new Date(apt.appointmentDate || apt.date).toISOString().slice(0, 10) === rescheduleDate &&
+                            ((apt.startTime && apt.startTime.startsWith(time)) || apt.time === time)
+                        );
+                        return (
+                          <div
+                            key={time}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => handleSlotDrop(e, time)}
+                            onClick={() => handleSlotClick(time)}
+                            className={`p-3 rounded border cursor-pointer text-center ${
+                              rescheduleSlot === time
+                                ? "bg-primary-100"
+                                : occupied
+                                ? "bg-gray-100 text-gray-400"
+                                : "bg-white"
+                            }`}
+                            style={rescheduleSlot === time ? { borderColor: "var(--color-primary-600)" } : undefined}
                           >
-                            {complaint}
-                            <button
-                              type="button"
-                              onClick={() => removeChiefComplaint(index)}
-                              className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Input for new chief complaints */}
-                      <input
-                        type="text"
-                        value={chiefComplaintInput}
-                        onChange={(e) => handleChiefComplaintInputChange(e.target.value)}
-                        onKeyDown={handleChiefComplaintKeyDown}
-                        className="w-full border border-gray-300 rounded-md p-2"
-                        placeholder={
-                          treatmentForm.chiefComplaints.length === 0
-                            ? "Nhập lý do khám và nhấn Enter hoặc dấu phẩy..."
-                            : "Thêm lý do khám khác..."
-                        }
-                      />
-                      {showSuggestions.chiefComplaint && filteredSuggestions.chiefComplaints.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
-                          {filteredSuggestions.chiefComplaints.map((suggestion, index) => (
-                            <div
-                              key={`chief-suggestion-${index}-${suggestion}`}
-                              onClick={() => selectSuggestion("chiefComplaint", suggestion)}
-                              className={`px-3 py-2 cursor-pointer text-sm ${
-                                index === selectedSuggestionIndex.chiefComplaint
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "hover:bg-gray-100"
-                              }`}
-                            >
-                              {suggestion}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            <div className="text-sm font-mono">{time}</div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
 
-                {/* Diagnosis Groups - Full Width */}
-                <div className="mt-6">
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="block text-sm font-medium">
-                      Chẩn đoán & Kế hoạch điều trị <span className="text-red-500">*</span>
-                    </label>
-                    <button type="button" onClick={addDiagnosis} className="text-blue-600 hover:text-blue-800 text-sm">
-                      + Thêm chẩn đoán
+                <div className="mt-4 flex justify-end space-x-2">
+                  <button onClick={closeReschedule} className="px-4 py-2 border rounded">
+                    Hủy
+                  </button>
+                  <button
+                    disabled={!rescheduleSlot}
+                    onClick={confirmReschedule}
+                    className="px-4 py-2 text-white rounded disabled:opacity-50"
+                    style={{ backgroundColor: "var(--color-primary)" }}
+                  >
+                    Xác nhận
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Treatment Modal */}
+          {treatmentModalOpen && currentTreatmentAppointment && (
+            <div className="fixed inset-0 bg-opacity-15 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-gray-300">
+                <div className="p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-xl font-semibold">Thăm khám và điều trị</h3>
+                      <p className="text-gray-600">
+                        Bệnh nhân: {currentTreatmentAppointment.patient?.fullName || "N/A"}
+                      </p>
+                    </div>
+                    <button onClick={closeTreatmentModal} className="text-gray-600 hover:text-gray-800">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </div>
-                  <div className="space-y-4">
-                    {treatmentForm.diagnosisGroups.map((group, groupIndex) => (
-                      <div key={groupIndex} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                          {/* Left Column - Diagnosis */}
-                          <div>
-                            <div className="flex justify-between items-center mb-2">
-                              <label className="block text-sm font-medium text-gray-700">
-                                Chẩn đoán {groupIndex + 1}
-                              </label>
-                              {treatmentForm.diagnosisGroups.length > 1 && (
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Patient Info */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-medium mb-3">Thông tin bệnh nhân</h4>
+                      <div className="space-y-2 text-sm">
+                        <p>
+                          <span className="font-medium">Họ tên:</span> {currentTreatmentAppointment.patient?.fullName}
+                        </p>
+                        <p>
+                          <span className="font-medium">Điện thoại:</span> {currentTreatmentAppointment.patient?.phone}
+                        </p>
+                        <p>
+                          <span className="font-medium">Email:</span> {currentTreatmentAppointment.patient?.email}
+                        </p>
+                        <p>
+                          <span className="font-medium">Ngày khám:</span>{" "}
+                          {new Date(currentTreatmentAppointment.appointmentDate).toLocaleDateString("vi-VN")}
+                        </p>
+                        <p>
+                          <span className="font-medium">Giờ khám:</span> {currentTreatmentAppointment.startTime}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Treatment Form */}
+                    <div className="space-y-4">
+                      <div className="relative">
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-medium">
+                            Lý do khám <span className="text-red-500">*</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => toggleSuggestions("chiefComplaint")}
+                            className="text-xs hover:opacity-80 transition-opacity"
+                            style={{ color: "var(--color-primary)" }}
+                          >
+                            💡 Gợi ý
+                          </button>
+                        </div>
+
+                        {/* Chief Complaints Tags Display */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {treatmentForm.chiefComplaints.map((complaint, index) => (
+                            <span
+                              key={`complaint-${index}-${complaint}`}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 border"
+                              style={{
+                                color: "var(--color-primary)",
+                                borderColor: "var(--color-primary)",
+                              }}
+                            >
+                              {complaint}
+                              <button
+                                type="button"
+                                onClick={() => removeChiefComplaint(index)}
+                                className="ml-2 focus:outline-none hover:opacity-80 transition-opacity"
+                                style={{ color: "var(--color-primary)" }}
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Input for new chief complaints */}
+                        <input
+                          type="text"
+                          value={chiefComplaintInput}
+                          onChange={(e) => handleChiefComplaintInputChange(e.target.value)}
+                          onKeyDown={handleChiefComplaintKeyDown}
+                          className="w-full border border-gray-300 rounded-md p-2"
+                          placeholder={
+                            treatmentForm.chiefComplaints.length === 0
+                              ? "Nhập lý do khám và nhấn Enter hoặc dấu phẩy..."
+                              : "Thêm lý do khám khác..."
+                          }
+                        />
+                        {showSuggestions.chiefComplaint && filteredSuggestions.chiefComplaints.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
+                            {filteredSuggestions.chiefComplaints.map((suggestion, index) => (
+                              <div
+                                key={`chief-suggestion-${index}-${suggestion}`}
+                                onClick={() => selectSuggestion("chiefComplaint", suggestion)}
+                                className={`px-3 py-2 cursor-pointer text-sm ${
+                                  index === selectedSuggestionIndex.chiefComplaint
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "hover:bg-gray-100"
+                                }`}
+                              >
+                                {suggestion}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Diagnosis Groups - Full Width */}
+                  <div className="mt-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium">
+                        Chẩn đoán & Kế hoạch điều trị <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addDiagnosis}
+                        className="text-sm hover:opacity-80 transition-opacity"
+                        style={{ color: "var(--color-primary)" }}
+                      >
+                        + Thêm chẩn đoán
+                      </button>
+                    </div>
+                    <div className="space-y-4">
+                      {treatmentForm.diagnosisGroups.map((group, groupIndex) => (
+                        <div key={groupIndex} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* Left Column - Diagnosis */}
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Chẩn đoán {groupIndex + 1}
+                                </label>
+                                {treatmentForm.diagnosisGroups.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeDiagnosis(groupIndex)}
+                                    className="text-red-600 hover:text-red-800 text-sm"
+                                  >
+                                    ✕ Xóa
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex gap-2 items-start">
+                                <div className="flex-1 relative">
+                                  <input
+                                    type="text"
+                                    value={group.diagnosis}
+                                    onChange={(e) => updateDiagnosis(groupIndex, e.target.value)}
+                                    onKeyDown={(e) => handleKeyDown(e, `diagnosis-${groupIndex}`, groupIndex)}
+                                    className="w-full border border-gray-300 rounded-md p-2 text-sm font-medium"
+                                    placeholder={`Nhập chẩn đoán ${groupIndex + 1}`}
+                                  />
+                                  {showSuggestions[`diagnosis-${groupIndex}` as keyof typeof showSuggestions] &&
+                                    filteredSuggestions.diagnoses.length > 0 && (
+                                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-20 max-h-40 overflow-y-auto">
+                                        {filteredSuggestions.diagnoses.map((suggestion, suggIndex) => (
+                                          <div
+                                            key={`diagnosis-${groupIndex}-${suggIndex}`}
+                                            onClick={() => {
+                                              updateDiagnosis(groupIndex, suggestion);
+                                              setShowSuggestions((prev) => ({
+                                                ...prev,
+                                                [`diagnosis-${groupIndex}`]: false,
+                                              }));
+                                            }}
+                                            className={`px-3 py-2 cursor-pointer text-sm ${
+                                              suggIndex === selectedSuggestionIndex.diagnosis
+                                                ? "bg-blue-100"
+                                                : "hover:bg-gray-100"
+                                            }`}
+                                            style={
+                                              suggIndex === selectedSuggestionIndex.diagnosis
+                                                ? { color: "var(--color-primary)" }
+                                                : {}
+                                            }
+                                          >
+                                            {suggestion}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                </div>
                                 <button
                                   type="button"
-                                  onClick={() => removeDiagnosis(groupIndex)}
-                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  onClick={() => {
+                                    const fieldKey = `diagnosis-${groupIndex}`;
+                                    const isShowing = showSuggestions[fieldKey as keyof typeof showSuggestions];
+
+                                    if (!isShowing) {
+                                      setFilteredSuggestions((prev) => ({
+                                        ...prev,
+                                        diagnoses: suggestions.diagnoses,
+                                      }));
+                                      setSelectedSuggestionIndex((prev) => ({
+                                        ...prev,
+                                        diagnosis: suggestions.diagnoses.length > 0 ? 0 : -1,
+                                      }));
+                                    }
+
+                                    setShowSuggestions((prev) => ({
+                                      ...prev,
+                                      [fieldKey]: !isShowing,
+                                    }));
+                                  }}
+                                  className="text-xs px-2 mt-1 hover:opacity-80 transition-opacity"
+                                  style={{ color: "var(--color-primary)" }}
                                 >
-                                  ✕ Xóa
+                                  💡
                                 </button>
-                              )}
+                              </div>
                             </div>
-                            <div className="flex gap-2 items-start">
-                              <div className="flex-1 relative">
-                                <input
-                                  type="text"
-                                  value={group.diagnosis}
-                                  onChange={(e) => updateDiagnosis(groupIndex, e.target.value)}
-                                  onKeyDown={(e) => handleKeyDown(e, `diagnosis-${groupIndex}`, groupIndex)}
-                                  className="w-full border border-gray-300 rounded-md p-2 text-sm font-medium"
-                                  placeholder={`Nhập chẩn đoán ${groupIndex + 1}`}
-                                />
-                                {showSuggestions[`diagnosis-${groupIndex}` as keyof typeof showSuggestions] &&
-                                  filteredSuggestions.diagnoses.length > 0 && (
+
+                            {/* Right Column - Treatment Plans */}
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700">Kế hoạch điều trị</label>
+                                  {group.diagnosis && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      💡 Gợi ý phù hợp cho "{group.diagnosis}"
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => addTreatmentPlan(groupIndex)}
+                                  className="text-green-600 hover:text-green-800 text-sm"
+                                >
+                                  + Thêm kế hoạch
+                                </button>
+                              </div>
+                              <div className="space-y-2">
+                                {group.treatmentPlans.map((plan, planIndex) => (
+                                  <div key={planIndex} className="flex gap-2">
+                                    <div className="flex-1 relative">
+                                      <input
+                                        type="text"
+                                        value={plan}
+                                        onChange={(e) => updateTreatmentPlan(groupIndex, planIndex, e.target.value)}
+                                        onKeyDown={(e) =>
+                                          handleKeyDown(
+                                            e,
+                                            `treatmentPlan-${groupIndex}-${planIndex}`,
+                                            groupIndex,
+                                            planIndex
+                                          )
+                                        }
+                                        className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                                        placeholder={`Kế hoạch ${planIndex + 1}`}
+                                      />
+                                      {showSuggestions[
+                                        `treatmentPlan-${groupIndex}-${planIndex}` as keyof typeof showSuggestions
+                                      ] &&
+                                        filteredSuggestions.treatmentPlans.length > 0 && (
+                                          <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-20 max-h-40 overflow-y-auto">
+                                            {filteredSuggestions.treatmentPlans.map((suggestion, suggIndex) => (
+                                              <div
+                                                key={`treatment-${groupIndex}-${planIndex}-${suggIndex}`}
+                                                onClick={() => {
+                                                  // Check for duplicates before adding
+                                                  const isDuplicate = treatmentForm.diagnosisGroups[
+                                                    groupIndex
+                                                  ].treatmentPlans.some(
+                                                    (existingPlan, idx) =>
+                                                      idx !== planIndex &&
+                                                      existingPlan.toLowerCase().trim() ===
+                                                        suggestion.toLowerCase().trim() &&
+                                                      existingPlan.trim() !== ""
+                                                  );
+
+                                                  if (isDuplicate) {
+                                                    addToast(
+                                                      `Kế hoạch điều trị "${suggestion}" đã tồn tại trong chẩn đoán này!`,
+                                                      "error"
+                                                    );
+                                                    return;
+                                                  }
+
+                                                  updateTreatmentPlan(groupIndex, planIndex, suggestion);
+                                                  setShowSuggestions((prev) => ({
+                                                    ...prev,
+                                                    [`treatmentPlan-${groupIndex}-${planIndex}`]: false,
+                                                  }));
+                                                }}
+                                                className={`px-3 py-2 cursor-pointer text-sm ${
+                                                  suggIndex === selectedSuggestionIndex.treatmentPlan
+                                                    ? "bg-blue-100"
+                                                    : "hover:bg-gray-100"
+                                                }`}
+                                                style={
+                                                  suggIndex === selectedSuggestionIndex.treatmentPlan
+                                                    ? { color: "var(--color-primary)" }
+                                                    : {}
+                                                }
+                                              >
+                                                {suggestion}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const fieldKey = `treatmentPlan-${groupIndex}-${planIndex}`;
+                                        const isShowing = showSuggestions[fieldKey as keyof typeof showSuggestions];
+
+                                        if (!isShowing) {
+                                          // Get relevant treatment plans for this diagnosis
+                                          const currentGroup = treatmentForm.diagnosisGroups[groupIndex];
+                                          const relevantPlans = getTreatmentPlansForDiagnosis(currentGroup.diagnosis);
+
+                                          // Filter out duplicates in current diagnosis group
+                                          const availablePlans = relevantPlans.filter((plan) => {
+                                            return !isTreatmentPlanDuplicate(groupIndex, plan);
+                                          });
+
+                                          setFilteredSuggestions((prev) => ({
+                                            ...prev,
+                                            treatmentPlans: availablePlans,
+                                          }));
+                                          setSelectedSuggestionIndex((prev) => ({
+                                            ...prev,
+                                            treatmentPlan: availablePlans.length > 0 ? 0 : -1,
+                                          }));
+                                        }
+
+                                        setShowSuggestions((prev) => ({
+                                          ...prev,
+                                          [fieldKey]: !isShowing,
+                                        }));
+                                      }}
+                                      className="text-xs px-2 hover:opacity-80 transition-opacity"
+                                      style={{ color: "var(--color-primary)" }}
+                                    >
+                                      💡
+                                    </button>
+                                    {group.treatmentPlans.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeTreatmentPlan(groupIndex, planIndex)}
+                                        className="text-red-600 hover:text-red-800 px-2"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Khám lâm sàng</label>
+                      <textarea
+                        value={treatmentForm.physicalExamination}
+                        onChange={(e) => handleTreatmentFormChange("physicalExamination", e.target.value)}
+                        className="w-full border border-gray-300 rounded-md p-2 h-20"
+                        placeholder="Mô tả kết quả khám lâm sàng..."
+                      />
+                    </div>
+
+                    {/* Medications */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <label className="block text-sm font-medium">Đơn thuốc</label>
+                          <p className="text-xs text-gray-500 mt-1">💊 Thuốc sẽ được tự động thêm dựa trên chẩn đoán</p>
+                        </div>
+                        <button type="button" onClick={addMedication} className="text-primary text-sm">
+                          + Thêm thuốc
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {treatmentForm.medications.map((medication, index) => (
+                          <div
+                            key={`medication-${index}-${medication.name || "empty"}`}
+                            className="border border-gray-200 rounded-md p-3 relative"
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="relative">
+                                <div className="flex gap-1">
+                                  <input
+                                    type="text"
+                                    value={medication.name}
+                                    onChange={(e) => updateMedication(index, "name", e.target.value)}
+                                    onKeyDown={(e) => handleKeyDown(e, `medication-${index}`, index)}
+                                    className="flex-1 border border-gray-300 rounded-md p-2 text-sm"
+                                    placeholder="Tên thuốc"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const fieldKey = `medication-${index}`;
+                                      const isShowing = showSuggestions[fieldKey as keyof typeof showSuggestions];
+
+                                      if (!isShowing) {
+                                        setFilteredSuggestions((prev) => ({
+                                          ...prev,
+                                          medications: suggestions.medications,
+                                        }));
+                                        // Auto-select first suggestion
+                                        setSelectedSuggestionIndex((prev) => ({
+                                          ...prev,
+                                          medication: suggestions.medications.length > 0 ? 0 : -1,
+                                        }));
+                                      }
+
+                                      setShowSuggestions((prev) => ({
+                                        ...prev,
+                                        [fieldKey]: !isShowing,
+                                      }));
+                                    }}
+                                    className="text-primary text-xs px-2"
+                                  >
+                                    💡
+                                  </button>
+                                </div>
+                                {showSuggestions[`medication-${index}` as keyof typeof showSuggestions] &&
+                                  filteredSuggestions.medications.length > 0 && (
                                     <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-20 max-h-40 overflow-y-auto">
-                                      {filteredSuggestions.diagnoses.map((suggestion, suggIndex) => (
+                                      {filteredSuggestions.medications.map((suggestion, suggIndex) => (
                                         <div
-                                          key={`diagnosis-${groupIndex}-${suggIndex}`}
+                                          key={`medication-${index}-${suggIndex}`}
                                           onClick={() => {
-                                            updateDiagnosis(groupIndex, suggestion);
+                                            updateMedication(index, "name", suggestion);
                                             setShowSuggestions((prev) => ({
                                               ...prev,
-                                              [`diagnosis-${groupIndex}`]: false,
+                                              [`medication-${index}`]: false,
                                             }));
                                           }}
                                           className={`px-3 py-2 cursor-pointer text-sm ${
-                                            suggIndex === selectedSuggestionIndex.diagnosis
-                                              ? "bg-blue-100 text-blue-800"
+                                            suggIndex === selectedSuggestionIndex.medication
+                                              ? "bg-primary-100 text-primary-contrast"
                                               : "hover:bg-gray-100"
                                           }`}
                                         >
@@ -1939,336 +2242,78 @@ export default function DoctorSchedule() {
                                     </div>
                                   )}
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const fieldKey = `diagnosis-${groupIndex}`;
-                                  const isShowing = showSuggestions[fieldKey as keyof typeof showSuggestions];
-
-                                  if (!isShowing) {
-                                    setFilteredSuggestions((prev) => ({
-                                      ...prev,
-                                      diagnoses: suggestions.diagnoses,
-                                    }));
-                                    setSelectedSuggestionIndex((prev) => ({
-                                      ...prev,
-                                      diagnosis: suggestions.diagnoses.length > 0 ? 0 : -1,
-                                    }));
-                                  }
-
-                                  setShowSuggestions((prev) => ({
-                                    ...prev,
-                                    [fieldKey]: !isShowing,
-                                  }));
-                                }}
-                                className="text-blue-600 hover:text-blue-800 text-xs px-2 mt-1"
-                              >
-                                💡
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Right Column - Treatment Plans */}
-                          <div>
-                            <div className="flex justify-between items-center mb-2">
                               <div>
-                                <label className="block text-sm font-medium text-gray-700">Kế hoạch điều trị</label>
-                                {group.diagnosis && (
-                                  <p className="text-xs text-gray-500 mt-1">💡 Gợi ý phù hợp cho "{group.diagnosis}"</p>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => addTreatmentPlan(groupIndex)}
-                                className="text-green-600 hover:text-green-800 text-sm"
-                              >
-                                + Thêm kế hoạch
-                              </button>
-                            </div>
-                            <div className="space-y-2">
-                              {group.treatmentPlans.map((plan, planIndex) => (
-                                <div key={planIndex} className="flex gap-2">
-                                  <div className="flex-1 relative">
-                                    <input
-                                      type="text"
-                                      value={plan}
-                                      onChange={(e) => updateTreatmentPlan(groupIndex, planIndex, e.target.value)}
-                                      onKeyDown={(e) =>
-                                        handleKeyDown(
-                                          e,
-                                          `treatmentPlan-${groupIndex}-${planIndex}`,
-                                          groupIndex,
-                                          planIndex
-                                        )
-                                      }
-                                      className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                                      placeholder={`Kế hoạch ${planIndex + 1}`}
-                                    />
-                                    {showSuggestions[
-                                      `treatmentPlan-${groupIndex}-${planIndex}` as keyof typeof showSuggestions
-                                    ] &&
-                                      filteredSuggestions.treatmentPlans.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-20 max-h-40 overflow-y-auto">
-                                          {filteredSuggestions.treatmentPlans.map((suggestion, suggIndex) => (
-                                            <div
-                                              key={`treatment-${groupIndex}-${planIndex}-${suggIndex}`}
-                                              onClick={() => {
-                                                // Check for duplicates before adding
-                                                const isDuplicate = treatmentForm.diagnosisGroups[
-                                                  groupIndex
-                                                ].treatmentPlans.some(
-                                                  (existingPlan, idx) =>
-                                                    idx !== planIndex &&
-                                                    existingPlan.toLowerCase().trim() ===
-                                                      suggestion.toLowerCase().trim() &&
-                                                    existingPlan.trim() !== ""
-                                                );
-
-                                                if (isDuplicate) {
-                                                  addToast(
-                                                    `Kế hoạch điều trị "${suggestion}" đã tồn tại trong chẩn đoán này!`,
-                                                    "error"
-                                                  );
-                                                  return;
-                                                }
-
-                                                updateTreatmentPlan(groupIndex, planIndex, suggestion);
-                                                setShowSuggestions((prev) => ({
-                                                  ...prev,
-                                                  [`treatmentPlan-${groupIndex}-${planIndex}`]: false,
-                                                }));
-                                              }}
-                                              className={`px-3 py-2 cursor-pointer text-sm ${
-                                                suggIndex === selectedSuggestionIndex.treatmentPlan
-                                                  ? "bg-blue-100 text-blue-800"
-                                                  : "hover:bg-gray-100"
-                                              }`}
-                                            >
-                                              {suggestion}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const fieldKey = `treatmentPlan-${groupIndex}-${planIndex}`;
-                                      const isShowing = showSuggestions[fieldKey as keyof typeof showSuggestions];
-
-                                      if (!isShowing) {
-                                        // Get relevant treatment plans for this diagnosis
-                                        const currentGroup = treatmentForm.diagnosisGroups[groupIndex];
-                                        const relevantPlans = getTreatmentPlansForDiagnosis(currentGroup.diagnosis);
-
-                                        // Filter out duplicates in current diagnosis group
-                                        const availablePlans = relevantPlans.filter((plan) => {
-                                          return !isTreatmentPlanDuplicate(groupIndex, plan);
-                                        });
-
-                                        setFilteredSuggestions((prev) => ({
-                                          ...prev,
-                                          treatmentPlans: availablePlans,
-                                        }));
-                                        setSelectedSuggestionIndex((prev) => ({
-                                          ...prev,
-                                          treatmentPlan: availablePlans.length > 0 ? 0 : -1,
-                                        }));
-                                      }
-
-                                      setShowSuggestions((prev) => ({
-                                        ...prev,
-                                        [fieldKey]: !isShowing,
-                                      }));
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 text-xs px-2"
-                                  >
-                                    💡
-                                  </button>
-                                  {group.treatmentPlans.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => removeTreatmentPlan(groupIndex, planIndex)}
-                                      className="text-red-600 hover:text-red-800 px-2"
-                                    >
-                                      ×
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
-
-                <div className="mt-6 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Khám lâm sàng</label>
-                    <textarea
-                      value={treatmentForm.physicalExamination}
-                      onChange={(e) => handleTreatmentFormChange("physicalExamination", e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2 h-20"
-                      placeholder="Mô tả kết quả khám lâm sàng..."
-                    />
-                  </div>
-
-                  {/* Medications */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <div>
-                        <label className="block text-sm font-medium">Đơn thuốc</label>
-                        <p className="text-xs text-gray-500 mt-1">💊 Thuốc sẽ được tự động thêm dựa trên chẩn đoán</p>
-                      </div>
-                      <button type="button" onClick={addMedication} className="text-primary text-sm">
-                        + Thêm thuốc
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      {treatmentForm.medications.map((medication, index) => (
-                        <div
-                          key={`medication-${index}-${medication.name || "empty"}`}
-                          className="border border-gray-200 rounded-md p-3 relative"
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div className="relative">
-                              <div className="flex gap-1">
                                 <input
                                   type="text"
-                                  value={medication.name}
-                                  onChange={(e) => updateMedication(index, "name", e.target.value)}
-                                  onKeyDown={(e) => handleKeyDown(e, `medication-${index}`, index)}
+                                  value={medication.dosage}
+                                  onChange={(e) => updateMedication(index, "dosage", e.target.value)}
+                                  className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                                  placeholder="Liều dùng"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={medication.frequency}
+                                  onChange={(e) => updateMedication(index, "frequency", e.target.value)}
                                   className="flex-1 border border-gray-300 rounded-md p-2 text-sm"
-                                  placeholder="Tên thuốc"
+                                  placeholder="Tần suất"
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    const fieldKey = `medication-${index}`;
-                                    const isShowing = showSuggestions[fieldKey as keyof typeof showSuggestions];
-
-                                    if (!isShowing) {
-                                      setFilteredSuggestions((prev) => ({
-                                        ...prev,
-                                        medications: suggestions.medications,
-                                      }));
-                                      // Auto-select first suggestion
-                                      setSelectedSuggestionIndex((prev) => ({
-                                        ...prev,
-                                        medication: suggestions.medications.length > 0 ? 0 : -1,
-                                      }));
-                                    }
-
-                                    setShowSuggestions((prev) => ({
-                                      ...prev,
-                                      [fieldKey]: !isShowing,
-                                    }));
-                                  }}
-                                  className="text-primary text-xs px-2"
+                                  onClick={() => removeMedication(index)}
+                                  className="text-red-600 hover:text-red-800 px-2"
                                 >
-                                  💡
+                                  ×
                                 </button>
                               </div>
-                              {showSuggestions[`medication-${index}` as keyof typeof showSuggestions] &&
-                                filteredSuggestions.medications.length > 0 && (
-                                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-20 max-h-40 overflow-y-auto">
-                                    {filteredSuggestions.medications.map((suggestion, suggIndex) => (
-                                      <div
-                                        key={`medication-${index}-${suggIndex}`}
-                                        onClick={() => {
-                                          updateMedication(index, "name", suggestion);
-                                          setShowSuggestions((prev) => ({
-                                            ...prev,
-                                            [`medication-${index}`]: false,
-                                          }));
-                                        }}
-                                        className={`px-3 py-2 cursor-pointer text-sm ${
-                                          suggIndex === selectedSuggestionIndex.medication
-                                            ? "bg-primary-100 text-primary-contrast"
-                                            : "hover:bg-gray-100"
-                                        }`}
-                                      >
-                                        {suggestion}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
                             </div>
-                            <div>
+                            <div className="mt-2">
                               <input
                                 type="text"
-                                value={medication.dosage}
-                                onChange={(e) => updateMedication(index, "dosage", e.target.value)}
+                                value={medication.instructions}
+                                onChange={(e) => updateMedication(index, "instructions", e.target.value)}
                                 className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                                placeholder="Liều dùng"
+                                placeholder="Hướng dẫn sử dụng"
                               />
                             </div>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={medication.frequency}
-                                onChange={(e) => updateMedication(index, "frequency", e.target.value)}
-                                className="flex-1 border border-gray-300 rounded-md p-2 text-sm"
-                                placeholder="Tần suất"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeMedication(index)}
-                                className="text-red-600 hover:text-red-800 px-2"
-                              >
-                                ×
-                              </button>
-                            </div>
                           </div>
-                          <div className="mt-2">
-                            <input
-                              type="text"
-                              value={medication.instructions}
-                              onChange={(e) => updateMedication(index, "instructions", e.target.value)}
-                              className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                              placeholder="Hướng dẫn sử dụng"
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Ghi chú</label>
+                      <textarea
+                        value={treatmentForm.notes}
+                        onChange={(e) => handleTreatmentFormChange("notes", e.target.value)}
+                        className="w-full border border-gray-300 rounded-md p-2 h-20"
+                        placeholder="Ghi chú thêm..."
+                      />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Ghi chú</label>
-                    <textarea
-                      value={treatmentForm.notes}
-                      onChange={(e) => handleTreatmentFormChange("notes", e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2 h-20"
-                      placeholder="Ghi chú thêm..."
-                    />
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                      onClick={closeTreatmentModal}
+                      className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={submitTreatment}
+                      disabled={isSubmittingTreatment}
+                      className={"px-6 py-2 btn-primary-filled rounded-md"}
+                      style={isSubmittingTreatment ? { opacity: 0.6, pointerEvents: "none" } : undefined}
+                    >
+                      {isSubmittingTreatment ? "Đang lưu..." : "Lưu hồ sơ"}
+                    </button>
                   </div>
-                </div>
-
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    onClick={closeTreatmentModal}
-                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    onClick={submitTreatment}
-                    disabled={isSubmittingTreatment}
-                    className={"px-6 py-2 btn-primary-filled rounded-md"}
-                    style={isSubmittingTreatment ? { opacity: 0.6, pointerEvents: "none" } : undefined}
-                  >
-                    {isSubmittingTreatment ? "Đang lưu..." : "Lưu hồ sơ"}
-                  </button>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

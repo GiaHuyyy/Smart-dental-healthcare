@@ -55,158 +55,187 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <Link href="/" className="flex items-center justify-center">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Smile className="text-white w-6 h-6" />
+          <Link href="/" className="flex items-center justify-center group">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+              <Smile className="text-white w-8 h-8" />
             </div>
-            <span className="ml-3 text-2xl font-bold text-gray-900">Smart Dental</span>
+            <div className="ml-4">
+              <span className="text-2xl font-bold text-gray-900">Smart Dental</span>
+              <div className="text-sm text-gray-500 -mt-1">Healthcare Platform</div>
+            </div>
           </Link>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">Đăng nhập tài khoản</h2>
-          <p className="mt-2 text-sm text-gray-600">Chọn loại tài khoản để tiếp tục</p>
+          <div className="healthcare-card-elevated p-8 mt-8">
+            <h2 className="healthcare-heading text-2xl text-center">Đăng nhập hệ thống</h2>
+            <p className="healthcare-body text-center mt-2">Vui lòng chọn loại tài khoản và đăng nhập</p>
+          </div>
         </div>
 
         {/* User Type Selection */}
-        <div className="flex space-x-4">
-          <button
-            type="button"
-            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
-              userType === "patient"
-                ? "border-green-500 bg-green-50 text-green-700"
-                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-            onClick={() => (setUserType("patient"), setFormData({ ...formData, email: "", password: "" }))}
-          >
-            <div className="text-center">
-              <User className="text-2xl mx-auto" />
-              <p className="mt-1 font-medium">Bệnh nhân</p>
-            </div>
-          </button>
-          <button
-            type="button"
-            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-colors ${
-              userType === "doctor"
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-            onClick={() => (setUserType("doctor"), setFormData({ ...formData, email: "", password: "" }))}
-          >
-            <div className="text-center">
-              <Stethoscope className="text-2xl mx-auto" />
-              <p className="mt-1 font-medium">Bác sĩ</p>
-            </div>
-          </button>
-        </div>
-
-        {/* Login Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="bg-white p-8 rounded-lg shadow">
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{error}</p>
+        <div className="healthcare-card-elevated p-6">
+          <div className="flex space-x-4 mb-6">
+            <button
+              type="button"
+              className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
+                userType === "patient"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
+              }`}
+              onClick={() => (setUserType("patient"), setFormData({ ...formData, email: "", password: "" }))}
+            >
+              <div className="text-center">
+                <div
+                  className={`w-12 h-12 mx-auto mb-2 rounded-lg flex items-center justify-center ${
+                    userType === "patient" ? "bg-blue-100" : "bg-gray-100"
+                  }`}
+                >
+                  <User className="w-6 h-6" />
+                </div>
+                <p className="font-semibold">Bệnh nhân</p>
+                <p className="text-xs text-gray-500 mt-1">Đặt lịch & theo dõi sức khỏe</p>
               </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nhập email của bạn"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
+                userType === "doctor"
+                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
+              }`}
+              onClick={() => (setUserType("doctor"), setFormData({ ...formData, email: "", password: "" }))}
+            >
+              <div className="text-center">
+                <div
+                  className={`w-12 h-12 mx-auto mb-2 rounded-lg flex items-center justify-center ${
+                    userType === "doctor" ? "bg-blue-100" : "bg-gray-100"
+                  }`}
+                >
+                  <Stethoscope className="w-6 h-6" />
+                </div>
+                <p className="font-semibold">Bác sĩ</p>
+                <p className="text-xs text-gray-500 mt-1">Quản lý bệnh nhân & điều trị</p>
               </div>
+            </button>
+          </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Mật khẩu
-                </label>
-                <div className="relative">
+          {/* Login Form */}
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div className="healthcare-card-elevated p-8">
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600 font-medium">{error}</p>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Địa chỉ Email
+                  </label>
                   <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
+                    id="email"
+                    name="email"
+                    type="email"
                     required
-                    className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nhập mật khẩu"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Nhập địa chỉ email của bạn"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Mật khẩu
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Nhập mật khẩu của bạn"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="remember-me"
+                      name="remember-me"
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      checked={formData.rememberMe}
+                      onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
+                    />
+                    <label htmlFor="remember-me" className="ml-3 block text-sm text-gray-700 font-medium">
+                      Ghi nhớ đăng nhập
+                    </label>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    onClick={() => setIsForgotPasswordModalOpen(true)}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    Quên mật khẩu?
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    checked={formData.rememberMe}
-                    onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
-                  />
-                  <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                    Ghi nhớ đăng nhập
-                  </label>
-                </div>
+              <div className="mt-8">
                 <button
-                  type="button"
-                  onClick={() => setIsForgotPasswordModalOpen(true)}
-                  className="text-sm text-blue-600 hover:text-blue-800"
+                  type="submit"
+                  disabled={isLoading}
+                  className={`btn-healthcare-primary w-full py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center ${
+                    isLoading ? "animate-pulse" : ""
+                  }`}
                 >
-                  Quên mật khẩu?
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Đang đăng nhập...
+                    </>
+                  ) : (
+                    `Đăng nhập ${userType === "doctor" ? "Bác sĩ" : "Bệnh nhân"}`
+                  )}
                 </button>
               </div>
-            </div>
 
-            <div className="mt-6">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  userType === "patient"
-                    ? "bg-green-600 hover:bg-green-700 focus:ring-green-500"
-                    : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
-                }`}
-              >
-                {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
-              </button>
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Chưa có tài khoản?{" "}
+                  <Link
+                    href="/auth/register"
+                    className="font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    Đăng ký ngay
+                  </Link>
+                </p>
+              </div>
             </div>
+          </form>
+        </div>
 
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Chưa có tài khoản?{" "}
-                <Link href="/auth/register" className="font-medium text-blue-600 hover:text-blue-800">
-                  Đăng ký ngay
-                </Link>
-              </p>
-            </div>
-          </div>
-        </form>
+        {/* Modal for reactive form */}
+        <ModalReactive isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} userEmail={formData.email} />
+
+        {/* Modal for forgot password */}
+        <ModalForgotPassword isModalOpen={isForgotPasswordModalOpen} setIsModalOpen={setIsForgotPasswordModalOpen} />
       </div>
-
-      {/* Modal for reactive form */}
-      <ModalReactive isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} userEmail={formData.email} />
-
-      {/* Modal for forgot password */}
-      <ModalForgotPassword isModalOpen={isForgotPasswordModalOpen} setIsModalOpen={setIsForgotPasswordModalOpen} />
     </div>
   );
 }
