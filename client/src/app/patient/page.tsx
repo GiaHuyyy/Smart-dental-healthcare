@@ -13,8 +13,8 @@ export default function PatientDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Calendar className="w-7 h-7 text-blue-600" />
+            <div className="p-2 bg-primary-100 rounded-lg">
+              <Calendar className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Lịch hẹn tiếp theo</p>
@@ -25,8 +25,8 @@ export default function PatientDashboard() {
 
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Check className="w-7 h-7 text-green-600" />
+            <div className="p-2 bg-primary-100 rounded-lg">
+              <Check className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Đã hoàn thành</p>

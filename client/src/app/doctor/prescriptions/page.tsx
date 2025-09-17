@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { AlertCircle, Calendar, Edit, Eye, Pill, Plus, Printer, Search, User } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-import PrescriptionList from '../../../components/PrescriptionList';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
+import { AlertCircle, Calendar, Edit, Eye, Pill, Plus, Printer, Search, User } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import PrescriptionList from "../../../components/PrescriptionList";
 
 interface Medication {
   name: string;
@@ -53,25 +53,25 @@ interface Patient {
 
 export default function DoctorPrescriptionsPage() {
   const searchParams = useSearchParams();
-  const selectedPatientId = searchParams.get('patientId');
-  
+  const selectedPatientId = searchParams.get("patientId");
+
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [selectedPatientFilter, setSelectedPatientFilter] = useState(selectedPatientId || '');
+  const [selectedPatientFilter, setSelectedPatientFilter] = useState(selectedPatientId || "");
   const { toast } = useToast();
 
   // Form state
   const [formData, setFormData] = useState({
-    patientId: '',
-    diagnosis: '',
-    instructions: '',
-    notes: '',
+    patientId: "",
+    diagnosis: "",
+    instructions: "",
+    notes: "",
     isFollowUpRequired: false,
-    followUpDate: '',
-    medications: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '', quantity: 1, unit: 'viên' }]
+    followUpDate: "",
+    medications: [{ name: "", dosage: "", frequency: "", duration: "", instructions: "", quantity: 1, unit: "viên" }],
   });
 
   useEffect(() => {
@@ -82,20 +82,20 @@ export default function DoctorPrescriptionsPage() {
   const fetchPrescriptions = async () => {
     try {
       // Khi public, cần truyền doctorId qua query params
-  const doctorId = localStorage.getItem('userId');
-  const qs = doctorId && doctorId !== 'null' ? `?doctorId=${encodeURIComponent(doctorId)}` : '';
-  const response = await fetch(`/api/prescriptions/my-prescriptions${qs}`);
-      
+      const doctorId = localStorage.getItem("userId");
+      const qs = doctorId && doctorId !== "null" ? `?doctorId=${encodeURIComponent(doctorId)}` : "";
+      const response = await fetch(`/api/prescriptions/my-prescriptions${qs}`);
+
       if (response.ok) {
         const data = await response.json();
         setPrescriptions(data);
       }
     } catch (error) {
-      console.error('Error fetching prescriptions:', error);
+      console.error("Error fetching prescriptions:", error);
       toast({
-        title: 'Lỗi',
-        description: 'Không thể tải danh sách đơn thuốc',
-        variant: 'destructive'
+        title: "Lỗi",
+        description: "Không thể tải danh sách đơn thuốc",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -104,48 +104,48 @@ export default function DoctorPrescriptionsPage() {
 
   const fetchPatients = async () => {
     try {
-      const response = await fetch('/api/users/patients');
-      
+      const response = await fetch("/api/users/patients");
+
       if (response.ok) {
         const data = await response.json();
         setPatients(data);
       }
     } catch (error) {
-      console.error('Error fetching patients:', error);
+      console.error("Error fetching patients:", error);
     }
   };
 
   const handleCreatePrescription = async () => {
     try {
-      const response = await fetch('/api/prescriptions', {
-        method: 'POST',
+      const response = await fetch("/api/prescriptions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           ...formData,
           prescriptionDate: new Date(),
-          doctorId: localStorage.getItem('userId')
-        })
+          doctorId: localStorage.getItem("userId"),
+        }),
       });
 
       if (response.ok) {
         toast({
-          title: 'Thành công',
-          description: 'Đơn thuốc đã được tạo'
+          title: "Thành công",
+          description: "Đơn thuốc đã được tạo",
         });
         setShowCreateDialog(false);
         resetForm();
         fetchPrescriptions();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Không thể tạo đơn thuốc');
+        throw new Error(errorData.message || "Không thể tạo đơn thuốc");
       }
     } catch (error: any) {
       toast({
-        title: 'Lỗi',
-        description: error.message || 'Không thể tạo đơn thuốc',
-        variant: 'destructive'
+        title: "Lỗi",
+        description: error.message || "Không thể tạo đơn thuốc",
+        variant: "destructive",
       });
     }
   };
@@ -155,17 +155,17 @@ export default function DoctorPrescriptionsPage() {
 
     try {
       const response = await fetch(`/api/prescriptions/${editingPrescription._id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       if (response.ok) {
         toast({
-          title: 'Thành công',
-          description: 'Đơn thuốc đã được cập nhật'
+          title: "Thành công",
+          description: "Đơn thuốc đã được cập nhật",
         });
         setShowEditDialog(false);
         setEditingPrescription(null);
@@ -173,39 +173,39 @@ export default function DoctorPrescriptionsPage() {
         fetchPrescriptions();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Không thể cập nhật đơn thuốc');
+        throw new Error(errorData.message || "Không thể cập nhật đơn thuốc");
       }
     } catch (error: any) {
       toast({
-        title: 'Lỗi',
-        description: error.message || 'Không thể cập nhật đơn thuốc',
-        variant: 'destructive'
+        title: "Lỗi",
+        description: error.message || "Không thể cập nhật đơn thuốc",
+        variant: "destructive",
       });
     }
   };
 
   const handleDeletePrescription = async (prescriptionId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa đơn thuốc này?')) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa đơn thuốc này?")) return;
 
     try {
       const response = await fetch(`/api/prescriptions/${prescriptionId}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
 
       if (response.ok) {
         toast({
-          title: 'Thành công',
-          description: 'Đơn thuốc đã được xóa'
+          title: "Thành công",
+          description: "Đơn thuốc đã được xóa",
         });
         fetchPrescriptions();
       } else {
-        throw new Error('Không thể xóa đơn thuốc');
+        throw new Error("Không thể xóa đơn thuốc");
       }
     } catch (error) {
       toast({
-        title: 'Lỗi',
-        description: 'Không thể xóa đơn thuốc',
-        variant: 'destructive'
+        title: "Lỗi",
+        description: "Không thể xóa đơn thuốc",
+        variant: "destructive",
       });
     }
   };
@@ -213,50 +213,53 @@ export default function DoctorPrescriptionsPage() {
   const handleMarkAsDispensed = async (prescriptionId: string) => {
     try {
       const response = await fetch(`/api/prescriptions/${prescriptionId}/dispense`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           isDispensed: true,
-          dispensedBy: localStorage.getItem('userId')
-        })
+          dispensedBy: localStorage.getItem("userId"),
+        }),
       });
 
       if (response.ok) {
         toast({
-          title: 'Thành công',
-          description: 'Đơn thuốc đã được đánh dấu là đã phát'
+          title: "Thành công",
+          description: "Đơn thuốc đã được đánh dấu là đã phát",
         });
         fetchPrescriptions();
       } else {
-        throw new Error('Không thể cập nhật trạng thái');
+        throw new Error("Không thể cập nhật trạng thái");
       }
     } catch (error) {
       toast({
-        title: 'Lỗi',
-        description: 'Không thể cập nhật trạng thái',
-        variant: 'destructive'
+        title: "Lỗi",
+        description: "Không thể cập nhật trạng thái",
+        variant: "destructive",
       });
     }
   };
 
   const resetForm = () => {
     setFormData({
-      patientId: '',
-      diagnosis: '',
-      instructions: '',
-      notes: '',
+      patientId: "",
+      diagnosis: "",
+      instructions: "",
+      notes: "",
       isFollowUpRequired: false,
-      followUpDate: '',
-      medications: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '', quantity: 1, unit: 'viên' }]
+      followUpDate: "",
+      medications: [{ name: "", dosage: "", frequency: "", duration: "", instructions: "", quantity: 1, unit: "viên" }],
     });
   };
 
   const addMedication = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      medications: [...prev.medications, { name: '', dosage: '', frequency: '', duration: '', instructions: '', quantity: 1, unit: 'viên' }]
+      medications: [
+        ...prev.medications,
+        { name: "", dosage: "", frequency: "", duration: "", instructions: "", quantity: 1, unit: "viên" },
+      ],
     }));
   };
 
@@ -278,24 +281,22 @@ export default function DoctorPrescriptionsPage() {
           setSuggestions(Array.isArray(data) ? data : []);
         }
       } catch (err) {
-        console.error('Medicine suggestions error', err);
+        console.error("Medicine suggestions error", err);
       }
     }, 180);
   };
 
   const removeMedication = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      medications: prev.medications.filter((_, i) => i !== index)
+      medications: prev.medications.filter((_, i) => i !== index),
     }));
   };
 
   const updateMedication = (index: number, field: keyof Medication, value: string | number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      medications: prev.medications.map((med, i) => 
-        i === index ? { ...med, [field]: value } : med
-      )
+      medications: prev.medications.map((med, i) => (i === index ? { ...med, [field]: value } : med)),
     }));
   };
 
@@ -304,11 +305,11 @@ export default function DoctorPrescriptionsPage() {
     setFormData({
       patientId: prescription.patientId._id,
       diagnosis: prescription.diagnosis,
-      instructions: prescription.instructions || '',
-      notes: prescription.notes || '',
+      instructions: prescription.instructions || "",
+      notes: prescription.notes || "",
       isFollowUpRequired: prescription.isFollowUpRequired,
-      followUpDate: prescription.followUpDate || '',
-      medications: prescription.medications
+      followUpDate: prescription.followUpDate || "",
+      medications: prescription.medications,
     });
     setShowEditDialog(true);
   };
@@ -320,7 +321,7 @@ export default function DoctorPrescriptionsPage() {
 
   const handlePrintPrescription = (prescription: Prescription) => {
     // Implement print functionality
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(`
         <html>
@@ -337,7 +338,7 @@ export default function DoctorPrescriptionsPage() {
           <body>
             <div class="header">
               <h1>ĐƠN THUỐC</h1>
-              <p>Ngày: ${format(new Date(prescription.prescriptionDate), 'dd/MM/yyyy', { locale: vi })}</p>
+              <p>Ngày: ${format(new Date(prescription.prescriptionDate), "dd/MM/yyyy", { locale: vi })}</p>
             </div>
             <div class="patient-info">
               <h3>Thông tin bệnh nhân:</h3>
@@ -346,23 +347,31 @@ export default function DoctorPrescriptionsPage() {
             </div>
             <div class="medications">
               <h3>Danh sách thuốc:</h3>
-              ${prescription.medications.map(med => `
+              ${prescription.medications
+                .map(
+                  (med) => `
                 <div class="medication">
                   <p><strong>${med.name}</strong></p>
                   <p>Liều lượng: ${med.dosage}</p>
                   <p>Tần suất: ${med.frequency}</p>
                   <p>Thời gian: ${med.duration}</p>
                   <p>Số lượng: ${med.quantity} ${med.unit}</p>
-                  ${med.instructions ? `<p>Hướng dẫn: ${med.instructions}</p>` : ''}
+                  ${med.instructions ? `<p>Hướng dẫn: ${med.instructions}</p>` : ""}
                 </div>
-              `).join('')}
+              `
+                )
+                .join("")}
             </div>
-            ${prescription.instructions ? `
+            ${
+              prescription.instructions
+                ? `
               <div class="instructions">
                 <h3>Hướng dẫn chung:</h3>
                 <p>${prescription.instructions}</p>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
             <div class="footer">
               <p>Chữ ký bác sĩ: _________________</p>
             </div>
@@ -374,9 +383,10 @@ export default function DoctorPrescriptionsPage() {
     }
   };
 
-  const filteredPrescriptions = prescriptions.filter(prescription =>
-    prescription.patientId.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prescription.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPrescriptions = prescriptions.filter(
+    (prescription) =>
+      prescription.patientId.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      prescription.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -394,38 +404,45 @@ export default function DoctorPrescriptionsPage() {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold" style={{ color: "var(--color-primary)" }}>
             Quản lý đơn thuốc
           </h1>
           <p className="text-gray-600 mt-3 text-lg">Tạo và quản lý đơn thuốc cho bệnh nhân</p>
         </div>
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <Plus className="mr-2 h-5 w-5" />
+            <Button
+              className={
+                "btn-primary-filled shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 mr-2"
+              }
+            >
+              <Plus className="mr-2 h-5 w-5" style={{ color: "white" }} />
               Tạo đơn thuốc mới
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5 text-blue-600" />
+              <DialogTitle className="flex items-center gap-2" style={{ color: "var(--color-primary-contrast)" }}>
+                <Plus className="h-5 w-5" style={{ color: "var(--color-primary-600)" }} />
                 Tạo đơn thuốc mới
               </DialogTitle>
             </DialogHeader>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="patientId" className="flex items-center gap-2">
                   <User className="h-4 w-4" />
                   Chọn bệnh nhân
                 </Label>
-                <Select value={formData.patientId} onValueChange={(value) => setFormData(prev => ({ ...prev, patientId: value }))}>
+                <Select
+                  value={formData.patientId}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, patientId: value }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Chọn bệnh nhân" />
                   </SelectTrigger>
                   <SelectContent>
-                    {patients.map(patient => (
+                    {patients.map((patient) => (
                       <SelectItem key={patient._id} value={patient._id}>
                         {patient.fullName} - {patient.phone}
                       </SelectItem>
@@ -433,7 +450,7 @@ export default function DoctorPrescriptionsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Label htmlFor="diagnosis" className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
@@ -442,7 +459,7 @@ export default function DoctorPrescriptionsPage() {
                 <Input
                   id="diagnosis"
                   value={formData.diagnosis}
-                  onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, diagnosis: e.target.value }))}
                   placeholder="Chẩn đoán bệnh"
                   className="bg-white"
                 />
@@ -450,19 +467,19 @@ export default function DoctorPrescriptionsPage() {
             </div>
 
             <div className="mt-6">
-                <Label className="flex items-center gap-2 text-lg font-semibold">
+              <Label className="flex items-center gap-2 text-lg font-semibold">
                 <Pill className="h-5 w-5 text-green-600" />
                 Danh sách thuốc
               </Label>
               {formData.medications.map((med, index) => (
                 <div key={index} className="border border-gray-200 p-4 rounded-lg mt-3 bg-gray-50">
                   <div className="grid grid-cols-2 gap-4">
-                      <div className="relative">
+                    <div className="relative">
                       <Label>Tên thuốc</Label>
                       <Input
                         value={med.name}
                         onChange={(e) => {
-                          updateMedication(index, 'name', e.target.value);
+                          updateMedication(index, "name", e.target.value);
                           fetchMedicineSuggestions(e.target.value);
                         }}
                         placeholder="Tên thuốc"
@@ -476,8 +493,8 @@ export default function DoctorPrescriptionsPage() {
                               key={si}
                               className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                               onClick={() => {
-                                updateMedication(index, 'name', sugg.name);
-                                if (sugg.dosage) updateMedication(index, 'dosage', sugg.dosage);
+                                updateMedication(index, "name", sugg.name);
+                                if (sugg.dosage) updateMedication(index, "dosage", sugg.dosage);
                                 setSuggestions([]);
                               }}
                             >
@@ -492,7 +509,7 @@ export default function DoctorPrescriptionsPage() {
                       <Label>Liều lượng</Label>
                       <Input
                         value={med.dosage}
-                        onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
+                        onChange={(e) => updateMedication(index, "dosage", e.target.value)}
                         placeholder="Ví dụ: 500mg"
                         className="bg-white"
                       />
@@ -501,7 +518,7 @@ export default function DoctorPrescriptionsPage() {
                       <Label>Tần suất</Label>
                       <Input
                         value={med.frequency}
-                        onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
+                        onChange={(e) => updateMedication(index, "frequency", e.target.value)}
                         placeholder="Ví dụ: 2 lần/ngày"
                         className="bg-white"
                       />
@@ -510,7 +527,7 @@ export default function DoctorPrescriptionsPage() {
                       <Label>Thời gian</Label>
                       <Input
                         value={med.duration}
-                        onChange={(e) => updateMedication(index, 'duration', e.target.value)}
+                        onChange={(e) => updateMedication(index, "duration", e.target.value)}
                         placeholder="Ví dụ: 7 ngày"
                         className="bg-white"
                       />
@@ -519,7 +536,7 @@ export default function DoctorPrescriptionsPage() {
                       <Label>Hướng dẫn sử dụng</Label>
                       <Textarea
                         value={med.instructions}
-                        onChange={(e) => updateMedication(index, 'instructions', e.target.value)}
+                        onChange={(e) => updateMedication(index, "instructions", e.target.value)}
                         placeholder="Hướng dẫn chi tiết cách sử dụng"
                         className="bg-white"
                       />
@@ -529,14 +546,14 @@ export default function DoctorPrescriptionsPage() {
                       <Input
                         type="number"
                         value={med.quantity}
-                        onChange={(e) => updateMedication(index, 'quantity', parseInt(e.target.value) || 1)}
+                        onChange={(e) => updateMedication(index, "quantity", parseInt(e.target.value) || 1)}
                         min="1"
                         className="bg-white"
                       />
                     </div>
                     <div>
                       <Label>Đơn vị</Label>
-                      <Select value={med.unit} onValueChange={(value) => updateMedication(index, 'unit', value)}>
+                      <Select value={med.unit} onValueChange={(value) => updateMedication(index, "unit", value)}>
                         <SelectTrigger className="bg-white">
                           <SelectValue />
                         </SelectTrigger>
@@ -564,8 +581,13 @@ export default function DoctorPrescriptionsPage() {
                   )}
                 </div>
               ))}
-              
-              <Button type="button" variant="outline" onClick={addMedication} className="mt-3 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50">
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addMedication}
+                className="mt-3 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Thêm thuốc
               </Button>
@@ -576,10 +598,10 @@ export default function DoctorPrescriptionsPage() {
                 <AlertCircle className="h-4 w-4" />
                 Hướng dẫn chung
               </Label>
-                          <Textarea
+              <Textarea
                 id="instructions"
                 value={formData.instructions}
-                onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, instructions: e.target.value }))}
                 placeholder="Hướng dẫn chung cho bệnh nhân"
                 rows={3}
                 className="bg-white"
@@ -594,7 +616,7 @@ export default function DoctorPrescriptionsPage() {
               <Textarea
                 id="notes"
                 value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
                 placeholder="Ghi chú bổ sung"
                 rows={2}
                 className="bg-white"
@@ -607,12 +629,12 @@ export default function DoctorPrescriptionsPage() {
                   type="checkbox"
                   id="isFollowUpRequired"
                   checked={formData.isFollowUpRequired}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isFollowUpRequired: e.target.checked }))}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, isFollowUpRequired: e.target.checked }))}
                   className="rounded"
                 />
                 <Label htmlFor="isFollowUpRequired">Yêu cầu tái khám</Label>
               </div>
-              
+
               {formData.isFollowUpRequired && (
                 <div>
                   <Label htmlFor="followUpDate" className="flex items-center gap-2">
@@ -623,7 +645,7 @@ export default function DoctorPrescriptionsPage() {
                     id="followUpDate"
                     type="date"
                     value={formData.followUpDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, followUpDate: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, followUpDate: e.target.value }))}
                     className="bg-white"
                   />
                 </div>
@@ -652,7 +674,7 @@ export default function DoctorPrescriptionsPage() {
             className="pl-10 h-12 text-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-300"
           />
         </div>
-        
+
         {/* Patient Filter */}
         <div className="w-64">
           <Select value={selectedPatientFilter} onValueChange={setSelectedPatientFilter}>
@@ -661,7 +683,7 @@ export default function DoctorPrescriptionsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Tất cả bệnh nhân</SelectItem>
-              {patients.map(patient => (
+              {patients.map((patient) => (
                 <SelectItem key={patient._id} value={patient._id}>
                   {patient.fullName}
                 </SelectItem>
@@ -672,35 +694,38 @@ export default function DoctorPrescriptionsPage() {
       </div>
 
       {/* Use PrescriptionList Component */}
-      <PrescriptionList 
+      <PrescriptionList
         patientId={selectedPatientFilter || undefined}
-        doctorId={localStorage.getItem('userId') || undefined}
+        doctorId={localStorage.getItem("userId") || undefined}
         showPatientInfo={true}
         showDoctorInfo={false}
       />
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5 text-blue-600" />
               Chỉnh sửa đơn thuốc
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="edit-patientId" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Bệnh nhân
               </Label>
-              <Select value={formData.patientId} onValueChange={(value) => setFormData(prev => ({ ...prev, patientId: value }))}>
+              <Select
+                value={formData.patientId}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, patientId: value }))}
+              >
                 <SelectTrigger className="bg-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {patients.map(patient => (
+                  {patients.map((patient) => (
                     <SelectItem key={patient._id} value={patient._id}>
                       {patient.fullName} - {patient.phone}
                     </SelectItem>
@@ -708,7 +733,7 @@ export default function DoctorPrescriptionsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label htmlFor="edit-diagnosis" className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4" />
@@ -717,7 +742,7 @@ export default function DoctorPrescriptionsPage() {
               <Input
                 id="edit-diagnosis"
                 value={formData.diagnosis}
-                onChange={(e) => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, diagnosis: e.target.value }))}
                 placeholder="Chẩn đoán bệnh"
                 className="bg-white"
               />
@@ -732,42 +757,42 @@ export default function DoctorPrescriptionsPage() {
             {formData.medications.map((med, index) => (
               <div key={index} className="border border-gray-200 p-4 rounded-lg mt-3 bg-gray-50">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="relative">
-                      <Label>Tên thuốc</Label>
-                      <Input
-                        value={med.name}
-                        onChange={(e) => {
-                          updateMedication(index, 'name', e.target.value);
-                          fetchMedicineSuggestions(e.target.value);
-                        }}
-                        placeholder="Tên thuốc"
-                        className="bg-white"
-                        autoComplete="off"
-                      />
-                      {suggestions.length > 0 && med.name && (
-                        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-md max-h-40 overflow-auto">
-                          {suggestions.map((sugg, si) => (
-                            <div
-                              key={si}
-                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                              onClick={() => {
-                                updateMedication(index, 'name', sugg.name);
-                                if (sugg.dosage) updateMedication(index, 'dosage', sugg.dosage);
-                                setSuggestions([]);
-                              }}
-                            >
-                              <div className="font-medium">{sugg.name}</div>
-                              {sugg.dosage && <div className="text-xs text-gray-500">{sugg.dosage}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  <div className="relative">
+                    <Label>Tên thuốc</Label>
+                    <Input
+                      value={med.name}
+                      onChange={(e) => {
+                        updateMedication(index, "name", e.target.value);
+                        fetchMedicineSuggestions(e.target.value);
+                      }}
+                      placeholder="Tên thuốc"
+                      className="bg-white"
+                      autoComplete="off"
+                    />
+                    {suggestions.length > 0 && med.name && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-md max-h-40 overflow-auto">
+                        {suggestions.map((sugg, si) => (
+                          <div
+                            key={si}
+                            className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              updateMedication(index, "name", sugg.name);
+                              if (sugg.dosage) updateMedication(index, "dosage", sugg.dosage);
+                              setSuggestions([]);
+                            }}
+                          >
+                            <div className="font-medium">{sugg.name}</div>
+                            {sugg.dosage && <div className="text-xs text-gray-500">{sugg.dosage}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <Label>Liều lượng</Label>
                     <Input
                       value={med.dosage}
-                      onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
+                      onChange={(e) => updateMedication(index, "dosage", e.target.value)}
                       placeholder="Ví dụ: 500mg"
                       className="bg-white"
                     />
@@ -776,7 +801,7 @@ export default function DoctorPrescriptionsPage() {
                     <Label>Tần suất</Label>
                     <Input
                       value={med.frequency}
-                      onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
+                      onChange={(e) => updateMedication(index, "frequency", e.target.value)}
                       placeholder="Ví dụ: 2 lần/ngày"
                       className="bg-white"
                     />
@@ -785,7 +810,7 @@ export default function DoctorPrescriptionsPage() {
                     <Label>Thời gian</Label>
                     <Input
                       value={med.duration}
-                      onChange={(e) => updateMedication(index, 'duration', e.target.value)}
+                      onChange={(e) => updateMedication(index, "duration", e.target.value)}
                       placeholder="Ví dụ: 7 ngày"
                       className="bg-white"
                     />
@@ -794,7 +819,7 @@ export default function DoctorPrescriptionsPage() {
                     <Label>Hướng dẫn sử dụng</Label>
                     <Textarea
                       value={med.instructions}
-                      onChange={(e) => updateMedication(index, 'instructions', e.target.value)}
+                      onChange={(e) => updateMedication(index, "instructions", e.target.value)}
                       placeholder="Hướng dẫn chi tiết cách sử dụng"
                       className="bg-white"
                     />
@@ -804,14 +829,14 @@ export default function DoctorPrescriptionsPage() {
                     <Input
                       type="number"
                       value={med.quantity}
-                      onChange={(e) => updateMedication(index, 'quantity', parseInt(e.target.value) || 1)}
+                      onChange={(e) => updateMedication(index, "quantity", parseInt(e.target.value) || 1)}
                       min="1"
                       className="bg-white"
                     />
                   </div>
                   <div>
                     <Label>Đơn vị</Label>
-                    <Select value={med.unit} onValueChange={(value) => updateMedication(index, 'unit', value)}>
+                    <Select value={med.unit} onValueChange={(value) => updateMedication(index, "unit", value)}>
                       <SelectTrigger className="bg-white">
                         <SelectValue />
                       </SelectTrigger>
@@ -839,8 +864,13 @@ export default function DoctorPrescriptionsPage() {
                 )}
               </div>
             ))}
-            
-            <Button type="button" variant="outline" onClick={addMedication} className="mt-3 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50">
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addMedication}
+              className="mt-3 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+            >
               <Plus className="mr-2 h-4 w-4" />
               Thêm thuốc
             </Button>
@@ -851,14 +881,14 @@ export default function DoctorPrescriptionsPage() {
               <AlertCircle className="h-4 w-4" />
               Hướng dẫn chung
             </Label>
-                    <Textarea
-                      id="edit-instructions"
-                      value={formData.instructions}
-                      onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
-                      placeholder="Hướng dẫn chung cho bệnh nhân"
-                      rows={3}
-                      className="bg-white"
-                    />
+            <Textarea
+              id="edit-instructions"
+              value={formData.instructions}
+              onChange={(e) => setFormData((prev) => ({ ...prev, instructions: e.target.value }))}
+              placeholder="Hướng dẫn chung cho bệnh nhân"
+              rows={3}
+              className="bg-white"
+            />
           </div>
 
           <div className="mt-4">
@@ -869,7 +899,7 @@ export default function DoctorPrescriptionsPage() {
             <Textarea
               id="edit-notes"
               value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
               placeholder="Ghi chú bổ sung"
               rows={2}
               className="bg-white"
@@ -882,25 +912,25 @@ export default function DoctorPrescriptionsPage() {
                 type="checkbox"
                 id="edit-isFollowUpRequired"
                 checked={formData.isFollowUpRequired}
-                onChange={(e) => setFormData(prev => ({ ...prev, isFollowUpRequired: e.target.checked }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, isFollowUpRequired: e.target.checked }))}
                 className="rounded"
               />
               <Label htmlFor="edit-isFollowUpRequired">Yêu cầu tái khám</Label>
             </div>
-            
+
             {formData.isFollowUpRequired && (
               <div>
                 <Label htmlFor="edit-followUpDate" className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   Ngày tái khám
                 </Label>
-                  <Input
-                    id="edit-followUpDate"
-                    type="date"
-                    value={formData.followUpDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, followUpDate: e.target.value }))}
-                    className="bg-white"
-                  />
+                <Input
+                  id="edit-followUpDate"
+                  type="date"
+                  value={formData.followUpDate}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, followUpDate: e.target.value }))}
+                  className="bg-white"
+                />
               </div>
             )}
           </div>
@@ -918,14 +948,14 @@ export default function DoctorPrescriptionsPage() {
 
       {/* Detail Dialog */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-blue-600" />
               Chi tiết đơn thuốc
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedPrescription && (
             <div className="space-y-6">
               {/* Header Info */}
@@ -940,7 +970,7 @@ export default function DoctorPrescriptionsPage() {
                   <div>
                     <Label className="font-semibold">Ngày kê đơn:</Label>
                     <p className="text-sm mt-1">
-                      {format(new Date(selectedPrescription.prescriptionDate), 'dd/MM/yyyy', { locale: vi })}
+                      {format(new Date(selectedPrescription.prescriptionDate), "dd/MM/yyyy", { locale: vi })}
                     </p>
                   </div>
                 </div>
@@ -1013,7 +1043,7 @@ export default function DoctorPrescriptionsPage() {
                 <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
                   <Label className="font-semibold text-blue-800">Lịch tái khám:</Label>
                   <p className="text-lg font-medium text-blue-700 mt-1">
-                    {format(new Date(selectedPrescription.followUpDate), 'dd/MM/yyyy', { locale: vi })}
+                    {format(new Date(selectedPrescription.followUpDate), "dd/MM/yyyy", { locale: vi })}
                   </p>
                 </div>
               )}
@@ -1023,24 +1053,21 @@ export default function DoctorPrescriptionsPage() {
                 <div>
                   <Label className="font-semibold">Trạng thái:</Label>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge variant={selectedPrescription.isDispensed ? 'default' : 'secondary'}>
-                      {selectedPrescription.isDispensed ? 'Đã phát thuốc' : 'Chưa phát thuốc'}
+                    <Badge variant={selectedPrescription.isDispensed ? "default" : "secondary"}>
+                      {selectedPrescription.isDispensed ? "Đã phát thuốc" : "Chưa phát thuốc"}
                     </Badge>
-                    <Badge variant={selectedPrescription.status === 'active' ? 'default' : 'destructive'}>
-                      {selectedPrescription.status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
+                    <Badge variant={selectedPrescription.status === "active" ? "default" : "destructive"}>
+                      {selectedPrescription.status === "active" ? "Hoạt động" : "Không hoạt động"}
                     </Badge>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handlePrintPrescription(selectedPrescription)}
-                  >
+                  <Button variant="outline" onClick={() => handlePrintPrescription(selectedPrescription)}>
                     <Printer className="mr-2 h-4 w-4" />
                     In đơn thuốc
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setShowDetailDialog(false);
                       openEditDialog(selectedPrescription);

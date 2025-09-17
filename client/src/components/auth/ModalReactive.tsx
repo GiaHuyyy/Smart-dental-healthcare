@@ -129,7 +129,8 @@ export default function ModalReactive({ isModalOpen, setIsModalOpen, userEmail =
             <button
               onClick={handleSendVerification}
               disabled={isLoading || !userEmail || countdown > 0}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2.5 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className={"w-full btn-primary-filled"}
+              style={isLoading || !userEmail || countdown > 0 ? { opacity: 0.6, pointerEvents: "none" } : undefined}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">
@@ -149,8 +150,8 @@ export default function ModalReactive({ isModalOpen, setIsModalOpen, userEmail =
         return (
           <>
             <div className="text-center mb-6">
-              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <Check className="w-8 h-8 text-blue-600" />
+              <div className="mx-auto w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                <Check className="w-8 h-8" style={{ color: "var(--color-primary-600)" }} />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Nhập mã xác thực</h3>
               <p className="text-gray-600 text-sm">
@@ -183,7 +184,8 @@ export default function ModalReactive({ isModalOpen, setIsModalOpen, userEmail =
               <button
                 onClick={handleVerifyCode}
                 disabled={isLoading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2.5 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className={"flex-1 btn-primary-filled"}
+                style={isLoading ? { opacity: 0.6, pointerEvents: "none" } : undefined}
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center">
@@ -200,9 +202,12 @@ export default function ModalReactive({ isModalOpen, setIsModalOpen, userEmail =
               <button
                 onClick={handleSendVerification}
                 disabled={countdown > 0}
-                className={`text-sm font-medium ${
-                  countdown > 0 ? "text-gray-400 cursor-not-allowed" : "text-blue-600 hover:text-blue-800"
-                }`}
+                className={"text-sm font-medium"}
+                style={
+                  countdown > 0
+                    ? { color: "var(--color-muted)", pointerEvents: "none" }
+                    : { color: "var(--color-primary)" }
+                }
               >
                 {countdown > 0 ? `Gửi lại sau ${countdown}s` : "Gửi lại mã xác thực"}
               </button>

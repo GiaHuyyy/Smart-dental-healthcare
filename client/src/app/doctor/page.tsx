@@ -13,8 +13,8 @@ export default function DoctorDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Users className="w-7 h-7 text-blue-600" />
+            <div className="p-2 bg-primary-100 rounded-lg">
+              <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Bệnh nhân hôm nay</p>
@@ -77,13 +77,21 @@ export default function DoctorDashboard() {
               <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Hoàn thành</span>
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+            <div
+              className="flex items-center justify-between p-3 bg-primary-100 rounded-lg"
+              style={{ borderLeft: "4px solid var(--color-primary-600)" }}
+            >
               <div>
                 <p className="font-medium">Trần Thị B</p>
                 <p className="text-sm text-gray-600">Nhổ răng khôn</p>
                 <p className="text-sm text-gray-500">10:00 - 10:45</p>
               </div>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">Đang khám</span>
+              <span
+                className="px-2 py-1 rounded-full text-xs"
+                style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }}
+              >
+                Đang khám
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -112,7 +120,7 @@ export default function DoctorDashboard() {
             </div>
 
             <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+              <div className="w-2 h-2 rounded-full mt-2" style={{ background: "var(--color-primary)" }}></div>
               <div>
                 <p className="font-medium">Kê đơn thuốc cho Phạm Thị D</p>
                 <p className="text-sm text-gray-600">Viêm nướu - 08:45</p>

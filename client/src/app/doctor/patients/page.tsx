@@ -174,7 +174,7 @@ export default function DoctorPatients() {
           <h1 className="text-2xl font-bold text-gray-900">Quản lý bệnh nhân</h1>
           <p className="text-gray-600">Danh sách và thông tin bệnh nhân</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Thêm bệnh nhân</button>
+        <button className={"btn-primary-filled px-4 py-2"}>Thêm bệnh nhân</button>
       </div>
 
       {/* Error Message */}
@@ -230,8 +230,8 @@ export default function DoctorPatients() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Users className="w-7 h-7 text-blue-600" />
+            <div className="p-2 bg-primary-100 rounded-lg" style={{ borderRadius: 8 }}>
+              <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Tổng bệnh nhân</p>

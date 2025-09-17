@@ -113,7 +113,10 @@ export const RealtimeChatManager: React.FC<RealtimeChatManagerProps> = ({
 
   if (!isConnected && isLoading) {
     return (
-      <div className="fixed bottom-4 right-4 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+      <div
+        className="fixed bottom-4 right-4 w-12 h-12 rounded-full flex items-center justify-center"
+        style={{ background: "var(--color-primary-600)", color: "white" }}
+      >
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
       </div>
     );

@@ -1,19 +1,11 @@
-'use client';
+"use client";
 
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import {
-    AlertCircle,
-    Calendar,
-    CheckCircle,
-    Clock,
-    FileText,
-    Stethoscope,
-    User
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
+import { AlertCircle, Calendar, CheckCircle, Clock, FileText, Stethoscope, User } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface PatientStatistics {
   totalRecords: number;
@@ -47,12 +39,12 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
   const fetchStatistics = async () => {
     try {
       const params = new URLSearchParams();
-      params.append('patientId', patientId);
+      params.append("patientId", patientId);
 
       const response = await fetch(`/api/medical-records/statistics/patient?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       });
 
       if (response.ok) {
@@ -60,7 +52,7 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
         setStatistics(data);
       }
     } catch (error) {
-      console.error('Error fetching statistics:', error);
+      console.error("Error fetching statistics:", error);
     } finally {
       setLoading(false);
     }
@@ -95,7 +87,7 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
                 <p className="text-sm font-medium text-gray-600">Tổng hồ sơ</p>
                 <p className="text-2xl font-bold">{statistics.totalRecords}</p>
               </div>
-              <FileText className="h-8 w-8 text-blue-600" />
+              <FileText className="h-8 w-8" style={{ color: "var(--color-primary-600)" }} />
             </div>
           </CardContent>
         </Card>
@@ -105,9 +97,11 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Đã hoàn thành</p>
-                <p className="text-2xl font-bold text-green-600">{statistics.completedRecords}</p>
+                <p className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>
+                  {statistics.completedRecords}
+                </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-8 w-8" style={{ color: "var(--color-success)" }} />
             </div>
           </CardContent>
         </Card>
@@ -117,9 +111,11 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Đang chờ</p>
-                <p className="text-2xl font-bold text-yellow-600">{statistics.pendingRecords}</p>
+                <p className="text-2xl font-bold" style={{ color: "var(--color-warning)" }}>
+                  {statistics.pendingRecords}
+                </p>
               </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
+              <Clock className="h-8 w-8" style={{ color: "var(--color-warning)" }} />
             </div>
           </CardContent>
         </Card>
@@ -129,9 +125,11 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Cần tái khám</p>
-                <p className="text-2xl font-bold text-orange-600">{statistics.followUpRecords}</p>
+                <p className="text-2xl font-bold" style={{ color: "var(--color-warning)" }}>
+                  {statistics.followUpRecords}
+                </p>
               </div>
-              <AlertCircle className="h-8 w-8 text-orange-600" />
+              <AlertCircle className="h-8 w-8" style={{ color: "var(--color-warning)" }} />
             </div>
           </CardContent>
         </Card>
@@ -156,12 +154,12 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
                 </div>
                 <Badge variant="secondary">{statistics.latestRecord.doctorId.specialty}</Badge>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-500" />
                 <span className="text-sm font-medium">Ngày khám:</span>
                 <span className="text-sm">
-                  {format(new Date(statistics.latestRecord.recordDate), 'dd/MM/yyyy', { locale: vi })}
+                  {format(new Date(statistics.latestRecord.recordDate), "dd/MM/yyyy", { locale: vi })}
                 </span>
               </div>
 
@@ -170,7 +168,7 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
                   <span className="text-sm font-medium">Lý do khám:</span>
                   <p className="text-sm text-gray-600 mt-1">{statistics.latestRecord.chiefComplaint}</p>
                 </div>
-                
+
                 {statistics.latestRecord.diagnosis && (
                   <div>
                     <span className="text-sm font-medium">Chẩn đoán:</span>
@@ -207,7 +205,7 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
                 <span className="text-sm font-medium text-yellow-600">{statistics.pendingRecords}</span>
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Cần tái khám:</span>
@@ -216,9 +214,10 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Tỷ lệ hoàn thành:</span>
                 <span className="text-sm font-medium text-blue-600">
-                  {statistics.totalRecords > 0 
-                    ? ((statistics.completedRecords / statistics.totalRecords) * 100).toFixed(1) 
-                    : 0}%
+                  {statistics.totalRecords > 0
+                    ? ((statistics.completedRecords / statistics.totalRecords) * 100).toFixed(1)
+                    : 0}
+                  %
                 </span>
               </div>
             </div>

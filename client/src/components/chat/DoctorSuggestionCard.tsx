@@ -43,7 +43,7 @@ export default function DoctorSuggestionCard({
   }
 
   const getAvatarColor = (name: string) => {
-    const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500", "bg-yellow-500", "bg-indigo-500"];
+    const colors = ["var(--color-primary)", "#10b981", "#7c3aed", "#ef4444", "#f59e0b", "#6366f1"];
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
   };
@@ -58,13 +58,15 @@ export default function DoctorSuggestionCard({
   };
 
   return (
-    <div className={`p-4 bg-blue-50 border border-blue-200 rounded-lg ${className}`}>
+    <div
+      className={`p-4 rounded-lg ${className}`}
+      style={{ background: "var(--color-primary-outline)", border: "1px solid rgba(0,166,244,0.08)" }}
+    >
       <div className="flex items-start">
         {/* Avatar thay vì icon */}
         <div
-          className={`w-12 h-12 ${getAvatarColor(
-            doctor.fullName
-          )} rounded-full flex items-center justify-center mr-3 flex-shrink-0`}
+          style={{ background: getAvatarColor(doctor.fullName) }}
+          className={`w-12 h-12 rounded-full flex items-center justify-center mr-3 flex-shrink-0`}
         >
           <span className="text-white font-medium text-sm">{getInitials(doctor.fullName)}</span>
         </div>
@@ -72,18 +74,30 @@ export default function DoctorSuggestionCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h4 className="font-medium text-blue-900">Bác sĩ được đề xuất</h4>
-              <p className="text-sm text-blue-800 font-semibold mt-1">{doctor.fullName}</p>
-              <p className="text-sm text-blue-700">{doctor.specialty}</p>
+              <h4 className="font-medium" style={{ color: "var(--color-primary-contrast)" }}>
+                Bác sĩ được đề xuất
+              </h4>
+              <p className="text-sm font-semibold mt-1" style={{ color: "var(--color-primary-600)" }}>
+                {doctor.fullName}
+              </p>
+              <p className="text-sm" style={{ color: "var(--color-primary-600)" }}>
+                {doctor.specialty}
+              </p>
 
               {doctor.rating && (
                 <div className="flex items-center mt-1">
                   <span className="text-yellow-500 text-sm">⭐</span>
-                  <span className="text-xs text-blue-600 ml-1">{doctor.rating}/5</span>
+                  <span className="text-xs ml-1" style={{ color: "var(--color-primary-600)" }}>
+                    {doctor.rating}/5
+                  </span>
                 </div>
               )}
 
-              {doctor.experience && <p className="text-xs text-blue-600 mt-1">{doctor.experience}</p>}
+              {doctor.experience && (
+                <p className="text-xs mt-1" style={{ color: "var(--color-primary-600)" }}>
+                  {doctor.experience}
+                </p>
+              )}
             </div>
           </div>
 
@@ -91,14 +105,16 @@ export default function DoctorSuggestionCard({
           <div className="flex flex-wrap gap-2 mt-3">
             <button
               onClick={onContact}
-              className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              className="px-4 py-1.5 text-sm rounded-md"
+              style={{ background: "var(--color-primary)", color: "white" }}
             >
               Liên hệ
             </button>
 
             <button
               onClick={onViewProfile}
-              className="px-4 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+              className="px-4 py-1.5 text-sm rounded-md"
+              style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-600)" }}
             >
               Hồ sơ
             </button>

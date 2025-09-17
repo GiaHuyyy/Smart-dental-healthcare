@@ -21,7 +21,10 @@ export default function Verify({ id }: VerifyProps) {
   // Handle case where id is not available
   if (!id) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "linear-gradient(180deg,var(--color-primary-outline), #f0fbff)" }}
+      >
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">Lỗi</h1>
           <p className="text-gray-600 mt-2">ID xác thực không hợp lệ</p>
@@ -103,7 +106,10 @@ export default function Verify({ id }: VerifyProps) {
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="flex items-center justify-center">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+            <div
+              className="w-12 h-12 rounded-lg flex items-center justify-center"
+              style={{ background: "var(--color-primary-600)" }}
+            >
               <Smile className="w-8 h-8 text-white" />
             </div>
             <span className="ml-3 text-2xl font-bold text-gray-900">Smart Dental</span>
@@ -117,8 +123,11 @@ export default function Verify({ id }: VerifyProps) {
           <div className="bg-white p-8 rounded-lg shadow">
             {/* Email Icon */}
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-8 h-8 text-blue-600" />
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ background: "var(--color-primary-outline)" }}
+              >
+                <Mail className="w-8 h-8" style={{ color: "var(--color-primary-600)" }} />
               </div>
               <h3 className="text-lg font-medium text-gray-900">Kiểm tra email của bạn</h3>
               <p className="text-sm text-gray-600 mt-2">Chúng tôi đã gửi mã xác thực đến email của bạn</p>
@@ -136,7 +145,8 @@ export default function Verify({ id }: VerifyProps) {
                   required
                   maxLength={36}
                   placeholder="Nhập mã xác thực"
-                  className="w-full text-center text-2xl font-mono border border-gray-300 rounded-md px-3 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent tracking-widest"
+                  className="w-full text-center text-2xl font-mono border border-gray-300 rounded-md px-3 py-4 focus:outline-none focus:border-transparent tracking-widest"
+                  style={{ outlineColor: "var(--color-primary-600)" }}
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
                 />
@@ -161,7 +171,7 @@ export default function Verify({ id }: VerifyProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-white font-medium bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-white font-medium btn-primary-filled disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? "Đang xác thực..." : "Xác thực tài khoản"}
               </button>
@@ -173,7 +183,8 @@ export default function Verify({ id }: VerifyProps) {
                     type="button"
                     onClick={handleResendCode}
                     disabled={isResending}
-                    className="font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                    className="font-medium"
+                    style={{ color: "var(--color-primary-600)" }}
                   >
                     {isResending ? "Đang gửi..." : "Gửi lại"}
                   </button>
@@ -195,11 +206,11 @@ export default function Verify({ id }: VerifyProps) {
           <div className="space-y-2 text-sm text-gray-600">
             <p>
               <Phone className="inline w-4 h-4 mr-2" />
-              Hotline: <strong className="text-blue-600">1900 1234</strong>
+              Hotline: <strong style={{ color: "var(--color-primary-600)" }}>1900 1234</strong>
             </p>
             <p>
               <Mail className="inline w-4 h-4 mr-2" />
-              Email: <strong className="text-blue-600">support@smartdental.vn</strong>
+              Email: <strong style={{ color: "var(--color-primary-600)" }}>support@smartdental.vn</strong>
             </p>
             <p>
               <Clock className="inline w-4 h-4 mr-2" />

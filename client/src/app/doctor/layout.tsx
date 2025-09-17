@@ -42,10 +42,13 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+          <div
+            style={{ backgroundColor: "var(--color-primary)" }}
+            className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4"
+          >
             <Smile className="w-8 h-8 text-white" />
           </div>
-          <p className="text-gray-600">Đang tải...</p>
+          <p className="text-[var(--color-muted)]">Đang tải...</p>
         </div>
       </div>
     );
@@ -71,13 +74,16 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
                   <li key={item.name}>
                     <Link
                       href={item.href}
-                      className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors ${
-                        isHomeItem
-                          ? "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                      className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors`}
+                      style={{
+                        backgroundColor: isHomeItem
+                          ? "rgba(106,166,177,0.06)"
                           : isActive
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }`}
+                          ? "rgba(106,166,177,0.08)"
+                          : undefined,
+                        color: isHomeItem || isActive ? "var(--color-primary-600)" : undefined,
+                        border: isHomeItem ? `1px solid rgba(90,152,162,0.12)` : undefined,
+                      }}
                     >
                       <span className="mr-3">{item.icon}</span>
                       {item.name}

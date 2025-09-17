@@ -41,7 +41,7 @@ export default function ChatMessage({
       <div
         className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
           isUser
-            ? "bg-blue-500 text-white"
+            ? "msg-outgoing"
             : hasActions || isAnalysisResult
             ? "bg-white text-gray-900 border border-gray-200 shadow-lg"
             : "bg-gray-100 text-gray-900"
@@ -65,8 +65,14 @@ export default function ChatMessage({
         {isAnalysisResult && analysisData ? (
           <div className="space-y-2">
             {/* Header */}
-            <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-              <span className="text-blue-800 font-bold text-base inline-flex items-center">
+            <div
+              className="flex items-center justify-center p-2 rounded-lg"
+              style={{ background: "linear-gradient(90deg, var(--color-primary-outline), #f0fbff)" }}
+            >
+              <span
+                className="font-bold text-base inline-flex items-center"
+                style={{ color: "var(--color-primary-600)" }}
+              >
                 <Search className="w-4 h-4 mr-2" />
                 Kết quả phân tích ảnh
               </span>
@@ -74,12 +80,23 @@ export default function ChatMessage({
 
             {/* Chẩn đoán */}
             {analysisData.richContent?.analysis && (
-              <div className="p-2 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                <div className="text-sm font-semibold text-blue-700 mb-1 flex items-center">
+              <div
+                className="p-2 rounded-lg"
+                style={{
+                  background: "linear-gradient(90deg,var(--color-primary-outline),#f0fbff)",
+                  borderLeft: "4px solid var(--color-primary-600)",
+                }}
+              >
+                <div
+                  className="text-sm font-semibold mb-1 flex items-center"
+                  style={{ color: "var(--color-primary-600)" }}
+                >
                   <FileText className="w-4 h-4 mr-1" />
                   CHẨN ĐOÁN
                 </div>
-                <p className="text-blue-900 leading-normal text-sm">{analysisData.richContent.analysis}</p>
+                <p className="leading-normal text-sm" style={{ color: "var(--color-primary-contrast)" }}>
+                  {analysisData.richContent.analysis}
+                </p>
               </div>
             )}
 
@@ -103,7 +120,9 @@ export default function ChatMessage({
                         <ul className="space-y-0">
                           {section.bullets.map((bullet: string, bulletIndex: number) => (
                             <li key={bulletIndex} className="text-gray-700 flex items-start text-sm">
-                              <span className="text-blue-500 mr-1 mt-0">•</span>
+                              <span className="mr-1 mt-0" style={{ color: "var(--color-primary)" }}>
+                                •
+                              </span>
                               <span>{bullet}</span>
                             </li>
                           ))}
@@ -117,15 +136,20 @@ export default function ChatMessage({
 
             {/* Khuyến nghị - Hiển thị tất cả */}
             {analysisData.richContent?.recommendations && (
-              <div className="p-2 bg-green-50 rounded-lg border-l-4 border-green-500">
-                <div className="text-sm font-semibold text-green-700 mb-1 flex items-center">
+              <div
+                className="p-2 bg-primary-100 rounded-lg border-l-4"
+                style={{ borderColor: "var(--color-primary-600)" }}
+              >
+                <div className="text-sm font-semibold text-primary mb-1 flex items-center">
                   <Lightbulb className="w-4 h-4 mr-1" />
                   KHUYẾN NGHỊ
                 </div>
                 <div className="space-y-0">
                   {analysisData.richContent.recommendations.map((rec: string, index: number) => (
-                    <div key={index} className="text-green-800 flex items-start">
-                      <span className="text-green-600 mr-2 mt-0 font-bold">•</span>
+                    <div key={index} className="flex items-start" style={{ color: "var(--color-primary-contrast)" }}>
+                      <span className="mr-2 mt-0 font-bold" style={{ color: "var(--color-primary)" }}>
+                        •
+                      </span>
                       <span className="text-sm leading-normal">{rec}</span>
                     </div>
                   ))}
@@ -134,8 +158,14 @@ export default function ChatMessage({
             )}
 
             {/* Action prompt */}
-            <div className="text-center p-2 bg-orange-50 rounded-lg border border-orange-200">
-              <p className="text-orange-700 font-medium flex items-center justify-center text-sm">
+            <div
+              className="text-center p-2 rounded-lg"
+              style={{ background: "var(--color-accent)", border: "1px solid #ffedd5" }}
+            >
+              <p
+                className="font-medium flex items-center justify-center text-sm"
+                style={{ color: "var(--color-warning)" }}
+              >
                 <Wrench className="w-4 h-4 mr-1" />
                 Sử dụng các nút bên dưới để tương tác
               </p>
@@ -153,7 +183,7 @@ export default function ChatMessage({
               <button
                 key={index}
                 onClick={() => onActionClick(buttonText)}
-                className="px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
+                className="px-3 py-2 rounded-lg text-sm font-medium flex items-center shadow-sm transition-transform duration-150 hover:scale-105 btn-primary-small"
               >
                 <span className="mr-1">{getButtonIcon(buttonText)}</span>
                 {buttonText}
@@ -163,7 +193,10 @@ export default function ChatMessage({
         )}
 
         {/* Timestamp */}
-        <div className={`text-xs mt-2 ${isUser ? "text-blue-100" : "text-gray-500"}`}>
+        <div
+          className={`text-xs mt-2 ${isUser ? "text-white" : "text-gray-500"}`}
+          style={isUser ? { color: "rgba(255,255,255,0.9)" } : undefined}
+        >
           {timestamp instanceof Date
             ? timestamp.toLocaleTimeString("vi-VN", {
                 hour: "2-digit",

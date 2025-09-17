@@ -7,7 +7,7 @@ import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 const navigation = [
   { name: "Trang chủ", href: "/", icon: <Home className="w-4 h-4" />, isHome: true },
@@ -233,19 +233,27 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                 const isActive = pathname === item.href;
                 const isHomeItem = item.isHome;
 
+                const linkClasses = `flex items-center px-4 py-2 text-sm rounded-md transition-colors ${
+                  isHomeItem
+                    ? "bg-primary-100 text-primary hover:bg-primary-50 border border-primary-outline"
+                    : isActive
+                    ? "bg-primary-100 text-primary"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`;
+
+                const iconEl = item.icon ? (
+                  <span
+                    className="w-4 h-4 inline-flex items-center justify-center"
+                    style={{ color: isActive || isHomeItem ? "var(--color-primary-600)" : undefined }}
+                  >
+                    {item.icon}
+                  </span>
+                ) : null;
+
                 return (
                   <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors ${
-                        isHomeItem
-                          ? "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
-                          : isActive
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }`}
-                    >
-                      <span className="mr-3">{item.icon}</span>
+                    <Link href={item.href} className={linkClasses}>
+                      <span className="mr-3">{iconEl}</span>
                       {item.name}
                       {isHomeItem && <span className="ml-auto text-xs">↗</span>}
                     </Link>
@@ -266,8 +274,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6">
             <div className="flex items-start gap-4">
               <div className="flex-none">
-                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xl">
-                  <Calendar className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-xl">
+                  <Calendar className="w-6 h-6" style={{ color: "var(--color-primary-600)" }} />
                 </div>
               </div>
               <div className="flex-1">
@@ -296,7 +304,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                       </div>
                     </div>
                     <div className="md:col-span-2 text-sm text-gray-600 mt-2">
-                      Nếu giờ mới không phù hợp, vui lòng liên hệ phòng khám hoặc nhấn "Liên hệ" để được trợ giúp.
+                      Nếu giờ mới không phù hợp, vui lòng liên hệ phòng khám hoặc nhấn &quot;Liên hệ&quot; để được trợ
+                      giúp.
                     </div>
                   </div>
                 );
@@ -316,7 +325,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
               <button
                 ref={modalCloseRef}
                 onClick={closeBroadcastModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className={"px-4 py-2 btn-primary-filled rounded"}
               >
                 Đóng
               </button>
