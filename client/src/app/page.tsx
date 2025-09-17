@@ -7,22 +7,22 @@ import { Search, Star, Smile, Sparkles, Wrench, Hospital, Phone, Mail, MapPin, X
 export default function HomePage() {
   const services = [
     {
-      icon: <Smile className="w-8 h-8 text-sky-600" />,
+      icon: <Smile className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
       title: "Khám tổng quát",
       description: "Kiểm tra sức khỏe răng miệng định kỳ",
     },
     {
-      icon: <Sparkles className="w-8 h-8 text-sky-600" />,
+      icon: <Sparkles className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
       title: "Tẩy trắng răng",
       description: "Làm trắng răng an toàn, hiệu quả",
     },
     {
-      icon: <Wrench className="w-8 h-8 text-sky-600" />,
+      icon: <Wrench className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
       title: "Chỉnh nha",
       description: "Niềng răng, chỉnh hình hàm răng",
     },
     {
-      icon: <Hospital className="w-8 h-8 text-sky-600" />,
+      icon: <Hospital className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
       title: "Phẫu thuật",
       description: "Nhổ răng khôn, cấy ghép implant",
     },
@@ -55,11 +55,14 @@ export default function HomePage() {
       <Header />
 
       {/* Hero Section with Booking */}
-      <section className="bg-gradient-to-br from-sky-500 to-sky-700 text-white py-20">
+      <section
+        className="text-white py-20"
+        style={{ background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-600))" }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Đặt lịch khám răng</h2>
-            <p className="text-xl text-sky-100 max-w-2xl mx-auto">
+            <p className="text-xl max-w-2xl mx-auto" style={{ color: "var(--color-accent)" }}>
               Hệ thống đặt lịch thông minh, kết nối bạn với các bác sĩ nha khoa hàng đầu
             </p>
           </div>
@@ -88,12 +91,10 @@ export default function HomePage() {
                     <input
                       type="text"
                       placeholder="Tìm bác sĩ, phòng khám, chuyên khoa..."
-                      className="w-full pl-10 pr-20 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                      className="w-full pl-10 pr-20 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none"
+                      style={{ boxShadow: "none" }}
                     />
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 px-6 bg-sky-500 text-white rounded-r-lg hover:bg-sky-600 transition-colors font-medium"
-                    >
+                    <button type="button" className="absolute inset-y-0 right-0 px-6 btn-primary-filled">
                       Tìm kiếm
                     </button>
                   </div>
@@ -105,13 +106,19 @@ export default function HomePage() {
             <div className="mt-6">
               <p className="text-sm text-gray-600 mb-3">Bạn đang tìm kiếm:</p>
               <div className="flex flex-wrap gap-2">
-                <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-sm">
+                <span
+                  className="px-3 py-1 rounded-full text-sm"
+                  style={{ backgroundColor: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }}
+                >
                   Nha khoa tổng quát{" "}
                   <span className="ml-2 inline-block">
                     <X className="w-3 h-3" />
                   </span>
                 </span>
-                <span className="bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-sm">
+                <span
+                  className="px-3 py-1 rounded-full text-sm"
+                  style={{ backgroundColor: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }}
+                >
                   Chỉnh nha{" "}
                   <span className="ml-2 inline-block">
                     <X className="w-3 h-3" />
@@ -124,7 +131,7 @@ export default function HomePage() {
       </section>
 
       {/* Services Section */}
-      <section id="services" className="py-20 bg-gray-50">
+      <section id="services" className="py-20" style={{ backgroundColor: "var(--color-accent)" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h3 className="text-3xl font-bold text-gray-900 mb-4">Dịch vụ nha khoa chuyên nghiệp</h3>
@@ -163,7 +170,9 @@ export default function HomePage() {
               >
                 <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-4"></div>
                 <h4 className="text-xl font-semibold text-gray-900 mb-2">{doctor.name}</h4>
-                <p className="text-sky-600 font-medium mb-1">{doctor.specialty}</p>
+                <p className="font-medium mb-1" style={{ color: "var(--color-primary)" }}>
+                  {doctor.specialty}
+                </p>
                 <p className="text-gray-600 text-sm mb-3">{doctor.experience}</p>
                 <div className="flex items-center justify-center">
                   <Star className="text-yellow-400 w-5 h-5" />
@@ -212,24 +221,35 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="bg-gradient-to-br from-sky-100 to-blue-100 rounded-2xl p-8">
+            <div
+              className="rounded-2xl p-8"
+              style={{ background: "linear-gradient(135deg, var(--color-accent), rgba(223,236,255,0.6))" }}
+            >
               <div className="text-center">
                 <h4 className="text-2xl font-bold text-gray-900 mb-6">Thống kê hệ thống</h4>
                 <div className="grid grid-cols-2 gap-8">
                   <div>
-                    <div className="text-3xl font-bold text-sky-600">1000+</div>
+                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
+                      1000+
+                    </div>
                     <div className="text-gray-600">Bệnh nhân tin tưởng</div>
                   </div>
                   <div>
-                    <div className="text-3xl font-bold text-sky-600">50+</div>
+                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
+                      50+
+                    </div>
                     <div className="text-gray-600">Bác sĩ chuyên nghiệp</div>
                   </div>
                   <div>
-                    <div className="text-3xl font-bold text-sky-600">5+</div>
+                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
+                      5+
+                    </div>
                     <div className="text-gray-600">Năm kinh nghiệm</div>
                   </div>
                   <div>
-                    <div className="text-3xl font-bold text-sky-600">98%</div>
+                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
+                      98%
+                    </div>
                     <div className="text-gray-600">Khách hàng hài lòng</div>
                   </div>
                 </div>
@@ -247,16 +267,10 @@ export default function HomePage() {
             Đăng ký ngay hôm nay để được tư vấn miễn phí và đặt lịch khám với các bác sĩ hàng đầu
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/auth/register"
-              className="bg-white text-sky-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-            >
+            <Link href="/auth/register" className="btn-primary-filled px-8 py-3 font-semibold">
               Đăng ký ngay
             </Link>
-            <Link
-              href="/auth/login"
-              className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-sky-600 transition-colors"
-            >
+            <Link href="/auth/login" className="btn-primary-outline px-8 py-3 font-semibold">
               Đăng nhập
             </Link>
           </div>
@@ -269,7 +283,10 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center mb-4">
-                <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center mr-2">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center mr-2"
+                  style={{ backgroundColor: "var(--color-primary-600)" }}
+                >
                   <Smile className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-lg font-bold">Smart Dental</span>

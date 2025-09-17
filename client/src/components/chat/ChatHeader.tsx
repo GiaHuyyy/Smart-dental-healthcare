@@ -38,13 +38,15 @@ export default function ChatHeader({
         {/* Left: User Info */}
         <div className="flex items-center min-w-0 flex-1">
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${
-              type === "ai"
-                ? "bg-gradient-to-br from-blue-500 to-blue-600"
-                : type === "doctor"
-                ? "bg-gradient-to-br from-green-500 to-green-600"
-                : "bg-gradient-to-br from-purple-500 to-purple-600"
-            }`}
+            className="w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
+            style={{
+              background:
+                type === "ai"
+                  ? "linear-gradient(135deg, var(--color-primary), var(--color-primary-600))"
+                  : type === "doctor"
+                  ? "linear-gradient(135deg, var(--color-primary-600), var(--color-primary))"
+                  : "linear-gradient(135deg,#7c3aed,#6d28d9)",
+            }}
           >
             <span className="text-white text-sm font-medium">
               {type === "ai" ? (
@@ -62,7 +64,7 @@ export default function ChatHeader({
                 {type === "ai" ? "AI Tư vấn" : type === "doctor" ? doctorName : patientName}
               </h3>
               <span
-                className={`w-2 h-2 ${isOnline ? "bg-green-500" : "bg-gray-400"} rounded-full flex-shrink-0`}
+                className={`w-2 h-2 ${isOnline ? "bg-primary-600" : "bg-gray-400"} rounded-full flex-shrink-0`}
               ></span>
             </div>
             <p className="text-sm text-gray-600 truncate">
@@ -85,8 +87,9 @@ export default function ChatHeader({
               {/* Gọi điện */}
               <button
                 onClick={onCall}
-                className="flex items-center space-x-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100 transition-colors whitespace-nowrap"
+                className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
                 title="Gọi điện"
+                style={{ background: "var(--color-accent)", color: "var(--color-success)" }}
               >
                 <Phone className="w-4 h-4" />
                 <span className="hidden sm:inline">Gọi điện</span>
@@ -95,8 +98,9 @@ export default function ChatHeader({
               {/* Đặt lịch */}
               <button
                 onClick={onBookAppointment}
-                className="flex items-center space-x-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm hover:bg-green-100 transition-colors whitespace-nowrap"
+                className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
                 title="Đặt lịch hẹn"
+                style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
               >
                 <Calendar className="w-4 h-4" />
                 <span className="hidden sm:inline">Đặt lịch</span>
@@ -105,8 +109,9 @@ export default function ChatHeader({
               {/* Hồ sơ */}
               <button
                 onClick={onViewProfile}
-                className="flex items-center space-x-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm hover:bg-purple-100 transition-colors whitespace-nowrap"
+                className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
                 title="Xem hồ sơ bác sĩ"
+                style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
               >
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">Hồ sơ</span>
@@ -118,9 +123,17 @@ export default function ChatHeader({
                   recipientId={doctorId}
                   recipientName={doctorName}
                   recipientRole="doctor"
-                  className="flex items-center space-x-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
                 >
-                  <span className="flex items-center space-x-1">
+                  <span
+                    className="flex items-center space-x-1"
+                    style={{
+                      background: "var(--color-accent)",
+                      color: "var(--color-primary-600)",
+                      padding: "0.25rem 0.5rem",
+                      borderRadius: "0.375rem",
+                    }}
+                  >
                     <Video className="w-4 h-4" />
                     <span className="hidden sm:inline">Gọi video</span>
                   </span>
@@ -168,9 +181,17 @@ export default function ChatHeader({
                   recipientId={patientId}
                   recipientName={patientName}
                   recipientRole="patient"
-                  className="flex items-center space-x-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm hover:bg-blue-100 transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
                 >
-                  <span className="flex items-center space-x-1">
+                  <span
+                    className="flex items-center space-x-1"
+                    style={{
+                      background: "var(--color-accent)",
+                      color: "var(--color-primary-600)",
+                      padding: "0.25rem 0.5rem",
+                      borderRadius: "0.375rem",
+                    }}
+                  >
                     <Video className="w-4 h-4" />
                     <span className="hidden sm:inline">Gọi video</span>
                   </span>
@@ -190,7 +211,10 @@ export default function ChatHeader({
                 </span>
                 <span>Phiên bản 2.0</span>
               </div>
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium ml-2">
+              <span
+                className="px-3 py-1 rounded-full text-xs font-medium ml-2"
+                style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-600)" }}
+              >
                 Miễn phí
               </span>
             </div>

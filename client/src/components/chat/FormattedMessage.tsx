@@ -36,12 +36,20 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
         const diagnosis = section.replace(/CHẨN ĐOÁN:?/i, "").trim();
         return (
           <div key={index} className="mb-4">
-            <div className="bg-blue-50 border-l-3 border-blue-400 p-3 rounded-r">
-              <h3 className="text-base font-semibold text-blue-800 mb-1 flex items-center">
+            <div
+              className="p-3 rounded-r"
+              style={{ background: "var(--color-primary-outline)", borderLeft: "3px solid rgba(0,166,244,0.12)" }}
+            >
+              <h3
+                className="text-base font-semibold mb-1 flex items-center"
+                style={{ color: "var(--color-primary-600)" }}
+              >
                 <FileText className="w-4 h-4 mr-2" />
                 CHẨN ĐOÁN
               </h3>
-              <p className="text-blue-900 text-sm">{cleanMarkdown(diagnosis)}</p>
+              <p className="text-sm" style={{ color: "var(--color-primary-contrast)" }}>
+                {cleanMarkdown(diagnosis)}
+              </p>
             </div>
           </div>
         );
@@ -54,8 +62,11 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
 
         return (
           <div key={index} className="mb-4">
-            <div className="bg-green-50 border-l-3 border-green-400 p-3 rounded-r">
-              <h3 className="text-base font-semibold text-green-800 mb-2 flex items-center">
+            <div
+              className="p-3 rounded-r"
+              style={{ background: "#ecfdf5", borderLeft: "3px solid rgba(16,185,129,0.12)" }}
+            >
+              <h3 className="text-base font-semibold mb-2 flex items-center" style={{ color: "#047857" }}>
                 <BarChart2 className="w-4 h-4 mr-2" />
                 CHI TIẾT PHÂN TÍCH
               </h3>
@@ -66,11 +77,17 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
                   if (numberedWithColonMatch) {
                     const [, number, heading, text] = numberedWithColonMatch;
                     return (
-                      <div key={lineIndex} className="bg-white p-2 rounded border border-green-200">
-                        <h4 className="font-medium text-green-800 mb-1 text-sm">
+                      <div
+                        key={lineIndex}
+                        className="bg-white p-2 rounded"
+                        style={{ border: "1px solid rgba(16,185,129,0.08)" }}
+                      >
+                        <h4 className="font-medium mb-1 text-sm" style={{ color: "#047857" }}>
                           {number}. {cleanMarkdown(heading)}:
                         </h4>
-                        <p className="text-green-700 text-sm ml-4">{cleanMarkdown(text)}</p>
+                        <p className="text-sm ml-4" style={{ color: "#065f46" }}>
+                          {cleanMarkdown(text)}
+                        </p>
                       </div>
                     );
                   }
@@ -80,11 +97,17 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
                   if (numberedMatch) {
                     const [, number, heading, text] = numberedMatch;
                     return (
-                      <div key={lineIndex} className="bg-white p-2 rounded border border-green-200">
-                        <h4 className="font-medium text-green-800 mb-1 text-sm">
+                      <div
+                        key={lineIndex}
+                        className="bg-white p-2 rounded"
+                        style={{ border: "1px solid rgba(16,185,129,0.08)" }}
+                      >
+                        <h4 className="font-medium mb-1 text-sm" style={{ color: "#047857" }}>
                           {number}. {cleanMarkdown(heading)}
                         </h4>
-                        <p className="text-green-700 text-sm ml-4">{cleanMarkdown(text)}</p>
+                        <p className="text-sm ml-4" style={{ color: "#065f46" }}>
+                          {cleanMarkdown(text)}
+                        </p>
                       </div>
                     );
                   }
@@ -94,8 +117,12 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
                   if (numberedHeadingMatch) {
                     const [, number, heading] = numberedHeadingMatch;
                     return (
-                      <div key={lineIndex} className="bg-white p-2 rounded border border-green-200">
-                        <h4 className="font-medium text-green-800 text-sm">
+                      <div
+                        key={lineIndex}
+                        className="bg-white p-2 rounded"
+                        style={{ border: "1px solid rgba(16,185,129,0.08)" }}
+                      >
+                        <h4 className="font-medium text-sm" style={{ color: "#047857" }}>
                           {number}. {cleanMarkdown(heading)}
                         </h4>
                       </div>
@@ -105,9 +132,17 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
                   // Check if it's a bullet point
                   if (line.trim().startsWith("•")) {
                     return (
-                      <div key={lineIndex} className="flex items-start bg-white p-2 rounded border border-green-200">
-                        <span className="text-green-500 mr-2 mt-0.5">•</span>
-                        <span className="text-green-700 text-sm">{cleanMarkdown(line.replace("•", "").trim())}</span>
+                      <div
+                        key={lineIndex}
+                        className="flex items-start bg-white p-2 rounded"
+                        style={{ border: "1px solid rgba(16,185,129,0.08)" }}
+                      >
+                        <span className="mr-2 mt-0.5" style={{ color: "var(--color-primary)" }}>
+                          •
+                        </span>
+                        <span className="text-sm" style={{ color: "#065f46" }}>
+                          {cleanMarkdown(line.replace("•", "").trim())}
+                        </span>
                       </div>
                     );
                   }
@@ -136,8 +171,11 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
 
         return (
           <div key={index} className="mb-4">
-            <div className="bg-amber-50 border-l-3 border-amber-400 p-3 rounded-r">
-              <h3 className="text-base font-semibold text-amber-800 mb-2 flex items-center">
+            <div
+              className="p-3 rounded-r"
+              style={{ background: "#fff7ed", borderLeft: "3px solid rgba(245,158,11,0.12)" }}
+            >
+              <h3 className="text-base font-semibold mb-2 flex items-center" style={{ color: "#92400e" }}>
                 <Lightbulb className="w-4 h-4 mr-2" />
                 KHUYẾN NGHỊ
               </h3>
@@ -145,9 +183,17 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
                 {lines.map((line, lineIndex) => {
                   if (line.trim().startsWith("•")) {
                     return (
-                      <li key={lineIndex} className="flex items-start bg-white p-2 rounded border border-amber-200">
-                        <span className="text-amber-500 mr-2 mt-0.5">•</span>
-                        <span className="text-amber-800 text-sm">{cleanMarkdown(line.replace("•", "").trim())}</span>
+                      <li
+                        key={lineIndex}
+                        className="flex items-start bg-white p-2 rounded"
+                        style={{ border: "1px solid rgba(245,158,11,0.08)" }}
+                      >
+                        <span className="mr-2 mt-0.5" style={{ color: "var(--color-primary)" }}>
+                          •
+                        </span>
+                        <span className="text-sm" style={{ color: "#92400e" }}>
+                          {cleanMarkdown(line.replace("•", "").trim())}
+                        </span>
                       </li>
                     );
                   }
@@ -165,12 +211,17 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
 
         return (
           <div key={index} className="mb-4">
-            <div className="bg-purple-50 border-l-3 border-purple-400 p-3 rounded-r">
-              <h3 className="text-base font-semibold text-purple-800 mb-1 flex items-center">
+            <div
+              className="p-3 rounded-r"
+              style={{ background: "#f5f3ff", borderLeft: "3px solid rgba(124,58,237,0.12)" }}
+            >
+              <h3 className="text-base font-semibold mb-1 flex items-center" style={{ color: "#4c1d95" }}>
                 <Wrench className="w-4 h-4 mr-2" />
                 CÁC HÀNH ĐỘNG TIẾP THEO
               </h3>
-              <p className="text-purple-800 text-sm">{cleanMarkdown(actions)}</p>
+              <p className="text-sm" style={{ color: "#4c1d95" }}>
+                {cleanMarkdown(actions)}
+              </p>
             </div>
           </div>
         );

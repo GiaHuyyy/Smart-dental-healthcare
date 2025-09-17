@@ -16,7 +16,8 @@ export default function ChatButtonSimple({ type }: ChatButtonSimpleProps) {
       {/* Chat Button */}
       <button
         onClick={() => setShowChat(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all duration-200 flex items-center justify-center"
+        className="rounded-full p-3 shadow-lg transition-all duration-200 flex items-center justify-center"
+        style={{ background: "var(--color-primary-600)", color: "white" }}
       >
         <MessageCircle size={24} />
       </button>

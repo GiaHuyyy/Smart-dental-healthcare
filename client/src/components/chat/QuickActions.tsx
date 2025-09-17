@@ -66,7 +66,12 @@ export default function QuickActions({
           <button
             key={index}
             onClick={() => onActionClick(action)}
-            className="px-3 py-2 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:from-blue-100 hover:to-blue-200 transition-all duration-200 flex items-center space-x-2 border border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md transform hover:scale-105"
+            className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 shadow-sm transform hover:scale-105"
+            style={{
+              background: "linear-gradient(90deg,var(--color-primary-outline), #f0fbff)",
+              color: "var(--color-primary-600)",
+              border: "1px solid rgba(0,166,244,0.08)",
+            }}
           >
             <span className="text-lg">{getActionIcon(action)}</span>
             <span>{action}</span>

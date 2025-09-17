@@ -41,7 +41,8 @@ export default function ImageAnalysisDisplay({
                       href="https://cloudinary.com"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 underline"
+                      className="underline"
+                      style={{ color: "var(--color-primary-600)" }}
                     >
                       cloudinary.com
                     </a>
@@ -71,12 +72,20 @@ export default function ImageAnalysisDisplay({
       <div className="space-y-6">
         {/* Chẩn đoán */}
         {analysis && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-            <h4 className="text-lg font-bold text-blue-800 mb-2 flex items-center">
+          <div
+            className="p-4 rounded-r-lg"
+            style={{
+              background: "linear-gradient(90deg, var(--color-primary-outline), #f0fbff)",
+              borderLeft: "4px solid var(--color-primary-600)",
+            }}
+          >
+            <h4 className="text-lg font-bold mb-2 flex items-center" style={{ color: "var(--color-primary-600)" }}>
               <FileText className="w-5 h-5 mr-2" />
               CHẨN ĐOÁN
             </h4>
-            <p className="text-blue-900 font-medium leading-relaxed">{analysis}</p>
+            <p className="font-medium leading-relaxed" style={{ color: "var(--color-primary-contrast)" }}>
+              {analysis}
+            </p>
           </div>
         )}
 
@@ -147,17 +156,20 @@ export default function ImageAnalysisDisplay({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-full mr-4">
+          <div className="p-3 rounded-full mr-4" style={{ background: "var(--color-primary-600)" }}>
             <Search className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <h3 className="text-2xl font-bold" style={{ color: "var(--color-primary-600)" }}>
               KẾT QUẢ PHÂN TÍCH ẢNH
             </h3>
             <p className="text-gray-600 text-sm">AI Analysis Result</p>
           </div>
         </div>
-        <div className="bg-gradient-to-r from-green-400 to-blue-500 text-white px-4 py-2 rounded-full text-sm font-semibold">
+        <div
+          className="px-4 py-2 rounded-full text-sm font-semibold"
+          style={{ background: "var(--color-primary)", color: "white" }}
+        >
           AI Powered
         </div>
       </div>
@@ -180,28 +192,32 @@ export default function ImageAnalysisDisplay({
         <div className="flex flex-wrap gap-3 justify-center">
           <button
             onClick={() => onActionClick("Giải thích thêm")}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+            className="px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg flex items-center"
+            style={{ background: "var(--color-primary-600)", color: "white" }}
           >
             <Lightbulb className="w-5 h-5 mr-2" />
             Giải thích thêm
           </button>
           <button
             onClick={() => onActionClick("Hướng dẫn chăm sóc")}
-            className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+            className="px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg flex items-center"
+            style={{ background: "var(--color-primary-600)", color: "white" }}
           >
             <Wrench className="w-5 h-5 mr-2" />
             Hướng dẫn chăm sóc
           </button>
           <button
             onClick={() => onActionClick("Gợi ý bác sĩ")}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+            className="px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg flex items-center"
+            style={{ background: "var(--color-primary-600)", color: "white" }}
           >
             <Stethoscope className="w-5 h-5 mr-2" />
             Gợi ý bác sĩ
           </button>
           <button
             onClick={() => onActionClick("Đặt lịch khám")}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-orange-700 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center"
+            className="px-6 py-3 rounded-xl font-semibold transition transform hover:scale-105 shadow-lg flex items-center"
+            style={{ background: "var(--color-primary-600)", color: "white" }}
           >
             <Calendar className="w-5 h-5 mr-2" />
             Đặt lịch khám

@@ -1,23 +1,10 @@
-'use client';
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DatePicker } from '@/components/ui/date-picker';
-import {
-    AlertCircle,
-    Calendar,
-    CheckCircle,
-    Clock,
-    FileText,
-    TrendingUp
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
-import {
-    Cell,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip
-} from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DatePicker } from "@/components/ui/date-picker";
+import { AlertCircle, Calendar, CheckCircle, Clock, FileText, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Statistics {
   totalRecords: number;
@@ -31,7 +18,7 @@ interface DoctorStatisticsProps {
   doctorId: string;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
@@ -46,14 +33,14 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
   const fetchStatistics = async () => {
     try {
       const params = new URLSearchParams();
-      params.append('doctorId', doctorId);
-      if (startDate) params.append('startDate', startDate.toISOString());
-      if (endDate) params.append('endDate', endDate.toISOString());
+      params.append("doctorId", doctorId);
+      if (startDate) params.append("startDate", startDate.toISOString());
+      if (endDate) params.append("endDate", endDate.toISOString());
 
       const response = await fetch(`/api/medical-records/statistics/doctor?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       });
 
       if (response.ok) {
@@ -61,17 +48,19 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
         setStatistics(data);
       }
     } catch (error) {
-      console.error('Error fetching statistics:', error);
+      console.error("Error fetching statistics:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const chartData = statistics ? [
-    { name: 'Hoàn thành', value: statistics.completedRecords, color: '#00C49F' },
-    { name: 'Đang chờ', value: statistics.pendingRecords, color: '#FFBB28' },
-    { name: 'Tái khám', value: statistics.followUpRecords, color: '#FF8042' }
-  ] : [];
+  const chartData = statistics
+    ? [
+        { name: "Hoàn thành", value: statistics.completedRecords, color: "#00C49F" },
+        { name: "Đang chờ", value: statistics.pendingRecords, color: "#FFBB28" },
+        { name: "Tái khám", value: statistics.followUpRecords, color: "#FF8042" },
+      ]
+    : [];
 
   if (loading) {
     return (
@@ -134,7 +123,7 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
                 <p className="text-sm font-medium text-gray-600">Tổng hồ sơ</p>
                 <p className="text-2xl font-bold">{statistics.totalRecords}</p>
               </div>
-              <FileText className="h-8 w-8 text-blue-600" />
+              <FileText className="h-8 w-8" style={{ color: "var(--color-primary-600)" }} />
             </div>
           </CardContent>
         </Card>
@@ -144,9 +133,11 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Đã hoàn thành</p>
-                <p className="text-2xl font-bold text-green-600">{statistics.completedRecords}</p>
+                <p className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>
+                  {statistics.completedRecords}
+                </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-8 w-8" style={{ color: "var(--color-success)" }} />
             </div>
           </CardContent>
         </Card>
@@ -156,9 +147,11 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Đang chờ</p>
-                <p className="text-2xl font-bold text-yellow-600">{statistics.pendingRecords}</p>
+                <p className="text-2xl font-bold" style={{ color: "var(--color-warning)" }}>
+                  {statistics.pendingRecords}
+                </p>
               </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
+              <Clock className="h-8 w-8" style={{ color: "var(--color-warning)" }} />
             </div>
           </CardContent>
         </Card>
@@ -168,9 +161,11 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Tỷ lệ hoàn thành</p>
-                <p className="text-2xl font-bold text-blue-600">{statistics.completionRate.toFixed(1)}%</p>
+                <p className="text-2xl font-bold" style={{ color: "var(--color-primary-600)" }}>
+                  {statistics.completionRate.toFixed(1)}%
+                </p>
               </div>
-              <TrendingUp className="h-8 w-8 text-blue-600" />
+              <TrendingUp className="h-8 w-8" style={{ color: "var(--color-primary-600)" }} />
             </div>
           </CardContent>
         </Card>

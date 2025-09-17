@@ -1434,7 +1434,7 @@ export default function DoctorSchedule() {
         <div className="flex space-x-2">
           <button
             className={`px-4 py-2 rounded-md ${
-              selectedView === "day" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+              selectedView === "day" ? "btn-primary-filled" : "bg-gray-200 text-gray-700"
             }`}
             onClick={() => setSelectedView("day")}
           >
@@ -1442,7 +1442,7 @@ export default function DoctorSchedule() {
           </button>
           <button
             className={`px-4 py-2 rounded-md ${
-              selectedView === "week" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
+              selectedView === "week" ? "btn-primary-filled" : "bg-gray-200 text-gray-700"
             }`}
             onClick={() => setSelectedView("week")}
           >
@@ -1482,21 +1482,37 @@ export default function DoctorSchedule() {
         </div>
 
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">{appointments.length}</p>
-            <p className="text-sm text-gray-600">Tổng lịch hẹn</p>
+          <div>
+            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+              <p className="text-2xl font-bold" style={{ color: "var(--color-accent)" }}>
+                {appointments.length}
+              </p>
+              <p className="text-sm text-[var(--color-muted)]">Tổng lịch hẹn</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">{statusCounts["completed"] || 0}</p>
-            <p className="text-sm text-gray-600">Hoàn thành</p>
+          <div>
+            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+              <p className="text-2xl font-bold" style={{ color: "var(--color-success)" }}>
+                {statusCounts["completed"] || 0}
+              </p>
+              <p className="text-sm text-[var(--color-muted)]">Hoàn thành</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">{statusCounts["in-progress"] || 0}</p>
-            <p className="text-sm text-gray-600">Đang khám</p>
+          <div>
+            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+              <p className="text-2xl font-bold" style={{ color: "var(--color-primary)" }}>
+                {statusCounts["in-progress"] || 0}
+              </p>
+              <p className="text-sm text-[var(--color-muted)]">Đang khám</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-yellow-600">{statusCounts["pending"] || 0}</p>
-            <p className="text-sm text-gray-600">Chờ khám</p>
+          <div>
+            <div className="p-3 bg-[var(--color-surface)] rounded-[var(--radius-md)] shadow-sm text-center">
+              <p className="text-2xl font-bold" style={{ color: "var(--color-danger)" }}>
+                {statusCounts["pending"] || 0}
+              </p>
+              <p className="text-sm text-[var(--color-muted)]">Chờ khám</p>
+            </div>
           </div>
         </div>
 
@@ -1515,13 +1531,17 @@ export default function DoctorSchedule() {
                     <div className="flex-1 ml-4">
                       {appointment ? (
                         <div
-                          className={`p-2 rounded border-l-4 ${
+                          className={`p-2 rounded`}
+                          style={
                             apptStatus === "confirmed"
-                              ? "bg-blue-50 border-blue-500"
+                              ? {
+                                  background: "var(--color-primary-outline)",
+                                  borderLeft: "4px solid var(--color-primary-600)",
+                                }
                               : apptStatus === "in-progress"
-                              ? "bg-green-50 border-green-500"
-                              : "bg-yellow-50 border-yellow-500"
-                          }`}
+                              ? { background: "var(--color-success)", borderLeft: "4px solid var(--color-success)" }
+                              : { background: "var(--color-warning)", borderLeft: "4px solid var(--color-warning)" }
+                          }
                         >
                           <p className="font-medium text-sm">{appointment.patient?.fullName || appointment.patient}</p>
                           <p className="text-xs text-gray-600">{appointment.appointmentType || appointment.type}</p>
@@ -1551,13 +1571,14 @@ export default function DoctorSchedule() {
                         <p className="text-sm text-gray-600">{appointment.appointmentType || appointment.type}</p>
                       </div>
                       <span
-                        className={`px-2 py-1 rounded-full text-xs ${
+                        className={`px-2 py-1 rounded-full text-xs`}
+                        style={
                           apptStatus === "confirmed"
-                            ? "bg-blue-100 text-blue-800"
+                            ? { background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }
                             : apptStatus === "in-progress"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
+                            ? { background: "var(--color-success)", color: "#0f5132" }
+                            : { background: "var(--color-warning)", color: "#663c00" }
+                        }
                       >
                         {statusLabelMap[apptStatus] || (appointment.status && appointment.status.toString())}
                       </span>
@@ -1580,11 +1601,8 @@ export default function DoctorSchedule() {
                       )}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => viewRecord(appointment.patient)}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        <User className="inline w-4 h-4 mr-1" />
+                      <button onClick={() => viewRecord(appointment.patient)} className="text-primary text-sm">
+                        <User className="inline w-4 h-4 mr-1" style={{ color: "var(--color-primary)" }} />
                         Xem hồ sơ
                       </button>
                       {apptStatus !== "in-progress" && apptStatus !== "completed" && (
@@ -1715,11 +1733,12 @@ export default function DoctorSchedule() {
                           onClick={() => handleSlotClick(time)}
                           className={`p-3 rounded border cursor-pointer text-center ${
                             rescheduleSlot === time
-                              ? "bg-blue-100 border-blue-400"
+                              ? "bg-primary-100"
                               : occupied
                               ? "bg-gray-100 text-gray-400"
-                              : "bg-white hover:bg-blue-50"
+                              : "bg-white"
                           }`}
+                          style={rescheduleSlot === time ? { borderColor: "var(--color-primary-600)" } : undefined}
                         >
                           <div className="text-sm font-mono">{time}</div>
                         </div>
@@ -2105,11 +2124,7 @@ export default function DoctorSchedule() {
                         <label className="block text-sm font-medium">Đơn thuốc</label>
                         <p className="text-xs text-gray-500 mt-1">💊 Thuốc sẽ được tự động thêm dựa trên chẩn đoán</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={addMedication}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
+                      <button type="button" onClick={addMedication} className="text-primary text-sm">
                         + Thêm thuốc
                       </button>
                     </div>
@@ -2153,7 +2168,7 @@ export default function DoctorSchedule() {
                                       [fieldKey]: !isShowing,
                                     }));
                                   }}
-                                  className="text-blue-600 hover:text-blue-800 text-xs px-2"
+                                  className="text-primary text-xs px-2"
                                 >
                                   💡
                                 </button>
@@ -2173,7 +2188,7 @@ export default function DoctorSchedule() {
                                         }}
                                         className={`px-3 py-2 cursor-pointer text-sm ${
                                           suggIndex === selectedSuggestionIndex.medication
-                                            ? "bg-blue-100 text-blue-800"
+                                            ? "bg-primary-100 text-primary-contrast"
                                             : "hover:bg-gray-100"
                                         }`}
                                       >
@@ -2244,7 +2259,8 @@ export default function DoctorSchedule() {
                   <button
                     onClick={submitTreatment}
                     disabled={isSubmittingTreatment}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    className={"px-6 py-2 btn-primary-filled rounded-md"}
+                    style={isSubmittingTreatment ? { opacity: 0.6, pointerEvents: "none" } : undefined}
                   >
                     {isSubmittingTreatment ? "Đang lưu..." : "Lưu hồ sơ"}
                   </button>

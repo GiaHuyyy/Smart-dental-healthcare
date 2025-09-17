@@ -131,17 +131,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     return (
       <div className="fixed bottom-4 right-4 w-80 bg-white border border-gray-200 rounded-lg shadow-lg">
         <div
-          className="flex items-center justify-between p-3 bg-blue-600 text-white rounded-t-lg cursor-pointer"
+          style={{ backgroundColor: "var(--color-primary-600)", color: "white" }}
+          className="flex items-center justify-between p-3 rounded-t-lg cursor-pointer"
           onClick={() => setIsMinimized(false)}
         >
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm font-semibold">
+            <div
+              style={{ backgroundColor: "var(--color-primary)" }}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+            >
               {getDisplayName(otherUser).charAt(0)}
             </div>
             <div>
               <p className="font-medium text-sm">{getDisplayName(otherUser)}</p>
               {currentUserRole === "patient" && otherUser.specialization && (
-                <p className="text-xs text-blue-100">{otherUser.specialization}</p>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.9)" }}>
+                  {otherUser.specialization}
+                </p>
               )}
             </div>
           </div>
@@ -151,7 +157,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 e.stopPropagation();
                 setIsMinimized(false);
               }}
-              className="p-1 hover:bg-blue-700 rounded"
+              className="p-1 rounded hover:opacity-90"
             >
               <Maximize2 size={16} />
             </button>
@@ -160,7 +166,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 e.stopPropagation();
                 onClose();
               }}
-              className="p-1 hover:bg-blue-700 rounded"
+              className="p-1 rounded hover:opacity-90"
             >
               <X size={16} />
             </button>
@@ -173,15 +179,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <div className="fixed bottom-4 right-4 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-blue-600 text-white rounded-t-lg">
+      <div
+        className="flex items-center justify-between p-3 rounded-t-lg"
+        style={{ background: "var(--color-primary-600)", color: "white" }}
+      >
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm font-semibold">
+          <div
+            style={{ backgroundColor: "var(--color-primary)" }}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+          >
             {getDisplayName(otherUser).charAt(0)}
           </div>
           <div>
             <p className="font-medium text-sm">{getDisplayName(otherUser)}</p>
             {currentUserRole === "patient" && otherUser.specialization && (
-              <p className="text-xs text-blue-100">{otherUser.specialization}</p>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.9)" }}>
+                {otherUser.specialization}
+              </p>
             )}
           </div>
         </div>
@@ -191,7 +205,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             recipientName={getDisplayName(otherUser)}
             recipientRole={currentUserRole === "patient" ? "doctor" : "patient"}
             isVideoCall={false}
-            className="p-1 hover:bg-blue-700 rounded text-white bg-transparent border-none"
+            className="p-1 rounded text-white bg-transparent border-none hover:opacity-90"
             showIcon={true}
           >
             <Phone size={16} />
@@ -201,18 +215,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             recipientName={getDisplayName(otherUser)}
             recipientRole={currentUserRole === "patient" ? "doctor" : "patient"}
             isVideoCall={true}
-            className="p-1 hover:bg-blue-700 rounded text-white bg-transparent border-none"
+            className="p-1 rounded text-white bg-transparent border-none hover:opacity-90"
             showIcon={true}
           >
             <Video size={16} />
           </CallButton>
-          <button className="p-1 hover:bg-blue-700 rounded">
+          <button className="p-1 rounded hover:opacity-90" style={{ color: "white" }}>
             <MoreVertical size={16} />
           </button>
-          <button onClick={() => setIsMinimized(true)} className="p-1 hover:bg-blue-700 rounded">
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="p-1 rounded hover:opacity-90"
+            style={{ color: "white" }}
+          >
             <Minimize2 size={16} />
           </button>
-          <button onClick={onClose} className="p-1 hover:bg-blue-700 rounded">
+          <button onClick={onClose} className="p-1 rounded hover:opacity-90" style={{ color: "white" }}>
             <X size={16} />
           </button>
         </div>
@@ -234,8 +252,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             ) : (
               <div
                 className={`max-w-xs p-2 rounded-lg ${
-                  message.senderId._id === currentUserId ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-800"
+                  message.senderId._id === currentUserId ? "text-white" : "bg-gray-100 text-gray-800"
                 }`}
+                style={
+                  message.senderId._id === currentUserId
+                    ? { background: "var(--color-primary)", color: "white" }
+                    : undefined
+                }
               >
                 <p className="text-sm">{message.content}</p>
                 <p className="text-xs opacity-70 mt-1">{formatTime(message.createdAt)}</p>
@@ -264,12 +287,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             placeholder="Nhập tin nhắn..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none text-sm"
+            style={{ outlineColor: "var(--color-primary)" }}
           />
           <button
             onClick={handleSendMessage}
             disabled={!inputMessage.trim()}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "var(--color-primary)", color: "white" }}
           >
             <Send size={16} />
           </button>

@@ -3,6 +3,20 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Theme tokens (light blue / xanh dương nhạt) */
+  /* Stronger primary palette: two blues for filled and outline buttons */
+  --color-primary: #00a6f4; /* new primary blue (as requested) */
+  --color-primary-600: #008fcf; /* slightly darker for hover / states */
+  --color-primary-outline: #e6f9ff; /* pale outline background */
+  --color-accent: #eaf6ff; /* soft accent */
+  --color-primary-contrast: #002b45; /* dark blue for readable text on light backgrounds */
+  --color-success: #86d3a7; /* soft green */
+  --color-danger: #ef7b7b; /* muted red */
+  --color-warning: #ffd08a; /* soft warning/yellow */
+  --color-surface: #ffffff;
+  --color-muted: #718096; /* cool gray */
+  --radius-md: 10px;
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 @theme inline {
@@ -22,5 +36,76 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", Arial, Helvetica, sans-serif;
+}
+
+/* Utility helpers for components (used alongside Tailwind) */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Small utilities for consistent primary usage */
+.btn-primary {
+  background: var(--color-primary-600);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}
+.btn-primary-filled {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-600));
+  color: white;
+  padding: 0.6rem 1.4rem;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 6px 18px rgba(10, 115, 200, 0.18);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+.btn-primary-filled:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(10, 115, 200, 0.22);
+}
+.btn-primary-outline {
+  background: transparent;
+  color: var(--color-primary-contrast);
+  padding: 0.5rem 1.25rem;
+  border-radius: 12px;
+  border: 2px solid rgba(0, 166, 244, 0.12);
+  backdrop-filter: blur(4px);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.btn-primary-outline:hover {
+  background: var(--color-primary-outline);
+  border-color: rgba(0, 166, 244, 0.22);
+}
+.btn-primary-outline:focus {
+  box-shadow: 0 0 0 6px rgba(0, 166, 244, 0.12);
+}
+.text-primary-contrast {
+  color: var(--color-primary-contrast);
+}
+
+/* Small utility helpers */
+.text-primary {
+  color: var(--color-primary) !important;
+}
+.bg-primary-100 {
+  background: var(--color-primary-outline) !important;
+}
+
+/* Outgoing message bubble helper */
+.msg-outgoing {
+  background: var(--color-primary) !important;
+  color: white !important;
+  box-shadow: 0 6px 18px rgba(0, 166, 244, 0.12);
+}
+
+/* Small primary button for action chips */
+.btn-primary-small {
+  background: var(--color-primary) !important;
+  color: white !important;
+  padding: 0.375rem 0.75rem !important;
+  border-radius: 8px !important;
+  font-size: 0.875rem !important;
 }

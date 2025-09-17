@@ -477,13 +477,16 @@ export default function PatientChatPage() {
                 <div
                   className={`p-3 border rounded-lg cursor-pointer border-l-4 ${
                     selectedChat === "ai"
-                      ? "bg-blue-50 border-blue-200 border-l-blue-500"
+                      ? "bg-primary-100 border-l-[4px]"
                       : "bg-gray-50 border-gray-200 hover:bg-gray-100 border-l-gray-300"
                   }`}
                   onClick={() => setSelectedChat("ai")}
                 >
                   <div className="flex items-start">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center mr-3"
+                      style={{ background: "var(--color-primary)" }}
+                    >
                       <Bot className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1">
@@ -491,14 +494,17 @@ export default function PatientChatPage() {
                       <p className="text-sm text-gray-600 truncate">Tư vấn nha khoa miễn phí 24/7</p>
                       <p className="text-xs text-gray-500 mt-1">Luôn có sẵn</p>
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <div className="w-2 h-2 rounded-full bg-primary-600"></div>
                   </div>
                 </div>
 
                 {/* Doctor conversations from database */}
                 {conversationsLoading ? (
                   <div className="p-4 text-center text-gray-500">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                    <div
+                      className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto mb-2"
+                      style={{ borderColor: "var(--color-primary)" }}
+                    ></div>
                     Đang tải cuộc hội thoại...
                   </div>
                 ) : doctorConversations.length > 0 ? (
@@ -506,7 +512,9 @@ export default function PatientChatPage() {
                     <div
                       key={conversation.id}
                       className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors mb-2 ${
-                        selectedChat === conversation.id ? "bg-blue-50 border-blue-300" : "bg-white hover:bg-gray-50"
+                        selectedChat === conversation.id
+                          ? "bg-primary-100 border-primary-300"
+                          : "bg-white hover:bg-gray-50"
                       }`}
                       onClick={() => {
                         setSelectedChat(conversation.id);
@@ -517,7 +525,7 @@ export default function PatientChatPage() {
                       }}
                     >
                       <div className="flex items-start">
-                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
+                        <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center mr-3">
                           <Stethoscope className="w-4 h-4 text-white" />
                         </div>
                         <div className="flex-1">
@@ -551,10 +559,7 @@ export default function PatientChatPage() {
 
           {/* New Chat Button - Fixed */}
           <div className="p-3 border-t border-gray-200 flex-shrink-0">
-            <button
-              className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm transition-colors"
-              onClick={() => setSelectedChat("ai")}
-            >
+            <button className={"w-full px-4 py-2 btn-primary-filled text-sm"} onClick={() => setSelectedChat("ai")}>
               + Tư vấn mới với AI
             </button>
           </div>

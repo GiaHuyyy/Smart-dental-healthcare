@@ -80,7 +80,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   return (
     <div className="fixed bottom-4 right-4 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-blue-600 text-white rounded-t-lg">
+      <div
+        style={{ backgroundColor: "var(--color-primary-600)", color: "white" }}
+        className="flex items-center justify-between p-3 rounded-t-lg"
+      >
         <div className="flex items-center space-x-2">
           <MessageSquare size={20} />
           <h3 className="font-medium">Tin nhắn</h3>
@@ -110,7 +113,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    <div
+                      style={{ backgroundColor: "var(--color-primary)" }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
+                    >
                       {getDisplayName(otherUser).charAt(0)}
                     </div>
                     {unreadCount > 0 && (

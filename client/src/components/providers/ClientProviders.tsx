@@ -13,7 +13,7 @@ import VideoCallInterface from "@/components/call/VideoCallInterface";
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
-      <SessionProvider>
+      <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
         <RealtimeChatProvider>
           <WebRTCProvider>
             <CallProvider>

@@ -41,10 +41,14 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
         <div className="absolute bottom-16 right-0 w-80 h-96 bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col mb-2">
           <div className="flex items-center justify-between p-3 bg-blue-600 text-white rounded-t-lg">
             <div className="flex items-center space-x-2">
-              <Users size={20} />
+              <Users size={20} style={{ color: "white" }} />
               <h3 className="font-medium">{currentUser.role === "patient" ? "Chọn bác sĩ" : "Chọn bệnh nhân"}</h3>
             </div>
-            <button onClick={() => setShowUserList(false)} className="p-1 hover:bg-blue-700 rounded">
+            <button
+              onClick={() => setShowUserList(false)}
+              className="p-1 rounded hover:opacity-90"
+              style={{ color: "white" }}
+            >
               <X size={16} />
             </button>
           </div>
@@ -66,7 +70,10 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
                   className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    <div
+                      style={{ backgroundColor: "var(--color-primary)" }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
+                    >
                       {getDisplayName(user).charAt(0)}
                     </div>
                     <div className="flex-1">
@@ -87,8 +94,9 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
         {/* Conversations Button */}
         <button
           onClick={onShowConversations}
-          className="w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+          className="w-12 h-12 rounded-full shadow-lg hover:opacity-90 transition-colors flex items-center justify-center"
           title="Xem tin nhắn"
+          style={{ background: "var(--color-primary-600)", color: "white" }}
         >
           <MessageSquare size={24} />
         </button>
@@ -96,7 +104,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
         {/* New Chat Button */}
         <button
           onClick={() => setShowUserList(!showUserList)}
-          className="w-12 h-12 bg-green-600 text-white rounded-full shadow-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+          className="w-12 h-12 rounded-full shadow-lg transition-colors flex items-center justify-center btn-primary"
           title={currentUser.role === "patient" ? "Nhắn tin với bác sĩ" : "Nhắn tin với bệnh nhân"}
         >
           <Users size={24} />

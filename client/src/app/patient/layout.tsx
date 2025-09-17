@@ -1,16 +1,14 @@
 "use client";
 
 import Header from "@/components/Header";
-import { Home, BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings } from "lucide-react";
-import ChatButtonSimple from "@/components/chat/ChatButtonSimple";
+import { BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings, Smile } from "lucide-react";
 import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import ShellLayout from "@/components/ShellLayout";
 
 const navigation = [
-  { name: "Trang chủ", href: "/", icon: <Home className="w-4 h-4" />, isHome: true },
   { name: "Tổng quan", href: "/patient", icon: <BarChart2 className="w-4 h-4" /> },
   { name: "Đặt lịch hẹn", href: "/patient/appointments", icon: <Calendar className="w-4 h-4" /> },
   { name: "Chat & Tư vấn", href: "/patient/chat", icon: <MessageSquare className="w-4 h-4" /> },
@@ -128,7 +126,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
     // initial fetch
     fetchNotifications();
-    const t = setInterval(fetchNotifications, 6000);
+    // poll less frequently to reduce network churn during navigation
+    const t = setInterval(fetchNotifications, 30000);
 
     // listen for BroadcastChannel messages for immediate intra-browser delivery
     let bc: BroadcastChannel | null = null;
@@ -153,12 +152,20 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             if (seenRef.current.has(id)) return;
             seenRef.current.add(id);
             // show centered modal immediately and mark read
-            setBroadcastModal({ id, title: payload.title || "Thông báo", message: payload.message || "" });
-            if (id && typeof id === "string")
-              sendRequest<any>({
-                method: "PATCH",
-                url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/notifications/${id}/read`,
-              }).catch(() => {});
+            setBroadcastModal({
+              id: payload.id || id,
+              title: payload.title || "Thông báo",
+              message: payload.message || "",
+            });
+            if (id && typeof id === "string") {
+              // best-effort mark-as-read; don't await
+              try {
+                sendRequest<any>({
+                  method: "PATCH",
+                  url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/notifications/${id}/read`,
+                }).catch(() => {});
+              } catch (e) {}
+            }
           } catch (e) {
             console.warn("bc onmessage handler failed", e);
           }
@@ -218,117 +225,12 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   }, [broadcastModal]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Fixed Header */}
-      <div className="fixed top-0 left-0 right-0 z-40">
-        <Header role="Bệnh nhân" />
+    <ShellLayout navigation={navigation}>
+      <div className="fixed top-0 left-30 right-0 z-40">
+        <Header />
       </div>
 
-      <div className="flex h-screen pt-16">
-        {/* Fixed Sidebar */}
-        <nav className="w-64 bg-white shadow-sm fixed top-16 left-0 bottom-0 z-30 overflow-y-auto">
-          <div className="p-4">
-            <ul className="space-y-2">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href;
-                const isHomeItem = item.isHome;
-
-                return (
-                  <li key={item.name}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center px-4 py-2 text-sm rounded-md transition-colors ${
-                        isHomeItem
-                          ? "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
-                          : isActive
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "text-gray-600 hover:bg-gray-100"
-                      }`}
-                    >
-                      <span className="mr-3">{item.icon}</span>
-                      {item.name}
-                      {isHomeItem && <span className="ml-auto text-xs">↗</span>}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </nav>
-
-        {/* Main content - scrollable */}
-        <main className="flex-1 ml-64 p-6 overflow-y-auto h-full">{children}</main>
-      </div>
-
-      {/* Centered broadcast modal overlay (blocks background until closed) */}
-      {broadcastModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-none">
-                <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-xl">
-                  <Calendar className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900">{broadcastModal.title}</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Bác sĩ đã cập nhật thời gian khám của bạn — vui lòng kiểm tra chi tiết bên dưới.
-                </p>
-              </div>
-            </div>
-
-            {(() => {
-              const parsed = parseRescheduleMessage(broadcastModal.message);
-              if (parsed) {
-                return (
-                  <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-lg border border-red-100 bg-red-50 shadow-sm">
-                      <div className="text-xs font-medium text-red-600">Giờ cũ</div>
-                      <div className="mt-1 text-sm text-red-800 font-semibold">
-                        {formatDateTime(parsed.oldDate, parsed.oldTime)}
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-lg border border-emerald-100 bg-emerald-50 shadow-md">
-                      <div className="text-xs font-medium text-emerald-700">Giờ mới</div>
-                      <div className="mt-1 text-lg font-bold text-emerald-900">
-                        {formatDateTime(parsed.newDate, parsed.newTime)}
-                      </div>
-                    </div>
-                    <div className="md:col-span-2 text-sm text-gray-600 mt-2">
-                      Nếu giờ mới không phù hợp, vui lòng liên hệ phòng khám hoặc nhấn "Liên hệ" để được trợ giúp.
-                    </div>
-                  </div>
-                );
-              }
-              return <p className="mt-4 text-sm text-gray-700">{broadcastModal.message}</p>;
-            })()}
-
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                onClick={() => {
-                  window.location.href = "/patient/settings";
-                }}
-                className="px-4 py-2 border rounded hover:bg-gray-50"
-              >
-                Liên hệ
-              </button>
-              <button
-                ref={modalCloseRef}
-                onClick={closeBroadcastModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Chat Integration - Bỏ button chat ở góc phải */}
-      {/* <div className="fixed bottom-4 right-4 z-50">
-        <ChatButtonSimple type="ai" />
-      </div> */}
-    </div>
+      <>{children}</>
+    </ShellLayout>
   );
 }

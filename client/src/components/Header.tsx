@@ -51,25 +51,31 @@ export default function Header({ role = "Bệnh nhân" }) {
 
   const dashboardInfo = getUserDashboardInfo();
 
-  console.log("Session data in Header:", session);
-  console.log("Session data in dashboardInfo:", dashboardInfo);
-
   return (
-    <header className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header style={{ backgroundColor: "var(--color-surface)" }} className="ml-[1.4px]">
+      <div className="max-w-7xl mx-auto px-2">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <div className="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center">
-                <Smile className="w-5 h-5 text-white" />
-              </div>
-              <span className="ml-2 text-xl font-bold text-gray-900">Smart Dental</span>
-            </Link>
+            {isHomePage && (
+              <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
+                <div
+                  style={{ backgroundColor: "var(--color-primary)" }}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center"
+                >
+                  <Smile className="w-5 h-5 text-white" />
+                </div>
+                <span className="ml-3 text-xl font-bold text-gray-900">Smart Dental</span>
+              </Link>
+            )}
             {!isHomePage && (
               <span
-                className={`ml-4 px-2 py-1 bg-emerald-100 ${
-                  role === "Bệnh nhân" ? "text-emerald-700 " : "text-sky-700"
-                } rounded-full text-sm`}
+                style={{
+                  background: "linear-gradient(90deg, var(--color-primary) 60%, var(--color-accent) 100%)",
+                  color: "#fff",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  letterSpacing: "0.5px",
+                }}
+                className="px-3 py-1 rounded-full text-base font-semibold shadow-sm"
               >
                 {role}
               </span>
@@ -78,7 +84,6 @@ export default function Header({ role = "Bệnh nhân" }) {
 
           <div className="flex items-center space-x-4">
             {session?.user ? (
-              // Logged in user
               <>
                 {!isHomePage && (
                   <button className="p-2 text-gray-400 hover:text-gray-600">
@@ -86,25 +91,22 @@ export default function Header({ role = "Bệnh nhân" }) {
                   </button>
                 )}
 
-                {/* User info and dropdown */}
                 <div className="relative" ref={dropdownRef}>
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium">{session.user.email}</span>
+                    <span className="text-sm font-medium text-gray-700">{session.user.email}</span>
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
-                      className="w-8 h-8 bg-gray-300 rounded-full hover:bg-gray-400 transition-colors cursor-pointer flex items-center justify-center"
+                      className="w-8 h-8 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors cursor-pointer flex items-center justify-center"
                       aria-label="User menu"
                     >
                       <User className="w-5 h-5 text-gray-700" />
                     </button>
                   </div>
 
-                  {/* Dropdown menu */}
                   {showDropdown && (
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
                       <div className="px-4 py-2 text-sm text-gray-500 border-b">{dashboardInfo?.role}</div>
 
-                      {/* Show dashboard link when on homepage */}
                       {dashboardInfo && isHomePage && (
                         <Link
                           href={dashboardInfo.dashboardPath}
@@ -115,7 +117,6 @@ export default function Header({ role = "Bệnh nhân" }) {
                         </Link>
                       )}
 
-                      {/* Show home link when not on homepage */}
                       {!isHomePage && (
                         <Link
                           href="/"
@@ -136,7 +137,6 @@ export default function Header({ role = "Bệnh nhân" }) {
                 </div>
               </>
             ) : (
-              // Not logged in - show on all pages including home
               <>
                 {isHomePage && (
                   <nav className="flex items-center space-x-8">
@@ -154,7 +154,7 @@ export default function Header({ role = "Bệnh nhân" }) {
                 <Link href="/auth/login" className="text-gray-600 hover:text-gray-900">
                   Đăng nhập
                 </Link>
-                <Link href="/auth/register" className="bg-sky-500 text-white px-4 py-2 rounded-md hover:bg-sky-600">
+                <Link href="/auth/register" className="btn-primary">
                   Đăng ký
                 </Link>
               </>

@@ -376,6 +376,14 @@ export default function ChatInterface({
     scrollToBottom();
   }, [messages]);
 
+  // Log AI chat history for debugging when in AI chat mode
+  useEffect(() => {
+    if (type === "ai") {
+      console.log("[AI Chat History] currentSession:", currentSession);
+      console.log("[AI Chat History] messages:", messages);
+    }
+  }, [type, currentSession, messages]);
+
   // Create new session with welcome message
   const createNewSessionAndWelcome = useCallback(async () => {
     if (isCreatingSession) {
@@ -1293,10 +1301,16 @@ export default function ChatInterface({
               </button>
             </div>
             {showDoctorSuggestion && (
-              <div>
-                <p className="text-sm text-yellow-800 mb-3">
-                  Hiện tại chưa có bác sĩ nào trong hệ thống. Vui lòng liên hệ trực tiếp với phòng khám để được tư vấn.
-                </p>
+              <div
+                className={`max-w-xs p-2 rounded-lg ${
+                  message.senderId._id === currentUserId ? "text-white" : "bg-gray-100 text-gray-800"
+                }`}
+                style={
+                  message.senderId._id === currentUserId
+                    ? { background: "var(--color-primary)", color: "white" }
+                    : undefined
+                }
+              >
                 <button className="text-sm bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600">
                   Liên hệ phòng khám
                 </button>
@@ -1325,13 +1339,18 @@ export default function ChatInterface({
       };
 
       return (
-        <div className="border-t border-x rounded-tl-md rounded-tr-md border-gray-200 bg-blue-50">
+        <div
+          className="border-t border-x rounded-tl-md rounded-tr-md border-gray-200"
+          style={{ background: "var(--color-primary-outline)" }}
+        >
           <div className="px-4 py-2">
             <div className="flex items-center justify-between mb-1">
-              <h4 className="font-medium text-blue-900">Bác sĩ được đề xuất</h4>
+              <h4 className="font-medium" style={{ color: "var(--color-primary-600)" }}>
+                Bác sĩ được đề xuất
+              </h4>
               <button
                 onClick={() => setShowDoctorSuggestion(!showDoctorSuggestion)}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                className="text-sm font-medium text-primary"
               >
                 {showDoctorSuggestion ? "Ẩn" : "Hiện"}
               </button>
@@ -1349,22 +1368,31 @@ export default function ChatInterface({
 
                 {/* Doctor Info */}
                 <div className="flex-1">
-                  <h5 className="text-blue-900 font-semibold">{suggestedDoctor.fullName}</h5>
-                  <p className="text-sm text-blue-700 mb-3">{suggestedDoctor.specialty}</p>
+                  <h5 className="font-semibold" style={{ color: "var(--color-primary-600)" }}>
+                    {suggestedDoctor.fullName}
+                  </h5>
+                  <p className="text-sm mb-3" style={{ color: "var(--color-primary-contrast)" }}>
+                    {suggestedDoctor.specialty}
+                  </p>
 
                   {/* Action Buttons - No Icons */}
                   <div className="flex flex-wrap gap-2">
                     <button
-                      className="text-sm bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors"
+                      className="text-sm px-2 py-1 rounded-md transition-colors"
+                      style={{ background: "var(--color-primary)", color: "white" }}
                       onClick={() => handleStartConversationWithDoctor(suggestedDoctor)}
                     >
                       Nhắn tin
                     </button>
-                    <button className="text-sm bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors">
+                    <button
+                      className="text-sm px-2 py-1 rounded-md transition-colors"
+                      style={{ background: "var(--color-primary)", color: "white" }}
+                    >
                       Hồ sơ
                     </button>
                     <button
-                      className="text-sm bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 transition-colors"
+                      className="text-sm px-2 py-1 rounded-md transition-colors"
+                      style={{ background: "var(--color-primary)", color: "white" }}
                       onClick={() => {
                         const symptoms = messages
                           .filter((msg) => msg.role === "user")
@@ -1462,7 +1490,7 @@ export default function ChatInterface({
                 <div
                   className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
                     message.role === "user"
-                      ? "bg-blue-500 text-white"
+                      ? "msg-outgoing"
                       : message.actionButtons && message.actionButtons.length > 0
                       ? "bg-white text-gray-900 border border-gray-200 shadow-lg"
                       : "bg-gray-100 text-gray-900"
@@ -1486,20 +1514,32 @@ export default function ChatInterface({
                   {message.isAnalysisResult && message.analysisData ? (
                     <div className="space-y-2">
                       {/* Header */}
-                      <div className="flex items-center justify-center p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-                        <span className="text-blue-800 font-bold text-base">
+                      <div
+                        className="flex items-center justify-center p-2 rounded-lg"
+                        style={{ background: "linear-gradient(90deg,var(--color-primary-outline), #f0fbff)" }}
+                      >
+                        <span className="font-bold text-base" style={{ color: "var(--color-primary-contrast)" }}>
                           <Search className="inline w-4 h-4 mr-2" /> Kết quả phân tích ảnh
                         </span>
                       </div>
 
                       {/* Chẩn đoán */}
                       {message.analysisData.richContent?.analysis && (
-                        <div className="p-2 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-                          <div className="text-sm font-semibold text-blue-700 mb-1 flex items-center">
+                        <div
+                          className="p-2 rounded-lg"
+                          style={{
+                            background: "var(--color-primary-outline)",
+                            borderLeft: "4px solid var(--color-primary-600)",
+                          }}
+                        >
+                          <div
+                            className="text-sm font-semibold mb-1 flex items-center"
+                            style={{ color: "var(--color-primary-600)" }}
+                          >
                             <FileText className="w-4 h-4 mr-1" />
                             CHẨN ĐOÁN
                           </div>
-                          <p className="text-blue-900 leading-normal text-sm">
+                          <p className="leading-normal text-sm" style={{ color: "var(--color-primary-contrast)" }}>
                             {message.analysisData.richContent.analysis}
                           </p>
                         </div>
@@ -1528,7 +1568,9 @@ export default function ChatInterface({
                                     <ul className="space-y-0">
                                       {section.bullets.map((bullet: string, bulletIndex: number) => (
                                         <li key={bulletIndex} className="text-gray-700 flex items-start text-sm">
-                                          <span className="text-blue-500 mr-1 mt-0">•</span>
+                                          <span className="mr-1 mt-0" style={{ color: "var(--color-primary)" }}>
+                                            •
+                                          </span>
                                           <span>{bullet}</span>
                                         </li>
                                       ))}
@@ -1578,7 +1620,8 @@ export default function ChatInterface({
                         <button
                           key={buttonIndex}
                           onClick={() => handleAnalysisActionClick(buttonText)}
-                          className="px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
+                          className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
+                          style={{ background: "var(--color-primary)", color: "white" }}
                         >
                           <span className="mr-1">{getButtonIcon(buttonText)}</span>
                           {buttonText}
@@ -1587,7 +1630,10 @@ export default function ChatInterface({
                     </div>
                   )}
 
-                  <div className={`text-xs mt-2 ${message.role === "user" ? "text-blue-100" : "text-gray-500"}`}>
+                  <div
+                    className={`text-xs mt-2 ${message.role === "user" ? "text-white" : "text-gray-500"}`}
+                    style={message.role === "user" ? { color: "rgba(255,255,255,0.9)" } : undefined}
+                  >
                     {message.timestamp instanceof Date
                       ? message.timestamp.toLocaleTimeString()
                       : new Date(message.timestamp).toLocaleTimeString()}
@@ -1681,7 +1727,8 @@ export default function ChatInterface({
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim() || isLoading}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+                  className="px-4 py-2 rounded-lg text-sm"
+                  style={{ background: "var(--color-primary)", color: "white" }}
                 >
                   ➤
                 </button>
@@ -1706,7 +1753,10 @@ export default function ChatInterface({
             {isLoadingMessages ? (
               <div className="flex justify-center items-center py-8">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                  <div
+                    className="animate-spin rounded-full h-8 w-8 mx-auto mb-2"
+                    style={{ borderBottom: "2px solid var(--color-primary-600)", border: "2px solid rgba(0,0,0,0.05)" }}
+                  ></div>
                   <p className="text-gray-500 text-sm">Đang tải lịch sử chat...</p>
                 </div>
               </div>
@@ -1724,8 +1774,11 @@ export default function ChatInterface({
                     <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div
                         className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
-                          message.role === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"
+                          message.role === "user" ? "text-white" : "bg-gray-100 text-gray-900"
                         }`}
+                        style={
+                          message.role === "user" ? { background: "var(--color-primary)", color: "white" } : undefined
+                        }
                       >
                         {/* Render file attachment */}
                         {(() => {
@@ -1811,7 +1864,7 @@ export default function ChatInterface({
                                     href={message.fileUrl}
                                     rel="noopener noreferrer"
                                     download={message.fileName}
-                                    className="text-xs text-blue-600 underline opacity-80 hover:opacity-100"
+                                    className="text-xs underline opacity-80 hover:opacity-100 text-primary"
                                   >
                                     Tải về
                                   </a>
@@ -1862,10 +1915,20 @@ export default function ChatInterface({
                       ) : selectedFile.type.startsWith("video/") ? (
                         <video src={uploadPreview} className="w-12 h-12 object-cover rounded" />
                       ) : (
-                        <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">📄</div>
+                        <div
+                          className="w-12 h-12 rounded flex items-center justify-center"
+                          style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-600)" }}
+                        >
+                          📄
+                        </div>
                       )
                     ) : (
-                      <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">📄</div>
+                      <div
+                        className="w-12 h-12 rounded flex items-center justify-center"
+                        style={{ background: "var(--color-primary-outline)" }}
+                      >
+                        📄
+                      </div>
                     )}
                     <div>
                       <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
@@ -1922,7 +1985,8 @@ export default function ChatInterface({
               <button
                 onClick={handleDoctorSendMessage}
                 disabled={isDoctorLoading || (!doctorInput.trim() && !selectedFile)}
-                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: "var(--color-primary)", color: "white", outlineColor: "var(--color-primary-600)" }}
               >
                 {isDoctorLoading ? "..." : "Gửi"}
               </button>
