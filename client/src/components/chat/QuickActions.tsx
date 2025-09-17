@@ -68,7 +68,7 @@ export default function QuickActions({
             onClick={() => onActionClick(action)}
             className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center space-x-2 shadow-sm transform hover:scale-105"
             style={{
-              background: "linear-gradient(90deg,var(--color-primary-outline), #f0fbff)",
+              background: "linear-gradient(90deg,var(--color-primary-outline), var(--color-primary-surface))",
               color: "var(--color-primary-600)",
               border: "1px solid rgba(0,166,244,0.08)",
             }}

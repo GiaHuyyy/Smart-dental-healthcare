@@ -382,302 +382,317 @@ export default function PatientAppointments() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Đặt lịch hẹn</h1>
-          <p className="text-gray-600">Quản lý và đặt lịch khám mới</p>
-
-          {/* Thông báo khi có dữ liệu từ chatbot */}
-          {prefilledData?.notes && prefilledData.notes.includes("KẾT QUẢ PHÂN TÍCH AI") && (
-            <div className="mt-2 p-3 bg-primary-100 border rounded-lg" style={{ borderColor: "rgba(0,166,244,0.12)" }}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <span className="mr-2" style={{ color: "var(--color-primary)" }}>
-                    🤖
-                  </span>
-                  <span className="text-sm" style={{ color: "var(--color-primary-contrast)", fontWeight: 600 }}>
-                    Đã chuyển từ chatbot với phân tích AI và hình ảnh X-ray
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    dispatch(clearAppointmentData());
-                    setPrefilledData(null);
-                    setNotes("");
-                    setSelectedDoctorId("");
-                    setAppointmentType("Khám định kỳ");
-                  }}
-                  className="text-xs underline"
-                  style={{ color: "var(--color-primary)" }}
-                >
-                  Xóa dữ liệu chatbot
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        <button className="px-4 py-2 rounded-md btn-primary-filled">Đặt lịch mới</button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Booking Form */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Đặt lịch khám mới</h2>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Chọn bác sĩ</label>
-              <select
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                value={selectedDoctorId}
-                onChange={(e) => setSelectedDoctorId(e.target.value)}
-              >
-                <option value="">Chọn bác sĩ</option>
-                {doctors.map((doctor) => (
-                  <option key={doctor._id || doctor.id} value={doctor._id || doctor.id}>
-                    {doctor.fullName || doctor.name} - {doctor.specialty}
-                  </option>
-                ))}
-              </select>
-              {prefilledData?.doctorName && !selectedDoctorId && doctors.length > 0 && (
-                <div className="mt-2 p-3 bg-primary-100 border border-primary-outline rounded-lg">
-                  <div className="flex items-center">
-                    <span className="mr-2" style={{ color: "var(--color-primary)" }}>
-                      🤖
-                    </span>
-                    <div className="text-sm">
-                      <p className="font-medium" style={{ color: "var(--color-primary-600)" }}>
-                        Gợi ý bác sĩ từ chatbot:
-                      </p>
-                      <p style={{ color: "var(--color-primary-700)" }}>
-                        {prefilledData.doctorName} - {prefilledData.specialty}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Chọn ngày</label>
-              <input
-                type="date"
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Chọn giờ</label>
-              <div className="grid grid-cols-3 gap-2">
-                {availableTimes.map((time) => {
-                  const slotOccupiedByDoctor = doctorBusyTimes.has(time);
-                  const disabledByRules = isTimeDisabledForBooking(selectedDate, time) || slotOccupiedByDoctor;
-                  return (
-                    <button
-                      key={time}
-                      type="button"
-                      className={`p-2 text-sm rounded border flex items-center justify-center ${
-                        selectedTime === time
-                          ? "bg-green-600 text-white border-green-600"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      } ${disabledByRules ? "opacity-50 cursor-not-allowed" : ""}`}
-                      onClick={() => {
-                        if (!disabledByRules) setSelectedTime(time);
-                      }}
-                    >
-                      <span>{time}</span>
-                      {slotOccupiedByDoctor ? <span className="ml-2 text-xs text-red-600">(Bận)</span> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Loại khám</label>
-              <select
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-                value={appointmentType}
-                onChange={(e) => setAppointmentType(e.target.value)}
-              >
-                <option>Khám định kỳ</option>
-                <option>Khám cấp cứu</option>
-                <option>Tẩy trắng răng</option>
-                <option>Chỉnh nha</option>
-                <option>Nhổ răng</option>
-              </select>
-
-              {/* Hiển thị thông tin triệu chứng từ chatbot */}
-              {prefilledData?.symptoms && (
-                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                  <p className="font-medium text-yellow-800 mb-1">
-                    <Search className="inline w-4 h-4 mr-1" /> Triệu chứng từ chatbot:
-                  </p>
-                  <p className="text-yellow-700">{prefilledData.symptoms}</p>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ghi chú
-                {prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI") && (
-                  <span
-                    className="ml-2 text-xs px-2 py-1 rounded-full"
-                    style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }}
-                  >
-                    🤖 Từ chatbot
-                  </span>
-                )}
-              </label>
-              <textarea
-                className={`w-full border border-gray-300 rounded-md px-3 py-2 ${
-                  prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI") ? "" : ""
-                }`}
-                style={
-                  prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI")
-                    ? { borderColor: "rgba(0,166,244,0.12)", background: "var(--color-primary-outline)" }
-                    : undefined
-                }
-                rows={6}
-                placeholder="Mô tả triệu chứng hoặc yêu cầu đặc biệt..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-
-              {/* Hiển thị hình ảnh X-ray nếu có từ chatbot */}
-              {prefilledData?.imageUrl && (
-                <div
-                  className="mt-4 p-4 rounded-lg"
-                  style={{ background: "var(--color-primary-outline)", border: "1px solid rgba(0,166,244,0.12)" }}
-                >
-                  <h4
-                    className="text-sm font-medium mb-2 flex items-center"
-                    style={{ color: "var(--color-primary-contrast)" }}
-                  >
-                    <span className="mr-2">🖼️</span>
-                    Hình ảnh X-ray từ chatbot
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="relative w-full h-64">
-                      <Image
-                        src={prefilledData.imageUrl}
-                        alt="X-ray image from chat"
-                        fill
-                        className="object-contain rounded-lg border border-gray-300"
-                      />
-                    </div>
-                    {prefilledData.analysisResult && (
-                      <div className="text-sm" style={{ color: "var(--color-primary-contrast)" }}>
-                        <p className="font-medium mb-2 flex items-center">
-                          <span className="mr-1">
-                            <Search className="w-4 h-4" />
-                          </span>
-                          Kết quả phân tích AI:
-                        </p>
-                        <div className="bg-white p-3 rounded border text-xs max-h-48 overflow-y-auto">
-                          {prefilledData.analysisResult.richContent?.analysis ? (
-                            <div>
-                              <p className="font-medium mb-1">Chẩn đoán:</p>
-                              <p className="mb-2">{prefilledData.analysisResult.richContent.analysis}</p>
-                              {prefilledData.analysisResult.richContent.recommendations && (
-                                <div>
-                                  <p className="font-medium mb-1">Khuyến nghị:</p>
-                                  <ul className="list-disc list-inside space-y-1">
-                                    {prefilledData.analysisResult.richContent.recommendations.map(
-                                      (rec: string, index: number) => (
-                                        <li key={index}>{rec}</li>
-                                      )
-                                    )}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <p>{prefilledData.analysisResult.analysis || "Đã phân tích hình ảnh X-ray"}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className={"w-full btn-primary-filled py-2 rounded-md"}
-              style={loading ? { opacity: 0.6, pointerEvents: "none" } : undefined}
-            >
-              {loading ? "Đang xử lý..." : "Đặt lịch hẹn"}
-            </button>
-          </form>
-        </div>
-
-        {/* Current Appointments */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">Lịch hẹn của bạn</h2>
-          </div>
-          <div className="p-6 space-y-4">
-            {appointments.length === 0 && <p className="text-sm text-gray-500">Chưa có lịch hẹn nào.</p>}
-            {appointments.map((appointment, idx) => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="healthcare-card-elevated p-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
               <div
-                key={
-                  appointment._id ||
-                  appointment.id ||
-                  `${appointment.appointmentDate || appointment.date}-${appointment.startTime || appointment.time}` ||
-                  idx
-                }
-                className="border rounded-lg p-4 hover:bg-gray-50"
+                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                style={{
+                  backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
+                }}
               >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-gray-900">{appointment.appointmentType || appointment.type}</h3>
-                    <p className="text-sm text-gray-600">{appointment.doctor?.fullName || appointment.doctor}</p>
-                    <p className="text-sm text-gray-500">
-                      {formatAppointmentDate(appointment)} - {formatAppointmentTime(appointment)}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end space-y-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        appointment.status === "confirmed"
-                          ? "bg-primary-100 text-primary"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {appointment.status === "confirmed" ? "Đã xác nhận" : "Chờ xác nhận"}
-                    </span>
-                    <div className="flex space-x-2">
+                <FileText className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="healthcare-heading text-3xl">Đặt lịch hẹn</h1>
+                <p className="healthcare-body mt-1">Quản lý và đặt lịch khám mới</p>
+
+                {/* Thông báo khi có dữ liệu từ chatbot */}
+                {prefilledData?.notes && prefilledData.notes.includes("KẾT QUẢ PHÂN TÍCH AI") && (
+                  <div className="mt-3 p-3 bg-blue-50 border rounded-lg border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <span className="mr-2" style={{ color: "var(--color-primary)" }}>
+                          🤖
+                        </span>
+                        <span className="text-sm font-medium" style={{ color: "var(--color-primary)" }}>
+                          Đã chuyển từ chatbot với phân tích AI và hình ảnh X-ray
+                        </span>
+                      </div>
                       <button
-                        type="button"
-                        onClick={() => handleEdit(appointment)}
-                        className={`text-primary text-sm ${
-                          appointment.status === "confirmed" ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                        disabled={appointment.status === "confirmed"}
+                        onClick={() => {
+                          dispatch(clearAppointmentData());
+                          setPrefilledData(null);
+                          setNotes("");
+                          setSelectedDoctorId("");
+                          setAppointmentType("Khám định kỳ");
+                        }}
+                        className="text-xs underline"
+                        style={{ color: "var(--color-primary)" }}
                       >
-                        Sửa
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCancel(appointment._id)}
-                        className={`text-red-600 hover:text-red-800 text-sm ${
-                          appointment.status === "confirmed" ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                        disabled={appointment.status === "confirmed"}
-                      >
-                        Hủy
+                        Xóa dữ liệu chatbot
                       </button>
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+            <button className="btn-healthcare-primary">Đặt lịch mới</button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Booking Form */}
+          <div className="healthcare-card p-6">
+            <h2 className="healthcare-heading text-xl mb-4">Đặt lịch khám mới</h2>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chọn bác sĩ</label>
+                <select
+                  className="w-full border border-gray-300 rounded-md px-3 py-2"
+                  value={selectedDoctorId}
+                  onChange={(e) => setSelectedDoctorId(e.target.value)}
+                >
+                  <option value="">Chọn bác sĩ</option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor._id || doctor.id} value={doctor._id || doctor.id}>
+                      {doctor.fullName || doctor.name} - {doctor.specialty}
+                    </option>
+                  ))}
+                </select>
+                {prefilledData?.doctorName && !selectedDoctorId && doctors.length > 0 && (
+                  <div className="mt-2 p-3 bg-primary-100 border border-primary-outline rounded-lg">
+                    <div className="flex items-center">
+                      <span className="mr-2" style={{ color: "var(--color-primary)" }}>
+                        🤖
+                      </span>
+                      <div className="text-sm">
+                        <p className="font-medium" style={{ color: "var(--color-primary-600)" }}>
+                          Gợi ý bác sĩ từ chatbot:
+                        </p>
+                        <p style={{ color: "var(--color-primary-700)" }}>
+                          {prefilledData.doctorName} - {prefilledData.specialty}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chọn ngày</label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chọn giờ</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {availableTimes.map((time) => {
+                    const slotOccupiedByDoctor = doctorBusyTimes.has(time);
+                    const disabledByRules = isTimeDisabledForBooking(selectedDate, time) || slotOccupiedByDoctor;
+                    return (
+                      <button
+                        key={time}
+                        type="button"
+                        className={`p-2 text-sm rounded border flex items-center justify-center ${
+                          selectedTime === time
+                            ? "bg-green-600 text-white border-green-600"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                        } ${disabledByRules ? "opacity-50 cursor-not-allowed" : ""}`}
+                        onClick={() => {
+                          if (!disabledByRules) setSelectedTime(time);
+                        }}
+                      >
+                        <span>{time}</span>
+                        {slotOccupiedByDoctor ? <span className="ml-2 text-xs text-red-600">(Bận)</span> : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Loại khám</label>
+                <select
+                  className="w-full border border-gray-300 rounded-md px-3 py-2"
+                  value={appointmentType}
+                  onChange={(e) => setAppointmentType(e.target.value)}
+                >
+                  <option>Khám định kỳ</option>
+                  <option>Khám cấp cứu</option>
+                  <option>Tẩy trắng răng</option>
+                  <option>Chỉnh nha</option>
+                  <option>Nhổ răng</option>
+                </select>
+
+                {/* Hiển thị thông tin triệu chứng từ chatbot */}
+                {prefilledData?.symptoms && (
+                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                    <p className="font-medium text-yellow-800 mb-1">
+                      <Search className="inline w-4 h-4 mr-1" /> Triệu chứng từ chatbot:
+                    </p>
+                    <p className="text-yellow-700">{prefilledData.symptoms}</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ghi chú
+                  {prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI") && (
+                    <span
+                      className="ml-2 text-xs px-2 py-1 rounded-full"
+                      style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }}
+                    >
+                      🤖 Từ chatbot
+                    </span>
+                  )}
+                </label>
+                <textarea
+                  className={`w-full border border-gray-300 rounded-md px-3 py-2 ${
+                    prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI") ? "" : ""
+                  }`}
+                  style={
+                    prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI")
+                      ? { borderColor: "rgba(0,166,244,0.12)", background: "var(--color-primary-outline)" }
+                      : undefined
+                  }
+                  rows={6}
+                  placeholder="Mô tả triệu chứng hoặc yêu cầu đặc biệt..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+
+                {/* Hiển thị hình ảnh X-ray nếu có từ chatbot */}
+                {prefilledData?.imageUrl && (
+                  <div
+                    className="mt-4 p-4 rounded-lg"
+                    style={{ background: "var(--color-primary-outline)", border: "1px solid rgba(0,166,244,0.12)" }}
+                  >
+                    <h4
+                      className="text-sm font-medium mb-2 flex items-center"
+                      style={{ color: "var(--color-primary-contrast)" }}
+                    >
+                      <span className="mr-2">🖼️</span>
+                      Hình ảnh X-ray từ chatbot
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="relative w-full h-64">
+                        <Image
+                          src={prefilledData.imageUrl}
+                          alt="X-ray image from chat"
+                          fill
+                          className="object-contain rounded-lg border border-gray-300"
+                        />
+                      </div>
+                      {prefilledData.analysisResult && (
+                        <div className="text-sm" style={{ color: "var(--color-primary-contrast)" }}>
+                          <p className="font-medium mb-2 flex items-center">
+                            <span className="mr-1">
+                              <Search className="w-4 h-4" />
+                            </span>
+                            Kết quả phân tích AI:
+                          </p>
+                          <div className="bg-white p-3 rounded border text-xs max-h-48 overflow-y-auto">
+                            {prefilledData.analysisResult.richContent?.analysis ? (
+                              <div>
+                                <p className="font-medium mb-1">Chẩn đoán:</p>
+                                <p className="mb-2">{prefilledData.analysisResult.richContent.analysis}</p>
+                                {prefilledData.analysisResult.richContent.recommendations && (
+                                  <div>
+                                    <p className="font-medium mb-1">Khuyến nghị:</p>
+                                    <ul className="list-disc list-inside space-y-1">
+                                      {prefilledData.analysisResult.richContent.recommendations.map(
+                                        (rec: string, index: number) => (
+                                          <li key={index}>{rec}</li>
+                                        )
+                                      )}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p>{prefilledData.analysisResult.analysis || "Đã phân tích hình ảnh X-ray"}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full btn-healthcare-primary py-3 rounded-md"
+                style={loading ? { opacity: 0.6, pointerEvents: "none" } : undefined}
+              >
+                {loading ? "Đang xử lý..." : "Đặt lịch hẹn"}
+              </button>
+            </form>
+          </div>
+
+          {/* Current Appointments */}
+          <div className="healthcare-card">
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="healthcare-heading text-xl">Lịch hẹn của bạn</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              {appointments.length === 0 && <p className="text-sm text-gray-500">Chưa có lịch hẹn nào.</p>}
+              {appointments.map((appointment, idx) => (
+                <div
+                  key={
+                    appointment._id ||
+                    appointment.id ||
+                    `${appointment.appointmentDate || appointment.date}-${appointment.startTime || appointment.time}` ||
+                    idx
+                  }
+                  className="border rounded-lg p-4 hover:bg-gray-50"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{appointment.appointmentType || appointment.type}</h3>
+                      <p className="text-sm text-gray-600">{appointment.doctor?.fullName || appointment.doctor}</p>
+                      <p className="text-sm text-gray-500">
+                        {formatAppointmentDate(appointment)} - {formatAppointmentTime(appointment)}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end space-y-2">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs ${
+                          appointment.status === "confirmed"
+                            ? "bg-primary-100 text-primary"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {appointment.status === "confirmed" ? "Đã xác nhận" : "Chờ xác nhận"}
+                      </span>
+                      <div className="flex space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(appointment)}
+                          className={`text-primary text-sm ${
+                            appointment.status === "confirmed" ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          disabled={appointment.status === "confirmed"}
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCancel(appointment._id)}
+                          className={`text-red-600 hover:text-red-800 text-sm ${
+                            appointment.status === "confirmed" ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          disabled={appointment.status === "confirmed"}
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

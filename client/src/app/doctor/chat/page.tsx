@@ -339,7 +339,7 @@ export default function DoctorChatPage() {
   };
 
   return (
-    <div className="flex overflow-hidden h-full">
+    <div className="flex overflow-hidden h-screen pt-16">
       {/* Chat Sidebar - Toggleable */}
       {showSidebar && (
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
@@ -364,7 +364,10 @@ export default function DoctorChatPage() {
               <div className="space-y-2">
                 {conversationsLoading ? (
                   <div className="p-4 text-center text-gray-500">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                    <div
+                      className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto mb-2"
+                      style={{ borderColor: "var(--color-primary)" }}
+                    ></div>
                     Đang tải cuộc hội thoại...
                   </div>
                 ) : patientConversations.length > 0 ? (
@@ -372,8 +375,9 @@ export default function DoctorChatPage() {
                     <div
                       key={conversation.id}
                       className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors mb-2 ${
-                        selectedChat === conversation.id ? "bg-blue-50 border-blue-300" : "bg-white hover:bg-gray-50"
+                        selectedChat === conversation.id ? "bg-blue-50" : "bg-white hover:bg-gray-50"
                       }`}
+                      style={selectedChat === conversation.id ? { borderColor: "var(--color-primary)" } : {}}
                       onClick={() => {
                         setSelectedChat(conversation.id);
                         // Mark as read when conversation is clicked

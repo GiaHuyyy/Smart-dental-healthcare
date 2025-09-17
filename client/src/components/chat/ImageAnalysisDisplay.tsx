@@ -75,7 +75,7 @@ export default function ImageAnalysisDisplay({
           <div
             className="p-4 rounded-r-lg"
             style={{
-              background: "linear-gradient(90deg, var(--color-primary-outline), #f0fbff)",
+              background: "linear-gradient(90deg, var(--color-primary-outline), var(--color-primary-surface))",
               borderLeft: "4px solid var(--color-primary-600)",
             }}
           >

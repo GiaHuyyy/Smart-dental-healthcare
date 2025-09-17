@@ -229,7 +229,10 @@ export default function PatientRecordsPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0 shadow-lg">
+          <Card
+            className="text-white border-0 shadow-lg"
+            style={{ background: "linear-gradient(to right, var(--color-primary), var(--color-primary-600))" }}
+          >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -395,7 +398,7 @@ export default function PatientRecordsPage() {
                                   <span>{format(new Date(record.recordDate), "dd/MM/yyyy", { locale: vi })}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
-                                  <Stethoscope className="h-5 w-5 text-blue-500" />
+                                  <Stethoscope className="h-5 w-5" style={{ color: "var(--color-primary)" }} />
                                   <span className="font-medium">Triệu chứng:</span>
                                   <span className="text-gray-600">{record.chiefComplaint}</span>
                                 </div>

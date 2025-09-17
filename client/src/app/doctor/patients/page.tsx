@@ -168,232 +168,251 @@ export default function DoctorPatients() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý bệnh nhân</h1>
-          <p className="text-gray-600">Danh sách và thông tin bệnh nhân</p>
-        </div>
-        <button className={"btn-primary-filled px-4 py-2"}>Thêm bệnh nhân</button>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Lỗi</h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>{error}</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header Section */}
+        <div className="healthcare-card-elevated p-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                style={{
+                  backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
+                }}
+              >
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="healthcare-heading text-3xl">Quản lý bệnh nhân</h1>
+                <p className="healthcare-body mt-1">Danh sách và thông tin bệnh nhân</p>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Search and Filter */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          <div className="flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Tìm kiếm theo tên, số điện thoại, email..."
-              className="w-full border border-gray-300 rounded-md px-3 py-2"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex space-x-2">
-            <select
-              className="border border-gray-300 rounded-md px-3 py-2"
-              value={selectedFilter}
-              onChange={(e) => setSelectedFilter(e.target.value)}
-            >
-              <option value="all">Tất cả</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="inactive">Không hoạt động</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-primary-100 rounded-lg" style={{ borderRadius: 8 }}>
-              <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Tổng bệnh nhân</p>
-              <p className="text-2xl font-bold text-gray-900">{stats ? stats.totalPatients : "..."}</p>
-            </div>
+            <button className="btn-healthcare-primary">Thêm bệnh nhân</button>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Check className="w-7 h-7 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Đang hoạt động</p>
-              <p className="text-2xl font-bold text-gray-900">{stats ? stats.activePatients : "..."}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Calendar className="w-7 h-7 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Mới tháng này</p>
-              <p className="text-2xl font-bold text-gray-900">{stats ? stats.newPatientsThisMonth : "..."}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <span className="text-2xl">⏸️</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Không hoạt động</p>
-              <p className="text-2xl font-bold text-gray-900">{stats ? stats.inactivePatients : "..."}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Patients List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Danh sách bệnh nhân ({patients.length})</h2>
-        </div>
-
-        {loading ? (
-          <div className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Đang tải...</p>
-          </div>
-        ) : patients.length === 0 ? (
-          <div className="p-6 text-center">
-            <p className="text-gray-500">Không có bệnh nhân nào</p>
-            {error && <p className="text-sm text-red-500 mt-2">Lỗi: {error}</p>}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Bệnh nhân
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thông tin liên hệ
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ngày sinh
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ngày đăng ký
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Trạng thái
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thao tác
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {patients.map((patient) => (
-                    <tr
-                      key={patient._id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => handlePatientClick(patient._id)}
-                    >
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-gray-900">{patient.fullName}</p>
-                          <p className="text-sm text-gray-600">
-                            {patient.dateOfBirth ? `${calculateAge(patient.dateOfBirth)} tuổi` : "Chưa cập nhật"}
-                            {patient.gender && ` • ${patient.gender === "male" ? "Nam" : "Nữ"}`}
-                          </p>
-                          {patient.address && <p className="text-sm text-gray-500">{patient.address}</p>}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="text-sm text-gray-900">{patient.phone}</p>
-                          <p className="text-sm text-gray-600">{patient.email}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {patient.dateOfBirth ? formatDate(patient.dateOfBirth) : "Chưa cập nhật"}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{formatDate(patient.createdAt)}</td>
-                      <td className="px-6 py-4">{getStatusBadge(patient.isActive)}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex space-x-2">
-                          <button
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePatientClick(patient._id);
-                            }}
-                          >
-                            Xem chi tiết
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-6 py-4 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-700">
-                    Trang {currentPage} của {totalPages}
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Trước
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                    >
-                      Sau
-                    </button>
-                  </div>
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Lỗi</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
                 </div>
               </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
+
+        {/* Search and Filter */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+            <div className="flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Tìm kiếm theo tên, số điện thoại, email..."
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex space-x-2">
+              <select
+                className="border border-gray-300 rounded-md px-3 py-2"
+                value={selectedFilter}
+                onChange={(e) => setSelectedFilter(e.target.value)}
+              >
+                <option value="all">Tất cả</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Không hoạt động</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center">
+              <div className="p-2 bg-primary-100 rounded-lg" style={{ borderRadius: 8 }}>
+                <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Tổng bệnh nhân</p>
+                <p className="text-2xl font-bold text-gray-900">{stats ? stats.totalPatients : "..."}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Check className="w-7 h-7 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Đang hoạt động</p>
+                <p className="text-2xl font-bold text-gray-900">{stats ? stats.activePatients : "..."}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Calendar className="w-7 h-7 text-yellow-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Mới tháng này</p>
+                <p className="text-2xl font-bold text-gray-900">{stats ? stats.newPatientsThisMonth : "..."}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <span className="text-2xl">⏸️</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Không hoạt động</p>
+                <p className="text-2xl font-bold text-gray-900">{stats ? stats.inactivePatients : "..."}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Patients List */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b">
+            <h2 className="text-lg font-semibold text-gray-900">Danh sách bệnh nhân ({patients.length})</h2>
+          </div>
+
+          {loading ? (
+            <div className="p-6 text-center">
+              <div
+                className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
+                style={{ borderColor: "var(--color-primary)" }}
+              ></div>
+              <p className="mt-2 text-gray-600">Đang tải...</p>
+            </div>
+          ) : patients.length === 0 ? (
+            <div className="p-6 text-center">
+              <p className="text-gray-500">Không có bệnh nhân nào</p>
+              {error && <p className="text-sm text-red-500 mt-2">Lỗi: {error}</p>}
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Bệnh nhân
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Thông tin liên hệ
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ngày sinh
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ngày đăng ký
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Trạng thái
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Thao tác
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {patients.map((patient) => (
+                      <tr
+                        key={patient._id}
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => handlePatientClick(patient._id)}
+                      >
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-medium text-gray-900">{patient.fullName}</p>
+                            <p className="text-sm text-gray-600">
+                              {patient.dateOfBirth ? `${calculateAge(patient.dateOfBirth)} tuổi` : "Chưa cập nhật"}
+                              {patient.gender && ` • ${patient.gender === "male" ? "Nam" : "Nữ"}`}
+                            </p>
+                            {patient.address && <p className="text-sm text-gray-500">{patient.address}</p>}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="text-sm text-gray-900">{patient.phone}</p>
+                            <p className="text-sm text-gray-600">{patient.email}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {patient.dateOfBirth ? formatDate(patient.dateOfBirth) : "Chưa cập nhật"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">{formatDate(patient.createdAt)}</td>
+                        <td className="px-6 py-4">{getStatusBadge(patient.isActive)}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex space-x-2">
+                            <button
+                              className="text-sm hover:opacity-80 transition-opacity"
+                              style={{ color: "var(--color-primary)" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePatientClick(patient._id);
+                              }}
+                            >
+                              Xem chi tiết
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="px-6 py-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-700">
+                      Trang {currentPage} của {totalPages}
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Trước
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

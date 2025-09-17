@@ -1,35 +1,35 @@
-'use client';
+"use client";
 
-import CreateMedicalRecordModal from '@/components/medical-records/CreateMedicalRecordModal';
-import DoctorStatistics from '@/components/medical-records/DoctorStatistics';
-import EditMedicalRecordModal from '@/components/medical-records/EditMedicalRecordModal';
-import ExportMedicalRecord from '@/components/medical-records/ExportMedicalRecord';
-import MedicalRecordDetailModal from '@/components/medical-records/MedicalRecordDetailModal';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+import CreateMedicalRecordModal from "@/components/medical-records/CreateMedicalRecordModal";
+import DoctorStatistics from "@/components/medical-records/DoctorStatistics";
+import EditMedicalRecordModal from "@/components/medical-records/EditMedicalRecordModal";
+import ExportMedicalRecord from "@/components/medical-records/ExportMedicalRecord";
+import MedicalRecordDetailModal from "@/components/medical-records/MedicalRecordDetailModal";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 import {
-    Activity,
-    AlertCircle,
-    Calendar,
-    CheckCircle,
-    Clock,
-    Download,
-    Edit,
-    Eye,
-    FileText,
-    Filter,
-    Plus,
-    Search,
-    Stethoscope,
-    TrendingUp
-} from 'lucide-react';
-import { useEffect, useState } from 'react';
+  Activity,
+  AlertCircle,
+  Calendar,
+  CheckCircle,
+  Clock,
+  Download,
+  Edit,
+  Eye,
+  FileText,
+  Filter,
+  Plus,
+  Search,
+  Stethoscope,
+  TrendingUp,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface MedicalRecord {
   _id: string;
@@ -65,15 +65,15 @@ export default function DoctorMedicalRecordsPage() {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState("all");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -86,12 +86,12 @@ export default function DoctorMedicalRecordsPage() {
 
   const fetchMedicalRecords = async () => {
     try {
-      const response = await fetch('/api/medical-records/doctor', {
+      const response = await fetch("/api/medical-records/doctor", {
         headers: {
-          'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : ''
-        }
+          Authorization: localStorage.getItem("token") ? `Bearer ${localStorage.getItem("token")}` : "",
+        },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setRecords(data);
@@ -100,14 +100,14 @@ export default function DoctorMedicalRecordsPage() {
         toast({
           title: "Lỗi",
           description: errorData.message || "Không thể tải danh sách hồ sơ bệnh án",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "Lỗi",
         description: "Có lỗi xảy ra khi tải dữ liệu",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -119,30 +119,31 @@ export default function DoctorMedicalRecordsPage() {
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(record =>
-        (record.patientId?.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.chiefComplaint.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (record) =>
+          (record.patientId?.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          record.chiefComplaint.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Filter by status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(record => record.status === statusFilter);
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((record) => record.status === statusFilter);
     }
 
     // Filter by tab
     switch (activeTab) {
-      case 'recent':
+      case "recent":
         const oneWeekAgo = new Date();
         oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-        filtered = filtered.filter(record => new Date(record.recordDate) >= oneWeekAgo);
+        filtered = filtered.filter((record) => new Date(record.recordDate) >= oneWeekAgo);
         break;
-      case 'follow-up':
-        filtered = filtered.filter(record => record.isFollowUpRequired);
+      case "follow-up":
+        filtered = filtered.filter((record) => record.isFollowUpRequired);
         break;
-      case 'active':
-        filtered = filtered.filter(record => record.status === 'active');
+      case "active":
+        filtered = filtered.filter((record) => record.status === "active");
         break;
     }
 
@@ -151,13 +152,13 @@ export default function DoctorMedicalRecordsPage() {
 
   const handleCreateRecord = async (data: any) => {
     try {
-      const response = await fetch('/api/medical-records', {
-        method: 'POST',
+      const response = await fetch("/api/medical-records", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
 
       if (response.ok) {
@@ -171,14 +172,14 @@ export default function DoctorMedicalRecordsPage() {
         toast({
           title: "Lỗi",
           description: "Không thể tạo hồ sơ bệnh án",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "Lỗi",
         description: "Có lỗi xảy ra khi tạo hồ sơ",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -186,12 +187,12 @@ export default function DoctorMedicalRecordsPage() {
   const handleUpdateRecord = async (id: string, data: any) => {
     try {
       const response = await fetch(`/api/medical-records/${id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
       });
 
       if (response.ok) {
@@ -205,14 +206,14 @@ export default function DoctorMedicalRecordsPage() {
         toast({
           title: "Lỗi",
           description: "Không thể cập nhật hồ sơ bệnh án",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } catch (error) {
       toast({
         title: "Lỗi",
         description: "Có lỗi xảy ra khi cập nhật hồ sơ",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -224,12 +225,12 @@ export default function DoctorMedicalRecordsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      active: { label: 'Đang điều trị', variant: 'default' as const, icon: Activity },
-      completed: { label: 'Hoàn thành', variant: 'secondary' as const, icon: CheckCircle },
-      pending: { label: 'Chờ xử lý', variant: 'outline' as const, icon: Clock },
-      cancelled: { label: 'Đã hủy', variant: 'destructive' as const, icon: AlertCircle }
+      active: { label: "Đang điều trị", variant: "default" as const, icon: Activity },
+      completed: { label: "Hoàn thành", variant: "secondary" as const, icon: CheckCircle },
+      pending: { label: "Chờ xử lý", variant: "outline" as const, icon: Clock },
+      cancelled: { label: "Đã hủy", variant: "destructive" as const, icon: AlertCircle },
     };
-    
+
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active;
     const Icon = config.icon;
     return (
@@ -241,23 +242,26 @@ export default function DoctorMedicalRecordsPage() {
   };
 
   const getStatusCount = (status: string) => {
-    return records.filter(record => record.status === status).length;
+    return records.filter((record) => record.status === status).length;
   };
 
   if (loading) {
     return (
-      <div 
+      <div
         className="flex items-center justify-center min-h-screen"
         style={{
-          background: 'linear-gradient(135deg, #dbeafe 0%, #ffffff 50%, #e0e7ff 100%)',
-          backgroundAttachment: 'fixed',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          minHeight: '100vh'
+          background: "linear-gradient(135deg, #dbeafe 0%, #ffffff 50%, #e0e7ff 100%)",
+          backgroundAttachment: "fixed",
+          backgroundSize: "cover",
+          backgroundRepeat: "no-repeat",
+          minHeight: "100vh",
         }}
       >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div
+            className="animate-spin rounded-full h-16 w-16 border-b-2 mx-auto mb-4"
+            style={{ borderColor: "var(--color-primary)" }}
+          ></div>
           <p className="text-gray-600">Đang tải dữ liệu...</p>
         </div>
       </div>
@@ -265,38 +269,37 @@ export default function DoctorMedicalRecordsPage() {
   }
 
   return (
-    <div 
-      className="min-h-screen"
-      style={{
-        background: 'linear-gradient(135deg, #dbeafe 0%, #ffffff 50%, #e0e7ff 100%)',
-        backgroundAttachment: 'fixed',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-        minHeight: '100vh'
-      }}
-    >
+    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20">
       <div className="container mx-auto p-6 space-y-8">
         {/* Header Section */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-100 p-8">
+        <div className="healthcare-card-elevated p-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Hồ sơ điều trị
-              </h1>
-              <p className="text-gray-600 mt-2 text-lg">Quản lý hồ sơ bệnh án của bệnh nhân một cách hiệu quả</p>
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                style={{
+                  backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
+                }}
+              >
+                <FileText className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="healthcare-heading text-3xl">Hồ sơ điều trị</h1>
+                <p className="healthcare-body mt-1">Quản lý hồ sơ bệnh án của bệnh nhân một cách hiệu quả</p>
+              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowStatistics(!showStatistics)}
-                className="flex items-center gap-2 bg-white/80 hover:bg-white border-gray-200 backdrop-blur-sm"
+                className="btn-healthcare-secondary flex items-center gap-2"
               >
                 <TrendingUp className="h-4 w-4" />
                 Thống kê
               </Button>
-              <Button 
-                onClick={() => setShowCreateModal(true)} 
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                className="btn-healthcare-primary flex items-center gap-2"
               >
                 <Plus className="h-4 w-4" />
                 Tạo hồ sơ mới
@@ -325,37 +328,37 @@ export default function DoctorMedicalRecordsPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-sm font-medium">Đang điều trị</p>
-                  <p className="text-3xl font-bold">{getStatusCount('active')}</p>
+                  <p className="text-3xl font-bold">{getStatusCount("active")}</p>
                 </div>
                 <Activity className="h-8 w-8 text-green-200" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-purple-100 text-sm font-medium">Hoàn thành</p>
-                  <p className="text-3xl font-bold">{getStatusCount('completed')}</p>
+                  <p className="text-3xl font-bold">{getStatusCount("completed")}</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-purple-200" />
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-orange-100 text-sm font-medium">Cần tái khám</p>
-                  <p className="text-3xl font-bold">{records.filter(r => r.isFollowUpRequired).length}</p>
+                  <p className="text-3xl font-bold">{records.filter((r) => r.isFollowUpRequired).length}</p>
                 </div>
                 <AlertCircle className="h-8 w-8 text-orange-200" />
               </div>
@@ -368,17 +371,29 @@ export default function DoctorMedicalRecordsPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <div className="border-b border-gray-100">
               <TabsList className="grid w-full grid-cols-4 bg-transparent border-0 p-0 h-auto">
-                <TabsTrigger value="all" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
+                <TabsTrigger
+                  value="all"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12"
+                >
                   Tất cả ({records.length})
                 </TabsTrigger>
-                <TabsTrigger value="recent" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
+                <TabsTrigger
+                  value="recent"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12"
+                >
                   Gần đây
                 </TabsTrigger>
-                <TabsTrigger value="follow-up" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
-                  Cần tái khám ({records.filter(r => r.isFollowUpRequired).length})
+                <TabsTrigger
+                  value="follow-up"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12"
+                >
+                  Cần tái khám ({records.filter((r) => r.isFollowUpRequired).length})
                 </TabsTrigger>
-                <TabsTrigger value="active" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12">
-                  Đang điều trị ({getStatusCount('active')})
+                <TabsTrigger
+                  value="active"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-none border-b-2 data-[state=active]:border-b-blue-600 h-12"
+                >
+                  Đang điều trị ({getStatusCount("active")})
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -419,12 +434,14 @@ export default function DoctorMedicalRecordsPage() {
                       <FileText className="h-16 w-16 text-gray-400 mb-4" />
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">Không có hồ sơ nào</h3>
                       <p className="text-gray-500 text-center max-w-md">
-                        {activeTab === 'all' ? 'Chưa có hồ sơ bệnh án nào được tạo. Hãy bắt đầu bằng cách tạo hồ sơ đầu tiên.' : 
-                         activeTab === 'follow-up' ? 'Không có bệnh nhân nào cần tái khám trong thời gian này.' :
-                         'Không có hồ sơ nào phù hợp với bộ lọc hiện tại.'}
+                        {activeTab === "all"
+                          ? "Chưa có hồ sơ bệnh án nào được tạo. Hãy bắt đầu bằng cách tạo hồ sơ đầu tiên."
+                          : activeTab === "follow-up"
+                          ? "Không có bệnh nhân nào cần tái khám trong thời gian này."
+                          : "Không có hồ sơ nào phù hợp với bộ lọc hiện tại."}
                       </p>
-                      {activeTab === 'all' && (
-                        <Button 
+                      {activeTab === "all" && (
+                        <Button
                           onClick={() => setShowCreateModal(true)}
                           className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                         >
@@ -436,7 +453,10 @@ export default function DoctorMedicalRecordsPage() {
                   </Card>
                 ) : (
                   filteredRecords.map((record) => (
-                    <Card key={record._id} className="hover:shadow-lg transition-all duration-300 border-gray-100 hover:border-blue-200 group bg-white/80 backdrop-blur-sm">
+                    <Card
+                      key={record._id}
+                      className="hover:shadow-lg transition-all duration-300 border-gray-100 hover:border-blue-200 group bg-white/80 backdrop-blur-sm"
+                    >
                       <CardContent className="p-6">
                         <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
                           <div className="flex-1 space-y-4">
@@ -444,13 +464,13 @@ export default function DoctorMedicalRecordsPage() {
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                               <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                                  {(record.patientId?.fullName || 'U').charAt(0).toUpperCase()}
+                                  {(record.patientId?.fullName || "U").charAt(0).toUpperCase()}
                                 </div>
                                 <div>
                                   <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                    {record.patientId?.fullName || 'Chưa cập nhật'}
+                                    {record.patientId?.fullName || "Chưa cập nhật"}
                                   </h3>
-                                  <p className="text-gray-500 text-sm">{record.patientId?.email || ''}</p>
+                                  <p className="text-gray-500 text-sm">{record.patientId?.email || ""}</p>
                                 </div>
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -463,14 +483,14 @@ export default function DoctorMedicalRecordsPage() {
                                 )}
                               </div>
                             </div>
-                            
+
                             {/* Details Grid */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                               <div className="space-y-3">
                                 <div className="flex items-center gap-3 text-gray-700">
                                   <Calendar className="h-5 w-5 text-blue-500" />
                                   <span className="font-medium">Ngày khám:</span>
-                                  <span>{format(new Date(record.recordDate), 'dd/MM/yyyy', { locale: vi })}</span>
+                                  <span>{format(new Date(record.recordDate), "dd/MM/yyyy", { locale: vi })}</span>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-700">
                                   <Stethoscope className="h-5 w-5 text-green-500" />
@@ -481,11 +501,11 @@ export default function DoctorMedicalRecordsPage() {
                                   <div className="flex items-center gap-3 text-orange-600">
                                     <Clock className="h-5 w-5" />
                                     <span className="font-medium">Tái khám:</span>
-                                    <span>{format(new Date(record.followUpDate), 'dd/MM/yyyy', { locale: vi })}</span>
+                                    <span>{format(new Date(record.followUpDate), "dd/MM/yyyy", { locale: vi })}</span>
                                   </div>
                                 )}
                               </div>
-                              
+
                               <div className="space-y-3">
                                 {record.diagnosis && (
                                   <div className="text-gray-700">
@@ -502,7 +522,7 @@ export default function DoctorMedicalRecordsPage() {
                               </div>
                             </div>
                           </div>
-                          
+
                           {/* Actions */}
                           <div className="flex gap-2 lg:flex-col">
                             <Button
@@ -581,12 +601,8 @@ export default function DoctorMedicalRecordsPage() {
       )}
 
       {showExportModal && selectedRecord && (
-        <ExportMedicalRecord
-          recordId={selectedRecord._id}
-          onClose={() => setShowExportModal(false)}
-        />
+        <ExportMedicalRecord recordId={selectedRecord._id} onClose={() => setShowExportModal(false)} />
       )}
     </div>
   );
 }
-

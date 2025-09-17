@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LogoutButton from "./auth/LogoutButton";
-import { User, Bell, Smile } from "lucide-react";
+import { User, Bell, Smile, Settings, Activity, Calendar } from "lucide-react";
 
-export default function Header({ role = "Bệnh nhân" }) {
+export default function Header() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const isHomePage = pathname === "/";
@@ -38,12 +38,16 @@ export default function Header({ role = "Bệnh nhân" }) {
         role: "Bác sĩ",
         dashboardPath: "/doctor",
         buttonText: "Vào trang Bác sĩ",
+        icon: <Activity className="w-4 h-4" />,
+        statusColor: "bg-blue-50 text-blue-700 border border-blue-200",
       };
     } else if (userRole === "patient") {
       return {
         role: "Bệnh nhân",
         dashboardPath: "/patient",
         buttonText: "Vào trang Bệnh nhân",
+        icon: <User className="w-4 h-4" />,
+        statusColor: "bg-blue-50 text-blue-700 border border-blue-200",
       };
     }
     return null;
@@ -52,84 +56,122 @@ export default function Header({ role = "Bệnh nhân" }) {
   const dashboardInfo = getUserDashboardInfo();
 
   return (
-    <header style={{ backgroundColor: "var(--color-surface)" }} className="ml-[1.4px]">
-      <div className="max-w-7xl mx-auto px-2">
+    <header className="healthcare-card border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex justify-between items-center py-4">
-          <div className="flex items-center">
-            {isHomePage && (
-              <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
-                <div
-                  style={{ backgroundColor: "var(--color-primary)" }}
-                  className="w-9 h-9 rounded-lg flex items-center justify-center"
-                >
-                  <Smile className="w-5 h-5 text-white" />
+          {/* Logo and Branding */}
+          <div className="flex items-center gap-4">
+            {isHomePage ? (
+              <Link href="/" className="flex items-center hover:opacity-90 transition-opacity group">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                  <Smile className="w-6 h-6 text-white" />
                 </div>
-                <span className="ml-3 text-xl font-bold text-gray-900">Smart Dental</span>
+                <div className="ml-3">
+                  <span className="text-xl font-bold text-gray-900">Smart Dental</span>
+                  <div className="text-xs text-gray-500 -mt-1">Healthcare Platform</div>
+                </div>
               </Link>
-            )}
-            {!isHomePage && (
-              <span
-                style={{
-                  background: "linear-gradient(90deg, var(--color-primary) 60%, var(--color-accent) 100%)",
-                  color: "#fff",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                  letterSpacing: "0.5px",
-                }}
-                className="px-3 py-1 rounded-full text-base font-semibold shadow-sm"
-              >
-                {role}
-              </span>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                  <Smile className="w-6 h-6 text-white" />
+                </div>
+                {dashboardInfo && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${dashboardInfo.statusColor}`}
+                    >
+                      {dashboardInfo.icon}
+                      {dashboardInfo.role}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
-          <div className="flex items-center space-x-4">
+          {/* Navigation and User Menu */}
+          <div className="flex items-center gap-4">
             {session?.user ? (
               <>
+                {/* Quick Actions for logged-in users */}
                 {!isHomePage && (
-                  <button className="p-2 text-gray-400 hover:text-gray-600">
-                    <Bell className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button className="p-2.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative">
+                      <Calendar className="w-5 h-5" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full"></span>
+                    </button>
+                    <button className="p-2.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative">
+                      <Bell className="w-5 h-5" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+                    </button>
+                  </div>
                 )}
 
+                {/* User Profile Dropdown */}
                 <div className="relative" ref={dropdownRef}>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-700">{session.user.email}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:block text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {session.user.username || session.user.email}
+                      </div>
+                      <div className="text-xs text-gray-500">{session.user.email}</div>
+                    </div>
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
-                      className="w-8 h-8 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors cursor-pointer flex items-center justify-center"
+                      className="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center border-2 border-white shadow-md"
                       aria-label="User menu"
                     >
-                      <User className="w-5 h-5 text-gray-700" />
+                      <User className="w-5 h-5 text-gray-600" />
                     </button>
                   </div>
 
+                  {/* Dropdown Menu */}
                   {showDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
-                      <div className="px-4 py-2 text-sm text-gray-500 border-b">{dashboardInfo?.role}</div>
+                    <div className="absolute right-0 mt-3 w-80 healthcare-card-elevated shadow-xl border border-gray-100 rounded-xl overflow-hidden z-50">
+                      {/* User Info Header */}
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                            <User className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-900">{session.user.username || "User"}</div>
+                            <div className="text-sm text-gray-600">{session.user.email}</div>
+                            {dashboardInfo && (
+                              <div
+                                className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${dashboardInfo.statusColor}`}
+                              >
+                                {dashboardInfo.icon}
+                                {dashboardInfo.role}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-                      {dashboardInfo && isHomePage && (
-                        <Link
-                          href={dashboardInfo.dashboardPath}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setShowDropdown(false)}
-                        >
-                          {dashboardInfo.buttonText}
-                        </Link>
-                      )}
+                      {/* Menu Items */}
+                      <div className="p-2">
+                        {dashboardInfo && (
+                          <Link
+                            href={dashboardInfo.dashboardPath}
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors"
+                            onClick={() => setShowDropdown(false)}
+                          >
+                            {dashboardInfo.icon}
+                            {dashboardInfo.buttonText}
+                          </Link>
+                        )}
 
-                      {!isHomePage && (
-                        <Link
-                          href="/"
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          onClick={() => setShowDropdown(false)}
-                        >
-                          Trang chủ
-                        </Link>
-                      )}
+                        <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors">
+                          <Settings className="w-4 h-4" />
+                          Cài đặt tài khoản
+                        </button>
 
-                      <div className="border-t">
-                        <div className="px-4 py-2">
-                          <LogoutButton />
+                        <div className="border-t border-gray-100 my-2"></div>
+
+                        <div className="px-3 py-1">
+                          <LogoutButton className="w-full btn-healthcare-secondary text-sm py-2" />
                         </div>
                       </div>
                     </div>
@@ -137,27 +179,15 @@ export default function Header({ role = "Bệnh nhân" }) {
                 </div>
               </>
             ) : (
-              <>
-                {isHomePage && (
-                  <nav className="flex items-center space-x-8">
-                    <Link href="#services" className="text-gray-600 hover:text-gray-900">
-                      Dịch vụ
-                    </Link>
-                    <Link href="#doctors" className="text-gray-600 hover:text-gray-900">
-                      Bác sĩ
-                    </Link>
-                    <Link href="#about" className="text-gray-600 hover:text-gray-900">
-                      Về chúng tôi
-                    </Link>
-                  </nav>
-                )}
-                <Link href="/auth/login" className="text-gray-600 hover:text-gray-900">
+              /* Login/Register buttons for non-authenticated users */
+              <div className="flex items-center gap-3">
+                <Link href="/auth/login" className="btn-healthcare-secondary text-sm px-4 py-2">
                   Đăng nhập
                 </Link>
-                <Link href="/auth/register" className="btn-primary">
+                <Link href="/auth/register" className="btn-healthcare-primary text-sm px-4 py-2">
                   Đăng ký
                 </Link>
-              </>
+              </div>
             )}
           </div>
         </div>
