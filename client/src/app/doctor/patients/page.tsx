@@ -38,13 +38,11 @@ export default function DoctorPatients() {
 
   useEffect(() => {
     testConnection();
-    // debounce searchTerm to avoid too many requests while user types
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 400);
     return () => clearTimeout(t);
   }, [searchTerm]);
 
   useEffect(() => {
-    // fetch whenever page, debounced search, or filter changes
     fetchPatients();
     fetchStats();
   }, [currentPage, debouncedSearch, selectedFilter]);
@@ -72,14 +70,12 @@ export default function DoctorPatients() {
       const response = await fetch(`/api/users/patients/search?${params}`);
       const data = await response.json();
 
-      // Backend / proxy may return different shapes. Normalize safely.
       if (data?.success === true) {
         const patientsResult = data.data?.patients ?? data.data ?? [];
         setPatients(Array.isArray(patientsResult) ? patientsResult : []);
         const tp = data.data?.pagination?.totalPages ?? data.data?.totalPages ?? 1;
         setTotalPages(typeof tp === "number" ? tp : Number(tp) || 1);
       } else if (Array.isArray(data)) {
-        // proxy returned raw array
         setPatients(data);
         setTotalPages(1);
       } else if (data?.patients) {
@@ -94,7 +90,6 @@ export default function DoctorPatients() {
     } catch (error) {
       console.error("Error fetching patients:", error);
       setError("Lỗi kết nối server");
-      // Fallback data để hiển thị
       setPatients([]);
       setTotalPages(1);
     } finally {
@@ -105,14 +100,12 @@ export default function DoctorPatients() {
   const fetchStats = async () => {
     try {
       const params = new URLSearchParams();
-      // optionally pass doctorId filter in future
       const response = await fetch(`/api/users/patients/stats?${params}`);
       const data = await response.json();
 
       if (data?.success === true) {
         setStats(data.data ?? null);
       } else {
-        // Try to read raw payload shapes
         const raw = data?.data ?? data;
         if (raw && typeof raw === "object") {
           setStats(raw as PatientStats);
@@ -128,7 +121,6 @@ export default function DoctorPatients() {
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
-      // Fallback stats để hiển thị
       setStats({
         totalPatients: 0,
         activePatients: 0,
@@ -161,9 +153,17 @@ export default function DoctorPatients() {
 
   const getStatusBadge = (isActive: boolean) => {
     if (isActive) {
-      return <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Đang hoạt động</span>;
+      return (
+        <span className="px-2 py-1 rounded-full text-xs" style={{ background: "var(--color-success-light)", color: "var(--color-primary-contrast)", border: "1px solid var(--color-border)" }}>
+          Đang hoạt động
+        </span>
+      );
     } else {
-      return <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">Không hoạt động</span>;
+      return (
+        <span className="px-2 py-1 rounded-full text-xs" style={{ background: "var(--color-primary-50)", color: "var(--color-primary-contrast)", border: "1px solid var(--color-border)" }}>
+          Không hoạt động
+        </span>
+      );
     }
   };
 
@@ -193,29 +193,23 @@ export default function DoctorPatients() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
+          <div className="healthcare-card p-4" style={{ borderLeft: "3px solid var(--color-border)" }}>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--color-primary-50)" }}>
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" style={{ color: "var(--color-primary)" }}>
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Lỗi</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{error}</p>
-                </div>
+              <div>
+                <h3 className="text-sm font-medium" style={{ color: "var(--color-primary-contrast)" }}>Lỗi</h3>
+                <p className="text-sm" style={{ color: "var(--color-muted)" }}>{error}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Search and Filter */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="healthcare-card p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div className="flex-1 max-w-md">
               <input
@@ -242,9 +236,9 @@ export default function DoctorPatients() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center">
-              <div className="p-2 bg-primary-100 rounded-lg" style={{ borderRadius: 8 }}>
+              <div className="p-2 rounded-lg" style={{ background: "var(--color-primary-50)" }}>
                 <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
               </div>
               <div className="ml-4">
@@ -254,10 +248,10 @@ export default function DoctorPatients() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Check className="w-7 h-7 text-green-600" />
+              <div className="p-2 rounded-lg" style={{ background: "var(--color-success-light)" }}>
+                <Check className="w-7 h-7" style={{ color: "var(--color-success)" }} />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Đang hoạt động</p>
@@ -266,10 +260,10 @@ export default function DoctorPatients() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <Calendar className="w-7 h-7 text-yellow-600" />
+              <div className="p-2 rounded-lg" style={{ background: "var(--color-primary-50)" }}>
+                <Calendar className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Mới tháng này</p>
@@ -278,10 +272,10 @@ export default function DoctorPatients() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <span className="text-2xl">⏸️</span>
+              <div className="p-2 rounded-lg" style={{ background: "var(--color-primary-50)" }}>
+                <span className="text-2xl" style={{ color: "var(--color-primary)" }}>⏸️</span>
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Không hoạt động</p>
@@ -292,8 +286,8 @@ export default function DoctorPatients() {
         </div>
 
         {/* Patients List */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b">
+        <div className="healthcare-card">
+          <div className="p-6 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900">Danh sách bệnh nhân ({patients.length})</h2>
           </div>
 
@@ -308,7 +302,7 @@ export default function DoctorPatients() {
           ) : patients.length === 0 ? (
             <div className="p-6 text-center">
               <p className="text-gray-500">Không có bệnh nhân nào</p>
-              {error && <p className="text-sm text-red-500 mt-2">Lỗi: {error}</p>}
+              {error && <p className="text-sm" style={{ color: "var(--color-primary)" }}>Lỗi: {error}</p>}
             </div>
           ) : (
             <>
@@ -386,7 +380,7 @@ export default function DoctorPatients() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="px-6 py-4 border-t">
+                <div className="px-6 py-4 border-t border-gray-100">
                   <div className="flex items-center justify-between">
                     <div className="text-sm text-gray-700">
                       Trang {currentPage} của {totalPages}

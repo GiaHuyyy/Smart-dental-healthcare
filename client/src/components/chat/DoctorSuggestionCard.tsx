@@ -60,7 +60,7 @@ export default function DoctorSuggestionCard({
   return (
     <div
       className={`p-4 rounded-lg ${className}`}
-      style={{ background: "var(--color-primary-outline)", border: "1px solid rgba(0,166,244,0.08)" }}
+      style={{ background: "var(--color-primary-outline)", border: "1px solid rgba(var(--color-primary-rgb),0.08)" }}
     >
       <div className="flex items-start">
         {/* Avatar thay vì icon */}

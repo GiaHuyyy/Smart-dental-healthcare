@@ -11,6 +11,7 @@ export default function ShellLayout({ navigation, children }: { navigation: NavI
   // usePathname can't be used here because some callers may import server-side
   // but our layouts call this client component. Consumers pass already-known pathname when needed.
   const pathname = usePathname();
+  const isChatRoute = pathname?.includes("/chat");
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <nav className="w-30 bg-white shadow-sm fixed top-0 left-0 bottom-0 z-30 overflow-y-auto">
@@ -37,7 +38,7 @@ export default function ShellLayout({ navigation, children }: { navigation: NavI
               const iconEl = item.icon ? (
                 <span
                   className="w-4 h-4 inline-flex items-center justify-center"
-                  style={{ color: isActive ? "var(--color-primary-600)" : undefined }}
+                  style={{ color: isActive ? "var(--color-primary-600)" : "var(--color-primary)" }}
                 >
                   {item.icon}
                 </span>
@@ -57,7 +58,7 @@ export default function ShellLayout({ navigation, children }: { navigation: NavI
       </nav>
 
       <div className="flex h-screen pt-16">
-        <main className="flex-1 ml-30 p-6 overflow-y-auto h-full">{children}</main>
+        <main className={`flex-1 ml-30 ${isChatRoute ? "p-0 overflow-hidden" : "p-6 overflow-y-auto"} h-full`}>{children}</main>
       </div>
     </div>
   );

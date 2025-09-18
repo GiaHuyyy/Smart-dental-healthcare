@@ -211,16 +211,20 @@ export class RealtimeChatService {
 
     const skip = (page - 1) * limit;
 
-    return await this.messageModel
+    // Fetch newest first to ensure recent messages are included, then reverse
+    const newestFirst = await this.messageModel
       .find({ conversationId, isDeleted: false })
       .select(
         'conversationId senderId senderRole content messageType fileUrl fileName fileType fileSize isRead readAt createdAt updatedAt',
       )
       .populate('senderId', 'firstName lastName avatar')
       .populate('replyTo')
-      .sort({ createdAt: 1 }) // Changed from -1 to 1 (oldest first)
+      .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
+
+    return newestFirst.reverse() as any;
   }
 
   async markMessageAsRead(

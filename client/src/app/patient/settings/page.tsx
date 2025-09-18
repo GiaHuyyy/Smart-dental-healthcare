@@ -235,7 +235,7 @@ export default function PatientSettings() {
         <div className="healthcare-card-elevated p-6">
           <div className="flex items-center gap-4">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
               style={{
                 backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
               }}
@@ -243,7 +243,7 @@ export default function PatientSettings() {
               <Settings className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="healthcare-heading text-3xl">Cài đặt tài khoản</h1>
+              <h1 className="healthcare-heading text-2xl">Cài đặt tài khoản</h1>
               <p className="healthcare-body mt-1">Quản lý thông tin cá nhân và tùy chọn tài khoản</p>
             </div>
           </div>

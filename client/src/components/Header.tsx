@@ -11,6 +11,7 @@ export default function Header() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const isHomePage = pathname === "/";
+  const isPatientOrDoctor = pathname?.startsWith("/patient") || pathname?.startsWith("/doctor");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -73,16 +74,23 @@ export default function Header() {
               </Link>
             ) : (
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
-                  <Smile className="w-6 h-6 text-white" />
-                </div>
+                {!isPatientOrDoctor && (
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                    <Smile className="w-6 h-6 text-white" />
+                  </div>
+                )}
                 {dashboardInfo && (
                   <div className="flex items-center gap-2">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${dashboardInfo.statusColor}`}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
+                      style={{
+                        background: "var(--color-primary-50)",
+                        color: "var(--color-primary-600)",
+                        border: "1px solid rgba(var(--color-primary-rgb),0.12)",
+                      }}
                     >
                       {dashboardInfo.icon}
-                      {dashboardInfo.role}
+                      <span className="ml-1">{dashboardInfo.role}</span>
                     </span>
                   </div>
                 )}
@@ -143,7 +151,20 @@ export default function Header() {
                                 className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${dashboardInfo.statusColor}`}
                               >
                                 {dashboardInfo.icon}
-                                {dashboardInfo.role}
+                                <span
+                                  style={{
+                                    background: "var(--color-primary-50)",
+                                    color: "var(--color-primary-600)",
+                                    borderRadius: 6,
+                                    padding: "2px 6px",
+                                    marginLeft: 6,
+                                    fontWeight: 600,
+                                    fontSize: 12,
+                                    border: "1px solid rgba(var(--color-primary-rgb),0.12)",
+                                  }}
+                                >
+                                  {dashboardInfo.role}
+                                </span>
                               </div>
                             )}
                           </div>

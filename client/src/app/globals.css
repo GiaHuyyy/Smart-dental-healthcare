@@ -16,6 +16,7 @@
   --color-primary-surface: #f8fafc; /* surface background color */
   --color-primary-outline: #e2e8f0; /* outline color */
   --color-primary-contrast: #1e293b; /* dark blue for text */
+  --color-primary-rgb: 0, 166, 244; /* RGB for primary to use in rgba(var(--color-primary-rgb), alpha) */
 
   /* Minimal status colors - only when necessary */
   --color-success: #059669; /* medical green - healthy/completed */
@@ -331,13 +332,13 @@ body {
   padding: 0.6rem 1.4rem;
   border-radius: 12px;
   border: none;
-  box-shadow: 0 6px 18px rgba(10, 115, 200, 0.18);
+  box-shadow: 0 6px 18px rgba(var(--color-primary-rgb), 0.18);
   transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 
 .btn-primary-filled:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(10, 115, 200, 0.22);
+  box-shadow: 0 10px 24px rgba(var(--color-primary-rgb), 0.22);
 }
 
 .btn-primary-outline {
@@ -345,18 +346,18 @@ body {
   color: var(--color-primary-contrast);
   padding: 0.5rem 1.25rem;
   border-radius: 12px;
-  border: 2px solid rgba(0, 166, 244, 0.12);
+  border: 2px solid rgba(var(--color-primary-rgb), 0.12);
   backdrop-filter: blur(4px);
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .btn-primary-outline:hover {
   background: var(--color-primary-100);
-  border-color: rgba(0, 166, 244, 0.22);
+  border-color: rgba(var(--color-primary-rgb), 0.22);
 }
 
 .btn-primary-outline:focus {
-  box-shadow: 0 0 0 6px rgba(0, 166, 244, 0.12);
+  box-shadow: 0 0 0 6px rgba(var(--color-primary-rgb), 0.12);
 }
 
 /* Legacy text and background utilities */
@@ -376,7 +377,7 @@ body {
 .msg-outgoing {
   background: var(--color-primary) !important;
   color: white !important;
-  box-shadow: 0 6px 18px rgba(0, 166, 244, 0.12);
+  box-shadow: 0 6px 18px rgba(var(--color-primary-rgb), 0.12);
 }
 
 .btn-primary-small {

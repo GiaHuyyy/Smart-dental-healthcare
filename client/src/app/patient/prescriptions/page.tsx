@@ -141,7 +141,7 @@ export default function PatientPrescriptions() {
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
                 style={{
                   backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
                 }}
@@ -149,7 +149,7 @@ export default function PatientPrescriptions() {
                 <Pill className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="healthcare-heading text-3xl">Đơn thuốc của tôi</h1>
+                <h1 className="healthcare-heading text-2xl">Đơn thuốc của tôi</h1>
                 <p className="healthcare-body mt-1">Quản lý và theo dõi đơn thuốc được kê bởi bác sĩ</p>
               </div>
             </div>
@@ -191,7 +191,7 @@ export default function PatientPrescriptions() {
         <div className="space-y-4">
           {filteredPrescriptions.length === 0 ? (
             <div className="healthcare-card p-12 text-center">
-              <Pill className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <Pill className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="healthcare-heading text-xl mb-2">Chưa có đơn thuốc nào</h3>
               <p className="healthcare-body">
                 {searchTerm || statusFilter !== "all"

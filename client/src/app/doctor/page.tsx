@@ -52,7 +52,7 @@ export default function DoctorDashboard() {
         {/* KPI Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Today's Patients */}
-          <div className="kpi-card group hover:scale-105 transition-transform duration-200">
+          <div className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div
@@ -80,14 +80,14 @@ export default function DoctorDashboard() {
           </div>
 
           {/* Completed Appointments */}
-          <div className="kpi-card group hover:scale-105 transition-transform duration-200">
+          <div className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: "var(--color-success-light)" }}
+                  style={{ backgroundColor: "var(--color-primary-50)" }}
                 >
-                  <UserCheck className="w-6 h-6" style={{ color: "var(--color-success)" }} />
+                  <UserCheck className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
                 </div>
                 <div>
                   <div className="healthcare-caption text-gray-500">Đã hoàn thành</div>
@@ -96,10 +96,10 @@ export default function DoctorDashboard() {
               </div>
             </div>
             <div className="flex items-end justify-between">
-              <div className="text-3xl font-bold" style={{ color: "var(--color-success)" }}>
+              <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
                 5
               </div>
-              <div className="status-indicator status-normal">
+              <div className="status-indicator status-info">
                 <Check className="w-3 h-3" />
                 Hoàn thành
               </div>
@@ -109,16 +109,16 @@ export default function DoctorDashboard() {
 
           {/* Waiting Patients */}
           <div
-            className="kpi-card group hover:scale-105 transition-transform duration-200"
-            style={{ borderLeft: "1px solid var(--color-warning)" }}
+            className="kpi-card group hover:scale-[1.02] transition-transform duration-200"
+            style={{ borderLeft: "1px solid var(--color-border)" }}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: "var(--color-warning-light)" }}
+                  style={{ backgroundColor: "var(--color-primary-50)" }}
                 >
-                  <Timer className="w-6 h-6" style={{ color: "var(--color-warning)" }} />
+                  <Timer className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
                 </div>
                 <div>
                   <div className="healthcare-caption text-gray-500">Đang chờ</div>
@@ -127,10 +127,10 @@ export default function DoctorDashboard() {
               </div>
             </div>
             <div className="flex items-end justify-between">
-              <div className="text-3xl font-bold" style={{ color: "var(--color-warning)" }}>
+              <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
                 3
               </div>
-              <div className="status-indicator status-attention">
+              <div className="status-indicator status-info">
                 <AlertCircle className="w-3 h-3" />
                 Chờ khám
               </div>
@@ -139,7 +139,7 @@ export default function DoctorDashboard() {
           </div>
 
           {/* Prescriptions */}
-          <div className="kpi-card group hover:scale-105 transition-transform duration-200">
+          <div className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div
@@ -192,7 +192,7 @@ export default function DoctorDashboard() {
                 {/* Appointment Item */}
                 <div
                   className="healthcare-card p-4 hover:shadow-md transition-shadow cursor-pointer"
-                  style={{ borderLeft: "1px solid var(--color-primary)" }}
+                  style={{ borderLeft: "1px solid var(--color-border)" }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -219,21 +219,21 @@ export default function DoctorDashboard() {
 
                 <div
                   className="healthcare-card p-4 hover:shadow-md transition-shadow cursor-pointer"
-                  style={{ borderLeft: "1px solid var(--color-success)" }}
+                  style={{ borderLeft: "1px solid var(--color-border)" }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div
                         className="w-12 h-12 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--color-success-light)" }}
+                        style={{ backgroundColor: "var(--color-primary-50)" }}
                       >
-                        <UserCheck className="w-6 h-6" style={{ color: "var(--color-success)" }} />
+                        <UserCheck className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
                       </div>
                       <div>
                         <div className="font-semibold text-gray-900">Trần Thị B</div>
                         <div className="text-sm text-gray-500">Nhổ răng khôn</div>
                         <div className="flex items-center gap-2 mt-1">
-                          <div className="status-indicator status-normal">
+                          <div className="status-indicator status-info">
                             <Check className="w-3 h-3" />
                             Hoàn thành
                           </div>
@@ -246,21 +246,21 @@ export default function DoctorDashboard() {
 
                 <div
                   className="healthcare-card p-4 hover:shadow-md transition-shadow cursor-pointer"
-                  style={{ borderLeft: "1px solid var(--color-warning)" }}
+                  style={{ borderLeft: "1px solid var(--color-border)" }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div
                         className="w-12 h-12 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--color-warning-light)" }}
+                        style={{ backgroundColor: "var(--color-primary-50)" }}
                       >
-                        <Timer className="w-6 h-6" style={{ color: "var(--color-warning)" }} />
+                        <Timer className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
                       </div>
                       <div>
                         <div className="font-semibold text-gray-900">Lê Văn C</div>
                         <div className="text-sm text-gray-500">Tẩy trắng răng</div>
                         <div className="flex items-center gap-2 mt-1">
-                          <div className="status-indicator status-attention">
+                          <div className="status-indicator status-info">
                             <AlertCircle className="w-3 h-3" />
                             Đang chờ
                           </div>
@@ -294,7 +294,7 @@ export default function DoctorDashboard() {
                 <div className="flex items-start gap-4">
                   <div
                     className="w-3 h-3 rounded-full mt-2 flex-shrink-0"
-                    style={{ backgroundColor: "var(--color-success)" }}
+                    style={{ backgroundColor: "var(--color-primary)" }}
                   ></div>
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">Hoàn thành điều trị Nguyễn Văn A</div>
@@ -318,7 +318,7 @@ export default function DoctorDashboard() {
                 <div className="flex items-start gap-4">
                   <div
                     className="w-3 h-3 rounded-full mt-2 flex-shrink-0"
-                    style={{ backgroundColor: "var(--color-warning)" }}
+                    style={{ backgroundColor: "var(--color-primary)" }}
                   ></div>
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">Lên lịch tái khám cho Hoàng Minh E</div>
@@ -338,9 +338,9 @@ export default function DoctorDashboard() {
                 <div className="flex items-center gap-3">
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: "var(--color-success-light)" }}
+                    style={{ backgroundColor: "var(--color-primary-50)" }}
                   >
-                    <MessageSquare className="w-5 h-5" style={{ color: "var(--color-success)" }} />
+                    <MessageSquare className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
                   </div>
                   <div>
                     <h3 className="healthcare-subheading">Tin nhắn mới</h3>
@@ -350,13 +350,13 @@ export default function DoctorDashboard() {
               </div>
 
               <div className="p-6 space-y-4">
-                <div className="healthcare-card p-3" style={{ borderLeft: "1px solid var(--color-danger)" }}>
+                <div className="healthcare-card p-3" style={{ borderLeft: "1px solid var(--color-border)" }}>
                   <div className="flex items-start gap-3">
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: "var(--color-danger-light)" }}
+                      style={{ backgroundColor: "var(--color-primary-50)" }}
                     >
-                      <AlertCircle className="w-4 h-4" style={{ color: "var(--color-danger)" }} />
+                      <AlertCircle className="w-4 h-4" style={{ color: "var(--color-primary)" }} />
                     </div>
                     <div className="flex-1">
                       <div className="font-medium text-sm">Nguyễn Thị X</div>
@@ -412,15 +412,11 @@ export default function DoctorDashboard() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Tỷ lệ hài lòng</span>
-                  <span className="font-semibold" style={{ color: "var(--color-success)" }}>
-                    97%
-                  </span>
+                  <span className="font-semibold text-gray-900">97%</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Thời gian chờ TB</span>
-                  <span className="font-semibold" style={{ color: "var(--color-primary)" }}>
-                    8 phút
-                  </span>
+                  <span className="font-semibold text-gray-900">8 phút</span>
                 </div>
               </div>
             </div>

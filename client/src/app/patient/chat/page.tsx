@@ -453,7 +453,7 @@ export default function PatientChatPage() {
   };
 
   return (
-    <div className="flex overflow-hidden h-full">
+    <div className="flex overflow-hidden h-screen pt-16">
       {/* Chat Sidebar - Toggleable */}
       {showSidebar && (
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">

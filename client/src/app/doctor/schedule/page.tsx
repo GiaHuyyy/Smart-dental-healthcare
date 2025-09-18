@@ -1548,13 +1548,10 @@ export default function DoctorSchedule() {
                             className={`p-2 rounded`}
                             style={
                               apptStatus === "confirmed"
-                                ? {
-                                    background: "var(--color-primary-outline)",
-                                    borderLeft: "4px solid var(--color-primary-600)",
-                                  }
+                                ? { background: "var(--color-primary-50)", borderLeft: "3px solid var(--color-primary)" }
                                 : apptStatus === "in-progress"
-                                ? { background: "var(--color-success)", borderLeft: "4px solid var(--color-success)" }
-                                : { background: "var(--color-warning)", borderLeft: "4px solid var(--color-warning)" }
+                                ? { background: "var(--color-success-light)", borderLeft: "3px solid var(--color-success)" }
+                                : { background: "var(--color-warning-light)", borderLeft: "3px solid var(--color-warning)" }
                             }
                           >
                             <p className="font-medium text-sm">
@@ -1580,7 +1577,7 @@ export default function DoctorSchedule() {
                   const apptStatus = normalizeStatus(appointment.status);
                   const id = appointment._id || appointment.id;
                   return (
-                    <div key={id} className="bg-gray-50 rounded-lg p-4 border">
+                    <div key={id} className="healthcare-card p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h4 className="font-medium">{appointment.patient?.fullName || appointment.patient}</h4>
@@ -1590,10 +1587,10 @@ export default function DoctorSchedule() {
                           className={`px-2 py-1 rounded-full text-xs`}
                           style={
                             apptStatus === "confirmed"
-                              ? { background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }
+                              ? { background: "var(--color-primary-50)", color: "var(--color-primary-contrast)", border: "1px solid var(--color-border)" }
                               : apptStatus === "in-progress"
-                              ? { background: "var(--color-success)", color: "#0f5132" }
-                              : { background: "var(--color-warning)", color: "#663c00" }
+                              ? { background: "var(--color-success-light)", color: "var(--color-primary-contrast)", border: "1px solid var(--color-border)" }
+                              : { background: "var(--color-warning-light)", color: "var(--color-primary-contrast)", border: "1px solid var(--color-border)" }
                           }
                         >
                           {statusLabelMap[apptStatus] || (appointment.status && appointment.status.toString())}

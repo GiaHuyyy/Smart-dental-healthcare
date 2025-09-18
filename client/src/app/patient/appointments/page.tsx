@@ -114,31 +114,24 @@ export default function PatientAppointments() {
 
       setPrefilledData(data);
 
-      // Auto-fill doctor if doctorId is provided
       if (data.doctorId) {
         setSelectedDoctorId(data.doctorId);
       }
 
-      // Auto-fill notes
       if (data.notes) {
-        // remove emoji markers from stored notes and normalize AI analysis marker
         let normalized = data.notes.replace(/🔍\s*/g, "");
         normalized = normalized.replace("KẾT QUẢ PHÂN TÍCH AI", "KẾT QUẢ PHÂN TÍCH AI");
         setNotes(normalized);
       }
 
-      // Auto-fill appointment type based on urgency
       if (data.urgency === "high") {
         setAppointmentType("Khám cấp cứu");
       } else if (data.urgency === "medium") {
         setAppointmentType("Khám định kỳ");
       }
-
-      // Note: Success message is now shown in the UI instead of alert
     }
   }, [appointmentData, selectedDoctor, symptoms, chatNotes, urgencyLevel]);
 
-  // Auto-select doctor when doctors are loaded and we have a doctorId
   useEffect(() => {
     if (doctors.length > 0 && prefilledData?.doctorId) {
       const doctor = doctors.find((d) => d._id === prefilledData.doctorId || d.id === prefilledData.doctorId);
@@ -148,7 +141,6 @@ export default function PatientAppointments() {
     }
   }, [doctors, prefilledData?.doctorId]);
 
-  // Additional effect to ensure doctor is selected when coming from chatbot
   useEffect(() => {
     if (doctors.length > 0 && searchParams.get("doctorId") && !selectedDoctorId) {
       const doctorId = searchParams.get("doctorId");
@@ -269,7 +261,6 @@ export default function PatientAppointments() {
       const duration = 30;
       const endTime = addMinutesToTime(selectedTime, duration);
 
-      // Normalize appointmentDate to UTC midnight ISO to avoid timezone shifts (store date-only)
       const [y, m, d] = selectedDate.split("-").map(Number);
       const appointmentDateISO = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 0, 0, 0)).toISOString();
 
@@ -284,15 +275,11 @@ export default function PatientAppointments() {
         duration: Number(duration),
       };
 
-      console.log("Creating appointment payload:", body);
-
       const res = await sendRequest<any>({
         method: "POST",
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments`,
         body,
       });
-
-      console.log("Create appointment response:", res);
 
       if (res && (res as any).statusCode && (res as any).statusCode >= 400) {
         const msg = (res as any).message || (res as any).error || "Lỗi server";
@@ -306,13 +293,9 @@ export default function PatientAppointments() {
       setSelectedTime("");
       setNotes("");
 
-      // Clear Redux data after successful appointment creation
       dispatch(clearAppointmentData());
     } catch (err: any) {
-      console.error("Create appointment error:", err);
       const message = err?.message || err?.error || "Tạo lịch hẹn thất bại";
-
-      // Hiển thị thông báo lỗi cụ thể
       if (message.includes("Bác sĩ đã có lịch hẹn vào khung giờ này")) {
         alert("Bác sĩ đã có lịch hẹn vào khung giờ này. Vui lòng chọn khung giờ khác.");
       } else {
@@ -333,18 +316,14 @@ export default function PatientAppointments() {
         body: { reason: "Hủy bởi bệnh nhân" },
         headers,
       });
-      console.log("cancel response", res);
-      // Xóa lịch hẹn khỏi danh sách vì đã bị xóa khỏi database
       setAppointments((prev) => prev.filter((a) => a._id !== appointmentId));
       alert("Đã hủy lịch hẹn");
     } catch (err: any) {
-      console.error("Cancel error", err);
       alert("Hủy lịch thất bại");
     }
   }
 
   async function handleEdit(appointment: any) {
-    // Simple prompt-based reschedule for now (date + time)
     if (appointment.status === "confirmed") {
       alert("Lịch đã được xác nhận, không thể sửa.");
       return;
@@ -360,13 +339,11 @@ export default function PatientAppointments() {
     try {
       const [yy, mm, dd] = newDate.split("-").map(Number);
       const appointmentDateISO = new Date(Date.UTC(yy, (mm || 1) - 1, dd || 1, 0, 0, 0)).toISOString();
-      const res = await sendRequest<any>({
+      await sendRequest<any>({
         method: "PATCH",
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointment._id}/reschedule`,
         body: { appointmentDate: appointmentDateISO, appointmentTime: newTime },
       });
-      console.log("reschedule response", res);
-      // update local list: mark as pending/rescheduled
       setAppointments((prev) =>
         prev.map((a) =>
           a._id === appointment._id
@@ -376,7 +353,6 @@ export default function PatientAppointments() {
       );
       alert("Đã gửi yêu cầu đổi lịch");
     } catch (err: any) {
-      console.error("Reschedule error", err);
       alert("Đổi lịch thất bại");
     }
   }
@@ -389,7 +365,7 @@ export default function PatientAppointments() {
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
                 style={{
                   backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
                 }}
@@ -397,10 +373,9 @@ export default function PatientAppointments() {
                 <FileText className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="healthcare-heading text-3xl">Đặt lịch hẹn</h1>
+                <h1 className="healthcare-heading text-2xl">Đặt lịch hẹn</h1>
                 <p className="healthcare-body mt-1">Quản lý và đặt lịch khám mới</p>
 
-                {/* Thông báo khi có dữ liệu từ chatbot */}
                 {prefilledData?.notes && prefilledData.notes.includes("KẾT QUẢ PHÂN TÍCH AI") && (
                   <div className="mt-3 p-3 bg-blue-50 border rounded-lg border-blue-200">
                     <div className="flex items-center justify-between">
@@ -494,15 +469,17 @@ export default function PatientAppointments() {
                         type="button"
                         className={`p-2 text-sm rounded border flex items-center justify-center ${
                           selectedTime === time
-                            ? "bg-green-600 text-white border-green-600"
+                            ? "bg-primary-100 text-primary border-primary-outline"
                             : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                        } ${disabledByRules ? "opacity-50 cursor-not-allowed" : ""}`}
+                        } ${disabledByRules ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] transition-transform"}`}
                         onClick={() => {
                           if (!disabledByRules) setSelectedTime(time);
                         }}
                       >
                         <span>{time}</span>
-                        {slotOccupiedByDoctor ? <span className="ml-2 text-xs text-red-600">(Bận)</span> : null}
+                        {slotOccupiedByDoctor ? (
+                          <span className="ml-2 text-xs" style={{ color: "var(--color-primary)" }}>(Bận)</span>
+                        ) : null}
                       </button>
                     );
                   })}
@@ -523,13 +500,12 @@ export default function PatientAppointments() {
                   <option>Nhổ răng</option>
                 </select>
 
-                {/* Hiển thị thông tin triệu chứng từ chatbot */}
                 {prefilledData?.symptoms && (
-                  <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                    <p className="font-medium text-yellow-800 mb-1">
+                  <div className="mt-2 p-2 rounded border text-xs" style={{ background: "var(--color-primary-outline)", borderColor: "var(--color-primary-outline)" }}>
+                    <p className="font-medium mb-1" style={{ color: "var(--color-primary-contrast)" }}>
                       <Search className="inline w-4 h-4 mr-1" /> Triệu chứng từ chatbot:
                     </p>
-                    <p className="text-yellow-700">{prefilledData.symptoms}</p>
+                    <p style={{ color: "var(--color-primary-contrast)" }}>{prefilledData.symptoms}</p>
                   </div>
                 )}
               </div>
@@ -547,12 +523,13 @@ export default function PatientAppointments() {
                   )}
                 </label>
                 <textarea
-                  className={`w-full border border-gray-300 rounded-md px-3 py-2 ${
-                    prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI") ? "" : ""
-                  }`}
+                  className={`w-full border border-gray-300 rounded-md px-3 py-2`}
                   style={
                     prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI")
-                      ? { borderColor: "rgba(0,166,244,0.12)", background: "var(--color-primary-outline)" }
+                      ? {
+                          borderColor: "rgba(var(--color-primary-rgb),0.12)",
+                          background: "var(--color-primary-outline)",
+                        }
                       : undefined
                   }
                   rows={6}
@@ -561,11 +538,13 @@ export default function PatientAppointments() {
                   onChange={(e) => setNotes(e.target.value)}
                 />
 
-                {/* Hiển thị hình ảnh X-ray nếu có từ chatbot */}
                 {prefilledData?.imageUrl && (
                   <div
                     className="mt-4 p-4 rounded-lg"
-                    style={{ background: "var(--color-primary-outline)", border: "1px solid rgba(0,166,244,0.12)" }}
+                    style={{
+                      background: "var(--color-primary-outline)",
+                      border: "1px solid rgba(var(--color-primary-rgb),0.12)",
+                    }}
                   >
                     <h4
                       className="text-sm font-medium mb-2 flex items-center"
@@ -661,7 +640,7 @@ export default function PatientAppointments() {
                         className={`px-2 py-1 rounded-full text-xs ${
                           appointment.status === "confirmed"
                             ? "bg-primary-100 text-primary"
-                            : "bg-yellow-100 text-yellow-800"
+                            : "bg-primary-100 text-primary"
                         }`}
                       >
                         {appointment.status === "confirmed" ? "Đã xác nhận" : "Chờ xác nhận"}
@@ -680,7 +659,7 @@ export default function PatientAppointments() {
                         <button
                           type="button"
                           onClick={() => handleCancel(appointment._id)}
-                          className={`text-red-600 hover:text-red-800 text-sm ${
+                          className={`text-gray-600 hover:text-gray-800 text-sm ${
                             appointment.status === "confirmed" ? "opacity-50 cursor-not-allowed" : ""
                           }`}
                           disabled={appointment.status === "confirmed"}

@@ -375,7 +375,7 @@ export default function DoctorChatPage() {
                     <div
                       key={conversation.id}
                       className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors mb-2 ${
-                        selectedChat === conversation.id ? "bg-blue-50" : "bg-white hover:bg-gray-50"
+                        selectedChat === conversation.id ? "bg-primary-100" : "bg-white hover:bg-gray-50"
                       }`}
                       style={selectedChat === conversation.id ? { borderColor: "var(--color-primary)" } : {}}
                       onClick={() => {
@@ -387,20 +387,13 @@ export default function DoctorChatPage() {
                       }}
                     >
                       <div className="flex items-start">
-                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6"
-                            />
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center mr-3"
+                          style={{ background: "var(--color-primary-50)" }}
+                        >
+                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ color: "var(--color-primary)" }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" />
                           </svg>
                         </div>
                         <div className="flex-1">
@@ -442,7 +435,7 @@ export default function DoctorChatPage() {
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <span>Chờ phản hồi:</span>
-                  <span className="font-medium text-red-600">
+                  <span className="font-medium text-gray-700">
                     {patientConversations.filter((c) => c.unread).length}
                   </span>
                 </div>

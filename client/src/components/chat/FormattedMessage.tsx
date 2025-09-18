@@ -38,7 +38,10 @@ export default function FormattedMessage({ content, role }: FormattedMessageProp
           <div key={index} className="mb-4">
             <div
               className="p-3 rounded-r"
-              style={{ background: "var(--color-primary-outline)", borderLeft: "3px solid rgba(0,166,244,0.12)" }}
+              style={{
+                background: "var(--color-primary-outline)",
+                borderLeft: "3px solid rgba(var(--color-primary-rgb),0.12)",
+              }}
             >
               <h3
                 className="text-base font-semibold mb-1 flex items-center"
