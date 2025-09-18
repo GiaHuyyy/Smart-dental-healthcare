@@ -10,7 +10,7 @@ interface Message {
     avatar?: string;
   };
   senderRole: "patient" | "doctor";
-  messageType: "text" | "image" | "file";
+  messageType: "text" | "image" | "file" | "call";
   createdAt: string;
   isRead: boolean;
 }
@@ -59,6 +59,8 @@ class RealtimeChatService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
+  private joinedRooms: Set<string> = new Set();
+  private reconnectCallbacks: Array<() => void> = [];
 
   connect(token: string, userId: string, userRole: "patient" | "doctor"): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -107,6 +109,12 @@ class RealtimeChatService {
         this.socket.on("reconnect", () => {
           console.log("Reconnected to realtime chat server");
           this.reconnectAttempts = 0;
+          // Re-join previously joined rooms
+          this.joinedRooms.forEach((room) => {
+            this.socket?.emit("joinConversation", { conversationId: room });
+          });
+          // Fire optional callbacks so UI can re-sync state
+          this.reconnectCallbacks.forEach((cb) => cb());
         });
 
         this.socket.on("reconnect_failed", () => {
@@ -134,6 +142,7 @@ class RealtimeChatService {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.joinedRooms.clear();
   }
 
   // Event listeners
@@ -149,16 +158,22 @@ class RealtimeChatService {
     }
   }
 
+  onReconnect(cb: () => void) {
+    this.reconnectCallbacks.push(cb);
+  }
+
   // Conversation actions
   joinConversation(conversationId: string) {
     if (this.socket) {
       this.socket.emit("joinConversation", { conversationId });
+      this.joinedRooms.add(conversationId);
     }
   }
 
   leaveConversation(conversationId: string) {
     if (this.socket) {
       this.socket.emit("leaveConversation", { conversationId });
+      this.joinedRooms.delete(conversationId);
     }
   }
 
