@@ -245,7 +245,7 @@ export default function PatientPayments() {
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
                 style={{
                   backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
                 }}
@@ -253,7 +253,7 @@ export default function PatientPayments() {
                 <CreditCard className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="healthcare-heading text-3xl">Thanh toán & Hóa đơn</h1>
+                <h1 className="healthcare-heading text-2xl">Thanh toán & Hóa đơn</h1>
                 <p className="healthcare-body mt-1">Theo dõi lịch sử thanh toán và hóa đơn khám chữa bệnh</p>
               </div>
             </div>
@@ -308,7 +308,7 @@ export default function PatientPayments() {
         <div className="space-y-4">
           {filteredPayments.length === 0 ? (
             <div className="healthcare-card p-12 text-center">
-              <CreditCard className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="healthcare-heading text-xl mb-2">Chưa có giao dịch nào</h3>
               <p className="healthcare-body">
                 {searchTerm || statusFilter !== "all"

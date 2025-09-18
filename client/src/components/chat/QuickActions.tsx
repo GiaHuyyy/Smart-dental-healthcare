@@ -70,7 +70,7 @@ export default function QuickActions({
             style={{
               background: "linear-gradient(90deg,var(--color-primary-outline), var(--color-primary-surface))",
               color: "var(--color-primary-600)",
-              border: "1px solid rgba(0,166,244,0.08)",
+              border: "1px solid rgba(var(--color-primary-rgb),0.08)",
             }}
           >
             <span className="text-lg">{getActionIcon(action)}</span>

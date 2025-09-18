@@ -640,7 +640,10 @@ export default function DoctorPrescriptionsPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 h-12 text-lg border-2 border-gray-200 transition-all duration-300"
-                style={{ borderColor: "var(--color-primary)", boxShadow: "0 0 0 2px rgba(0, 166, 244, 0.2)" }}
+                style={{
+                  borderColor: "var(--color-primary)",
+                  boxShadow: "0 0 0 2px rgba(var(--color-primary-rgb),0.2)",
+                }}
               />
             </div>
 

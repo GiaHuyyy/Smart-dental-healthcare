@@ -107,38 +107,6 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
   const [isTyping, setIsTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
 
-  // Connect to chat
-  const connectToChat = useCallback(async (token: string, user: User) => {
-    try {
-      setIsLoading(true);
-      setCurrentUser(user);
-
-      await realtimeChatService.connect(token, user._id, user.role);
-      setIsConnected(true);
-
-      // Setup event listeners
-      setupEventListeners();
-
-      // Load initial data
-      await loadConversations();
-    } catch (error) {
-      console.error("Failed to connect to chat:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Disconnect from chat
-  const disconnectFromChat = useCallback(() => {
-    realtimeChatService.disconnect();
-    setIsConnected(false);
-    setActiveConversation(null);
-    setMessages([]);
-    setConversations([]);
-    setCurrentUser(null);
-    setOnlineUsers([]);
-  }, []);
-
   // Setup event listeners
   const setupEventListeners = useCallback(() => {
     // Message events
@@ -150,8 +118,9 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
         setMessages((prev) => [...prev, message]);
       }
 
-      // Update conversation list
-      loadConversations();
+      // Defer conversations refresh to the page logic; avoid TDZ here
+      // Optionally, we could trigger a light flag for list to refetch
+      setIsLoading(false);
     });
 
     realtimeChatService.on("messageRead", (data) => {
@@ -159,7 +128,7 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
       setMessages((prev) => prev.map((msg) => (msg._id === messageId ? { ...msg, isRead: true } : msg)));
     });
 
-    realtimeChatService.on("conversationUpdated", (conversation) => {
+    realtimeChatService.on("conversationUpdated", async (conversation) => {
       setConversations((prev) => {
         const index = prev.findIndex((c) => c._id === conversation._id);
         if (index >= 0) {
@@ -169,6 +138,21 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
         }
         return [conversation, ...prev];
       });
+
+      // If the active conversation is updated (e.g., after call end), reload messages inline
+      if (activeConversation && conversation._id === activeConversation._id) {
+        try {
+          const response = await sendRequest({
+            endpoint: `/realtime-chat/conversations/${activeConversation._id}/messages`,
+            method: "GET",
+          });
+          if ((response as any)?.success) {
+            setMessages((response as any).data || []);
+          }
+        } catch (e) {
+          console.error("Failed to refresh messages after conversation update:", e);
+        }
+      }
     });
 
     // Typing events
@@ -188,6 +172,64 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
       setOnlineUsers((prev) => prev.filter((id) => id !== data.userId));
     });
   }, [activeConversation]);
+
+  // Connect to chat
+  const connectToChat = useCallback(async (token: string, user: User) => {
+    try {
+      setIsLoading(true);
+      setCurrentUser(user);
+
+      await realtimeChatService.connect(token, user._id, user.role);
+      setIsConnected(true);
+
+      // Setup event listeners
+      setupEventListeners();
+
+      // Re-join active conversation after (re)connect
+      realtimeChatService.onReconnect(async () => {
+        if (activeConversation?._id) {
+          realtimeChatService.joinConversation(activeConversation._id);
+          try {
+            const res = await sendRequest({
+              endpoint: `/realtime-chat/conversations/${activeConversation._id}/messages`,
+              method: "GET",
+            });
+            if ((res as any)?.success) setMessages((res as any).data || []);
+          } catch (err) {
+            console.error("Failed to refresh messages after reconnect:", err);
+          }
+        }
+      });
+
+      // Load initial conversations inline (avoid TDZ)
+      try {
+        const resp = await sendRequest({ endpoint: "/realtime-chat/conversations", method: "GET" });
+        if ((resp as any)?.success) setConversations((resp as any).data || []);
+      } catch (e) {
+        console.error("Failed to load conversations:", e);
+      }
+
+      // If user has an active conversation already, join its room
+      if (activeConversation?._id) {
+        realtimeChatService.joinConversation(activeConversation._id);
+      }
+    } catch (error) {
+      console.error("Failed to connect to chat:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeConversation, setupEventListeners]);
+
+  // Disconnect from chat
+  const disconnectFromChat = useCallback(() => {
+    realtimeChatService.disconnect();
+    setIsConnected(false);
+    setActiveConversation(null);
+    setMessages([]);
+    setConversations([]);
+    setCurrentUser(null);
+    setOnlineUsers([]);
+  }, []);
 
   // Load conversations
   const loadConversations = useCallback(async () => {
@@ -214,7 +256,8 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
       });
 
       if (response.success) {
-        setMessages(response.data?.reverse() || []);
+        // Server now returns newest first reversed on server; do not reverse again
+        setMessages(response.data || []);
       }
     } catch (error) {
       console.error("Failed to load messages:", error);

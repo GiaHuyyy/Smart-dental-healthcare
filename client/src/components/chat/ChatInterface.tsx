@@ -46,6 +46,36 @@ import CallButton from "@/components/call/CallButton";
 import IncomingCallModal from "@/components/call/IncomingCallModal";
 import VideoCallInterface from "@/components/call/VideoCallInterface";
 
+// Helper to format timestamps consistently
+function formatTimestampLocalized(input: Date | string): string {
+  const d = input instanceof Date ? input : new Date(input);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  const pad = (n: number) => `${n}`.padStart(2, "0");
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (sameDay) return time; // HH:mm for today
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${time}`; // dd/MM HH:mm for other days
+}
+
+// Filter out system/call messages without visible content
+function isRenderableMessage(msg: any): boolean {
+  const type = (msg?.messageType || "text").toString().toLowerCase();
+  const hasText = !!(msg?.content && msg.content.trim().length > 0);
+  const hasFile = !!(msg?.fileUrl);
+  if (type === "call") return true; // always render call (as a card)
+  if (type === "call" && !hasText && !hasFile) return true;
+  return hasText || hasFile; // only render if there is something to show
+}
+
+function formatDuration(seconds?: number) {
+  if (!seconds || seconds <= 0) return "00:00";
+  const mm = Math.floor(seconds / 60);
+  const ss = seconds % 60;
+  const pad = (n: number) => `${n}`.padStart(2, "0");
+  return `${pad(mm)}:${pad(ss)}`;
+}
+
 interface ChatInterfaceProps {
   type: "ai" | "doctor" | "simple-doctor";
   doctorName?: string;
@@ -171,7 +201,7 @@ export default function ChatInterface({
       console.log("✅ UseEffect running - Load preloaded messages from database");
       // Load preloaded messages from database
       if (preloadedMessages && preloadedMessages.length > 0) {
-        const transformedMessages = preloadedMessages.map((msg: any, index: number) => {
+        const transformedMessages = preloadedMessages.filter(isRenderableMessage).map((msg: any, index: number) => {
           // Handle populated senderId (object) vs direct senderId (string)
           const senderIdValue =
             typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId;
@@ -266,7 +296,7 @@ export default function ChatInterface({
     if (type === "doctor" && (doctorName || currentUserRole === "doctor")) {
       // Load preloaded messages from database
       if (preloadedMessages && preloadedMessages.length > 0) {
-        const transformedMessages = preloadedMessages.map((msg: any) => {
+        const transformedMessages = preloadedMessages.filter(isRenderableMessage).map((msg: any) => {
           // Handle populated senderId (object) vs direct senderId (string)
           const senderIdValue =
             typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId;
@@ -1081,7 +1111,7 @@ export default function ChatInterface({
         localStorage.getItem("access_token") ||
         sessionStorage.getItem("access_token");
 
-      let savedMessage;
+      let savedMessage: any;
 
       // If we have a file to upload
       if (selectedFile) {
@@ -1119,15 +1149,9 @@ export default function ChatInterface({
 
         if (uploadResponse.ok) {
           const result = await uploadResponse.json();
-          savedMessage = result.message; // Extract message from response
+          // Some APIs return { message: {...} }, others return {...}
+          savedMessage = result?.message ?? result;
           console.log("✅ File message saved successfully:", savedMessage);
-          console.log("→ Saved message content:", savedMessage.content);
-          console.log("→ Saved message fileUrl:", savedMessage.fileUrl);
-          console.log("→ Saved message messageType:", savedMessage.messageType);
-
-          // Clear file selection
-          setSelectedFile(null);
-          setUploadPreview(null);
         } else {
           const errorText = await uploadResponse.text();
           console.error("❌ Failed to upload file:", {
@@ -1137,6 +1161,10 @@ export default function ChatInterface({
           });
           throw new Error(`File upload failed: ${errorText}`);
         }
+
+        // Clear file selection
+        setSelectedFile(null);
+        setUploadPreview(null);
       } else {
         // Text-only message
         console.log("=== DOCTOR SEND TEXT MESSAGE DEBUG ===");
@@ -1166,8 +1194,10 @@ export default function ChatInterface({
         console.log("Response status:", response.status);
 
         if (response.ok) {
-          savedMessage = await response.json();
-          console.log("✅ Text message saved successfully:", savedMessage);
+          const result = await response.json();
+          // Normalize shapes: {message:{...}} | {data:{...}} | {...}
+          savedMessage = result?.message ?? result?.data ?? result;
+          console.log("✅ Text message saved successfully (normalized):", savedMessage);
         } else {
           const errorText = await response.text();
           console.error("❌ Failed to save message to database:", {
@@ -1179,16 +1209,16 @@ export default function ChatInterface({
         }
       }
 
-      // Add message to UI
+      // Add message to UI (use robust fallbacks)
       const userMessage = {
-        role: currentUserRole === "doctor" ? "doctor" : "user",
-        content: savedMessage.content,
+        role: "user", // current user's bubble should be on the right
+        content: savedMessage?.content ?? doctorInput.trim() ?? "",
         timestamp: new Date(),
-        messageType: savedMessage.messageType,
-        fileUrl: savedMessage.fileUrl,
-        fileName: savedMessage.fileName,
-        fileSize: savedMessage.fileSize,
-      };
+        messageType: savedMessage?.messageType ?? (savedMessage?.fileUrl ? (savedMessage?.fileType?.startsWith("image/") ? "image" : savedMessage?.fileType?.startsWith("video/") ? "video" : "file") : "text"),
+        fileUrl: savedMessage?.fileUrl,
+        fileName: savedMessage?.fileName,
+        fileSize: savedMessage?.fileSize,
+      } as any;
 
       setDoctorMessages((prev) => [...prev, userMessage]);
       setDoctorInput("");
@@ -1202,7 +1232,6 @@ export default function ChatInterface({
     } catch (error) {
       console.error("Error sending message:", error);
       setIsDoctorLoading(false);
-      // Optionally show error to user
       alert("Có lỗi xảy ra khi gửi tin nhắn. Vui lòng thử lại.");
     }
   };
@@ -1214,12 +1243,7 @@ export default function ChatInterface({
     }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const formatTime = (date: Date) => formatTimestampLocalized(date);
 
   // Handle start conversation with doctor
   const handleStartConversationWithDoctor = (doctor: DoctorSuggestion) => {
@@ -1634,9 +1658,7 @@ export default function ChatInterface({
                     className={`text-xs mt-2 ${message.role === "user" ? "text-white" : "text-gray-500"}`}
                     style={message.role === "user" ? { color: "rgba(255,255,255,0.9)" } : undefined}
                   >
-                    {message.timestamp instanceof Date
-                      ? message.timestamp.toLocaleTimeString()
-                      : new Date(message.timestamp).toLocaleTimeString()}
+                    {formatTimestampLocalized(message.timestamp)}
                   </div>
                 </div>
               </div>
@@ -1770,6 +1792,31 @@ export default function ChatInterface({
                     fullMessage: message,
                   });
 
+                  // Render CALL message card
+                  if ((message as any).messageType === "call") {
+                    const callData = (message as any).callData || {};
+                    const isVideo = callData.callType === "video";
+                    const status = callData.callStatus || "completed";
+                    const duration = formatDuration(callData.callDuration);
+                    return (
+                      <div key={index} className="flex justify-center">
+                        <div className="px-4 py-2 rounded-md border text-sm bg-white" style={{ borderColor: "var(--color-border)" }}>
+                          <span className="font-medium" style={{ color: "var(--color-primary-contrast)" }}>
+                            {isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại"}
+                          </span>
+                          <span className="mx-2 text-gray-400">•</span>
+                          <span className="text-gray-600 capitalize">{status}</span>
+                          {status === "completed" && (
+                            <>
+                              <span className="mx-2 text-gray-400">•</span>
+                              <span className="text-gray-600">{duration}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div
@@ -1782,96 +1829,34 @@ export default function ChatInterface({
                       >
                         {/* Render file attachment */}
                         {(() => {
-                          const hasFile = message.messageType && message.messageType !== "text" && message.fileUrl;
-                          console.log("🔍 File render check:", {
-                            messageType: message.messageType,
-                            isNotText: message.messageType !== "text",
-                            hasFileUrl: !!message.fileUrl,
-                            hasFile: hasFile,
-                            content: message.content,
-                          });
-                          return hasFile ? (
-                            <div className="mb-2">
-                              {(() => {
-                                console.log("🖼️ Rendering file message:", {
-                                  messageType: message.messageType,
-                                  fileUrl: message.fileUrl,
-                                  fileName: message.fileName,
-                                  content: message.content,
-                                });
-                                return null;
-                              })()}
-                              {message.messageType === "image" ? (
-                                <img
-                                  src={message.fileUrl}
-                                  alt={message.fileName || "Image"}
-                                  className="max-w-full h-auto rounded border object-cover"
-                                  style={{ maxHeight: "200px", maxWidth: "200px" }}
-                                  onError={(e) => {
-                                    console.error("Image load error:", e);
-                                    console.log("Failed URL:", message.fileUrl);
-                                  }}
-                                  onLoad={() => {
-                                    console.log("✅ Image loaded successfully:", message.fileUrl);
-                                  }}
-                                />
-                              ) : message.messageType === "video" ? (
-                                <video
-                                  src={message.fileUrl}
-                                  controls
-                                  className="max-w-full h-auto rounded border"
-                                  style={{ maxHeight: "200px" }}
-                                >
-                                  Your browser does not support the video tag.
-                                </video>
-                              ) : (
-                                <div className="flex items-center space-x-2 p-2 bg-white bg-opacity-20 rounded border">
-                                  <div className="text-lg">
-                                    {(() => {
-                                      const fileType =
-                                        message.fileType || message.fileName?.split(".").pop()?.toLowerCase();
-                                      if (fileType?.includes("pdf")) return <FileText className="w-5 h-5" />;
-                                      if (fileType?.includes("doc")) return <FileText className="w-5 h-5" />;
-                                      if (
-                                        fileType?.includes("sheet") ||
-                                        fileType?.includes("excel") ||
-                                        fileType?.includes("xlsx")
-                                      )
-                                        return <PieChart className="w-5 h-5" />;
-                                      if (
-                                        fileType?.includes("presentation") ||
-                                        fileType?.includes("powerpoint") ||
-                                        fileType?.includes("pptx")
-                                      )
-                                        return <File className="w-5 h-5" />;
-                                      if (fileType?.includes("text") || fileType?.includes("txt"))
-                                        return <FileText className="w-5 h-5" />;
-                                      if (fileType?.includes("csv")) return <PieChart className="w-5 h-5" />;
-                                      return <File className="w-5 h-5" />;
-                                    })()}
+                          const hasFile = (message as any).messageType && (message as any).messageType !== "text" && (message as any).fileUrl;
+                          if (hasFile) {
+                            return (
+                              <div className="mb-2">
+                                {((message as any).messageType === "image") ? (
+                                  <img
+                                    src={(message as any).fileUrl}
+                                    alt={(message as any).fileName || "Image"}
+                                    className="max-w-full h-auto rounded border object-cover"
+                                    style={{ maxHeight: "200px", maxWidth: "200px" }}
+                                  />
+                                ) : (message as any).messageType === "video" ? (
+                                  <video src={(message as any).fileUrl} controls className="max-w-full h-auto rounded border" style={{ maxHeight: "200px" }} />
+                                ) : (
+                                  <div className="flex items-center space-x-2 p-2 bg-white bg-opacity-20 rounded border">
+                                    <div className="text-lg">📄</div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-gray-900 font-medium truncate">{(message as any).fileName || "File attachment"}</p>
+                                    </div>
+                                    <a href={(message as any).fileUrl} rel="noopener noreferrer" download={(message as any).fileName} className="text-xs underline opacity-80 hover:opacity-100 text-primary">
+                                      Tải về
+                                    </a>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-gray-900 font-medium truncate">
-                                      {message.fileName || "File attachment"}
-                                    </p>
-                                    {message.fileSize && (
-                                      <p className="text-xs text-gray-500 opacity-70">
-                                        {(message.fileSize / 1024 / 1024).toFixed(2)} MB
-                                      </p>
-                                    )}
-                                  </div>
-                                  <a
-                                    href={message.fileUrl}
-                                    rel="noopener noreferrer"
-                                    download={message.fileName}
-                                    className="text-xs underline opacity-80 hover:opacity-100 text-primary"
-                                  >
-                                    Tải về
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          ) : null;
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
                         })()}{" "}
                         {/* Render text content */}
                         <p className="text-sm leading-normal">{message.content}</p>
