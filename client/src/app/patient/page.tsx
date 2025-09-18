@@ -18,16 +18,16 @@ import { Card, CardContent, CardHeader, CardTitle, KPICard, StatusIndicator, Pro
 
 export default function PatientDashboard() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Enhanced Header Section */}
         <div className="healthcare-card-elevated p-6">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div
-                className="w-16 h-16 bg-gradient-to-br rounded-2xl flex items-center justify-center shadow-lg"
+                className="w-16 h-16 rounded-2xl flex items-center justify-center"
                 style={{
-                  backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
+                  backgroundColor: "var(--color-primary)",
                 }}
               >
                 <Heart className="w-8 h-8 text-white" />
@@ -82,14 +82,14 @@ export default function PatientDashboard() {
           <Card variant="healthcare" status="attention">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-3 text-lg">
-                <div className="p-2 bg-orange-50 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                <div className="p-2 rounded-lg" style={{ backgroundColor: "var(--color-warning-light)" }}>
+                  <AlertTriangle className="w-5 h-5" style={{ color: "var(--color-warning)" }} />
                 </div>
                 Cần theo dõi
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">2</div>
+              <div className="text-2xl font-bold" style={{ color: "var(--color-warning)" }}>2</div>
               <div className="text-sm text-gray-600 mt-1">Yêu cầu tái khám</div>
               <div className="mt-2">
                 <StatusIndicator status="attention">Cần chú ý</StatusIndicator>
@@ -100,8 +100,8 @@ export default function PatientDashboard() {
           <Card variant="healthcare">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-3 text-lg">
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <Heart className="w-5 h-5 text-green-600" />
+                <div className="p-2 rounded-lg" style={{ backgroundColor: "var(--color-success-light)" }}>
+                  <Heart className="w-5 h-5" style={{ color: "var(--color-success)" }} />
                 </div>
                 Sức khỏe răng miệng
               </CardTitle>
@@ -110,7 +110,7 @@ export default function PatientDashboard() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Tổng quan</span>
-                  <span className="text-lg font-bold text-green-600">74%</span>
+                  <span className="text-lg font-bold" style={{ color: "var(--color-success)" }}>74%</span>
                 </div>
                 <ProgressBar value={74} variant="success" />
                 <StatusIndicator status="normal">Tình trạng tốt</StatusIndicator>
@@ -134,8 +134,8 @@ export default function PatientDashboard() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-start gap-4 p-4 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <Check className="w-5 h-5 text-green-600" />
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: "var(--color-success-light)" }}>
+                      <Check className="w-5 h-5" style={{ color: "var(--color-success)" }} />
                     </div>
                     <div className="flex-1">
                       <div className="font-medium text-gray-900">Khám định kỳ hoàn thành</div>
@@ -147,7 +147,7 @@ export default function PatientDashboard() {
                   </div>
 
                   <div className="flex items-start gap-4 p-4 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="p-3 bg-blue-50 rounded-lg">
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: "var(--color-primary-50)" }}>
                       <Clock className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
                     </div>
                     <div className="flex-1">
@@ -160,8 +160,8 @@ export default function PatientDashboard() {
                   </div>
 
                   <div className="flex items-start gap-4 p-4 rounded-lg border border-gray-100 hover:shadow-md transition-shadow">
-                    <div className="p-3 bg-purple-50 rounded-lg">
-                      <FileText className="w-5 h-5 text-purple-600" />
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: "var(--color-warning-light)" }}>
+                      <FileText className="w-5 h-5" style={{ color: "var(--color-warning)" }} />
                     </div>
                     <div className="flex-1">
                       <div className="font-medium text-gray-900">Kết quả X-quang đã sẵn sàng</div>
@@ -185,21 +185,21 @@ export default function PatientDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-center p-4 rounded-lg" style={{ backgroundColor: "var(--color-primary-50)" }}>
                     <Thermometer className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--color-primary)" }} />
                     <div className="text-lg font-bold" style={{ color: "var(--color-primary)" }}>
                       36.5°C
                     </div>
                     <div className="text-sm text-gray-600">Nhiệt độ</div>
                   </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <Heart className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                    <div className="text-lg font-bold text-green-600">72 BPM</div>
+                  <div className="text-center p-4 rounded-lg" style={{ backgroundColor: "var(--color-success-light)" }}>
+                    <Heart className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--color-success)" }} />
+                    <div className="text-lg font-bold" style={{ color: "var(--color-success)" }}>72 BPM</div>
                     <div className="text-sm text-gray-600">Nhịp tim</div>
                   </div>
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <Eye className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                    <div className="text-lg font-bold text-purple-600">95%</div>
+                  <div className="text-center p-4 rounded-lg" style={{ backgroundColor: "var(--color-primary-50)" }}>
+                    <Eye className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--color-primary)" }} />
+                    <div className="text-lg font-bold" style={{ color: "var(--color-primary)" }}>95%</div>
                     <div className="text-sm text-gray-600">SpO2</div>
                   </div>
                 </div>
