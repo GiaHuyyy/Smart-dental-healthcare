@@ -4,53 +4,50 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Healthcare Design System - Koruux inspired */
-  /* Primary palette - Medical blue theme */
-  --color-primary: #00a6f4; /* primary blue (medical trust) */
-  --color-primary-600: #008fcf; /* darker for hover states */
-  --color-primary-700: #0077b6; /* darker for active states */
-  --color-primary-50: #f0f9ff; /* lightest for backgrounds */
-  --color-primary-100: #e6f9ff; /* very light for cards */
-  --color-primary-200: #bae6fd; /* light for accents */
-  --color-primary-light: #e6f6ff; /* light shade for backgrounds */
-  --color-primary-lighter: #b3e6ff; /* lighter shade for gradients */
-  --color-primary-surface: #f0fbff; /* surface background color */
-  --color-primary-outline: #e6f6ff; /* outline color */
-  --color-primary-contrast: #002b45; /* dark blue for text */
+  /* Healthcare Design System - Koruux inspired - Clean & Minimal */
+  /* Primary palette - Single medical blue theme */
+  --color-primary: #2563eb; /* primary blue (medical trust) */
+  --color-primary-600: #1d4ed8; /* darker for hover states */
+  --color-primary-700: #1e40af; /* darker for active states */
+  --color-primary-50: #eff6ff; /* lightest for backgrounds */
+  --color-primary-100: #dbeafe; /* very light for cards */
+  --color-primary-200: #bfdbfe; /* light for accents */
+  --color-primary-light: #e0f2fe; /* light shade for backgrounds */
+  --color-primary-surface: #f8fafc; /* surface background color */
+  --color-primary-outline: #e2e8f0; /* outline color */
+  --color-primary-contrast: #1e293b; /* dark blue for text */
 
-  /* Healthcare status colors */
-  --color-success: #16a34a; /* medical green - healthy/completed */
-  --color-success-light: #86efac; /* light green for backgrounds */
+  /* Minimal status colors - only when necessary */
+  --color-success: #059669; /* medical green - healthy/completed */
+  --color-success-light: #d1fae5; /* very light green for backgrounds */
   --color-danger: #dc2626; /* medical red - urgent/critical */
-  --color-danger-light: #fecaca; /* light red for backgrounds */
-  --color-warning: #ea580c; /* medical orange - attention needed */
-  --color-warning-light: #fed7aa; /* light orange for backgrounds */
-  --color-info: #0891b2; /* medical teal - information */
-  --color-info-light: #a7f3d0; /* light teal for backgrounds */
+  --color-danger-light: #fee2e2; /* very light red for backgrounds */
+  --color-warning: #d97706; /* medical amber - attention needed */
+  --color-warning-light: #fef3c7; /* very light amber for backgrounds */
 
-  /* Healthcare severity indicators (from Koruux examples) */
+  /* Simplified severity indicators */
   --severity-high: #dc2626; /* red for high priority/severe */
-  --severity-medium: #ea580c; /* orange for medium priority */
-  --severity-low: #16a34a; /* green for low priority */
-  --severity-critical: #7c2d12; /* dark red for critical */
+  --severity-medium: #d97706; /* amber for medium priority */
+  --severity-low: #059669; /* green for low priority */
+  --severity-critical: #991b1b; /* dark red for critical */
 
-  /* Neutral healthcare palette */
+  /* Neutral healthcare palette - Clean & minimal */
   --color-surface: #ffffff;
   --color-surface-secondary: #f8fafc; /* light gray for secondary surfaces */
   --color-surface-tertiary: #f1f5f9; /* lighter gray for backgrounds */
-  --color-border: #e2e8f0; /* subtle borders */
-  --color-border-strong: #cbd5e1; /* stronger borders */
+  --color-border: #e2e8f0; /* subtle borders - thin */
+  --color-border-strong: #cbd5e1; /* stronger borders - thin */
   --color-muted: #64748b; /* muted text */
   --color-muted-light: #94a3b8; /* lighter muted text */
 
-  /* Healthcare specific shadows and radii */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-card-hover: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
-  --shadow-elevated: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  /* Healthcare specific shadows and radii - Clean & minimal */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 4px 6px rgba(0, 0, 0, 0.07);
 
   /* Typography scale for healthcare */
   --font-size-xs: 0.75rem; /* 12px */
@@ -82,7 +79,7 @@ body {
   font-family: "Inter", Arial, Helvetica, sans-serif;
 }
 
-/* Healthcare Card Components */
+/* Healthcare Card Components - Clean & minimal */
 .healthcare-card {
   background: var(--color-surface);
   border-radius: var(--radius-md);
@@ -100,48 +97,49 @@ body {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-elevated);
-  border: none;
+  border: 1px solid var(--color-border);
 }
 
-/* Healthcare Status Cards */
+/* Healthcare Status Cards - Clean & minimal */
 .status-card-high {
-  border-left: 2px solid var(--severity-high);
-  background: linear-gradient(135deg, var(--color-surface) 0%, #fef2f2 100%);
+  border-left: 1px solid var(--severity-high);
+  background: var(--color-surface);
 }
 
 .status-card-medium {
-  border-left: 2px solid var(--severity-medium);
-  background: linear-gradient(135deg, var(--color-surface) 0%, #fff7ed 100%);
+  border-left: 1px solid var(--severity-medium);
+  background: var(--color-surface);
 }
 
 .status-card-low {
-  border-left: 2px solid var(--severity-low);
-  background: linear-gradient(135deg, var(--color-surface) 0%, #f0fdf4 100%);
+  border-left: 1px solid var(--severity-low);
+  background: var(--color-surface);
 }
 
 .status-card-critical {
-  border-left: 2px solid var(--severity-critical);
-  background: linear-gradient(135deg, var(--color-surface) 0%, #7f1d1d 5%, var(--color-surface) 100%);
+  border-left: 1px solid var(--severity-critical);
+  background: var(--color-surface);
   color: var(--severity-critical);
 }
 
-/* Healthcare Buttons */
+/* Healthcare Buttons - Clean & minimal */
 .btn-healthcare-primary {
-  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-600));
+  background: var(--color-primary);
   color: white;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
-  border: none;
+  border: 1px solid var(--color-primary);
   font-weight: 600;
   font-size: var(--font-size-sm);
-  box-shadow: 0 2px 4px rgba(0, 166, 244, 0.2);
+  box-shadow: var(--shadow-card);
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .btn-healthcare-primary:hover {
+  background: var(--color-primary-600);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 166, 244, 0.3);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .btn-healthcare-secondary {
@@ -149,7 +147,7 @@ body {
   color: var(--color-primary);
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
-  border: 2px solid var(--color-primary-200);
+  border: 1px solid var(--color-border);
   font-weight: 600;
   font-size: var(--font-size-sm);
   transition: all 0.2s ease;
@@ -162,21 +160,22 @@ body {
 }
 
 .btn-healthcare-urgent {
-  background: linear-gradient(180deg, var(--color-danger), #b91c1c);
+  background: var(--color-danger);
   color: white;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-md);
-  border: none;
+  border: 1px solid var(--color-danger);
   font-weight: 600;
   font-size: var(--font-size-sm);
-  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+  box-shadow: var(--shadow-card);
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .btn-healthcare-urgent:hover {
+  background: #b91c1c;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+  box-shadow: var(--shadow-card-hover);
 }
 
 /* Healthcare Typography */
@@ -238,7 +237,7 @@ body {
   color: var(--color-info);
 }
 
-/* Healthcare KPI Cards */
+/* Healthcare KPI Cards - Clean & minimal */
 .kpi-card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -255,8 +254,8 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-600));
+  height: 1px;
+  background: var(--color-primary);
 }
 
 .kpi-value {
@@ -290,10 +289,10 @@ body {
   color: var(--color-danger);
 }
 
-/* Healthcare Progress Bars */
+/* Healthcare Progress Bars - Clean & minimal */
 .healthcare-progress {
   width: 100%;
-  height: 8px;
+  height: 6px;
   background: var(--color-surface-tertiary);
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -301,21 +300,21 @@ body {
 
 .healthcare-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-600));
+  background: var(--color-primary);
   border-radius: var(--radius-sm);
   transition: width 0.3s ease;
 }
 
 .healthcare-progress-bar.success {
-  background: linear-gradient(90deg, var(--color-success), #059669);
+  background: var(--color-success);
 }
 
 .healthcare-progress-bar.warning {
-  background: linear-gradient(90deg, var(--color-warning), #c2410c);
+  background: var(--color-warning);
 }
 
 .healthcare-progress-bar.danger {
-  background: linear-gradient(90deg, var(--color-danger), #b91c1c);
+  background: var(--color-danger);
 }
 
 /* Legacy button styles - maintained for backward compatibility */
