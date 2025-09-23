@@ -149,4 +149,18 @@ export class AppointmentsController {
   findHistoryByPatient(@Param('patientId') patientId: string, @Query() query: any) {
     return this.appointmentsService.findHistoryByPatient(patientId, query);
   }
+
+  @Get('followup/doctor/:doctorId')
+  @Public()
+  @ResponseMessage('Lấy lộ trình tái khám của bác sĩ thành công')
+  getFollowUpByDoctor(@Param('doctorId') doctorId: string) {
+    return this.appointmentsService.getFollowUpByDoctor(doctorId);
+  }
+
+  @Get('followup/patient/:patientId')
+  @Public()
+  @ResponseMessage('Lấy lộ trình tái khám của bệnh nhân thành công')
+  getFollowUpByPatient(@Param('patientId') patientId: string) {
+    return this.appointmentsService.getFollowUpByPatient(patientId);
+  }
 }

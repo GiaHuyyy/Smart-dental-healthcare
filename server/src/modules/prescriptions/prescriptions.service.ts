@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { UpdatePrescriptionDto } from './dto/update-prescription.dto';
 import { Prescription, PrescriptionDocument } from './schemas/prescription.schema';
@@ -44,6 +44,11 @@ export class PrescriptionsService {
   }
 
   async findOne(id: string): Promise<Prescription> {
+    // validate ObjectId first to avoid Mongoose CastError
+    if (!id || typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('id không hợp lệ');
+    }
+
     const prescription = await this.prescriptionModel
       .findById(id)
       .populate('patientId', 'fullName email phone')

@@ -59,6 +59,19 @@ export class PrescriptionsController {
     return this.prescriptionsService.findByPatient(patientId, query);
   }
 
+  @Get('patient/:patientId/history')
+  @Public()
+  getPatientPrescriptionHistory(@Param('patientId') patientId: string, @Query() query: any) {
+    return this.prescriptionsService.getPatientPrescriptionHistory(patientId, query);
+  }
+
+  @Get('patient/:patientId/recent')
+  @Public()
+  getPatientRecentPrescriptions(@Param('patientId') patientId: string, @Query('limit') limit?: string) {
+    return this.prescriptionsService.getPatientRecentPrescriptions(patientId, limit ? +limit : 5);
+  }
+
+  // Generic ID routes should come after specific routes like 'patient/:patientId/*'
   @Get(':id')
   @Public()
   findOne(@Param('id') id: string) {
@@ -83,17 +96,5 @@ export class PrescriptionsController {
   @Public()
   remove(@Param('id') id: string) {
     return this.prescriptionsService.remove(id);
-  }
-
-  @Get('patient/:patientId/history')
-  @Public()
-  getPatientPrescriptionHistory(@Param('patientId') patientId: string, @Query() query: any) {
-    return this.prescriptionsService.getPatientPrescriptionHistory(patientId, query);
-  }
-
-  @Get('patient/:patientId/recent')
-  @Public()
-  getPatientRecentPrescriptions(@Param('patientId') patientId: string, @Query('limit') limit?: string) {
-    return this.prescriptionsService.getPatientRecentPrescriptions(patientId, limit ? +limit : 5);
   }
 }

@@ -1,3 +1,12 @@
+# Follow-up endpoints
+
+Two new endpoints were added to help generate follow-up schedules (1/3/6 months) based on the patient's latest completed appointment:
+
+- GET /appointments/followup/doctor/:doctorId -> returns an array of patients with lastAppointmentDate and followUps (oneMonth/threeMonths/sixMonths)
+- GET /appointments/followup/patient/:patientId -> returns an array grouped by doctor with lastAppointmentDate and followUps
+
+These endpoints return simple arrays (no wrapper) and expect objectIds for doctorId/patientId.
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
