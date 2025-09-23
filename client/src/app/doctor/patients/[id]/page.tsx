@@ -1,10 +1,11 @@
 "use client";
 
+import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import PrescriptionList from "../../../../components/PrescriptionList";
+import { Button } from "@/components/ui/button";
 
 interface Patient {
   _id: string;
@@ -64,12 +65,13 @@ export default function PatientDetail() {
   const params = useParams();
   const router = useRouter();
   const patientId = params.id as string;
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
-  const [followUpEdits, setFollowUpEdits] = useState<Record<string, { isFollowUpRequired: boolean; followUpDate: string; saving?: boolean }>>({});
+  const [followUpEdits, setFollowUpEdits] = useState<Record<string, { isFollowUpRequired: boolean; followUpDate: string; followUpTime?: string; followUpNotes?: string; saving?: boolean; duration?: number }>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [followUpModal, setFollowUpModal] = useState<{ open: boolean; recordId?: string; date?: string }>({ open: false });
@@ -84,103 +86,102 @@ export default function PatientDetail() {
     }
   }, [patientId]);
 
-  const fetchPatientDetails = async () => {
+  const handleSaveFollowUp = async (recordId: string) => {
+    const edit = followUpEdits[recordId];
+    if (!edit) return;
+
+    setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: true } }));
+
     try {
-      const response = await fetch(`/api/users/patients/${patientId}/details`);
-      const data = await response.json();
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      if (data.success) {
-        setPatient(data.data);
-      } else {
-        console.error('Error fetching patient details:', data.message, 'full payload:', data);
-      }
-    } catch (error) {
-      console.error('Error fetching patient details:', error);
-    }
-  };
-
-  const fetchPatientAppointments = async () => {
-    try {
-      const response = await fetch(`/api/appointments/patient/${patientId}/history?current=1&pageSize=5`);
-      const data = await response.json();
-
-      if (data.success) {
-        setAppointments(data.data.appointments);
-      }
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
-    }
-  };
-
-  const fetchPatientPrescriptions = async () => {
-    try {
-      const response = await fetch(`/api/prescriptions/patient/${patientId}/recent?limit=5`);
-      const data = await response.json();
-
-      if (data.success) {
-        setPrescriptions(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching prescriptions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMedicalRecords = async () => {
-    try {
-      // Add authorization header if available
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+      const body = {
+        followUpDate: edit.isFollowUpRequired ? (edit.followUpDate || null) : null,
+        isFollowUpRequired: !!edit.isFollowUpRequired
       };
 
-      const token = localStorage.getItem('token');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`/api/medical-records/patient/${patientId}`, {
-        headers
+      const res = await fetch(`/api/medical-records/${recordId}/follow-up`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(body)
       });
 
-      if (!response.ok) {
-        console.error('Failed to fetch medical records:', response.status, response.statusText);
-        setMedicalRecords([]);
+      if (!res.ok) {
+        const err = await res.text();
+        console.error('Failed to save follow-up:', res.status, err);
+        setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: false } }));
         return;
       }
 
-      const data = await response.json();
+      const updated = await res.json();
 
-      if (data && !data.error) {
-        // Handle different response structures
-        const records = data.data || data.results || data;
-        const list = Array.isArray(records) ? records : [];
-        setMedicalRecords(list);
-        // initialize follow-up edit states
-        const edits: Record<string, { isFollowUpRequired: boolean; followUpDate: string }> = {};
-        list.forEach((r: MedicalRecord) => {
-          edits[r._id] = {
-            isFollowUpRequired: !!r.isFollowUpRequired,
-            followUpDate: r.followUpDate ? new Date(r.followUpDate).toISOString().slice(0, 10) : ''
-          };
-        });
-        setFollowUpEdits(edits);
-      } else {
-        console.error('API returned error:', data.error || data.details);
-        setMedicalRecords([]);
+      // Update local medicalRecords state
+      const newRecordState = updated && updated._id ? updated : null;
+      setMedicalRecords((prev) => prev.map((r) => {
+        if (r._id !== recordId) return r;
+        if (newRecordState) {
+          return { ...r, isFollowUpRequired: !!newRecordState.isFollowUpRequired, followUpDate: newRecordState.followUpDate || undefined };
+        }
+        return { ...r, isFollowUpRequired: !!body.isFollowUpRequired, followUpDate: body.followUpDate || undefined };
+      }));
+
+      // Try to auto-create an appointment for this follow-up (use stored time/notes/duration)
+      if (updated && updated.followUpDate) {
+        try {
+          const rec = medicalRecords.find((x) => x._id === recordId) as any;
+          const resolvedPatientId = patientId || (rec?.patientId?._id || rec?.patientId) || (updated.patientId && updated.patientId._id) || undefined;
+          const doctorId = updated.doctorId?._id || rec?.doctorId?._id || undefined;
+
+          if (resolvedPatientId && doctorId) {
+            const appointmentDateObj = new Date(updated.followUpDate);
+            const isoDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate()).toISOString();
+            const startTime = edit.followUpTime || '09:00';
+            const [h, m] = startTime.split(':').map((s) => parseInt(s, 10));
+            const duration = edit.duration || 30;
+            const endDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate(), h, m + duration);
+            const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+
+            const token2 = localStorage.getItem('token');
+            const headers2: Record<string,string> = { 'Content-Type': 'application/json' };
+            if (token2) headers2['Authorization'] = `Bearer ${token2}`;
+
+            const apptBody = {
+              patientId: resolvedPatientId,
+              doctorId,
+              appointmentDate: isoDate,
+              startTime,
+              endTime,
+              duration,
+              appointmentType: 'follow-up',
+              notes: edit.followUpNotes || 'Tái khám từ hồ sơ',
+              status: 'scheduled'
+            };
+
+            try {
+              const apptUrl = `${API_BASE}/api/v1/appointments`;
+              console.log('Creating appointment (patients) POST', apptUrl, apptBody);
+              const apptRes = await fetch(apptUrl, { method: 'POST', headers: headers2, body: JSON.stringify(apptBody) });
+              if (apptRes.ok) {
+                toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' } as any);
+              } else {
+                const txt = await apptRes.text();
+                toast({ title: 'Lưu ý', description: 'Không tạo được lịch tái khám tự động: ' + (txt || apptRes.statusText) } as any);
+              }
+            } catch (e) {
+              console.error('Auto-create appointment failed', e);
+            }
+          }
+        } catch (e) {
+          console.error('Auto-create appointment failed', e);
+        }
       }
-    } catch (error) {
-      console.error('Error fetching medical records:', error);
-      setMedicalRecords([]);
-    }
-  };
 
-  const toInputDate = (dateString?: string) => {
-    if (!dateString) return '';
-    try {
-      return new Date(dateString).toISOString().slice(0, 10);
-    } catch (e) {
-      return '';
+    } catch (error) {
+      console.error('Error saving follow-up:', error);
+    } finally {
+      setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: false } }));
     }
   };
 
@@ -258,7 +259,7 @@ export default function PatientDetail() {
 
       setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: false } }));
 
-      // Try to auto-create an appointment for this follow-up
+      // Try to auto-create an appointment for this follow-up (use stored time/notes/duration)
       try {
         if (updated && updated.followUpDate) {
           // find record locally to get doctorId and patientId
@@ -267,10 +268,13 @@ export default function PatientDetail() {
           const doctorId = updated.doctorId?._id || rec?.doctorId?._id || undefined;
 
           if (patientId && doctorId) {
-            const appointmentDate = new Date(updated.followUpDate);
-            const isoDate = appointmentDate.toISOString();
-            const startTime = '09:00';
-            const endTime = '09:30';
+            const appointmentDateObj = new Date(updated.followUpDate);
+            const isoDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate()).toISOString();
+            const startTime = edit.followUpTime || '09:00';
+            const [h, m] = startTime.split(':').map((s) => parseInt(s, 10));
+            const duration = edit.duration || 30;
+            const endDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate(), h, m + duration);
+            const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
 
             const token = localStorage.getItem('token');
             const headers: Record<string,string> = { 'Content-Type': 'application/json' };
@@ -282,20 +286,140 @@ export default function PatientDetail() {
               appointmentDate: isoDate,
               startTime,
               endTime,
-              duration: 30,
+              duration,
               appointmentType: 'follow-up',
-              notes: 'Tái khám từ hồ sơ',
+              notes: edit.followUpNotes || 'Tái khám từ hồ sơ',
               status: 'scheduled'
             };
 
-            const apptRes = await fetch('/api/appointments', { method: 'POST', headers, body: JSON.stringify(apptBody) });
-            if (apptRes.ok) {
-              toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' } as any);
-            } else {
-              const txt = await apptRes.text();
-              toast({ title: 'Lưu ý', description: 'Không tạo được lịch tái khám tự động: ' + (txt || apptRes.statusText) } as any);
+            try {
+              const apptUrl = `${API_BASE}/api/v1/appointments`;
+              console.log('Creating appointment (patients) POST', apptUrl, apptBody);
+              const apptRes = await fetch(apptUrl, { method: 'POST', headers, body: JSON.stringify(apptBody) });
+              if (apptRes.ok) {
+                toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' } as any);
+              } else {
+                const txt = await apptRes.text();
+                toast({ title: 'Lưu ý', description: 'Không tạo được lịch tái khám tự động: ' + (txt || apptRes.statusText) } as any);
+              }
+            } catch (e) {
+              console.error('Auto-create appointment failed', e);
             }
           }
+        }
+      } catch (e) {
+        console.error('Auto-create appointment failed', e);
+      }
+
+    } catch (error) {
+      console.error('Error saving follow-up:', error);
+      // clear saving
+      setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: false } }));
+    }
+  };
+
+
+  const handleSaveFollowUp = async (recordId: string) => {
+    const edit = followUpEdits[recordId];
+    if (!edit) return;
+
+    setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: true } }));
+
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const body = {
+        followUpDate: edit.isFollowUpRequired ? (edit.followUpDate || null) : null,
+        isFollowUpRequired: !!edit.isFollowUpRequired
+      };
+
+      const res = await fetch(`/api/medical-records/${recordId}/follow-up`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        console.error('Failed to save follow-up:', res.status, err);
+        // clear saving
+        setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: false } }));
+        return;
+      }
+
+      const updated = await res.json();
+
+      // Update medicalRecords list with new follow-up info (use server response when possible)
+      const newRecordState = updated && updated._id ? updated : null;
+      setMedicalRecords((prev) => prev.map((r) => {
+        if (r._id !== recordId) return r;
+        if (newRecordState) {
+          return {
+            ...r,
+            isFollowUpRequired: !!newRecordState.isFollowUpRequired,
+            followUpDate: newRecordState.followUpDate || undefined
+          };
+        }
+        return {
+          ...r,
+          isFollowUpRequired: !!body.isFollowUpRequired,
+          followUpDate: body.followUpDate || undefined
+        };
+      }));
+
+      setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), saving: false } }));
+
+      // Try to auto-create an appointment for this follow-up (use stored time/notes/duration)
+      try {
+        if (updated && updated.followUpDate) {
+          // find record locally to get doctorId and patientId
+          const rec = medicalRecords.find((x) => x._id === recordId) as any;
+          const resolvedPatientId = patientId || (rec?.patientId?._id || rec?.patientId) || (updated.patientId && updated.patientId._id) || undefined;
+          const doctorId = updated.doctorId?._id || rec?.doctorId?._id || undefined;
+
+          if (patientId && doctorId) {
+            const appointmentDateObj = new Date(updated.followUpDate);
+            const isoDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate()).toISOString();
+            const startTime = edit.followUpTime || '09:00';
+            const [h, m] = startTime.split(':').map((s) => parseInt(s, 10));
+            const duration = edit.duration || 30;
+            const endDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate(), h, m + duration);
+            const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+
+            const token = localStorage.getItem('token');
+            const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const apptBody = {
+              patientId: resolvedPatientId,
+              doctorId,
+              appointmentDate: isoDate,
+              startTime,
+              endTime,
+              duration,
+              appointmentType: 'follow-up',
+              notes: edit.followUpNotes || 'Tái khám từ hồ sơ',
+              status: 'scheduled'
+            };
++
+            const apptRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments`, { method: 'POST', headers, body: JSON.stringify(apptBody) });
++
+            if (apptRes.ok) {
++
+              toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' } as any);
++
+            } else {
++
+              const txt = await apptRes.text();
++              toast({ title: 'Lưu ý', description: 'Không tạo được lịch tái khám tự động: ' + (txt || apptRes.statusText) } as any);
++            }
++          }
+         }
+      } catch (e) {
+        console.error('Auto-create appointment failed', e);
+      }
         }
       } catch (e) {
         console.error('Auto-create appointment failed', e);
@@ -363,15 +487,21 @@ export default function PatientDetail() {
 
   const closeFollowUpModal = () => setFollowUpModal({ open: false });
 
-  const saveFollowUpFromModal = async (recordId: string | undefined, date: string | undefined) => {
+  const saveFollowUpFromModal = async (recordId?: string, date?: string, time?: string, opts?: { duration?: number; notes?: string; pathway?: string; priority?: string }) => {
     if (!recordId) return false;
     const followUpDate = date || null;
+
     try {
       const token = localStorage.getItem('token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const body = { followUpDate, isFollowUpRequired: !!followUpDate };
+      const body: any = { followUpDate, isFollowUpRequired: !!followUpDate };
+      if (time) body.followUpTime = time;
+      if (opts?.duration) body.duration = opts.duration;
+      if (opts?.notes) body.followUpNotes = opts.notes;
+      if (opts?.pathway) body.followUpPathway = opts.pathway;
+      if (opts?.priority) body.followUpPriority = opts.priority;
 
       const res = await fetch(`/api/medical-records/${recordId}/follow-up`, {
         method: 'PATCH',
@@ -386,27 +516,32 @@ export default function PatientDetail() {
         return false;
       }
 
-  const updated = await res.json();
+      const updated = await res.json();
+
       // update local state
       setMedicalRecords((prev) => prev.map((r) => r._id === recordId ? { ...r, isFollowUpRequired: !!updated.isFollowUpRequired, followUpDate: updated.followUpDate || undefined } : r));
-      setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), isFollowUpRequired: !!updated.isFollowUpRequired, followUpDate: updated.followUpDate ? new Date(updated.followUpDate).toISOString().slice(0,10) : '' } }));
-      // Attempt to create appointment using today's default time (09:00) if followUpDate present
-      try {
-        if (updated && updated.followUpDate) {
+      setFollowUpEdits((prev) => ({ ...prev, [recordId]: { ...(prev[recordId] || {}), isFollowUpRequired: !!updated.isFollowUpRequired, followUpDate: updated.followUpDate ? new Date(updated.followUpDate).toISOString().slice(0,10) : '', followUpTime: time || prev[recordId]?.followUpTime || '09:00', followUpNotes: opts?.notes || prev[recordId]?.followUpNotes || '', duration: opts?.duration || prev[recordId]?.duration || 30 } }));
+
+      // Attempt to create appointment using provided time/duration/notes if followUpDate present
+      if (updated && updated.followUpDate) {
+        try {
           const rec = medicalRecords.find((x) => x._id === recordId) as any;
           const resolvedPatientId = patientId || (rec?.patientId?._id || rec?.patientId) || (updated.patientId && updated.patientId._id) || undefined;
           const doctorId = updated.doctorId?._id || rec?.doctorId?._id || undefined;
           if (resolvedPatientId && doctorId) {
             const appointmentDateObj = new Date(updated.followUpDate);
             const dayIso = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate()).toISOString();
-            const startTime = '09:00';
+            const startTime = time || (followUpEdits[recordId]?.followUpTime) || '09:00';
             const [h, m] = startTime.split(':').map((s) => parseInt(s, 10));
-            const endDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate(), h, m + 30);
+            const dur = opts?.duration || followUpEdits[recordId]?.duration || 30;
+            const endDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate(), h, m + dur);
             const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
 
-            const token = localStorage.getItem('token');
-            const headers: Record<string,string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const token2 = localStorage.getItem('token');
+            const headers2: Record<string,string> = { 'Content-Type': 'application/json' };
+            if (token2) headers2['Authorization'] = `Bearer ${token2}`;
+
+            const notesForAppt = `${opts?.notes ? opts.notes + '\n' : ''}${opts?.pathway ? 'Lộ trình: ' + opts.pathway + '\n' : ''}Tạo từ hồ sơ`;
 
             const apptBody = {
               patientId: resolvedPatientId,
@@ -414,21 +549,27 @@ export default function PatientDetail() {
               appointmentDate: dayIso,
               startTime,
               endTime,
-              duration: 30,
+              duration: dur,
               appointmentType: 'follow-up',
-              notes: 'Tái khám từ hồ sơ',
+              notes: notesForAppt,
               status: 'scheduled'
             };
 
-            const apptRes = await fetch('/api/appointments', { method: 'POST', headers, body: JSON.stringify(apptBody) });
+            const apptUrl = `${API_BASE}/api/v1/appointments`;
+            console.log('Creating appointment (patients modal) POST', apptUrl, apptBody);
+            const apptRes = await fetch(apptUrl, { method: 'POST', headers: headers2, body: JSON.stringify(apptBody) });
             if (apptRes.ok) {
               toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' } as any);
+            } else {
+              const txt = await apptRes.text();
+              toast({ title: 'Lưu ý', description: 'Không tạo được lịch tái khám tự động: ' + (txt || apptRes.statusText) } as any);
             }
           }
+        } catch (e) {
+          console.error('Auto-create appointment failed', e);
         }
-      } catch (e) {
-        console.error('Auto-create appointment failed', e);
       }
+
       toast({ title: 'Thành công', description: 'Đã cập nhật lịch tái khám' } as any);
       return true;
     } catch (err) {
@@ -436,14 +577,6 @@ export default function PatientDetail() {
       toast({ title: 'Lỗi', description: 'Có lỗi khi lưu tái khám', variant: 'destructive' } as any);
       return false;
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
-  };
-
-  const formatTime = (timeString: string) => {
-    return timeString;
   };
 
   const calculateAge = (dateOfBirth: string) => {
@@ -503,36 +636,20 @@ export default function PatientDetail() {
         <div>
           <Link href="/doctor/patients" className="text-blue-600 hover:text-blue-800 mb-2 inline-block">
             ← Quay lại danh sách bệnh nhân
-
-    // render modal
-    return (
-      <>
-        {/* main component already returned earlier; this is unreachable, so instead mount modal via portalless approach */}
-      </>
-    );
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">{patient.fullName}</h1>
           <p className="text-gray-600">Thông tin chi tiết bệnh nhân</p>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={() => router.push(`/doctor/schedule?patientId=${patientId}`)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-          >
+          <Button onClick={() => router.push(`/doctor/schedule?patientId=${patientId}`)} className="btn-healthcare-primary">
             Tạo lịch hẹn
-          </button>
-          <button
-            onClick={() => router.push(`/doctor/prescriptions/create?patientId=${patientId}`)}
-            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
-          >
+          </Button>
+          <Button onClick={() => router.push(`/doctor/prescriptions/create?patientId=${patientId}`)} className="btn-healthcare-secondary">
             Tạo đơn thuốc
-          </button>
-          <button
-            onClick={() => router.push(`/doctor/treatment?patientId=${patientId}`)}
-            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
-          >
+          </Button>
+          <Button onClick={() => router.push(`/doctor/treatment?patientId=${patientId}`)} className="btn-healthcare-secondary">
             Tạo hồ sơ
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -727,12 +844,9 @@ export default function PatientDetail() {
           <div className="p-6 border-b">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900">Hồ sơ bệnh án</h3>
-              <button
-                onClick={() => router.push(`/doctor/treatment?patientId=${patientId}`)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
-              >
+              <Button onClick={() => router.push(`/doctor/treatment?patientId=${patientId}`)} className="btn-healthcare-primary text-sm">
                 + Tạo hồ sơ mới
-              </button>
+              </Button>
             </div>
           </div>
           <div className="p-6">
@@ -830,124 +944,9 @@ export default function PatientDetail() {
                             disabled={!followUpEdits[record._id]?.isFollowUpRequired}
                             className="border rounded px-2 py-1 text-sm"
                           />
-
-                          <button
-                            onClick={() => handleSaveFollowUp(record._id)}
-                            className="bg-orange-600 text-white px-3 py-1 rounded text-sm"
-                            disabled={followUpEdits[record._id]?.saving}
-                          >
-                            {followUpEdits[record._id]?.saving ? 'Đang lưu...' : 'Lưu'}
-                          </button>
+                          <Button onClick={() => openFollowUpModal(record._id)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
+                            Chỉnh sửa tái khám
+                          </Button>
                         </div>
                       </div>
-
-                      {/* Quick follow-up buttons */}
-                      <div className="mt-3 flex items-center gap-2">
-                        <button onClick={() => handleQuickFollowUp(record._id, 1)} className="text-sm px-2 py-1 border rounded bg-white hover:bg-gray-50">+1 tháng</button>
-                        <button onClick={() => handleQuickFollowUp(record._id, 3)} className="text-sm px-2 py-1 border rounded bg-white hover:bg-gray-50">+3 tháng</button>
-                        <button onClick={() => handleQuickFollowUp(record._id, 6)} className="text-sm px-2 py-1 border rounded bg-white hover:bg-gray-50">+6 tháng</button>
-                      </div>
-
-                      {/* Display current follow-up info if present */}
-                      {record.isFollowUpRequired && record.followUpDate && (
-                        <div className="mt-2 text-sm text-orange-700">Hiện tại: Ngày {formatDate(record.followUpDate)}</div>
-                      )}
                     </div>
-
-                    <div className="mt-4 flex justify-end space-x-2">
-                      <button className="text-orange-600 hover:text-orange-800 text-sm font-medium" onClick={() => openFollowUpModal(record._id)}>
-                        Tái khám
-                      </button>
-                      <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                        Chỉnh sửa
-                      </button>
-                      <button className="text-green-600 hover:text-green-800 text-sm font-medium">
-                        In hồ sơ
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có hồ sơ bệnh án</h3>
-                <p className="text-gray-500 mb-4">Bệnh nhân này chưa có hồ sơ bệnh án nào được tạo.</p>
-                <button className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
-                  Tạo hồ sơ đầu tiên
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      <FollowUpModal
-        open={followUpModal.open}
-        recordId={followUpModal.recordId}
-        date={followUpModal.date}
-        onClose={closeFollowUpModal}
-        onSave={saveFollowUpFromModal}
-      />
-    </div>
-  );
-}
-
-// Modal component styles are inline to keep this file self-contained
-function FollowUpModal({ open, recordId, date, onClose, onSave }: { open: boolean; recordId?: string; date?: string; onClose: () => void; onSave: (id?: string, date?: string, time?: string) => Promise<boolean> | boolean }) {
-  const [selectedDate, setSelectedDate] = useState<string>(date || '');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => setSelectedDate(date || ''), [date]);
-
-  if (!open) return null;
-
-  const choose = (months: number) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + months);
-    setSelectedDate(d.toISOString().slice(0,10));
-  };
-
-  const [selectedTime, setSelectedTime] = useState<string>('09:00');
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const ok = await onSave(recordId, selectedDate, selectedTime);
-      if (ok) {
-        onClose();
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={() => { if (!saving) onClose(); }}></div>
-      <div className="bg-white rounded-lg shadow-lg z-60 p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold mb-3">Đặt lịch tái khám</h3>
-        <div className="flex gap-2 mb-3">
-          <button onClick={() => choose(1)} className="px-3 py-1 border rounded">+1 tháng</button>
-          <button onClick={() => choose(3)} className="px-3 py-1 border rounded">+3 tháng</button>
-          <button onClick={() => choose(6)} className="px-3 py-1 border rounded">+6 tháng</button>
-        </div>
-        <div className="mb-4">
-          <label className="text-sm">Ngày tái khám (tùy chọn)</label>
-          <input type="date" className="block mt-1 p-2 border rounded w-full" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-        </div>
-        <div className="mb-4">
-          <label className="text-sm">Giờ (tùy chọn)</label>
-          <input type="time" className="block mt-1 p-2 border rounded w-full" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} />
-        </div>
-        <div className="flex justify-end gap-2">
-          <button onClick={() => { if (!saving) onClose(); }} className="px-3 py-1 border rounded" disabled={saving}>Hủy</button>
-          <button onClick={handleSave} className="px-3 py-1 bg-blue-600 text-white rounded" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
-        </div>
-      </div>
-    </div>
-  );
-}

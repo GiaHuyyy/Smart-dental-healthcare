@@ -1,14 +1,15 @@
 "use client";
-import { User, Clock, Phone, Edit, Hospital, Calendar, X } from "lucide-react";
+import { Calendar, Clock, Edit, Hospital, Phone, User, X } from "lucide-react";
 
 import { sendRequest } from "@/utils/api";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function DoctorSchedule() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [selectedView, setSelectedView] = useState("day");
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -140,10 +141,25 @@ export default function DoctorSchedule() {
   };
 
   useEffect(() => {
+    // if a date is provided via URL ?date=YYYY-MM-DD, use it
+    try {
+      const dateFromUrl = searchParams?.get?.("date");
+      if (dateFromUrl) setSelectedDate(dateFromUrl);
+    } catch (e) {
+      // ignore
+    }
     async function load() {
       setLoading(true);
       try {
         let doctorId = session?.user?._id;
+
+        // allow overriding doctorId via URL param ?doctorId=... (useful when navigating from records)
+        try {
+          const paramDoctorId = searchParams?.get?.("doctorId");
+          if (paramDoctorId) doctorId = paramDoctorId;
+        } catch (e) {
+          // ignore
+        }
 
         // fallback: resolve doctor by email
         if (!doctorId && session?.user?.email) {
@@ -1357,7 +1373,7 @@ export default function DoctorSchedule() {
 
       // Update appointment status to completed
       const currentAppointmentIdForUpdate = currentTreatmentAppointment._id || currentTreatmentAppointment.id;
-      const appointmentUpdateResponse = await fetch(`/api/appointments/${currentAppointmentIdForUpdate}`, {
+  const appointmentUpdateResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${currentAppointmentIdForUpdate}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
