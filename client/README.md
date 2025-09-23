@@ -1,3 +1,12 @@
+## Follow-ups UI
+
+Two simple pages were added to display follow-up schedules:
+
+- /doctor/followups (accepts ?doctorId=...) - shows follow-up dates per patient
+- /patient/followups (accepts ?patientId=...) - shows follow-up dates per doctor
+
+They call the server endpoints under /api/appointments/followup/*
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

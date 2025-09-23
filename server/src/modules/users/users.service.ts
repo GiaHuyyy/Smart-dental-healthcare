@@ -5,17 +5,17 @@ import aqp from 'api-query-params';
 import dayjs from 'dayjs';
 import mongoose, { Model } from 'mongoose';
 import {
-  CodeAuthDto,
-  CreateAuthDto,
-  ResetPasswordDto,
-  VerifyResetCodeDto,
+    CodeAuthDto,
+    CreateAuthDto,
+    ResetPasswordDto,
+    VerifyResetCodeDto,
 } from 'src/auth/dto/create-auth.dto';
 import { hashPasswordHelper } from 'src/helpers/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { AiChatHistoryService } from '../ai-chat-history/ai-chat-history.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
-import { AiChatHistoryService } from '../ai-chat-history/ai-chat-history.service';
 
 @Injectable()
 export class UsersService {
@@ -89,6 +89,9 @@ export class UsersService {
   }
 
   findOne(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('ID người dùng không hợp lệ');
+    }
     return this.userModel.findById(id).select('-password').exec();
   }
 

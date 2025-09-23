@@ -73,6 +73,9 @@ export class MedicalRecordsService {
   }
 
   async findOne(id: string): Promise<MedicalRecord> {
+    if (!/^[a-fA-F0-9]{24}$/.test(id)) {
+      throw new NotFoundException(`Không tìm thấy hồ sơ bệnh án với ID: ${id}`);
+    }
     const record = await this.medicalRecordModel
       .findById(id)
       .populate('patientId', 'fullName email phone')
@@ -174,16 +177,42 @@ export class MedicalRecordsService {
     return record.save();
   }
 
-  async scheduleFollowUp(id: string, followUpDate: Date): Promise<MedicalRecord> {
+  async scheduleFollowUp(
+    id: string,
+    payload: { followUpDate?: Date | string | null; isFollowUpRequired?: boolean } | Date | string | null,
+  ): Promise<MedicalRecord> {
     const record = await this.medicalRecordModel.findById(id).exec();
 
     if (!record) {
       throw new NotFoundException(`Không tìm thấy hồ sơ bệnh án với ID: ${id}`);
     }
 
-  record.isFollowUpRequired = true;
-  // Try to coerce to Date if string provided
-  record.followUpDate = followUpDate ? new Date(followUpDate) : record.followUpDate;
+    // Backwards-compatibility: allow direct Date/string payload
+    let followUpDate: Date | null | undefined = undefined;
+    let isFollowUpRequired: boolean | undefined = undefined;
+
+    if (payload instanceof Date || typeof payload === 'string' || payload === null) {
+      followUpDate = payload ? new Date(payload as any) : null;
+      isFollowUpRequired = !!followUpDate;
+    } else if (typeof payload === 'object' && payload !== null) {
+      followUpDate = payload.followUpDate ? new Date(payload.followUpDate as any) : (payload.followUpDate === null ? null : undefined);
+      isFollowUpRequired = typeof payload.isFollowUpRequired === 'boolean' ? payload.isFollowUpRequired : undefined;
+    }
+
+    // If explicit flag provided, use it. Otherwise infer from date presence.
+    if (typeof isFollowUpRequired === 'boolean') {
+      record.isFollowUpRequired = isFollowUpRequired;
+    } else if (followUpDate !== undefined) {
+      record.isFollowUpRequired = !!followUpDate;
+    }
+
+    // Update followUpDate according to provided value. If followUpDate === null, clear it.
+    if (followUpDate === null) {
+      // explicitly clear stored date
+      (record as any).followUpDate = null;
+    } else if (followUpDate !== undefined) {
+      record.followUpDate = new Date(followUpDate as Date);
+    }
 
     return record.save();
   }

@@ -230,7 +230,37 @@ export default function TreatmentPage() {
         // Update appointment status to completed
         await updateAppointmentStatus("completed");
 
-        router.push("/doctor/schedule");
+        const created = await response.json();
+
+        // If follow-up was requested, call scheduleFollowUp
+        if (created && created._id) {
+          try {
+            const token = localStorage.getItem('token');
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            // send explicit payload containing both fields; if not required, send followUpDate=null to clear
+            const payload = {
+              isFollowUpRequired: !!medicalRecord.isFollowUpRequired,
+              followUpDate: medicalRecord.isFollowUpRequired ? (medicalRecord.followUpDate || null) : null
+            };
+
+            await fetch(`/api/medical-records/${created._id}/follow-up`, {
+              method: 'PATCH',
+              headers,
+              body: JSON.stringify(payload)
+            });
+          } catch (err) {
+            console.error('Error scheduling follow-up after save:', err);
+          }
+        }
+
+        // redirect back to schedule or follow-up details if desired
+        if (medicalRecord.isFollowUpRequired && created && created._id) {
+          router.push(`/doctor/medical-records/followups/${created._id}`);
+        } else {
+          router.push("/doctor/schedule");
+        }
       } else {
         throw new Error("Failed to save medical record");
       }

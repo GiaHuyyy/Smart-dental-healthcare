@@ -14,20 +14,20 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
-  Activity,
-  AlertCircle,
-  Calendar,
-  CheckCircle,
-  Clock,
-  Download,
-  Edit,
-  Eye,
-  FileText,
-  Filter,
-  Plus,
-  Search,
-  Stethoscope,
-  TrendingUp,
+    Activity,
+    AlertCircle,
+    Calendar,
+    CheckCircle,
+    Clock,
+    Download,
+    Edit,
+    Eye,
+    FileText,
+    Filter,
+    Plus,
+    Search,
+    Stethoscope,
+    TrendingUp,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -67,7 +67,7 @@ export default function DoctorMedicalRecordsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -75,6 +75,9 @@ export default function DoctorMedicalRecordsPage() {
   const [showStatistics, setShowStatistics] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const { toast } = useToast();
+  // helper wrapper to bypass strict Toast typing in some places where 'variant' is used
+  const toastAny = (payload: any) => (toast as any)(payload);
+  const [followUpModal, setFollowUpModal] = useState<{ open: boolean; recordId?: string; date?: string }>({ open: false });
 
   useEffect(() => {
     fetchMedicalRecords();
@@ -97,18 +100,14 @@ export default function DoctorMedicalRecordsPage() {
         setRecords(data);
       } else {
         const errorData = await response.json();
-        toast({
+        toastAny({
           title: "Lỗi",
           description: errorData.message || "Không thể tải danh sách hồ sơ bệnh án",
           variant: "destructive",
         });
       }
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Có lỗi xảy ra khi tải dữ liệu",
-        variant: "destructive",
-      });
+      toastAny({ title: "Lỗi", description: "Có lỗi xảy ra khi tải dữ liệu", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -169,18 +168,10 @@ export default function DoctorMedicalRecordsPage() {
         setShowCreateModal(false);
         fetchMedicalRecords();
       } else {
-        toast({
-          title: "Lỗi",
-          description: "Không thể tạo hồ sơ bệnh án",
-          variant: "destructive",
-        });
+        toastAny({ title: "Lỗi", description: "Không thể tạo hồ sơ bệnh án", variant: "destructive" });
       }
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Có lỗi xảy ra khi tạo hồ sơ",
-        variant: "destructive",
-      });
+        toastAny({ title: "Lỗi", description: "Có lỗi xảy ra khi tạo hồ sơ", variant: "destructive" });
     }
   };
 
@@ -196,31 +187,127 @@ export default function DoctorMedicalRecordsPage() {
       });
 
       if (response.ok) {
-        toast({
-          title: "Thành công",
-          description: "Hồ sơ bệnh án đã được cập nhật thành công",
-        });
+        toastAny({ title: "Thành công", description: "Hồ sơ bệnh án đã được cập nhật thành công" });
         setShowEditModal(false);
         fetchMedicalRecords();
       } else {
-        toast({
-          title: "Lỗi",
-          description: "Không thể cập nhật hồ sơ bệnh án",
-          variant: "destructive",
-        });
+        toastAny({ title: "Lỗi", description: "Không thể cập nhật hồ sơ bệnh án", variant: "destructive" });
       }
     } catch (error) {
-      toast({
-        title: "Lỗi",
-        description: "Có lỗi xảy ra khi cập nhật hồ sơ",
-        variant: "destructive",
-      });
+        toastAny({ title: "Lỗi", description: "Có lỗi xảy ra khi cập nhật hồ sơ", variant: "destructive" });
     }
   };
 
   const handleExportRecord = (record: MedicalRecord) => {
     setSelectedRecord(record);
     setShowExportModal(true);
+  };
+
+  const openFollowUpModal = (recordId: string, date?: string) => {
+    setFollowUpModal({ open: true, recordId, date: date ? new Date(date).toISOString().slice(0,10) : '' });
+  };
+
+  const closeFollowUpModal = () => setFollowUpModal({ open: false });
+
+  const saveFollowUpFromModal = async (recordId?: string, date?: string, time?: string) => {
+    if (!recordId) return false;
+    const followUpDate = date || null;
+    const followUpTime = time || '09:00';
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const body = { followUpDate, isFollowUpRequired: !!followUpDate };
+
+      const res = await fetch(`/api/medical-records/${recordId}/follow-up`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        let msg = 'Không thể cập nhật tái khám';
+        // Read body once as text, then try to parse JSON out of it.
+        try {
+          const txt = await res.text();
+          if (txt) {
+            try {
+              const json = JSON.parse(txt);
+              msg = json?.message || json?.error || txt || msg;
+            } catch (e) {
+              msg = txt;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+        toastAny({ title: 'Lỗi', description: msg, variant: 'destructive' });
+        return false;
+      }
+
+      const updated = await res.json();
+      setRecords((prev) => prev.map((r) => r._id === recordId ? { ...r, isFollowUpRequired: !!updated.isFollowUpRequired, followUpDate: updated.followUpDate || undefined } : r));
+      setFilteredRecords((prev) => prev.map((r) => r._id === recordId ? { ...r, isFollowUpRequired: !!updated.isFollowUpRequired, followUpDate: updated.followUpDate || undefined } : r));
+      toast({ title: 'Thành công', description: 'Đã cập nhật tái khám' });
+
+      // Try to create an appointment automatically for this follow-up
+      try {
+        if (updated && updated.followUpDate) {
+          // find the record to extract patient & doctor
+          const rec = (records || []).find((x) => x._id === recordId) as any;
+          const patientId = rec?.patientId?._id || (rec?.patientId || (updated.patientId && updated.patientId._id)) || undefined;
+          const doctorId = updated.doctorId?._id || rec?.doctorId?._id || undefined;
+
+          if (patientId && doctorId) {
+            // appointmentDate should be the date portion from followUpDate, keep time from followUpTime
+            const appointmentDateObj = new Date(updated.followUpDate);
+            // build ISO appointmentDate with the same date and zeroed time (server expects a Date)
+            const dayIso = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate()).toISOString();
+            const startTime = followUpTime || '09:00';
+            // compute end time by adding 30 minutes
+            const [h, m] = startTime.split(':').map((s) => parseInt(s, 10));
+            const endDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate(), h, m + 30);
+            const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+            const isoDate = dayIso;
+
+            const token = localStorage.getItem('token');
+            const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const body = {
+              patientId,
+              doctorId,
+              appointmentDate: isoDate,
+              startTime,
+              endTime,
+              duration: 30,
+              appointmentType: 'follow-up',
+              notes: 'Tái khám từ hồ sơ',
+              status: 'scheduled'
+            };
+
+            const apptRes = await fetch('/api/appointments', { method: 'POST', headers, body: JSON.stringify(body) });
+            if (apptRes.ok) {
+              toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' });
+            } else {
+              const txt = await apptRes.text();
+              // not critical, just inform
+              toastAny({ title: 'Lưu ý', description: 'Không tạo được lịch tái khám tự động: ' + (txt || apptRes.statusText), variant: 'default' });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Auto-create appointment failed', e);
+      }
+
+      setFollowUpModal({ open: false });
+      return true;
+    } catch (err) {
+      console.error('Error saving follow-up from modal', err);
+  toastAny({ title: 'Lỗi', description: 'Có lỗi khi lưu tái khám', variant: 'destructive' });
+      return false;
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -558,6 +645,56 @@ export default function DoctorMedicalRecordsPage() {
                               <Download className="h-4 w-4" />
                               <span className="hidden lg:inline">Xuất</span>
                             </Button>
+                            {/* New status actions: mark completed and quick follow-up */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={async () => {
+                                // mark as completed and clear follow-up
+                                try {
+                                  const token = localStorage.getItem('token');
+                                  const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+                                  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                                  const res = await fetch(`/api/medical-records/${record._id}`, {
+                                    method: 'PATCH',
+                                    headers,
+                                    body: JSON.stringify({ status: 'completed', isFollowUpRequired: false, followUpDate: null })
+                                  });
+
+                                  if (!res.ok) {
+                                    const txt = await res.text();
+                                    toastAny({ title: 'Lỗi', description: txt || 'Không thể cập nhật trạng thái', variant: 'destructive' });
+                                    return;
+                                  }
+
+                                  toast({ title: 'Thành công', description: 'Đã cập nhật trạng thái là Hoàn thành' });
+                                  fetchMedicalRecords();
+                                } catch (err) {
+                                  console.error('Failed to mark completed', err);
+                                  toastAny({ title: 'Lỗi', description: 'Có lỗi khi cập nhật trạng thái', variant: 'destructive' });
+                                }
+                              }}
+                              className="flex items-center gap-2 hover:bg-gray-50 hover:border-gray-200 text-gray-700 bg-white/80 backdrop-blur-sm"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              <span className="hidden lg:inline">Đã điều trị</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                // open follow-up modal with default +1 month
+                                const oneMonth = new Date();
+                                oneMonth.setMonth(oneMonth.getMonth() + 1);
+                                openFollowUpModal(record._id, oneMonth.toISOString());
+                              }}
+                              className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 bg-white/80 backdrop-blur-sm"
+                            >
+                              <AlertCircle className="h-4 w-4" />
+                              <span className="hidden lg:inline">Cần tái khám</span>
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -603,6 +740,57 @@ export default function DoctorMedicalRecordsPage() {
       {showExportModal && selectedRecord && (
         <ExportMedicalRecord recordId={selectedRecord._id} onClose={() => setShowExportModal(false)} />
       )}
+      {/* Follow-up modal for record-level 'Tái khám' actions */}
+      <FollowUpModal
+        open={followUpModal.open}
+        recordId={followUpModal.recordId}
+        date={followUpModal.date}
+        onClose={closeFollowUpModal}
+        onSave={saveFollowUpFromModal}
+      />
+    </div>
+  );
+}
+
+// Local FollowUpModal (copied from patient detail page implementation)
+function FollowUpModal({ open, recordId, date, onClose, onSave }: { open: boolean; recordId?: string; date?: string; onClose: () => void; onSave: (id?: string, date?: string, time?: string) => Promise<boolean> | boolean }) {
+  const [selectedDate, setSelectedDate] = useState<string>(date || '');
+  const [selectedTime, setSelectedTime] = useState<string>('09:00');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setSelectedDate(date || ''), [date]);
+
+  if (!open) return null;
+
+  const choose = (months: number) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + months);
+    setSelectedDate(d.toISOString().slice(0,10));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose}></div>
+      <div className="bg-white rounded-lg shadow-lg z-60 p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold mb-3">Đặt lịch tái khám</h3>
+        <div className="flex gap-2 mb-3">
+          <button onClick={() => choose(1)} className="px-3 py-1 border rounded">+1 tháng</button>
+          <button onClick={() => choose(3)} className="px-3 py-1 border rounded">+3 tháng</button>
+          <button onClick={() => choose(6)} className="px-3 py-1 border rounded">+6 tháng</button>
+        </div>
+        <div className="mb-4">
+          <label className="text-sm">Ngày tái khám (tùy chọn)</label>
+          <input type="date" className="block mt-1 p-2 border rounded w-full" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+        </div>
+        <div className="mb-4">
+          <label className="text-sm">Giờ (tùy chọn)</label>
+          <input type="time" className="block mt-1 p-2 border rounded w-full" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={() => { if (!saving) onClose(); }} className="px-3 py-1 border rounded" disabled={saving}>Hủy</button>
+          <button onClick={async () => { setSaving(true); try { const ok = await onSave(recordId, selectedDate, selectedTime); if (ok) onClose(); } finally { setSaving(false); } }} className="px-3 py-1 bg-blue-600 text-white rounded" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+        </div>
+      </div>
     </div>
   );
 }

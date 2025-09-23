@@ -717,4 +717,109 @@ export class AppointmentsService {
       };
     }
   }
+
+  // Generate follow-up schedule for all patients seen by a doctor
+  async getFollowUpByDoctor(doctorId: string) {
+    if (!doctorId) throw new BadRequestException('Thiếu doctorId');
+
+    // Find completed appointments for this doctor and sort by date desc
+    const appointments = await this.appointmentModel.find({
+      doctorId,
+      status: AppointmentStatus.COMPLETED,
+    })
+      .sort({ appointmentDate: -1 })
+      .populate('patientId', 'fullName phone email')
+      .lean();
+
+    // Map latest completed appointment per patient
+    const latestByPatient = new Map<string, any>();
+    for (const appt of appointments) {
+      const pid = (appt.patientId && (appt.patientId as any)._id) ? String((appt.patientId as any)._id) : String(appt.patientId);
+      if (!latestByPatient.has(pid)) {
+        latestByPatient.set(pid, appt);
+      }
+    }
+
+    const results: any[] = [];
+    for (const [pid, appt] of latestByPatient.entries()) {
+      const patient = (appt as any).patientId || { _id: pid };
+      const lastDate = appt.appointmentDate ? new Date(appt.appointmentDate) : null;
+      if (!lastDate) continue;
+
+      const m1 = new Date(lastDate);
+      m1.setMonth(m1.getMonth() + 1);
+      const m3 = new Date(lastDate);
+      m3.setMonth(m3.getMonth() + 3);
+      const m6 = new Date(lastDate);
+      m6.setMonth(m6.getMonth() + 6);
+
+      results.push({
+        patient: {
+          _id: patient._id,
+          fullName: patient.fullName,
+          phone: patient.phone,
+          email: patient.email,
+        },
+        lastAppointmentDate: lastDate,
+        followUps: {
+          oneMonth: m1,
+          threeMonths: m3,
+          sixMonths: m6,
+        },
+      });
+    }
+
+    return results;
+  }
+
+  // Generate follow-up schedule for a single patient (grouped by doctor)
+  async getFollowUpByPatient(patientId: string) {
+    if (!patientId) throw new BadRequestException('Thiếu patientId');
+
+    const appointments = await this.appointmentModel.find({
+      patientId,
+      status: AppointmentStatus.COMPLETED,
+    })
+      .sort({ appointmentDate: -1 })
+      .populate('doctorId', 'fullName specialty')
+      .lean();
+
+    const latestByDoctor = new Map<string, any>();
+    for (const appt of appointments) {
+      const did = (appt.doctorId && (appt.doctorId as any)._id) ? String((appt.doctorId as any)._id) : String(appt.doctorId);
+      if (!latestByDoctor.has(did)) {
+        latestByDoctor.set(did, appt);
+      }
+    }
+
+    const results: any[] = [];
+    for (const [did, appt] of latestByDoctor.entries()) {
+      const doctor = (appt as any).doctorId || { _id: did };
+      const lastDate = appt.appointmentDate ? new Date(appt.appointmentDate) : null;
+      if (!lastDate) continue;
+
+      const m1 = new Date(lastDate);
+      m1.setMonth(m1.getMonth() + 1);
+      const m3 = new Date(lastDate);
+      m3.setMonth(m3.getMonth() + 3);
+      const m6 = new Date(lastDate);
+      m6.setMonth(m6.getMonth() + 6);
+
+      results.push({
+        doctor: {
+          _id: doctor._id,
+          fullName: doctor.fullName,
+          specialty: doctor.specialty,
+        },
+        lastAppointmentDate: lastDate,
+        followUps: {
+          oneMonth: m1,
+          threeMonths: m3,
+          sixMonths: m6,
+        },
+      });
+    }
+
+    return results;
+  }
 }

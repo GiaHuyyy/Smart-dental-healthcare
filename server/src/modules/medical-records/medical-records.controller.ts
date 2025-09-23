@@ -90,9 +90,9 @@ export class MedicalRecordsController {
 
   @Patch(':id/follow-up')
   @Public()
-  @ResponseMessage('Đặt lịch tái khám thành công')
-  scheduleFollowUp(@Param('id') id: string, @Body('followUpDate') followUpDate: Date) {
-    return this.medicalRecordsService.scheduleFollowUp(id, followUpDate);
+  @ResponseMessage('Cập nhật lịch tái khám thành công')
+  scheduleFollowUp(@Param('id') id: string, @Body() body: { followUpDate?: Date | string | null; isFollowUpRequired?: boolean }) {
+    return this.medicalRecordsService.scheduleFollowUp(id, body);
   }
 
   @Post(':id/attachments')

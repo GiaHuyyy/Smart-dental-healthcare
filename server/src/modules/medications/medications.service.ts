@@ -34,6 +34,10 @@ export class MedicationsService {
   }
 
   async findOne(id: string): Promise<Medication> {
+    if (!/^[a-fA-F0-9]{24}$/.test(id)) {
+      // fast validation for ObjectId
+      throw new NotFoundException(`Không tìm thấy thuốc với ID: ${id}`);
+    }
     const medication = await this.medicationModel.findById(id).exec();
 
     if (!medication) {
