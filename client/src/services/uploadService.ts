@@ -1,28 +1,52 @@
-import { sendRequestFile } from "../utils/api";
+import realtimeChatService from "./realtimeChatService";
 
 export interface UploadImageResponse {
   success: boolean;
-  url: string;
-  public_id: string;
+  url?: string;
+  public_id?: string;
+  error?: string;
+}
+
+/**
+ * Convert file to base64 string for socket transmission
+ */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 export const uploadService = {
   /**
-   * Upload image to Cloudinary via backend
+   * Upload image via socket to realtimeChatService
    * @param file - File to upload
+   * @param conversationId - Conversation ID for context
    * @returns Promise with upload result
    */
-  async uploadImage(file: File): Promise<UploadImageResponse> {
-    const formData = new FormData();
-    formData.append("image", file);
+  async uploadImage(file: File, conversationId: string = ""): Promise<UploadImageResponse> {
+    try {
+      // Convert file to base64
+      const base64Data = await fileToBase64(file);
 
-    const response = await sendRequestFile<UploadImageResponse>({
-      url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/upload-image`,
-      method: "POST",
-      body: formData,
-    });
+      // Upload via socket service
+      const response = await realtimeChatService.uploadImage(conversationId, base64Data, file.name, file.type);
 
-    return response;
+      return response;
+    } catch (error) {
+      console.error("Socket upload error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Upload failed",
+      };
+    }
   },
 
   /**

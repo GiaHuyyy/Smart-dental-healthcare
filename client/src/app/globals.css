@@ -7,8 +7,8 @@
   /* Healthcare Design System - Koruux inspired - Clean & Minimal */
   /* Primary palette - Single medical blue theme */
   --color-primary: #00a6f4; /* primary blue (medical trust) */
-  --color-primary-600: #1d4ed8; /* darker for hover states */
-  --color-primary-700: #1e40af; /* darker for active states */
+  --color-primary-600: #027db6; /* darker for hover states */
+  --color-primary-700: #036694; /* darker for active states */
   --color-primary-50: #eff6ff; /* lightest for backgrounds */
   --color-primary-100: #dbeafe; /* very light for cards */
   --color-primary-200: #bfdbfe; /* light for accents */
@@ -327,7 +327,7 @@ body {
 }
 
 .btn-primary-filled {
-  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-600));
+  background: linear-gradient(-20deg, var(--color-primary-100), var(--color-primary));
   color: white;
   padding: 0.6rem 1.4rem;
   border-radius: 12px;

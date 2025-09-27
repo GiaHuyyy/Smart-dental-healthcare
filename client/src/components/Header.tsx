@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LogoutButton from "./auth/LogoutButton";
-import { User, Bell, Smile, Settings, Activity, Calendar } from "lucide-react";
+import { User, Bell, Smile, Settings, Activity, Calendar, Home } from "lucide-react";
+import Image from "next/image";
 
 export default function Header() {
   const { data: session } = useSession();
@@ -57,42 +58,36 @@ export default function Header() {
   const dashboardInfo = getUserDashboardInfo();
 
   return (
-    <header className="healthcare-card border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
+    <header className="healthcare-card !rounded-none border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex justify-between items-center py-4">
           {/* Logo and Branding */}
           <div className="flex items-center gap-4">
             {isHomePage ? (
               <Link href="/" className="flex items-center hover:opacity-90 transition-opacity group">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-                  <Smile className="w-6 h-6 text-white" />
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-100 to-[#00a6f4]">
+                  <Image src="/tooth.svg" alt="Logo" width={40} height={40} className="w-6 h-6" />
                 </div>
                 <div className="ml-3">
                   <span className="text-xl font-bold text-gray-900">Smart Dental</span>
-                  <div className="text-xs text-gray-500 -mt-1">Healthcare Platform</div>
+                  <div className="text-xs text-gray-500 -mt-1">Healthcare Platform</div>{" "}
                 </div>
               </Link>
             ) : (
               <div className="flex items-center gap-3">
-                {!isPatientOrDoctor && (
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
-                    <Smile className="w-6 h-6 text-white" />
-                  </div>
-                )}
                 {dashboardInfo && (
-                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                     <span
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
+                      className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-[18px] font-semibold border border-[#8bd9fd] bg-gradient-to-r from-[60%] to-[100%] from-blue-100 to-[#80d7ff] text-[#00a6f4] shadow-sm tracking-wide"
                       style={{
-                        background: "var(--color-primary-50)",
-                        color: "var(--color-primary-600)",
-                        border: "1px solid rgba(var(--color-primary-rgb),0.12)",
+                      letterSpacing: "0.03em",
+                      fontFamily: "Montserrat, Arial, sans-serif",
+                      boxShadow: "0 2px 8px rgba(0,166,244,0.08)",
                       }}
                     >
-                      {dashboardInfo.icon}
                       <span className="ml-1">{dashboardInfo.role}</span>
                     </span>
-                  </div>
+                    </div>
                 )}
               </div>
             )}
@@ -105,11 +100,11 @@ export default function Header() {
                 {/* Quick Actions for logged-in users */}
                 {!isHomePage && (
                   <div className="flex items-center gap-2">
-                    <button className="p-2.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative">
+                    <button className="p-2.5 text-gray-600 hover:text-[#00a6f4] hover:bg-blue-50 rounded-lg transition-colors relative">
                       <Calendar className="w-5 h-5" />
                       <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full"></span>
                     </button>
-                    <button className="p-2.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors relative">
+                    <button className="p-2.5 text-gray-600 hover:text-[#00a6f4] hover:bg-blue-50 rounded-lg transition-colors relative">
                       <Bell className="w-5 h-5" />
                       <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
                     </button>
@@ -130,7 +125,7 @@ export default function Header() {
                       className="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center border-2 border-white shadow-md"
                       aria-label="User menu"
                     >
-                      <User className="w-5 h-5 text-gray-600" />
+                      <User className="w-5 h-5 text-gray-600 hover:text-[#00a6f4]" />
                     </button>
                   </div>
 
@@ -140,7 +135,7 @@ export default function Header() {
                       {/* User Info Header */}
                       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-[#00a6f4] rounded-full flex items-center justify-center">
                             <User className="w-6 h-6 text-white" />
                           </div>
                           <div>
@@ -150,11 +145,11 @@ export default function Header() {
                               <div
                                 className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${dashboardInfo.statusColor}`}
                               >
-                                {dashboardInfo.icon}
+                                <span className="text-[#00a6f4]">{dashboardInfo.icon}</span>
                                 <span
                                   style={{
                                     background: "var(--color-primary-50)",
-                                    color: "var(--color-primary-600)",
+                                    color: "var(--color-primary)",
                                     borderRadius: 6,
                                     padding: "2px 6px",
                                     marginLeft: 6,
@@ -173,18 +168,27 @@ export default function Header() {
 
                       {/* Menu Items */}
                       <div className="p-2">
-                        {dashboardInfo && (
+                        {dashboardInfo && isHomePage ? (
                           <Link
                             href={dashboardInfo.dashboardPath}
-                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors"
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#00a6f4] rounded-lg transition-colors"
                             onClick={() => setShowDropdown(false)}
                           >
                             {dashboardInfo.icon}
                             {dashboardInfo.buttonText}
                           </Link>
+                        ) : (
+                          <Link
+                            href={"/"}
+                            className="flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#00a6f4] rounded-lg transition-colors"
+                            onClick={() => setShowDropdown(false)}
+                          >
+                            <Home className="w-4 h-4" />
+                            Trang chủ
+                          </Link>
                         )}
 
-                        <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors">
+                        <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-[#00a6f4] rounded-lg transition-colors">
                           <Settings className="w-4 h-4" />
                           Cài đặt tài khoản
                         </button>
