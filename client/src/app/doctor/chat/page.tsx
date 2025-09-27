@@ -1,176 +1,227 @@
 "use client";
 import { User, Menu } from "lucide-react";
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ChatHeader from "@/components/chat/ChatHeader";
-import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import realtimeChatService from "@/services/realtimeChatService";
+import { extractUserData } from "@/utils/sessionHelpers";
+
+// Type definitions
+interface PatientConversation {
+  id: string;
+  patientId: string;
+  patientName: string;
+  patientEmail: string;
+  lastMessage: string;
+  timestamp: string;
+  unread: boolean;
+  unreadCount: number;
+  databaseId: string;
+}
+
+interface Message {
+  _id: string;
+  content: string;
+  senderRole: string;
+  senderId: string;
+  createdAt: string;
+  conversationId: string;
+  imageUrl?: string;
+}
 
 export default function DoctorChatPage() {
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [patientConversations, setPatientConversations] = useState<any[]>([]);
+  const [patientConversations, setPatientConversations] = useState<PatientConversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
-  const [conversationMessages, setConversationMessages] = useState<{ [key: string]: any[] }>({});
+  const [conversationMessages, setConversationMessages] = useState<{ [key: string]: Message[] }>({});
   const [loadingMessages, setLoadingMessages] = useState<{ [key: string]: boolean }>({});
-  const searchParams = useSearchParams();
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [socketInitialized, setSocketInitialized] = useState(false);
+
   const { data: session } = useSession();
   const previousSelectedChatRef = useRef<string | null>(null);
+  const socketConnectedRef = useRef(false);
+  const socketEventsSetupRef = useRef(false);
 
-  // Load conversations from database when component mounts
   useEffect(() => {
-    const loadConversations = async () => {
-      if (session?.user) {
-        try {
-          const userId = (session.user as any)?._id || (session.user as any)?.id;
-          if (userId) {
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/conversations?userId=${userId}&userRole=doctor`
-            );
+    // Chỉ thực hiện khi có session
+    if (!session?.user) {
+      return;
+    }
 
-            if (response.ok) {
-              const conversations = await response.json();
-              console.log("Raw conversations from API:", conversations);
+    let socket; // Khai báo socket ở scope này
 
-              // Transform conversations and fetch patient info for each
-              const transformedConversations = await Promise.all(
-                conversations.map(async (conv: any) => {
-                  console.log("Processing conversation:", conv);
-                  console.log("Patient data:", conv.patientId);
+    const initializeAndListen = async () => {
+      try {
+        console.log("🔄 [EFFECT] Bắt đầu khởi tạo socket và lắng nghe...");
+        setConversationsLoading(true);
+        const userData = extractUserData(session);
 
-                  // Handle both populated and non-populated patientId
-                  const patientData = typeof conv.patientId === "object" ? conv.patientId : null;
-                  const patientId = patientData?._id || conv.patientId;
-
-                  let patientInfo = {
-                    name: "Bệnh nhân",
-                    email: "",
-                  };
-
-                  // If patientId is just a string, fetch patient info
-                  if (typeof conv.patientId === "string") {
-                    try {
-                      console.log("Fetching patient info for ID:", conv.patientId);
-                      const patientResponse = await fetch(
-                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/${conv.patientId}`
-                      );
-                      console.log("Patient API response status:", patientResponse.status);
-
-                      if (patientResponse.ok) {
-                        const patient = await patientResponse.json();
-                        console.log("Patient data from API:", patient);
-                        patientInfo = {
-                          name:
-                            patient.fullName ||
-                            `${patient.firstName || ""} ${patient.lastName || ""}`.trim() ||
-                            "Bệnh nhân",
-                          email: patient.email || "",
-                        };
-                        console.log("Processed patient info:", patientInfo);
-                      } else {
-                        console.error("Failed to fetch patient info:", await patientResponse.text());
-                      }
-                    } catch (error) {
-                      console.error("Error fetching patient info:", error);
-                    }
-                  } else if (patientData) {
-                    patientInfo = {
-                      name:
-                        patientData.fullName ||
-                        `${patientData.firstName || ""} ${patientData.lastName || ""}`.trim() ||
-                        "Bệnh nhân",
-                      email: patientData.email || "",
-                    };
-                  }
-
-                  return {
-                    id: conv._id,
-                    patientId: patientId,
-                    patientName: patientInfo.name,
-                    patientEmail: patientInfo.email,
-                    lastMessage: conv.lastMessage?.content || "Cuộc hội thoại mới",
-                    timestamp: conv.updatedAt || conv.createdAt,
-                    unread: conv.unreadDoctorCount > 0,
-                    unreadCount: conv.unreadDoctorCount || 0,
-                    databaseId: conv._id,
-                  };
-                })
-              );
-
-              setPatientConversations(transformedConversations);
-              console.log("Loaded conversations from database:", transformedConversations);
-
-              // Auto-select first conversation if none selected
-              if (transformedConversations.length > 0 && !selectedChat) {
-                setSelectedChat(transformedConversations[0].id);
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error loading conversations:", error);
-        } finally {
+        if (!userData || !userData.userId || !userData.token) {
+          setConnectionError("Không thể xác thực người dùng");
           setConversationsLoading(false);
+          return;
         }
+
+        // 1. Kết nối socket
+        await realtimeChatService.connect(userData.token, userData.userId, "doctor");
+        socket = realtimeChatService.getSocket();
+        if (!socket) throw new Error("Không lấy được instance socket");
+
+        console.log("✅ [EFFECT] Socket đã kết nối.");
+        setSocketInitialized(true);
+        setConnectionError(null);
+
+        // 2. Định nghĩa các hàm xử lý sự kiện
+        const handleConversationsLoaded = (data) => {
+          console.log("📥 [EVENT] conversationsLoaded:", data.conversations);
+          setPatientConversations(data.conversations || []);
+          setConversationsLoading(false);
+          // Tự động chọn cuộc hội thoại đầu tiên nếu chưa có gì được chọn
+          if (data.conversations && data.conversations.length > 0 && !selectedChat) {
+            setSelectedChat(data.conversations[0].id);
+          }
+        };
+
+        const handleMessagesLoaded = (data) => {
+          console.log(`📥 [EVENT] messagesLoaded for ${data.conversationId}`);
+          setConversationMessages((prev) => ({
+            ...prev,
+            [data.conversationId]: data.messages,
+          }));
+          // Tắt trạng thái loading cho cuộc hội thoại này
+          setLoadingMessages((prev) => ({ ...prev, [data.conversationId]: false }));
+        };
+
+        const handleNewMessage = (data) => {
+    console.log("📥 [EVENT] newMessage received:", data);
+
+    // data.message chứa toàn bộ thông tin tin nhắn đã được populate
+    const { message, conversationId } = data;
+
+    if (!message || !conversationId) return;
+
+    // 1. Cập nhật danh sách tin nhắn trong state
+    setConversationMessages((prev) => {
+        const currentMessages = prev[conversationId] || [];
+        // Tránh thêm tin nhắn trùng lặp nếu nhận được sự kiện nhiều lần
+        if (currentMessages.some(m => m._id === message._id)) {
+            return prev;
+        }
+        return {
+            ...prev,
+            [conversationId]: [...currentMessages, message],
+        };
+    });
+
+    // 2. Cập nhật thông tin trên sidebar (lastMessage, unread count)
+    setPatientConversations((prevConvos) => // hoặc setDoctorConversations
+        prevConvos.map((conv) => {
+            if (conv.id === conversationId) {
+                const userData = extractUserData(session);
+                const isMyMessage = message.senderId._id === userData.userId;
+
+                return {
+                    ...conv,
+                    lastMessage: message.content || "Đã gửi một tệp",
+                    timestamp: message.createdAt,
+                    // Chỉ tăng unread count nếu đó không phải tin nhắn của mình
+                    unread: !isMyMessage,
+                    unreadCount: !isMyMessage ? (conv.unreadCount || 0) + 1 : conv.unreadCount,
+                };
+            }
+            return conv;
+        })
+    );
+};
+
+        const handleError = (error) => {
+          console.error("Socket error:", error);
+          setConnectionError("Lỗi socket: " + (error.message || "Unknown error"));
+        };
+
+        // 3. Lắng nghe các sự kiện
+        console.log("🎧 [EFFECT] Bắt đầu lắng nghe sự kiện...");
+        socket.on("conversationsLoaded", handleConversationsLoaded);
+        socket.on("messagesLoaded", handleMessagesLoaded);
+        socket.on("newMessage", handleNewMessage);
+        socket.on("error", handleError);
+
+        // 4. Gửi sự kiện để tải danh sách hội thoại
+        console.log("📤 [EFFECT] Gửi sự kiện loadConversations...");
+        socket.emit("loadConversations", {
+          userId: userData.userId,
+          userRole: "doctor",
+        });
+      } catch (error) {
+        console.error("Lỗi khởi tạo socket:", error);
+        setConnectionError("Không thể kết nối đến máy chủ");
+        setConversationsLoading(false);
       }
     };
 
-    loadConversations();
-  }, [session]);
+    initializeAndListen();
 
-  // Load messages for a specific conversation
-  const loadConversationMessages = async (conversationId: string, forceReload: boolean = false) => {
-    // Check loading state
-    const isCurrentlyLoading = loadingMessages[conversationId];
-    const hasMessages = conversationMessages[conversationId] && conversationMessages[conversationId].length > 0;
-
-    if (!forceReload && (isCurrentlyLoading || hasMessages)) {
-      console.log(`Skipping load for ${conversationId}: loading=${isCurrentlyLoading}, hasMessages=${hasMessages}`);
-      return; // Already loaded or loading (unless forced reload)
-    }
-
-    setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
-
-    try {
-      const userId = (session?.user as any)?._id || (session?.user as any)?.id;
-      if (userId) {
-        console.log(`Loading messages for conversation ${conversationId}...`);
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/conversations/${conversationId}/messages?userId=${userId}&userRole=doctor&limit=100`
-        );
-
-        if (response.ok) {
-          const messages = await response.json();
-          setConversationMessages((prev) => ({
-            ...prev,
-            [conversationId]: messages,
-          }));
-          console.log(`Loaded ${messages.length} messages for conversation ${conversationId}:`, messages);
-        } else {
-          console.error(`Failed to load messages for conversation ${conversationId}:`, response.status);
-        }
+    // 5. Hàm cleanup (rất quan trọng)
+    return () => {
+      console.log("🧹 [CLEANUP] Dọn dẹp effect...");
+      if (socket) {
+        console.log("🔌 [CLEANUP] Gỡ bỏ các listener và ngắt kết nối socket.");
+        socket.off("conversationsLoaded");
+        socket.off("messagesLoaded");
+        socket.off("newMessage");
+        socket.off("error");
+        realtimeChatService.disconnect();
       }
-    } catch (error) {
-      console.error("Error loading conversation messages:", error);
-    } finally {
-      setLoadingMessages((prev) => ({ ...prev, [conversationId]: false }));
-    }
-  };
+      setSocketInitialized(false);
+    };
+  }, [session]); // ✅ CHỈ PHỤ THUỘC VÀO SESSION
 
-  // Load messages when conversation is selected
+  // Load messages for a specific conversation using socket
+  const loadConversationMessages = useCallback(
+    async (conversationId: string, forceReload: boolean = false) => {
+      // Check loading state
+      const isCurrentlyLoading = loadingMessages[conversationId];
+      const hasMessages = conversationMessages[conversationId] && conversationMessages[conversationId].length > 0;
+
+      if (!forceReload && (isCurrentlyLoading || hasMessages)) {
+        console.log(`Skipping load for ${conversationId}: loading=${isCurrentlyLoading}, hasMessages=${hasMessages}`);
+        return;
+      }
+
+      if (!socketInitialized) {
+        console.log("Socket not initialized yet, skipping message load");
+        return;
+      }
+
+      setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
+
+      try {
+        console.log(`Loading messages via socket for conversation ${conversationId}...`);
+        await realtimeChatService.loadMessages(conversationId, 100);
+        // Messages will be handled by the messagesLoaded event listener
+      } catch (error) {
+        console.error("Error loading conversation messages:", error);
+        setLoadingMessages((prev) => ({ ...prev, [conversationId]: false }));
+      }
+    },
+    [loadingMessages, conversationMessages, socketInitialized]
+  );
+
+  // Load messages when conversation is selected and join room
   useEffect(() => {
-    if (selectedChat) {
+    if (selectedChat && socketInitialized) {
       // Check if this is a different conversation than previous
       const isDifferentConversation = previousSelectedChatRef.current !== selectedChat;
 
       console.log(`Selected chat changed to: ${selectedChat}, isDifferent: ${isDifferentConversation}`);
 
-      // Always load messages when switching conversations
-      // Clear existing messages for the conversation to force fresh load
-      if (isDifferentConversation) {
-        setConversationMessages((prev) => ({ ...prev, [selectedChat]: [] }));
-      }
+      // Join the conversation room
+      realtimeChatService.joinConversation(selectedChat);
 
+      // Load messages if needed
       loadConversationMessages(selectedChat, isDifferentConversation);
 
       // Update previous selected chat ref
@@ -178,149 +229,53 @@ export default function DoctorChatPage() {
     } else {
       previousSelectedChatRef.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChat]); // Intentionally excluding loadConversationMessages to avoid infinite loop
+  }, [selectedChat, socketInitialized, loadConversationMessages]);
 
-  // Polling for new messages
-  const pollForNewMessages = useCallback(
-    async (conversationId: string) => {
-      try {
-        const userId = (session?.user as any)?._id || (session?.user as any)?.id;
-        if (userId) {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/conversations/${conversationId}/messages?userId=${userId}&userRole=doctor&limit=100`
-          );
+  // Handle new message from socket events (updating UI state)
+  const updateConversationWithNewMessage = useCallback((message: Message, conversationId: string) => {
+    // Update conversation messages
+    setConversationMessages((prev) => ({
+      ...prev,
+      [conversationId]: [...(prev[conversationId] || []), message],
+    }));
 
-          if (response.ok) {
-            const newMessages = await response.json();
-            const currentMessages = conversationMessages[conversationId] || [];
-
-            // Check if there are new messages
-            if (newMessages.length > currentMessages.length) {
-              console.log(
-                `🔄 Found ${
-                  newMessages.length - currentMessages.length
-                } new messages for conversation ${conversationId}`
-              );
-              setConversationMessages((prev) => ({
-                ...prev,
-                [conversationId]: newMessages,
-              }));
-
-              // Update lastMessage in conversations sidebar
-              const latestMessage = newMessages[newMessages.length - 1];
-              if (latestMessage) {
-                setPatientConversations((prev) =>
-                  prev.map((conv) =>
-                    conv.id === conversationId
-                      ? {
-                          ...conv,
-                          lastMessage: latestMessage.content,
-                          timestamp: latestMessage.createdAt || new Date().toISOString(),
-                          // Update unreadCount if new messages are from patient (not current doctor)
-                          unreadCount:
-                            latestMessage.senderRole === "patient"
-                              ? (conv.unreadCount || 0) + (newMessages.length - currentMessages.length)
-                              : conv.unreadCount,
-                          unread:
-                            latestMessage.senderRole === "patient"
-                              ? (conv.unreadCount || 0) + (newMessages.length - currentMessages.length) > 0
-                              : conv.unread,
-                        }
-                      : conv
-                  )
-                );
-              }
+    // Update lastMessage and timestamp in conversations sidebar
+    setPatientConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === conversationId
+          ? {
+              ...conv,
+              lastMessage: message.content,
+              timestamp: message.createdAt || new Date().toISOString(),
+              // Update unread count if message is from patient
+              unreadCount: message.senderRole === "patient" ? (conv.unreadCount || 0) + 1 : conv.unreadCount,
+              unread: message.senderRole === "patient" ? true : conv.unread,
             }
-          }
-        }
-      } catch (error) {
-        console.error("Error polling for new messages:", error);
-      }
+          : conv
+      )
+    );
+  }, []);
+
+  // Handle new message callback for ChatInterface
+  const handleNewMessage = useCallback(
+    (newMessage: Message) => {
+      // Use our utility function to update state
+      updateConversationWithNewMessage(newMessage, selectedChat || "");
+      console.log("New message sent via ChatInterface:", newMessage);
     },
-    [session, conversationMessages]
+    [updateConversationWithNewMessage, selectedChat]
   );
 
-  // Set up polling when conversation is selected
-  useEffect(() => {
-    let pollInterval: NodeJS.Timeout;
-
-    if (selectedChat) {
-      // Start polling every 1 second for faster realtime
-      pollInterval = setInterval(() => {
-        pollForNewMessages(selectedChat);
-      }, 1000);
-
-      console.log(`📡 Started polling for conversation: ${selectedChat}`);
-    }
-
-    // Cleanup polling on conversation change or unmount
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        console.log(`🛑 Stopped polling for conversation: ${selectedChat}`);
-      }
-    };
-  }, [selectedChat, conversationMessages]);
-
-  // Handle new message callback
-  const handleNewMessage = (newMessage: any) => {
-    if (selectedChat) {
-      // Add new message to conversation messages
-      setConversationMessages((prev) => ({
-        ...prev,
-        [selectedChat]: [...(prev[selectedChat] || []), newMessage],
-      }));
-
-      // Update lastMessage and timestamp in conversations sidebar
-      setPatientConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === selectedChat
-            ? {
-                ...conv,
-                lastMessage: newMessage.content,
-                timestamp: newMessage.createdAt || new Date().toISOString(),
-                // Update unreadCount if message is from patient
-                unreadCount: newMessage.senderRole === "patient" ? (conv.unreadCount || 0) + 1 : conv.unreadCount,
-                unread: newMessage.senderRole === "patient" ? true : conv.unread,
-              }
-            : conv
-        )
-      );
-
-      console.log("Added new message to conversation:", newMessage);
-    }
-  };
-
   // Mark conversation as read (reset unreadCount to 0)
-  const markConversationAsRead = async (conversationId: string) => {
-    try {
-      const userId = (session?.user as any)?._id || (session?.user as any)?.id;
-      if (userId) {
-        // Update local state immediately
-        setPatientConversations((prev) =>
-          prev.map((conv) => (conv.id === conversationId ? { ...conv, unread: false, unreadCount: 0 } : conv))
-        );
+  const markConversationAsRead = useCallback((conversationId: string) => {
+    // Update local state immediately
+    setPatientConversations((prev) =>
+      prev.map((conv) => (conv.id === conversationId ? { ...conv, unread: false, unreadCount: 0 } : conv))
+    );
 
-        // Call API to mark as read in backend
-        await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/conversations/${conversationId}/mark-read`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userId: userId,
-              userRole: "doctor",
-            }),
-          }
-        );
-      }
-    } catch (error) {
-      console.error("Error marking conversation as read:", error);
-    }
-  };
+    // Note: Backend marking as read will be handled by socket events when implemented
+    console.log(`Marked conversation ${conversationId} as read`);
+  }, []);
 
   // Format timestamp for display
   const formatTimestamp = (timestamp: string) => {
@@ -339,7 +294,7 @@ export default function DoctorChatPage() {
   };
 
   return (
-    <div className="flex overflow-hidden h-screen pt-16">
+    <div className="flex overflow-hidden h-screen">
       {/* Chat Sidebar - Toggleable */}
       {showSidebar && (
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
@@ -362,7 +317,12 @@ export default function DoctorChatPage() {
 
               {/* Patient conversations from database */}
               <div className="space-y-2">
-                {conversationsLoading ? (
+                {connectionError ? (
+                  <div className="p-4 text-center text-red-500">
+                    <div className="mb-2">⚠️</div>
+                    <div className="text-sm">{connectionError}</div>
+                  </div>
+                ) : conversationsLoading ? (
                   <div className="p-4 text-center text-gray-500">
                     <div
                       className="animate-spin rounded-full h-6 w-6 border-b-2 mx-auto mb-2"
@@ -391,9 +351,25 @@ export default function DoctorChatPage() {
                           className="w-8 h-8 rounded-full flex items-center justify-center mr-3"
                           style={{ background: "var(--color-primary-50)" }}
                         >
-                          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" style={{ color: "var(--color-primary)" }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6" />
+                          <svg
+                            className="w-5 h-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            style={{ color: "var(--color-primary)" }}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M6 20c0-3.314 2.686-6 6-6s6 2.686 6 6"
+                            />
                           </svg>
                         </div>
                         <div className="flex-1">
@@ -496,7 +472,7 @@ export default function DoctorChatPage() {
             return selectedConversation && selectedChat ? (
               <ChatInterface
                 type="doctor"
-                conversationId={selectedConversation.databaseId || selectedConversation.id}
+                conversationId={selectedConversation.id}
                 currentUserId={
                   (session?.user as { _id?: string; id?: string })?._id ||
                   (session?.user as { _id?: string; id?: string })?.id
@@ -506,10 +482,8 @@ export default function DoctorChatPage() {
                 isLoadingMessages={loadingMessages[selectedChat] || false}
                 onNewMessage={handleNewMessage}
                 onInputFocus={() => {
-                  console.log("Doctor input focused, selectedConversation:", selectedConversation);
-                  // Mark conversation as read when input is focused
+                  console.log("Doctor input focused, marking as read");
                   if (selectedConversation.unreadCount > 0) {
-                    console.log("Calling markConversationAsRead for doctor input focus");
                     markConversationAsRead(selectedConversation.id);
                   }
                 }}

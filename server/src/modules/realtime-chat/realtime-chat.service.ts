@@ -187,44 +187,57 @@ export class RealtimeChatService {
     return populatedMessage;
   }
 
+  // File: src/realtime-chat/realtime-chat.service.ts
+
+  // File: src/realtime-chat/realtime-chat.service.ts
+
   async getConversationMessages(
     conversationId: Types.ObjectId,
     userId: Types.ObjectId,
     userRole: 'patient' | 'doctor',
     page: number = 1,
-    limit: number = 50,
+    limit: number = 50, // Lấy 50 tin nhắn mỗi lần tải
   ): Promise<MessageDocument[]> {
-    // Verify user is participant in conversation
+    console.log(
+      `[Service] Bắt đầu getConversationMessages cho conversation: ${conversationId}`,
+    );
+
+    // 1. Kiểm tra quyền (giữ nguyên)
     const conversation = await this.conversationModel.findById(conversationId);
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
     }
-
-    if (
-      (userRole === 'patient' && !conversation.patientId.equals(userId)) ||
-      (userRole === 'doctor' && !conversation.doctorId.equals(userId))
-    ) {
-      throw new BadRequestException(
-        'You are not a participant in this conversation',
-      );
+    const isParticipant =
+      (userRole === 'patient' && conversation.patientId.equals(userId)) ||
+      (userRole === 'doctor' && conversation.doctorId.equals(userId));
+    if (!isParticipant) {
+      throw new BadRequestException('User is not a participant');
     }
+    console.log(`[Service] User authorized.`);
 
+    // 2. Sửa lại logic truy vấn và phân trang
     const skip = (page - 1) * limit;
 
-    // Fetch newest first to ensure recent messages are included, then reverse
-    const newestFirst = await this.messageModel
-      .find({ conversationId, isDeleted: false })
-      .select(
-        'conversationId senderId senderRole content messageType fileUrl fileName fileType fileSize isRead readAt createdAt updatedAt',
-      )
-      .populate('senderId', 'firstName lastName avatar')
-      .populate('replyTo')
+    const messages = await this.messageModel
+      .find({
+        conversationId: conversationId,
+        isDeleted: { $ne: true },
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .lean();
+      .populate({
+        path: 'senderId',
+        select: 'fullName firstName lastName email avatar',
+      })
+      .lean()
+      .exec();
 
-    return newestFirst.reverse() as any;
+    console.log(
+      `[Service] Query DB successful. Found ${messages.length} messages.`,
+    );
+
+    return messages.reverse() as MessageDocument[];
   }
 
   async markMessageAsRead(

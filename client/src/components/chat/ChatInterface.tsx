@@ -45,6 +45,7 @@ import { useWebRTC } from "@/contexts/WebRTCContext";
 import CallButton from "@/components/call/CallButton";
 import IncomingCallModal from "@/components/call/IncomingCallModal";
 import VideoCallInterface from "@/components/call/VideoCallInterface";
+import realtimeChatService from "@/services/realtimeChatService";
 
 // Helper to format timestamps consistently
 function formatTimestampLocalized(input: Date | string): string {
@@ -62,7 +63,7 @@ function formatTimestampLocalized(input: Date | string): string {
 function isRenderableMessage(msg: any): boolean {
   const type = (msg?.messageType || "text").toString().toLowerCase();
   const hasText = !!(msg?.content && msg.content.trim().length > 0);
-  const hasFile = !!(msg?.fileUrl);
+  const hasFile = !!msg?.fileUrl;
   if (type === "call") return true; // always render call (as a card)
   if (type === "call" && !hasText && !hasFile) return true;
   return hasText || hasFile; // only render if there is something to show
@@ -169,7 +170,7 @@ export default function ChatInterface({
   const [showIncomingCallModal, setShowIncomingCallModal] = useState(false);
 
   // Doctor chat state
-  const [doctorMessages, setDoctorMessages] = useState<
+  const [conversationMessages, setConversationMessages] = useState<
     Array<{
       role: string;
       content: string;
@@ -195,74 +196,57 @@ export default function ChatInterface({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  // Initialize realtime chat connection
   useEffect(() => {
-    if (type === "doctor" && (doctorName || currentUserRole === "doctor")) {
-      console.log("✅ UseEffect running - Load preloaded messages from database");
-      // Load preloaded messages from database
-      if (preloadedMessages && preloadedMessages.length > 0) {
-        const transformedMessages = preloadedMessages.filter(isRenderableMessage).map((msg: any, index: number) => {
-          // Handle populated senderId (object) vs direct senderId (string)
-          const senderIdValue =
-            typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId;
-          const senderIdString = senderIdValue ? senderIdValue.toString() : "";
-          const currentUserIdString = currentUserId ? currentUserId.toString() : "";
-
-          // Simplified logic:
-          // - If current user sent this message -> role = "user" (appears on right side)
-          // - Otherwise -> role based on sender's role (appears on left side)
-          let messageRole: string;
-          const isCurrentUserMessage = senderIdString === currentUserIdString;
-
-          if (isCurrentUserMessage) {
-            messageRole = "user"; // Current user's messages go to right
-          } else {
-            // Other person's messages go to left
-            // For doctor interface: patient messages show as "patient"
-            // For patient interface: doctor messages show as "doctor"
-            messageRole = currentUserRole === "doctor" ? "patient" : "doctor";
-          }
-
-          console.log(`→ Transformed role: ${messageRole}`);
-
-          console.log(`→ Original message:`, msg);
-          console.log(`→ Message RAW fields:`, Object.keys(msg));
-          console.log(`→ Message type: ${msg.messageType}, File URL: ${msg.fileUrl}, Content: ${msg.content}`);
-
-          return {
-            role: messageRole,
-            content: msg.content,
-            timestamp: new Date(msg.createdAt || msg.timestamp),
-            messageType: msg.messageType,
-            fileUrl: msg.fileUrl,
-            fileName: msg.fileName,
-            fileType: msg.fileType,
-            fileSize: msg.fileSize,
-          };
-        });
-
-        console.log("Final transformed messages:", transformedMessages);
-        setDoctorMessages(transformedMessages);
-
-        // Log to verify state after setting
-        setTimeout(() => {
-          console.log("📊 Doctor messages state after setting:", doctorMessages);
-        }, 100);
-      } else if (preloadedMessages && preloadedMessages.length === 0 && doctorName) {
-        // Add welcome message if no messages in conversation yet
-        const welcomeMessage = {
-          role: currentUserRole === "doctor" ? "patient" : "doctor",
-          content:
-            currentUserRole === "doctor"
-              ? `Cuộc trò chuyện với bệnh nhân`
-              : `Xin chào! Tôi là ${doctorName}. Tôi có thể giúp gì cho bạn hôm nay?`,
-          timestamp: new Date(),
-        };
-        console.log("Setting welcome message:", welcomeMessage);
-        setDoctorMessages([welcomeMessage]);
-      }
+    // Chỉ chạy logic khi type là 'doctor' hoặc 'simple-doctor'
+    if (type !== "doctor" && type !== "simple-doctor") {
+      return;
     }
-  }, [type, doctorName, preloadedMessages, currentUserId, currentUserRole]);
+
+    // Chỉ thực hiện khi có mảng tin nhắn được truyền vào
+    if (!preloadedMessages) {
+      setConversationMessages([]); // Đảm bảo clear tin nhắn nếu preloadedMessages là null/undefined
+      return;
+    }
+
+    // Nếu không có tin nhắn, set mảng rỗng và thoát
+    if (preloadedMessages.length === 0) {
+      setConversationMessages([]);
+      return;
+    }
+
+    // Bắt đầu chuyển đổi tin nhắn
+    const transformedMessages = preloadedMessages
+      .filter(isRenderableMessage) // Lọc các tin nhắn có thể hiển thị
+      .map((msg) => {
+        const senderId = msg.senderId?._id || msg.senderId;
+        const isMyMessage = senderId?.toString() === currentUserId?.toString();
+
+        let finalRole = "";
+
+        if (isMyMessage) {
+          finalRole = "user"; // "user" sẽ luôn hiển thị bên phải
+        } else {
+          // Nếu không phải tin của tôi, thì role là của người gửi
+          finalRole = msg.senderRole; // 'doctor' hoặc 'patient'
+        }
+
+        return {
+          role: finalRole,
+          content: msg.content || "",
+          timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+          messageType: msg.messageType || (msg.fileUrl ? "file" : "text"),
+          fileUrl: msg.fileUrl,
+          fileName: msg.fileName,
+          fileType: msg.fileType,
+          fileSize: msg.fileSize,
+          callData: msg.callData,
+        };
+      });
+
+    setConversationMessages(transformedMessages);
+
+    // Mảng dependency chỉ chứa các props đầu vào quyết định nội dung cuộc trò chuyện.
+  }, [type, preloadedMessages, currentUserId, currentUserRole, conversationId]);
 
   // Video call: Show incoming call modal when there's an incoming call
   useEffect(() => {
@@ -289,60 +273,7 @@ export default function ChatInterface({
     } else if (type === "doctor") {
       scrollDoctorMessagesToBottom();
     }
-  }, [messages, doctorMessages, type]);
-
-  // Initialize doctor conversation
-  useEffect(() => {
-    if (type === "doctor" && (doctorName || currentUserRole === "doctor")) {
-      // Load preloaded messages from database
-      if (preloadedMessages && preloadedMessages.length > 0) {
-        const transformedMessages = preloadedMessages.filter(isRenderableMessage).map((msg: any) => {
-          // Handle populated senderId (object) vs direct senderId (string)
-          const senderIdValue =
-            typeof msg.senderId === "object" ? msg.senderId._id || msg.senderId.id || msg.senderId : msg.senderId;
-          const senderIdString = senderIdValue ? senderIdValue.toString() : "";
-          const currentUserIdString = currentUserId ? currentUserId.toString() : "";
-          const isCurrentUserById = senderIdString === currentUserIdString;
-
-          // For doctor interface: doctor's messages should show as "user" (right side)
-          // Patient's messages should show as "patient" (left side)
-          let messageRole: string;
-          if (currentUserRole === "doctor") {
-            // Doctor viewing: their own messages are "user", patient messages are "patient"
-            messageRole = msg.senderRole === "doctor" && isCurrentUserById ? "user" : "patient";
-          } else {
-            // Patient viewing: their own messages are "user", doctor messages are "doctor"
-            messageRole = msg.senderRole === "patient" && isCurrentUserById ? "user" : "doctor";
-          }
-
-          return {
-            role: messageRole,
-            content: msg.content,
-            timestamp: new Date(msg.createdAt || msg.timestamp),
-            messageType: msg.messageType,
-            fileUrl: msg.fileUrl,
-            fileName: msg.fileName,
-            fileType: msg.fileType,
-            fileSize: msg.fileSize,
-          };
-        });
-
-        setDoctorMessages(transformedMessages);
-      } else if (preloadedMessages && preloadedMessages.length === 0 && doctorName) {
-        // Add welcome message if no messages in conversation yet
-        const welcomeMessage = {
-          role: currentUserRole === "doctor" ? "patient" : "doctor",
-          content:
-            currentUserRole === "doctor"
-              ? `Cuộc trò chuyện với bệnh nhân`
-              : `Xin chào! Tôi là ${doctorName}. Tôi có thể giúp gì cho bạn hôm nay?`,
-          timestamp: new Date(),
-        };
-        console.log("Setting welcome message:", welcomeMessage);
-        setDoctorMessages([welcomeMessage]);
-      }
-    }
-  }, [type, doctorName, preloadedMessages, currentUserId, currentUserRole, doctorMessages.length]);
+  }, [messages, conversationMessages, type]);
 
   // Load doctors from API
   const loadDoctors = async () => {
@@ -1094,47 +1025,64 @@ export default function ChatInterface({
     setShowConversationList(false);
   };
 
-  // Doctor chat handlers
+  // File: components/chat/ChatInterface.tsx
+
   const handleDoctorSendMessage = async () => {
-    // If we have a file but no text, allow file-only send
-    // If we have text but no file, allow text-only send
-    // If we have both, send both together
+    // 1. Kiểm tra xem có nội dung để gửi hoặc đang trong quá trình gửi không
     if ((!doctorInput.trim() && !selectedFile) || isDoctorLoading) return;
 
     setIsDoctorLoading(true);
+    const originalInput = doctorInput; // Lưu lại tin nhắn gốc để xóa nếu gửi lỗi
 
-    try {
-      // Get auth token from session
-      const token =
-        (session as any)?.access_token ||
-        (session as any)?.accessToken ||
-        localStorage.getItem("access_token") ||
-        sessionStorage.getItem("access_token");
+    // 2. Xử lý gửi tin nhắn văn bản (qua Socket.IO)
+    if (!selectedFile && doctorInput.trim()) {
+      try {
+        if (!conversationId) {
+          throw new Error("Không có ID cuộc trò chuyện.");
+        }
 
-      let savedMessage: any;
+        // Cập nhật giao diện ngay lập tức cho người gửi (Optimistic UI)
+        const tempMessage = {
+          _id: `temp_${Date.now()}`,
+          role: "user",
+          content: doctorInput.trim(),
+          timestamp: new Date(),
+          senderId: currentUserId,
+          senderRole: currentUserRole,
+        };
+        setConversationMessages((prev) => [...prev, tempMessage as any]);
+        setDoctorInput(""); // Xóa input sau khi tạo tin nhắn tạm
 
-      // If we have a file to upload
-      if (selectedFile) {
-        console.log("=== DOCTOR SEND MESSAGE WITH FILE DEBUG ===");
-        console.log("conversationId:", conversationId);
-        console.log("File:", selectedFile.name, selectedFile.size, selectedFile.type);
-        console.log("Text content:", doctorInput.trim());
+        // Gửi tin nhắn qua socket service
+        await realtimeChatService.sendMessage(conversationId, originalInput.trim(), "text");
 
+        // Server sẽ gửi lại sự kiện `newMessage` để đồng bộ hóa cho cả hai người dùng.
+        // Hàm `handleNewMessage` ở trang cha sẽ xử lý và thay thế tin nhắn tạm này.
+      } catch (error) {
+        console.error("Lỗi gửi tin nhắn văn bản:", error);
+        alert("Gửi tin nhắn thất bại. Vui lòng thử lại.");
+        // Nếu lỗi, khôi phục lại input và xóa tin nhắn tạm
+        setDoctorInput(originalInput);
+        setConversationMessages((prev) => prev.filter((msg) => !msg._id.startsWith("temp_")));
+      } finally {
+        setIsDoctorLoading(false);
+      }
+      return; // Kết thúc hàm sau khi gửi tin nhắn text
+    }
+
+    // 3. Xử lý gửi file (qua REST API)
+    if (selectedFile) {
+      try {
+        const token = (session as any)?.accessToken;
         const formData = new FormData();
         formData.append("file", selectedFile);
         formData.append("conversationId", conversationId || "");
         formData.append("senderId", currentUserId || "");
         formData.append("senderRole", currentUserRole || "doctor");
 
-        // Include text content if provided
+        // Nếu có nội dung text đi kèm file
         if (doctorInput.trim()) {
           formData.append("content", doctorInput.trim());
-        }
-
-        // Log FormData contents for debugging
-        console.log("FormData contents:");
-        for (let [key, value] of formData.entries()) {
-          console.log(key, value);
         }
 
         const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/upload-file`, {
@@ -1145,94 +1093,24 @@ export default function ChatInterface({
           body: formData,
         });
 
-        console.log("Upload response status:", uploadResponse.status);
-
-        if (uploadResponse.ok) {
-          const result = await uploadResponse.json();
-          // Some APIs return { message: {...} }, others return {...}
-          savedMessage = result?.message ?? result;
-          console.log("✅ File message saved successfully:", savedMessage);
-        } else {
-          const errorText = await uploadResponse.text();
-          console.error("❌ Failed to upload file:", {
-            status: uploadResponse.status,
-            statusText: uploadResponse.statusText,
-            error: errorText,
-          });
-          throw new Error(`File upload failed: ${errorText}`);
+        if (!uploadResponse.ok) {
+          throw new Error(await uploadResponse.text());
         }
 
-        // Clear file selection
+        // Không cần cập nhật UI ở đây. Server đã nhận file, lưu tin nhắn,
+        // và sẽ tự động emit sự kiện 'newMessage' đến tất cả client.
+        // Hàm `handleNewMessage` ở trang cha sẽ nhận và cập nhật UI.
+
+        // Dọn dẹp sau khi gửi thành công
         setSelectedFile(null);
         setUploadPreview(null);
-      } else {
-        // Text-only message
-        console.log("=== DOCTOR SEND TEXT MESSAGE DEBUG ===");
-        console.log("conversationId:", conversationId);
-        console.log("currentUserId:", currentUserId);
-        console.log("currentUserRole:", currentUserRole);
-
-        const requestBody = {
-          conversationId: conversationId,
-          senderId: currentUserId,
-          senderRole: currentUserRole || "doctor",
-          content: doctorInput.trim(),
-          messageType: "text",
-        };
-
-        console.log("Request body:", requestBody);
-
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        console.log("Response status:", response.status);
-
-        if (response.ok) {
-          const result = await response.json();
-          // Normalize shapes: {message:{...}} | {data:{...}} | {...}
-          savedMessage = result?.message ?? result?.data ?? result;
-          console.log("✅ Text message saved successfully (normalized):", savedMessage);
-        } else {
-          const errorText = await response.text();
-          console.error("❌ Failed to save message to database:", {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorText,
-          });
-          throw new Error(`Message send failed: ${errorText}`);
-        }
+        setDoctorInput("");
+      } catch (error) {
+        console.error("Lỗi gửi file:", error);
+        alert("Gửi file thất bại. Vui lòng thử lại.");
+      } finally {
+        setIsDoctorLoading(false);
       }
-
-      // Add message to UI (use robust fallbacks)
-      const userMessage = {
-        role: "user", // current user's bubble should be on the right
-        content: savedMessage?.content ?? doctorInput.trim() ?? "",
-        timestamp: new Date(),
-        messageType: savedMessage?.messageType ?? (savedMessage?.fileUrl ? (savedMessage?.fileType?.startsWith("image/") ? "image" : savedMessage?.fileType?.startsWith("video/") ? "video" : "file") : "text"),
-        fileUrl: savedMessage?.fileUrl,
-        fileName: savedMessage?.fileName,
-        fileSize: savedMessage?.fileSize,
-      } as any;
-
-      setDoctorMessages((prev) => [...prev, userMessage]);
-      setDoctorInput("");
-
-      // Notify parent component about new message
-      if (onNewMessage) {
-        onNewMessage(savedMessage);
-      }
-
-      setIsDoctorLoading(false);
-    } catch (error) {
-      console.error("Error sending message:", error);
-      setIsDoctorLoading(false);
-      alert("Có lỗi xảy ra khi gửi tin nhắn. Vui lòng thử lại.");
     }
   };
 
@@ -1784,14 +1662,7 @@ export default function ChatInterface({
               </div>
             ) : (
               <>
-                {doctorMessages.map((message, index) => {
-                  console.log(`📝 Rendering message ${index}:`, {
-                    messageType: message.messageType,
-                    fileUrl: message.fileUrl,
-                    content: message.content,
-                    fullMessage: message,
-                  });
-
+                {conversationMessages.map((message, index) => {
                   // Render CALL message card
                   if ((message as any).messageType === "call") {
                     const callData = (message as any).callData || {};
@@ -1800,7 +1671,10 @@ export default function ChatInterface({
                     const duration = formatDuration(callData.callDuration);
                     return (
                       <div key={index} className="flex justify-center">
-                        <div className="px-4 py-2 rounded-md border text-sm bg-white" style={{ borderColor: "var(--color-border)" }}>
+                        <div
+                          className="px-4 py-2 rounded-md border text-sm bg-white"
+                          style={{ borderColor: "var(--color-border)" }}
+                        >
                           <span className="font-medium" style={{ color: "var(--color-primary-contrast)" }}>
                             {isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại"}
                           </span>
@@ -1829,11 +1703,14 @@ export default function ChatInterface({
                       >
                         {/* Render file attachment */}
                         {(() => {
-                          const hasFile = (message as any).messageType && (message as any).messageType !== "text" && (message as any).fileUrl;
+                          const hasFile =
+                            (message as any).messageType &&
+                            (message as any).messageType !== "text" &&
+                            (message as any).fileUrl;
                           if (hasFile) {
                             return (
                               <div className="mb-2">
-                                {((message as any).messageType === "image") ? (
+                                {(message as any).messageType === "image" ? (
                                   <img
                                     src={(message as any).fileUrl}
                                     alt={(message as any).fileName || "Image"}
@@ -1841,14 +1718,26 @@ export default function ChatInterface({
                                     style={{ maxHeight: "200px", maxWidth: "200px" }}
                                   />
                                 ) : (message as any).messageType === "video" ? (
-                                  <video src={(message as any).fileUrl} controls className="max-w-full h-auto rounded border" style={{ maxHeight: "200px" }} />
+                                  <video
+                                    src={(message as any).fileUrl}
+                                    controls
+                                    className="max-w-full h-auto rounded border"
+                                    style={{ maxHeight: "200px" }}
+                                  />
                                 ) : (
                                   <div className="flex items-center space-x-2 p-2 bg-white bg-opacity-20 rounded border">
                                     <div className="text-lg">📄</div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm text-gray-900 font-medium truncate">{(message as any).fileName || "File attachment"}</p>
+                                      <p className="text-sm text-gray-900 font-medium truncate">
+                                        {(message as any).fileName || "File attachment"}
+                                      </p>
                                     </div>
-                                    <a href={(message as any).fileUrl} rel="noopener noreferrer" download={(message as any).fileName} className="text-xs underline opacity-80 hover:opacity-100 text-primary">
+                                    <a
+                                      href={(message as any).fileUrl}
+                                      rel="noopener noreferrer"
+                                      download={(message as any).fileName}
+                                      className="text-xs underline opacity-80 hover:opacity-100 text-primary"
+                                    >
                                       Tải về
                                     </a>
                                   </div>

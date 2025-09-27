@@ -144,6 +144,8 @@ export class RealtimeChatGateway
     );
   }
 
+  // File: src/realtime-chat/realtime-chat.gateway.ts
+
   @SubscribeMessage('sendMessage')
   async handleSendMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
@@ -154,33 +156,58 @@ export class RealtimeChatGateway
       const userRole = client.userRole;
 
       if (!userId || !userRole) {
+        client.emit('messageError', { error: 'Không thể xác thực người gửi.' });
         return;
       }
 
-      // Send message through service
+      const processedDto: SendMessageDto = {
+        ...data,
+        conversationId: new Types.ObjectId(data.conversationId),
+      };
+
+      // 1. Lưu tin nhắn vào database
       const message = await this.realtimeChatService.sendMessage(
         new Types.ObjectId(userId),
         userRole,
-        data,
+        processedDto, // Dùng DTO mới đã chuẩn hóa
       );
+      this.logger.log(`Tin nhắn đã được lưu: ${message._id}`);
 
-      // Emit message to conversation participants
-      this.server.to(`conversation_${data.conversationId}`).emit('newMessage', {
-        message,
-        conversationId: data.conversationId,
-      });
-
-      // Update conversation for both participants
+      // 2. Lấy thông tin đầy đủ của cuộc trò chuyện để biết ai là người nhận
       const conversation = await this.realtimeChatService.getConversationById(
-        data.conversationId,
+        new Types.ObjectId(data.conversationId),
+      );
+      if (!conversation) {
+        this.logger.error(
+          `Không tìm thấy conversation với ID: ${data.conversationId}`,
+        );
+        return;
+      }
+
+      // 3. Gửi sự kiện 'newMessage' tới CẢ HAI người tham gia
+      const patientRoom = `user_${conversation.patientId._id.toString()}`;
+      const doctorRoom = `user_${conversation.doctorId._id.toString()}`;
+
+      const payload = {
+        message, // Tin nhắn đã được populate đầy đủ thông tin senderId từ service
+        conversationId: data.conversationId.toString(),
+      };
+
+      this.server.to(patientRoom).to(doctorRoom).emit('newMessage', payload);
+      this.logger.log(
+        `Đã gửi sự kiện 'newMessage' tới phòng: ${patientRoom} và ${doctorRoom}`,
       );
 
+      // 4. (Giữ nguyên) Cập nhật trạng thái cuộc hội thoại (tin nhắn cuối, unread count) cho cả hai
       this.server
-        .to(`user_${conversation.patientId._id}`)
-        .to(`user_${conversation.doctorId._id}`)
+        .to(patientRoom)
+        .to(doctorRoom)
         .emit('conversationUpdated', conversation);
+      this.logger.log(
+        `Đã gửi sự kiện 'conversationUpdated' tới cả hai người dùng.`,
+      );
     } catch (error) {
-      this.logger.error('Error in sendMessage:', error);
+      this.logger.error('Lỗi trong sendMessage:', error);
       client.emit('messageError', { error: error.message });
     }
   }
@@ -215,6 +242,163 @@ export class RealtimeChatGateway
         });
     } catch (error) {
       this.logger.error('Error in markMessageRead:', error);
+    }
+  }
+
+  @SubscribeMessage('loadConversations')
+  async handleLoadConversations(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { userId: string; userRole: 'patient' | 'doctor' },
+  ) {
+    try {
+      const userId = data.userId || client.userId;
+      const userRole = data.userRole || client.userRole;
+
+      if (!userId || !userRole) {
+        this.logger.error('Missing userId or userRole in loadConversations');
+        return;
+      }
+
+      this.logger.log(`Loading conversations for ${userRole} ${userId}`);
+
+      const conversations = await this.realtimeChatService.getUserConversations(
+        new Types.ObjectId(userId),
+        userRole,
+      );
+
+      this.logger.log(
+        `Found ${conversations.length} conversations for user ${userId}`,
+      );
+
+      // Transform conversations for frontend based on user role
+      const transformedConversations = conversations.map((conv) => {
+        const convId = (conv._id as any)?.toString() || conv._id;
+
+        if (userRole === 'doctor') {
+          // Format for doctor (showing patient info)
+          return {
+            _id: convId,
+            id: convId,
+            patientId: conv.patientId
+              ? (conv.patientId as any)._id?.toString() || conv.patientId
+              : '',
+            patientName: conv.patientId
+              ? (conv.patientId as any).fullName ||
+                `${(conv.patientId as any).firstName || ''} ${(conv.patientId as any).lastName || ''}`.trim() ||
+                'Bệnh nhân'
+              : 'Bệnh nhân',
+            patientEmail: conv.patientId
+              ? (conv.patientId as any).email || ''
+              : '',
+            lastMessage: conv.lastMessage
+              ? (conv.lastMessage as any).content || 'Cuộc hội thoại mới'
+              : 'Cuộc hội thoại mới',
+            timestamp:
+              conv.lastMessageAt ||
+              (conv as any).updatedAt ||
+              (conv as any).createdAt ||
+              new Date(),
+            unread: conv.unreadDoctorCount > 0,
+            unreadCount: conv.unreadDoctorCount || 0,
+            databaseId: convId,
+          };
+        } else {
+          // Format for patient (showing doctor info)
+          return {
+            _id: convId,
+            id: convId,
+            doctorId: conv.doctorId
+              ? (conv.doctorId as any)._id?.toString() || conv.doctorId
+              : '',
+            doctorName: conv.doctorId
+              ? (conv.doctorId as any).fullName ||
+                `${(conv.doctorId as any).firstName || ''} ${(conv.doctorId as any).lastName || ''}`.trim() ||
+                'Bác sĩ'
+              : 'Bác sĩ',
+            doctorSpecialty: conv.doctorId
+              ? (conv.doctorId as any).specialty || 'Nha khoa tổng quát'
+              : 'Nha khoa tổng quát',
+            specialty: conv.doctorId
+              ? (conv.doctorId as any).specialty || 'Nha khoa tổng quát'
+              : 'Nha khoa tổng quát',
+            lastMessage: conv.lastMessage
+              ? (conv.lastMessage as any).content || 'Cuộc hội thoại mới'
+              : 'Cuộc hội thoại mới',
+            timestamp:
+              conv.lastMessageAt ||
+              (conv as any).updatedAt ||
+              (conv as any).createdAt ||
+              new Date(),
+            unread: conv.unreadPatientCount > 0,
+            unreadCount: conv.unreadPatientCount || 0,
+            databaseId: convId,
+          };
+        }
+      });
+
+      // Log detailed conversation data before emitting
+      this.logger.log(
+        `📤 EMITTING CONVERSATIONS to client ${client.id}:`,
+        JSON.stringify(transformedConversations, null, 2),
+      );
+
+      // Emit conversations back to client
+      client.emit('conversationsLoaded', {
+        conversations: transformedConversations,
+      });
+
+      this.logger.log(
+        `✅ Successfully emitted ${transformedConversations.length} conversations to client ${client.id}`,
+      );
+    } catch (error) {
+      this.logger.error('Error in loadConversations:', error);
+      client.emit('conversationsError', { error: error.message });
+    }
+  }
+
+  @SubscribeMessage('loadMessages')
+  async handleLoadMessages(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody()
+    data: {
+      conversationId: string;
+      userId: string;
+      userRole: 'patient' | 'doctor';
+      limit?: number;
+    },
+  ) {
+    try {
+      const { conversationId, userId, userRole, limit = 100 } = data;
+
+      if (!userId || !userRole) {
+        this.logger.error('Missing userId or userRole in loadMessages');
+        return;
+      }
+
+      this.logger.log(`Loading messages for conversation ${conversationId}`);
+
+      const messages = await this.realtimeChatService.getConversationMessages(
+        new Types.ObjectId(conversationId),
+        new Types.ObjectId(userId),
+        userRole,
+        1,
+        limit || 50,
+      );
+
+      this.logger.log(
+        `Found ${messages.length} messages for conversation ${conversationId}`,
+      );
+
+      // Emit messages back to client
+      client.emit('messagesLoaded', {
+        conversationId,
+        messages,
+      });
+
+      this.logger.log(`Emitted ${messages.length} messages to client`);
+    } catch (error) {
+      this.logger.error('Error in loadMessages:', error);
+      client.emit('messagesError', { error: error.message });
     }
   }
 

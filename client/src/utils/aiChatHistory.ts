@@ -1,5 +1,5 @@
 // AI Chat History API service
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export interface AiChatSession {
   _id?: string;
