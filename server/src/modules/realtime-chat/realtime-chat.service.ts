@@ -323,8 +323,8 @@ export class RealtimeChatService {
   ): Promise<ConversationDocument> {
     const conversation = await this.conversationModel
       .findById(conversationId)
-      .populate('patientId', 'firstName lastName avatar email')
-      .populate('doctorId', 'firstName lastName avatar email specialization')
+      .populate('patientId', 'fullName firstName lastName avatar email')
+      .populate('doctorId', 'fullName firstName lastName avatar email specialization')
       .populate('lastMessage');
 
     if (!conversation) {

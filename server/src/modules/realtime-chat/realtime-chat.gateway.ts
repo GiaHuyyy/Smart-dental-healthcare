@@ -98,6 +98,77 @@ export class RealtimeChatGateway
     }
   }
 
+  @SubscribeMessage('createConversation')
+async handleCreateConversation(
+  @MessageBody() data: { patientId: string; doctorId: string },
+  @ConnectedSocket() client: AuthenticatedSocket,
+) {
+  try {
+    const { patientId, doctorId } = data;
+    this.logger.log(`Yêu cầu tạo cuộc hội thoại từ patient ${patientId} cho doctor ${doctorId}`);
+
+    const conversation = await this.realtimeChatService.createConversation({
+      patientId: new Types.ObjectId(patientId),
+      doctorId: new Types.ObjectId(doctorId),
+    });
+
+    // Populate thông tin chi tiết để gửi về cho các client
+    const fullConversation = await this.realtimeChatService.getConversationById(
+      conversation._id as Types.ObjectId,
+    );
+
+    // Chuẩn bị payload cho patient (người tạo) và doctor
+    const patientPayload = this.transformConversationForUser(fullConversation, 'patient');
+    const doctorPayload = this.transformConversationForUser(fullConversation, 'doctor');
+
+    // Gửi sự kiện 'conversationCreated' đến cả hai người
+    this.server.to(`user_${patientId}`).emit('conversationCreated', patientPayload);
+    this.server.to(`user_${doctorId}`).emit('conversationCreated', doctorPayload);
+    this.logger.log(`Đã gửi 'conversationCreated' tới user ${patientId} và ${doctorId}`);
+    console.log("patientPayload:", patientPayload);
+    console.log("doctorPayload:", doctorPayload);
+
+    // ✅ SỬA LẠI ĐÂY: Trả về patientPayload (đã có đủ thông tin) cho client đã gọi
+    return { success: true, conversation: patientPayload };
+
+  } catch (error) {
+    this.logger.error('Lỗi trong handleCreateConversation:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+  // Bạn cũng cần một hàm helper để transform dữ liệu, hãy thêm nó vào trong gateway
+  private transformConversationForUser(conv: any, role: 'patient' | 'doctor') {
+    console.log("Transforming conversation for role:", role, conv);
+    const convId = conv._id.toString();
+    if (role === 'doctor') {
+      return {
+        id: convId,
+        patientId: conv.patientId?._id.toString(),
+        patientName: conv.patientId?.fullName || 'Bệnh nhân',
+        patientEmail: conv.patientId?.email,
+        lastMessage: conv.lastMessage?.content || 'Cuộc hội thoại mới',
+        timestamp: conv.lastMessageAt || conv.updatedAt,
+        unread: conv.unreadDoctorCount > 0,
+        unreadCount: conv.unreadDoctorCount,
+        databaseId: convId,
+      };
+    } else {
+      // patient
+      return {
+        id: convId,
+        doctorId: conv.doctorId?._id.toString(),
+        doctorName: conv.doctorId?.fullName || 'Bác sĩ',
+        specialty: conv.doctorId?.specialty || 'Nha khoa tổng quát',
+        lastMessage: conv.lastMessage?.content || 'Cuộc hội thoại mới',
+        timestamp: conv.lastMessageAt || conv.updatedAt,
+        unread: conv.unreadPatientCount > 0,
+        unreadCount: conv.unreadPatientCount,
+        databaseId: convId,
+      };
+    }
+  }
+
   @SubscribeMessage('joinConversation')
   async handleJoinConversation(
     @ConnectedSocket() client: AuthenticatedSocket,
@@ -212,38 +283,47 @@ export class RealtimeChatGateway
     }
   }
 
-  @SubscribeMessage('markMessageRead')
-  async handleMarkMessageRead(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { conversationId: string; messageId: string },
-  ) {
-    try {
-      const userId = client.userId;
-      const userRole = client.userRole;
+  @SubscribeMessage('markConversationAsRead')
+async handleMarkAsRead(
+  @ConnectedSocket() client: AuthenticatedSocket,
+  @MessageBody() data: { conversationId: string },
+) {
+  try {
+    const userId = client.userId;
+    const userRole = client.userRole;
 
-      if (!userId || !userRole) {
-        return;
-      }
-
-      await this.realtimeChatService.markMessageAsRead(
-        new Types.ObjectId(data.conversationId),
-        new Types.ObjectId(data.messageId),
-        new Types.ObjectId(userId),
-        userRole,
-      );
-
-      // Notify other participant that message was read
-      this.server
-        .to(`conversation_${data.conversationId}`)
-        .emit('messageRead', {
-          conversationId: data.conversationId,
-          messageId: data.messageId,
-          readBy: userId,
-        });
-    } catch (error) {
-      this.logger.error('Error in markMessageRead:', error);
+    if (!userId || !userRole) {
+      this.logger.warn('markConversationAsRead: User not authenticated');
+      return;
     }
+
+    this.logger.log(`User ${userId} marking conversation ${data.conversationId} as read.`);
+
+    // Gọi service để cập nhật unreadCount trong DB
+    const updatedConversation = await this.realtimeChatService.markConversationAsRead(
+      new Types.ObjectId(data.conversationId),
+      new Types.ObjectId(userId),
+      userRole,
+    );
+
+    if (updatedConversation) {
+      // Gửi sự kiện cập nhật lại cho cả 2 người trong cuộc trò chuyện
+      // để đồng bộ trạng thái "đã đọc" trên mọi thiết bị
+      const patientRoom = `user_${updatedConversation.patientId.toString()}`;
+      const doctorRoom = `user_${updatedConversation.doctorId.toString()}`;
+
+      const patientPayload = this.transformConversationForUser(updatedConversation, 'patient');
+      const doctorPayload = this.transformConversationForUser(updatedConversation, 'doctor');
+
+      this.server.to(patientRoom).emit('conversationUpdated', patientPayload);
+      this.server.to(doctorRoom).emit('conversationUpdated', doctorPayload);
+
+      this.logger.log(`Sent 'conversationUpdated' after marking as read to rooms: ${patientRoom}, ${doctorRoom}`);
+    }
+  } catch (error) {
+    this.logger.error('Error in handleMarkAsRead:', error);
   }
+}
 
   @SubscribeMessage('loadConversations')
   async handleLoadConversations(

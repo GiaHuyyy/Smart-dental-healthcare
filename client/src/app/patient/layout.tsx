@@ -21,7 +21,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         <Header />
       </div>
 
-      <div className="bg-gradient-to-br from-blue-50/30 to-indigo-50/20 min-h-screen">{children}</div>
+      <div className="bg-gradient-to-br from-blue-50/30 to-indigo-50/20 h-full">{children}</div>
     </ShellLayout>
   );
 }
