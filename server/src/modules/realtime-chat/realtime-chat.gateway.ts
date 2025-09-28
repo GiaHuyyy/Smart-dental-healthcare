@@ -12,6 +12,7 @@ import { Logger } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { RealtimeChatService } from './realtime-chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
+import { MessageDocument } from './schemas/message.schema';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -99,47 +100,61 @@ export class RealtimeChatGateway
   }
 
   @SubscribeMessage('createConversation')
-async handleCreateConversation(
-  @MessageBody() data: { patientId: string; doctorId: string },
-  @ConnectedSocket() client: AuthenticatedSocket,
-) {
-  try {
-    const { patientId, doctorId } = data;
-    this.logger.log(`Yêu cầu tạo cuộc hội thoại từ patient ${patientId} cho doctor ${doctorId}`);
+  async handleCreateConversation(
+    @MessageBody() data: { patientId: string; doctorId: string },
+    @ConnectedSocket() client: AuthenticatedSocket,
+  ) {
+    try {
+      const { patientId, doctorId } = data;
+      this.logger.log(
+        `Yêu cầu tạo cuộc hội thoại từ patient ${patientId} cho doctor ${doctorId}`,
+      );
 
-    const conversation = await this.realtimeChatService.createConversation({
-      patientId: new Types.ObjectId(patientId),
-      doctorId: new Types.ObjectId(doctorId),
-    });
+      const conversation = await this.realtimeChatService.createConversation({
+        patientId: new Types.ObjectId(patientId),
+        doctorId: new Types.ObjectId(doctorId),
+      });
 
-    // Populate thông tin chi tiết để gửi về cho các client
-    const fullConversation = await this.realtimeChatService.getConversationById(
-      conversation._id as Types.ObjectId,
-    );
+      // Populate thông tin chi tiết để gửi về cho các client
+      const fullConversation =
+        await this.realtimeChatService.getConversationById(
+          conversation._id as Types.ObjectId,
+        );
 
-    // Chuẩn bị payload cho patient (người tạo) và doctor
-    const patientPayload = this.transformConversationForUser(fullConversation, 'patient');
-    const doctorPayload = this.transformConversationForUser(fullConversation, 'doctor');
+      // Chuẩn bị payload cho patient (người tạo) và doctor
+      const patientPayload = this.transformConversationForUser(
+        fullConversation,
+        'patient',
+      );
+      const doctorPayload = this.transformConversationForUser(
+        fullConversation,
+        'doctor',
+      );
 
-    // Gửi sự kiện 'conversationCreated' đến cả hai người
-    this.server.to(`user_${patientId}`).emit('conversationCreated', patientPayload);
-    this.server.to(`user_${doctorId}`).emit('conversationCreated', doctorPayload);
-    this.logger.log(`Đã gửi 'conversationCreated' tới user ${patientId} và ${doctorId}`);
-    console.log("patientPayload:", patientPayload);
-    console.log("doctorPayload:", doctorPayload);
+      // Gửi sự kiện 'conversationCreated' đến cả hai người
+      this.server
+        .to(`user_${patientId}`)
+        .emit('conversationCreated', patientPayload);
+      this.server
+        .to(`user_${doctorId}`)
+        .emit('conversationCreated', doctorPayload);
+      this.logger.log(
+        `Đã gửi 'conversationCreated' tới user ${patientId} và ${doctorId}`,
+      );
+      console.log('patientPayload:', patientPayload);
+      console.log('doctorPayload:', doctorPayload);
 
-    // ✅ SỬA LẠI ĐÂY: Trả về patientPayload (đã có đủ thông tin) cho client đã gọi
-    return { success: true, conversation: patientPayload };
-
-  } catch (error) {
-    this.logger.error('Lỗi trong handleCreateConversation:', error);
-    return { success: false, error: error.message };
+      // ✅ SỬA LẠI ĐÂY: Trả về patientPayload (đã có đủ thông tin) cho client đã gọi
+      return { success: true, conversation: patientPayload };
+    } catch (error) {
+      this.logger.error('Lỗi trong handleCreateConversation:', error);
+      return { success: false, error: error.message };
+    }
   }
-}
 
   // Bạn cũng cần một hàm helper để transform dữ liệu, hãy thêm nó vào trong gateway
   private transformConversationForUser(conv: any, role: 'patient' | 'doctor') {
-    console.log("Transforming conversation for role:", role, conv);
+    console.log('Transforming conversation for role:', role, conv);
     const convId = conv._id.toString();
     if (role === 'doctor') {
       return {
@@ -283,47 +298,97 @@ async handleCreateConversation(
     }
   }
 
-  @SubscribeMessage('markConversationAsRead')
-async handleMarkAsRead(
-  @ConnectedSocket() client: AuthenticatedSocket,
-  @MessageBody() data: { conversationId: string },
-) {
-  try {
-    const userId = client.userId;
-    const userRole = client.userRole;
+  async broadcastNewMessage(
+    conversationId: Types.ObjectId,
+    message: MessageDocument,
+  ) {
+    try {
+      const conversation =
+        await this.realtimeChatService.getConversationById(conversationId);
+      if (!conversation) return;
 
-    if (!userId || !userRole) {
-      this.logger.warn('markConversationAsRead: User not authenticated');
-      return;
-    }
+      const patientRoom = `user_${conversation.patientId._id.toString()}`;
+      const doctorRoom = `user_${conversation.doctorId._id.toString()}`;
 
-    this.logger.log(`User ${userId} marking conversation ${data.conversationId} as read.`);
+      const payload = {
+        message,
+        conversationId: conversationId.toString(),
+      };
 
-    // Gọi service để cập nhật unreadCount trong DB
-    const updatedConversation = await this.realtimeChatService.markConversationAsRead(
-      new Types.ObjectId(data.conversationId),
-      new Types.ObjectId(userId),
-      userRole,
-    );
+      this.server.to(patientRoom).to(doctorRoom).emit('newMessage', payload);
 
-    if (updatedConversation) {
-      // Gửi sự kiện cập nhật lại cho cả 2 người trong cuộc trò chuyện
-      // để đồng bộ trạng thái "đã đọc" trên mọi thiết bị
-      const patientRoom = `user_${updatedConversation.patientId.toString()}`;
-      const doctorRoom = `user_${updatedConversation.doctorId.toString()}`;
-
-      const patientPayload = this.transformConversationForUser(updatedConversation, 'patient');
-      const doctorPayload = this.transformConversationForUser(updatedConversation, 'doctor');
-
+      // Cập nhật sidebar cho cả hai
+      const patientPayload = this.transformConversationForUser(
+        conversation,
+        'patient',
+      );
+      const doctorPayload = this.transformConversationForUser(
+        conversation,
+        'doctor',
+      );
       this.server.to(patientRoom).emit('conversationUpdated', patientPayload);
       this.server.to(doctorRoom).emit('conversationUpdated', doctorPayload);
 
-      this.logger.log(`Sent 'conversationUpdated' after marking as read to rooms: ${patientRoom}, ${doctorRoom}`);
+      this.logger.log(
+        `Broadcasted new message ${message._id} to rooms: ${patientRoom}, ${doctorRoom}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to broadcast new message: ${error}`);
     }
-  } catch (error) {
-    this.logger.error('Error in handleMarkAsRead:', error);
   }
-}
+
+  @SubscribeMessage('markConversationAsRead')
+  async handleMarkAsRead(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { conversationId: string },
+  ) {
+    try {
+      const userId = client.userId;
+      const userRole = client.userRole;
+
+      if (!userId || !userRole) {
+        this.logger.warn('markConversationAsRead: User not authenticated');
+        return;
+      }
+
+      this.logger.log(
+        `User ${userId} marking conversation ${data.conversationId} as read.`,
+      );
+
+      // Gọi service để cập nhật unreadCount trong DB
+      const updatedConversation =
+        await this.realtimeChatService.markConversationAsRead(
+          new Types.ObjectId(data.conversationId),
+          new Types.ObjectId(userId),
+          userRole,
+        );
+
+      if (updatedConversation) {
+        // Gửi sự kiện cập nhật lại cho cả 2 người trong cuộc trò chuyện
+        // để đồng bộ trạng thái "đã đọc" trên mọi thiết bị
+        const patientRoom = `user_${updatedConversation.patientId.toString()}`;
+        const doctorRoom = `user_${updatedConversation.doctorId.toString()}`;
+
+        const patientPayload = this.transformConversationForUser(
+          updatedConversation,
+          'patient',
+        );
+        const doctorPayload = this.transformConversationForUser(
+          updatedConversation,
+          'doctor',
+        );
+
+        this.server.to(patientRoom).emit('conversationUpdated', patientPayload);
+        this.server.to(doctorRoom).emit('conversationUpdated', doctorPayload);
+
+        this.logger.log(
+          `Sent 'conversationUpdated' after marking as read to rooms: ${patientRoom}, ${doctorRoom}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error('Error in handleMarkAsRead:', error);
+    }
+  }
 
   @SubscribeMessage('loadConversations')
   async handleLoadConversations(
@@ -371,7 +436,20 @@ async handleMarkAsRead(
               ? (conv.patientId as any).email || ''
               : '',
             lastMessage: conv.lastMessage
-              ? (conv.lastMessage as any).content || 'Cuộc hội thoại mới'
+              ? (() => {
+                  switch ((conv.lastMessage as any).messageType) {
+                    case 'text':
+                      return (conv.lastMessage as any).content || '';
+                    case 'image':
+                      return 'Đã gửi một ảnh';
+                    case 'video':
+                      return 'Đã gửi một video';
+                    case 'file':
+                      return 'Đã gửi một tệp';
+                    default:
+                      return 'Đã gửi một tệp';
+                  }
+                })()
               : 'Cuộc hội thoại mới',
             timestamp:
               conv.lastMessageAt ||
@@ -402,7 +480,20 @@ async handleMarkAsRead(
               ? (conv.doctorId as any).specialty || 'Nha khoa tổng quát'
               : 'Nha khoa tổng quát',
             lastMessage: conv.lastMessage
-              ? (conv.lastMessage as any).content || 'Cuộc hội thoại mới'
+              ? (() => {
+                  switch ((conv.lastMessage as any).messageType) {
+                    case 'text':
+                      return (conv.lastMessage as any).content || '';
+                    case 'image':
+                      return 'Đã gửi một ảnh';
+                    case 'video':
+                      return 'Đã gửi một video';
+                    case 'file':
+                      return 'Đã gửi một file';
+                    default:
+                      return 'Đã gửi một tệp';
+                  }
+                })()
               : 'Cuộc hội thoại mới',
             timestamp:
               conv.lastMessageAt ||
