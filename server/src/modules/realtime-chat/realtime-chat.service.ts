@@ -65,7 +65,7 @@ export class RealtimeChatService {
 
     return await this.conversationModel
       .find(query)
-      .populate('lastMessage')
+      .populate({ path: 'lastMessage', select: 'content fileUrl' }) 
       .populate('patientId', 'fullName firstName lastName avatar email')
       .populate(
         'doctorId',
