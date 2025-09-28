@@ -283,38 +283,47 @@ async handleCreateConversation(
     }
   }
 
-  @SubscribeMessage('markMessageRead')
-  async handleMarkMessageRead(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { conversationId: string; messageId: string },
-  ) {
-    try {
-      const userId = client.userId;
-      const userRole = client.userRole;
+  @SubscribeMessage('markConversationAsRead')
+async handleMarkAsRead(
+  @ConnectedSocket() client: AuthenticatedSocket,
+  @MessageBody() data: { conversationId: string },
+) {
+  try {
+    const userId = client.userId;
+    const userRole = client.userRole;
 
-      if (!userId || !userRole) {
-        return;
-      }
-
-      await this.realtimeChatService.markMessageAsRead(
-        new Types.ObjectId(data.conversationId),
-        new Types.ObjectId(data.messageId),
-        new Types.ObjectId(userId),
-        userRole,
-      );
-
-      // Notify other participant that message was read
-      this.server
-        .to(`conversation_${data.conversationId}`)
-        .emit('messageRead', {
-          conversationId: data.conversationId,
-          messageId: data.messageId,
-          readBy: userId,
-        });
-    } catch (error) {
-      this.logger.error('Error in markMessageRead:', error);
+    if (!userId || !userRole) {
+      this.logger.warn('markConversationAsRead: User not authenticated');
+      return;
     }
+
+    this.logger.log(`User ${userId} marking conversation ${data.conversationId} as read.`);
+
+    // Gọi service để cập nhật unreadCount trong DB
+    const updatedConversation = await this.realtimeChatService.markConversationAsRead(
+      new Types.ObjectId(data.conversationId),
+      new Types.ObjectId(userId),
+      userRole,
+    );
+
+    if (updatedConversation) {
+      // Gửi sự kiện cập nhật lại cho cả 2 người trong cuộc trò chuyện
+      // để đồng bộ trạng thái "đã đọc" trên mọi thiết bị
+      const patientRoom = `user_${updatedConversation.patientId.toString()}`;
+      const doctorRoom = `user_${updatedConversation.doctorId.toString()}`;
+
+      const patientPayload = this.transformConversationForUser(updatedConversation, 'patient');
+      const doctorPayload = this.transformConversationForUser(updatedConversation, 'doctor');
+
+      this.server.to(patientRoom).emit('conversationUpdated', patientPayload);
+      this.server.to(doctorRoom).emit('conversationUpdated', doctorPayload);
+
+      this.logger.log(`Sent 'conversationUpdated' after marking as read to rooms: ${patientRoom}, ${doctorRoom}`);
+    }
+  } catch (error) {
+    this.logger.error('Error in handleMarkAsRead:', error);
   }
+}
 
   @SubscribeMessage('loadConversations')
   async handleLoadConversations(

@@ -312,27 +312,11 @@ class RealtimeChatService {
   }
 
   // Mark all messages in a conversation as read
-  markConversationAsRead(conversationId: string) {
-    if (this.socket && this.userId && this.userRole) {
-      return new Promise<void>((resolve, reject) => {
-        this.socket?.emit(
-          "markConversationRead",
-          {
-            conversationId,
-            userId: this.userId,
-            userRole: this.userRole,
-          },
-          (response: { success: boolean; error?: string }) => {
-            if (response.success) {
-              resolve();
-            } else {
-              reject(new Error(response.error || "Failed to mark conversation as read"));
-            }
-          }
-        );
-      });
+markConversationAsRead(conversationId: string) {
+    if (this.socket) {
+      console.log(`[Socket] Emitting markConversationAsRead for ${conversationId}`);
+      this.socket.emit("markConversationAsRead", { conversationId });
     }
-    return Promise.reject(new Error("Socket not connected or user info missing"));
   }
 
   // Create a new conversation

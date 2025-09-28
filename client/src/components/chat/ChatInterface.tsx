@@ -1782,7 +1782,6 @@ export default function ChatInterface({
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleDoctorKeyPress}
                 onFocus={() => {
-                  console.log("Doctor input focused, onInputFocus available:", !!onInputFocus);
                   if (onInputFocus) {
                     onInputFocus();
                   }

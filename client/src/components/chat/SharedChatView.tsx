@@ -204,24 +204,26 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
   // --- 2. Tải tin nhắn khi chọn cuộc hội thoại ---
   const loadConversationMessages = useCallback(
     (conversationId: string, forceReload = false) => {
-        if (!socketInitialized) return;
+      if (!socketInitialized) return;
 
-        // ✅ THAY ĐỔI LOGIC KIỂM TRA Ở ĐÂY
-        const isCurrentlyLoading = loadingMessages[conversationId];
-        const hasLoadedBefore = conversationMessages.hasOwnProperty(conversationId);
+      // ✅ THAY ĐỔI LOGIC KIỂM TRA Ở ĐÂY
+      const isCurrentlyLoading = loadingMessages[conversationId];
+      const hasLoadedBefore = conversationMessages.hasOwnProperty(conversationId);
 
-        // Chỉ tải khi chưa từng tải trước đó HOẶC khi bị ép tải lại
-        if ((isCurrentlyLoading || hasLoadedBefore) && !forceReload) {
-            console.log(`Skipping load for ${conversationId}. Loaded before: ${hasLoadedBefore}, Loading now: ${isCurrentlyLoading}`);
-            return;
-        }
+      // Chỉ tải khi chưa từng tải trước đó HOẶC khi bị ép tải lại
+      if ((isCurrentlyLoading || hasLoadedBefore) && !forceReload) {
+        console.log(
+          `Skipping load for ${conversationId}. Loaded before: ${hasLoadedBefore}, Loading now: ${isCurrentlyLoading}`
+        );
+        return;
+      }
 
-        console.log(`Requesting messages for ${conversationId} from server...`);
-        setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
-        realtimeChatService.loadMessages(conversationId, 100);
+      console.log(`Requesting messages for ${conversationId} from server...`);
+      setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
+      realtimeChatService.loadMessages(conversationId, 100);
     },
-    [conversationMessages, socketInitialized, loadingMessages] // ✅ Thêm loadingMessages vào dependency
-);
+    [conversationMessages, socketInitialized, loadingMessages]
+  );
 
   useEffect(() => {
     // Chỉ bệnh nhân mới có chức năng này
@@ -285,6 +287,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
     setConversations((prev) =>
       prev.map((conv) => (conv.id === conversationId ? { ...conv, unread: false, unreadCount: 0 } : conv))
     );
+    realtimeChatService.markConversationAsRead(conversationId);
   }, []);
 
   const formatTimestamp = (timestamp: string) => {
@@ -464,6 +467,11 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
               isLoadingMessages={selectedChat ? loadingMessages[selectedChat] || false : false}
               doctorName={userRole === "patient" ? selectedConversation.peerName : session?.user?.name || ""}
               patientName={userRole === "doctor" ? selectedConversation.peerName : session?.user?.name || ""}
+              onInputFocus={() => {
+                if (selectedConversation && selectedConversation.unread) {
+                  markConversationAsRead(selectedConversation.id);
+                }
+              }}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-center text-gray-500">
