@@ -43,7 +43,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
 
-  const [selectedChat, setSelectedChat] = useState<string | null>(userRole === "patient" ? "ai" : null);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
@@ -123,9 +123,6 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
           }));
           setConversations(transformed);
           setConversationsLoading(false);
-          if (transformed.length > 0 && selectedChat === null) {
-            setSelectedChat(transformed[0].id);
-          }
         };
 
         const handleMessagesLoaded = (data: { conversationId: string; messages: Message[] }) => {
@@ -304,7 +301,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
 
   // --- RENDER ---
   return (
-    <div className="flex overflow-hidden h-screen pt-16">
+    <div className="flex overflow-hidden h-full bg-gradient-to-br from-blue-50/30 to-indigo-50/20 p-6">
       {/* --- Sidebar --- */}
       {showSidebar && (
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
@@ -415,6 +412,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
 
       {/* --- Main Chat Area --- */}
       <div className="flex-1 min-w-0 flex flex-col">
+        {/* Header với Sidebar Toggle */}
         <div className="flex items-center p-4 border-b border-gray-200 bg-white">
           <button
             onClick={() => setShowSidebar(!showSidebar)}
@@ -424,32 +422,29 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
           </button>
 
           <div className="flex-1 min-w-0">
-            {selectedChat === "ai" && userRole === "patient" ? (
-              <ChatHeader type="ai" />
-            ) : selectedConversation ? (
-              <ChatHeader
-                type={userRole === "doctor" ? "patient" : "doctor"}
-                patientName={userRole === "doctor" ? selectedConversation.peerName : session?.user?.name || ""}
-                patientId={userRole === "doctor" ? selectedConversation.peerId : userData?.userId || ""}
-                patientEmail={userRole === "doctor" ? selectedConversation.peerDetails : session?.user?.email || ""}
-                doctorName={userRole === "patient" ? selectedConversation.peerName : session?.user?.name || ""}
-                doctorId={userRole === "patient" ? selectedConversation.peerId : userData?.userId || ""}
-                specialty={
-                  userRole === "patient" ? selectedConversation.peerDetails : (session?.user as any)?.specialty || ""
-                }
-                isOnline={true}
-                embedded={true}
-              />
-            ) : (
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                  <User size={20} className="text-gray-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Chào mừng đến với Chat</h3>
-                  <p className="text-sm text-gray-600">Chọn một cuộc hội thoại để bắt đầu</p>
-                </div>
-              </div>
+            {/* ✅ BƯỚC 3: CHỈ HIỂN THỊ HEADER KHI ĐÃ CHỌN CUỘC HỘI THOẠI */}
+            {selectedChat && (
+              <>
+                {selectedChat === "ai" && userRole === "patient" ? (
+                  <ChatHeader type="ai" />
+                ) : selectedConversation ? (
+                  <ChatHeader
+                    type={userRole === "doctor" ? "patient" : "doctor"}
+                    patientName={userRole === "doctor" ? selectedConversation.peerName : session?.user?.name || ""}
+                    patientId={userRole === "doctor" ? selectedConversation.peerId : userData?.userId || ""}
+                    patientEmail={userRole === "doctor" ? selectedConversation.peerDetails : session?.user?.email || ""}
+                    doctorName={userRole === "patient" ? selectedConversation.peerName : session?.user?.name || ""}
+                    doctorId={userRole === "patient" ? selectedConversation.peerId : userData?.userId || ""}
+                    specialty={
+                      userRole === "patient"
+                        ? selectedConversation.peerDetails
+                        : (session?.user as any)?.specialty || ""
+                    }
+                    isOnline={true}
+                    embedded={true}
+                  />
+                ) : null}
+              </>
             )}
           </div>
         </div>
