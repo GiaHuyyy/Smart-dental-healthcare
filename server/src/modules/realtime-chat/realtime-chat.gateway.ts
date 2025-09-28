@@ -98,6 +98,77 @@ export class RealtimeChatGateway
     }
   }
 
+  @SubscribeMessage('createConversation')
+async handleCreateConversation(
+  @MessageBody() data: { patientId: string; doctorId: string },
+  @ConnectedSocket() client: AuthenticatedSocket,
+) {
+  try {
+    const { patientId, doctorId } = data;
+    this.logger.log(`Yêu cầu tạo cuộc hội thoại từ patient ${patientId} cho doctor ${doctorId}`);
+
+    const conversation = await this.realtimeChatService.createConversation({
+      patientId: new Types.ObjectId(patientId),
+      doctorId: new Types.ObjectId(doctorId),
+    });
+
+    // Populate thông tin chi tiết để gửi về cho các client
+    const fullConversation = await this.realtimeChatService.getConversationById(
+      conversation._id as Types.ObjectId,
+    );
+
+    // Chuẩn bị payload cho patient (người tạo) và doctor
+    const patientPayload = this.transformConversationForUser(fullConversation, 'patient');
+    const doctorPayload = this.transformConversationForUser(fullConversation, 'doctor');
+
+    // Gửi sự kiện 'conversationCreated' đến cả hai người
+    this.server.to(`user_${patientId}`).emit('conversationCreated', patientPayload);
+    this.server.to(`user_${doctorId}`).emit('conversationCreated', doctorPayload);
+    this.logger.log(`Đã gửi 'conversationCreated' tới user ${patientId} và ${doctorId}`);
+    console.log("patientPayload:", patientPayload);
+    console.log("doctorPayload:", doctorPayload);
+
+    // ✅ SỬA LẠI ĐÂY: Trả về patientPayload (đã có đủ thông tin) cho client đã gọi
+    return { success: true, conversation: patientPayload };
+
+  } catch (error) {
+    this.logger.error('Lỗi trong handleCreateConversation:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+  // Bạn cũng cần một hàm helper để transform dữ liệu, hãy thêm nó vào trong gateway
+  private transformConversationForUser(conv: any, role: 'patient' | 'doctor') {
+    console.log("Transforming conversation for role:", role, conv);
+    const convId = conv._id.toString();
+    if (role === 'doctor') {
+      return {
+        id: convId,
+        patientId: conv.patientId?._id.toString(),
+        patientName: conv.patientId?.fullName || 'Bệnh nhân',
+        patientEmail: conv.patientId?.email,
+        lastMessage: conv.lastMessage?.content || 'Cuộc hội thoại mới',
+        timestamp: conv.lastMessageAt || conv.updatedAt,
+        unread: conv.unreadDoctorCount > 0,
+        unreadCount: conv.unreadDoctorCount,
+        databaseId: convId,
+      };
+    } else {
+      // patient
+      return {
+        id: convId,
+        doctorId: conv.doctorId?._id.toString(),
+        doctorName: conv.doctorId?.fullName || 'Bác sĩ',
+        specialty: conv.doctorId?.specialty || 'Nha khoa tổng quát',
+        lastMessage: conv.lastMessage?.content || 'Cuộc hội thoại mới',
+        timestamp: conv.lastMessageAt || conv.updatedAt,
+        unread: conv.unreadPatientCount > 0,
+        unreadCount: conv.unreadPatientCount,
+        databaseId: convId,
+      };
+    }
+  }
+
   @SubscribeMessage('joinConversation')
   async handleJoinConversation(
     @ConnectedSocket() client: AuthenticatedSocket,

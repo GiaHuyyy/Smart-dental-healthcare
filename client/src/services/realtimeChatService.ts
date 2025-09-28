@@ -336,28 +336,27 @@ class RealtimeChatService {
   }
 
   // Create a new conversation
-  createConversation(patientId: string, doctorId: string, metadata?: any) {
+createConversation(patientId: string, doctorId: string): Promise<any> { // Thay đổi kiểu trả về thành any để linh hoạt
     if (this.socket) {
-      return new Promise<string>((resolve, reject) => {
+      return new Promise<any>((resolve, reject) => {
+        // Cung cấp hàm callback (ack) làm tham số thứ 3
         this.socket?.emit(
           "createConversation",
-          {
-            patientId,
-            doctorId,
-            metadata,
-          },
-          (response: { success: boolean; conversationId?: string; error?: string }) => {
-            if (response.success && response.conversationId) {
-              resolve(response.conversationId);
+          { patientId, doctorId },
+          // Hàm này sẽ được server gọi để trả kết quả về
+          (response: { success: boolean; conversation?: any; error?: string }) => {
+            if (response.success && response.conversation) {
+              console.log("Client received new conversation:", response.conversation);
+              resolve(response.conversation);
             } else {
-              reject(new Error(response.error || "Failed to create conversation"));
+              reject(new Error(response.error || "Failed to create conversation on server"));
             }
           }
         );
       });
     }
     return Promise.reject(new Error("Socket not connected"));
-  }
+}
 
   // Typing indicator
   sendTypingStatus(conversationId: string, isTyping: boolean) {

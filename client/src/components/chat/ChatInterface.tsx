@@ -24,25 +24,11 @@ import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
-import {
-  Lightbulb,
-  Calendar,
-  Wrench,
-  Stethoscope,
-  Check,
-  FileText,
-  File,
-  PieChart,
-  X,
-  Search,
-  BarChart2,
-} from "lucide-react";
+import { Lightbulb, Calendar, Wrench, Stethoscope, Check, FileText, X, Search, BarChart2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
 import { useSession } from "next-auth/react";
 import { useWebRTC } from "@/contexts/WebRTCContext";
-import CallButton from "@/components/call/CallButton";
 import IncomingCallModal from "@/components/call/IncomingCallModal";
 import VideoCallInterface from "@/components/call/VideoCallInterface";
 import realtimeChatService from "@/services/realtimeChatService";
@@ -95,22 +81,22 @@ interface ChatInterfaceProps {
   onNewMessage?: (message: any) => void;
   // Callback when input is focused (for unread count reset)
   onInputFocus?: () => void;
+  onStartConversation?: (doctor: DoctorSuggestion) => void;
+  patientName?: string;
 }
 
 export default function ChatInterface({
   type,
   doctorName,
-  doctorId,
+  patientName,
   conversationId,
   currentUserId,
   currentUserRole,
-  authToken,
-  doctorsList = [],
-  patientsList = [],
   preloadedMessages = [],
   isLoadingMessages = false,
-  onNewMessage,
   onInputFocus,
+  onStartConversation,
+
 }: ChatInterfaceProps) {
   // Session and user data
   const { data: session } = useSession();
@@ -119,35 +105,12 @@ export default function ChatInterface({
   const { isCallIncoming, incomingCall, isInCall } = useWebRTC();
 
   // AI Chat History hook
-  const {
-    currentSession,
-    getOrInitializeSession,
-    addMessage: saveMessage,
-    completeSession,
-    updateSession,
-    setCurrentSession,
-  } = useAiChatHistory();
+  const { currentSession, getOrInitializeSession, addMessage: saveMessage, setCurrentSession } = useAiChatHistory();
 
   // Redux hooks
   const dispatch = useAppDispatch();
   const { analysisResult, uploadedImage, isAnalyzing } = useAppSelector((state) => state.imageAnalysis);
   const { urgencyLevel } = useAppSelector((state) => state.appointment);
-
-  // Realtime chat context
-  const {
-    isConnected,
-    conversations,
-    activeConversation,
-    messages: realtimeMessages,
-    isTyping: isRealtimeTyping,
-    connectToChat,
-    disconnectFromChat,
-    startConversation,
-    selectConversation,
-    sendMessage: sendRealtimeMessage,
-    markMessageAsRead,
-    setTypingStatus,
-  } = useRealtimeChat();
 
   // Local state for AI chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -161,10 +124,6 @@ export default function ChatInterface({
   const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
   const [doctorsLoaded, setDoctorsLoaded] = useState(false);
   const [showDoctorSuggestion, setShowDoctorSuggestion] = useState(true);
-
-  // Realtime chat UI state
-  const [showConversationList, setShowConversationList] = useState(false);
-  const [showChatWindow, setShowChatWindow] = useState(false);
 
   // Video call state
   const [showIncomingCallModal, setShowIncomingCallModal] = useState(false);
@@ -182,8 +141,8 @@ export default function ChatInterface({
       fileSize?: number;
     }>
   >([]);
-  const [doctorInput, setDoctorInput] = useState("");
-  const [isDoctorLoading, setIsDoctorLoading] = useState(false);
+  const [Input, setInput] = useState("");
+  const [isInputFocusedLoading, setIsInputFocusedLoading] = useState(false);
   const [isDoctorTyping, setIsDoctorTyping] = useState(false);
 
   // File upload state
@@ -192,8 +151,9 @@ export default function ChatInterface({
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const doctorMessagesEndRef = useRef<HTMLDivElement>(null);
+  const userMessagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -210,7 +170,34 @@ export default function ChatInterface({
 
     // Nếu không có tin nhắn, set mảng rỗng và thoát
     if (preloadedMessages.length === 0) {
-      setConversationMessages([]);
+      let welcomeMessage: any;
+
+      // Nếu người xem là bệnh nhân
+      if (currentUserRole === 'patient') {
+        welcomeMessage = {
+          _id: 'welcome-msg-1',
+          role: 'doctor', // Tin nhắn từ bác sĩ, hiển thị bên trái
+          content: `Chào bạn, tôi là ${doctorName || 'Bác sĩ'}. Bạn cần giúp gì?`,
+          timestamp: new Date(),
+        };
+      }
+      // Nếu người xem là bác sĩ
+      else if (currentUserRole === 'doctor') {
+        welcomeMessage = {
+          _id: 'welcome-msg-2',
+          role: 'patient', // Tin nhắn hệ thống, hiển thị bên trái
+          content: `Bạn có cuộc trò chuyện mới, vui lòng đợi bệnh nhân ${patientName || ''} liên hệ!`,
+          timestamp: new Date(),
+        };
+      }
+
+      if (welcomeMessage) {
+        setConversationMessages([welcomeMessage]);
+      } else {
+        setConversationMessages([]);
+      }
+
+      // Dừng lại tại đây, không xử lý gì thêm
       return;
     }
 
@@ -262,8 +249,8 @@ export default function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const scrollDoctorMessagesToBottom = () => {
-    doctorMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollMessagesToBottom = () => {
+    userMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   // Auto scroll when messages change
@@ -271,7 +258,7 @@ export default function ChatInterface({
     if (type === "ai") {
       scrollToBottom();
     } else if (type === "doctor") {
-      scrollDoctorMessagesToBottom();
+      scrollMessagesToBottom();
     }
   }, [messages, conversationMessages, type]);
 
@@ -458,7 +445,7 @@ export default function ChatInterface({
   }, [type, session?.user, hasLoadedFromDatabase, loadAiChatHistory]);
 
   // Message handlers
-  const handleSendMessage = async () => {
+  const handleSendMessageAI = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
@@ -998,79 +985,55 @@ export default function ChatInterface({
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleSendMessageAI();
     }
-  };
-
-  // Handle realtime chat functionality
-  const handleStartRealtimeConversation = async (otherUserId: string) => {
-    try {
-      const conversation = await startConversation(otherUserId);
-      selectConversation(conversation);
-      setShowChatWindow(true);
-      setShowConversationList(false);
-    } catch (error) {
-      console.error("Error starting conversation:", error);
-    }
-  };
-
-  const handleRealtimeMessageSend = (content: string) => {
-    if (activeConversation) {
-      sendRealtimeMessage(content);
-    }
-  };
-
-  const handleCloseRealtimeChat = () => {
-    setShowChatWindow(false);
-    setShowConversationList(false);
   };
 
   // File: components/chat/ChatInterface.tsx
 
-  const handleDoctorSendMessage = async () => {
-    // 1. Kiểm tra xem có nội dung để gửi hoặc đang trong quá trình gửi không
-    if ((!doctorInput.trim() && !selectedFile) || isDoctorLoading) return;
+  const handleUserSendMessage = async () => {
+    // 1. Check if there is content to send or if it is already sending
+    if ((!Input.trim() && !selectedFile) || isInputFocusedLoading) return;
 
-    setIsDoctorLoading(true);
-    const originalInput = doctorInput; // Lưu lại tin nhắn gốc để xóa nếu gửi lỗi
+    setIsInputFocusedLoading(true);
+    const originalInput = Input; // Save original message to restore on error
 
-    // 2. Xử lý gửi tin nhắn văn bản (qua Socket.IO)
-    if (!selectedFile && doctorInput.trim()) {
+    // 2. Handle sending text messages (via Socket.IO)
+    if (!selectedFile && Input.trim()) {
       try {
         if (!conversationId) {
-          throw new Error("Không có ID cuộc trò chuyện.");
+          throw new Error("No conversation ID.");
         }
 
-        // Cập nhật giao diện ngay lập tức cho người gửi (Optimistic UI)
+        // Optimistic UI update for the sender
         const tempMessage = {
           _id: `temp_${Date.now()}`,
           role: "user",
-          content: doctorInput.trim(),
+          content: Input.trim(),
           timestamp: new Date(),
           senderId: currentUserId,
           senderRole: currentUserRole,
         };
         setConversationMessages((prev) => [...prev, tempMessage as any]);
-        setDoctorInput(""); // Xóa input sau khi tạo tin nhắn tạm
+        setInput(""); // Clear input after creating temp message
+        setIsInputFocusedLoading(false);
 
-        // Gửi tin nhắn qua socket service
+        // Send message via socket service
         await realtimeChatService.sendMessage(conversationId, originalInput.trim(), "text");
 
-        // Server sẽ gửi lại sự kiện `newMessage` để đồng bộ hóa cho cả hai người dùng.
-        // Hàm `handleNewMessage` ở trang cha sẽ xử lý và thay thế tin nhắn tạm này.
+        // The server will emit a `newMessage` event to sync all clients.
+        // The `handleNewMessage` function in the parent page will handle replacing the temp message.
       } catch (error) {
-        console.error("Lỗi gửi tin nhắn văn bản:", error);
-        alert("Gửi tin nhắn thất bại. Vui lòng thử lại.");
-        // Nếu lỗi, khôi phục lại input và xóa tin nhắn tạm
-        setDoctorInput(originalInput);
+        console.error("Error sending text message:", error);
+        alert("Failed to send message. Please try again.");
+        // If error, restore input and remove temp message
+        setInput(originalInput);
         setConversationMessages((prev) => prev.filter((msg) => !msg._id.startsWith("temp_")));
-      } finally {
-        setIsDoctorLoading(false);
       }
-      return; // Kết thúc hàm sau khi gửi tin nhắn text
+      return; // End function after sending text message
     }
 
-    // 3. Xử lý gửi file (qua REST API)
+    // 3. Handle sending files (via REST API)
     if (selectedFile) {
       try {
         const token = (session as any)?.accessToken;
@@ -1080,9 +1043,9 @@ export default function ChatInterface({
         formData.append("senderId", currentUserId || "");
         formData.append("senderRole", currentUserRole || "doctor");
 
-        // Nếu có nội dung text đi kèm file
-        if (doctorInput.trim()) {
-          formData.append("content", doctorInput.trim());
+        // If there is text content with the file
+        if (Input.trim()) {
+          formData.append("content", Input.trim());
         }
 
         const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/realtime-chat/upload-file`, {
@@ -1097,19 +1060,21 @@ export default function ChatInterface({
           throw new Error(await uploadResponse.text());
         }
 
-        // Không cần cập nhật UI ở đây. Server đã nhận file, lưu tin nhắn,
-        // và sẽ tự động emit sự kiện 'newMessage' đến tất cả client.
-        // Hàm `handleNewMessage` ở trang cha sẽ nhận và cập nhật UI.
+        // No need to update UI here. The server has received the file, saved the message,
+        // and will automatically emit a 'newMessage' event to all clients.
+        // The `handleNewMessage` function in the parent page will receive it and update the UI.
 
-        // Dọn dẹp sau khi gửi thành công
+        // Clean up after successful send
         setSelectedFile(null);
         setUploadPreview(null);
-        setDoctorInput("");
+        setInput("");
       } catch (error) {
-        console.error("Lỗi gửi file:", error);
-        alert("Gửi file thất bại. Vui lòng thử lại.");
+        console.error("Error sending file:", error);
+        alert("Failed to send file. Please try again.");
       } finally {
-        setIsDoctorLoading(false);
+        setIsInputFocusedLoading(false);
+        // Refocus the input after sending
+        inputRef.current?.focus();
       }
     }
   };
@@ -1117,7 +1082,7 @@ export default function ChatInterface({
   const handleDoctorKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleDoctorSendMessage();
+      handleUserSendMessage();
     }
   };
 
@@ -1125,22 +1090,12 @@ export default function ChatInterface({
 
   // Handle start conversation with doctor
   const handleStartConversationWithDoctor = (doctor: DoctorSuggestion) => {
-    // Store doctor info in localStorage để trang chat có thể đọc
-    const conversationData = {
-      doctorId: doctor._id,
-      doctorName: doctor.fullName,
-      specialty: doctor.specialty,
-      timestamp: new Date().toISOString(),
-      symptoms: messages
-        .filter((msg) => msg.role === "user")
-        .map((msg) => msg.content)
-        .join("; "),
-    };
-
-    localStorage.setItem("newConversation", JSON.stringify(conversationData));
-
-    // Navigate to chat page
-    router.push("/patient/chat?newConversation=true");
+    if (onStartConversation) {
+      // Gọi callback để báo cho component cha xử lý
+      onStartConversation(doctor);
+    } else {
+      console.error("onStartConversation prop is not provided to ChatInterface");
+    }
   };
 
   const getButtonIcon = (buttonText: string) => {
@@ -1625,7 +1580,7 @@ export default function ChatInterface({
               </div>
               <div className="flex flex-col space-y-1">
                 <button
-                  onClick={handleSendMessage}
+                  onClick={handleSendMessageAI}
                   disabled={!inputMessage.trim() || isLoading}
                   className="px-4 py-2 rounded-lg text-sm"
                   style={{ background: "var(--color-primary)", color: "white" }}
@@ -1773,7 +1728,7 @@ export default function ChatInterface({
                 )}
               </>
             )}
-            <div ref={doctorMessagesEndRef} />
+            <div ref={userMessagesEndRef} />
           </div>
 
           {/* Input Area */}
@@ -1821,12 +1776,18 @@ export default function ChatInterface({
 
             <div className="flex space-x-2">
               <input
+                ref={inputRef}
                 type="text"
-                value={doctorInput}
-                onChange={(e) => setDoctorInput(e.target.value)}
+                value={Input}
+                onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleDoctorKeyPress}
                 onFocus={() => {
                   console.log("Doctor input focused, onInputFocus available:", !!onInputFocus);
+                  if (onInputFocus) {
+                    onInputFocus();
+                  }
+                }}
+                onBlur={() => {
                   if (onInputFocus) {
                     onInputFocus();
                   }
@@ -1835,7 +1796,7 @@ export default function ChatInterface({
                   currentUserRole === "doctor" ? "Nhập tin nhắn cho bệnh nhân..." : "Nhập tin nhắn cho bác sĩ..."
                 }
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={isDoctorLoading}
+                disabled={isInputFocusedLoading}
               />
 
               {/* File upload button */}
@@ -1857,12 +1818,12 @@ export default function ChatInterface({
               />
 
               <button
-                onClick={handleDoctorSendMessage}
-                disabled={isDoctorLoading || (!doctorInput.trim() && !selectedFile)}
+                onClick={handleUserSendMessage}
+                disabled={isInputFocusedLoading || (!Input.trim() && !selectedFile)}
                 className="px-6 py-2 rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "var(--color-primary)", color: "white", outlineColor: "var(--color-primary-600)" }}
               >
-                {isDoctorLoading ? "..." : "Gửi"}
+                {isInputFocusedLoading ? "..." : "Gửi"}
               </button>
             </div>
           </div>

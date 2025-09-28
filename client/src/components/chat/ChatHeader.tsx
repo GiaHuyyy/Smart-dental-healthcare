@@ -1,3 +1,4 @@
+// File: src/components/chat/ChatHeader.tsx
 "use client";
 
 import CallButton from "@/components/call/CallButton";
@@ -12,7 +13,7 @@ interface ChatHeaderProps {
   patientId?: string;
   patientEmail?: string;
   isOnline?: boolean;
-  embedded?: boolean; // For embedded mode without padding/border
+  embedded?: boolean;
   onCall?: () => void;
   onBookAppointment?: () => void;
   onViewProfile?: () => void;
@@ -32,176 +33,58 @@ export default function ChatHeader({
   onBookAppointment,
   onViewProfile,
 }: ChatHeaderProps) {
+
+  // Xác định vai trò của người đối diện để hiển thị thông tin chính xác
+  const isPatientViewingDoctor = type === 'doctor';
+  const isDoctorViewingPatient = type === 'patient';
+
+  const peerId = isPatientViewingDoctor ? doctorId : patientId;
+  const peerName = isPatientViewingDoctor ? doctorName : patientName;
+
   return (
-    <div className={embedded ? "" : ""}>
-      <div className="flex items-center justify-between">
-        {/* Left: User Info */}
-        <div className="flex items-center min-w-0 flex-1">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
-            style={{
-              background:
-                type === "ai"
-                  ? "linear-gradient(135deg, var(--color-primary), var(--color-primary-600))"
-                  : type === "doctor"
-                  ? "linear-gradient(135deg, var(--color-primary-600), var(--color-primary))"
-                  : "linear-gradient(135deg,#7c3aed,#6d28d9)",
-            }}
-          >
-            <span className="text-white text-sm font-medium">
-              {type === "ai" ? (
-                <Bot className="w-4 h-4" />
-              ) : type === "doctor" ? (
-                <User className="w-4 h-4" />
-              ) : (
-                <User className="w-4 h-4" />
-              )}
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center space-x-2">
-              <h3 className="font-semibold text-gray-900 text-lg truncate">
-                {type === "ai" ? "AI Tư vấn" : type === "doctor" ? doctorName : patientName}
-              </h3>
-              <span
-                className={`w-2 h-2 ${isOnline ? "bg-primary-600" : "bg-gray-400"} rounded-full flex-shrink-0`}
-              ></span>
-            </div>
-            <p className="text-sm text-gray-600 truncate">
-              {type === "ai"
-                ? isOnline
-                  ? "Tư vấn sơ bộ về nha khoa"
-                  : "Đang bảo trì"
-                : type === "doctor"
-                ? specialty || "Bác sĩ nha khoa"
-                : patientEmail || "Bệnh nhân"}
-            </p>
-          </div>
+    <div className="flex items-center justify-between">
+      {/* --- Thông tin người dùng (bên trái) --- */}
+      <div className="flex items-center min-w-0 flex-1">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
+          style={{
+            background:
+              type === "ai"
+                ? "linear-gradient(135deg, var(--color-primary), var(--color-primary-600))"
+                : "linear-gradient(135deg, var(--color-primary-600), var(--color-primary))",
+          }}
+        >
+          <span className="text-white">
+            {type === "ai" ? (
+              <Bot size={18} />
+            ) : (
+              <User size={18} />
+            )}
+          </span>
         </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center space-x-2">
+            <h3 className="font-semibold text-gray-900 text-lg truncate">
+              {type === "ai" ? "AI Tư vấn" : peerName}
+            </h3>
+            {isOnline && type !== 'ai' && (
+              <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></span>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 truncate">
+            {type === "ai"
+              ? "Tư vấn sơ bộ về nha khoa"
+              : isPatientViewingDoctor
+              ? specialty || "Bác sĩ nha khoa"
+              : patientEmail || "Bệnh nhân"}
+          </p>
+        </div>
+      </div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex items-center ml-4 flex-shrink-0">
-          {/* Action buttons for patient view (when chatting with doctor) */}
-          {type === "doctor" && (
-            <div className="flex items-center space-x-2">
-              {/* Gọi điện */}
-              <button
-                onClick={onCall}
-                className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
-                title="Gọi điện"
-                style={{ background: "var(--color-accent)", color: "var(--color-success)" }}
-              >
-                <Phone className="w-4 h-4" />
-                <span className="hidden sm:inline">Gọi điện</span>
-              </button>
-
-              {/* Đặt lịch */}
-              <button
-                onClick={onBookAppointment}
-                className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
-                title="Đặt lịch hẹn"
-                style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
-              >
-                <Calendar className="w-4 h-4" />
-                <span className="hidden sm:inline">Đặt lịch</span>
-              </button>
-
-              {/* Hồ sơ */}
-              <button
-                onClick={onViewProfile}
-                className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
-                title="Xem hồ sơ bác sĩ"
-                style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
-              >
-                <FileText className="w-4 h-4" />
-                <span className="hidden sm:inline">Hồ sơ</span>
-              </button>
-
-              {/* Gọi video */}
-              {doctorId && doctorName && (
-                <CallButton
-                  recipientId={doctorId}
-                  recipientName={doctorName}
-                  recipientRole="doctor"
-                  className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
-                >
-                  <span
-                    className="flex items-center space-x-1"
-                    style={{
-                      background: "var(--color-accent)",
-                      color: "var(--color-primary-600)",
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "0.375rem",
-                    }}
-                  >
-                    <Video className="w-4 h-4" />
-                    <span className="hidden sm:inline">Gọi video</span>
-                  </span>
-                </CallButton>
-              )}
-            </div>
-          )}
-
-          {/* Action buttons for doctor view (when chatting with patient) */}
-          {type === "patient" && (
-            <div className="flex items-center space-x-2">
-              {/* Gọi điện cho bệnh nhân */}
-              <button
-                onClick={onCall}
-                className="flex items-center space-x-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100 transition-colors whitespace-nowrap"
-                title="Gọi điện cho bệnh nhân"
-              >
-                <Phone className="w-4 h-4" />
-                <span className="hidden sm:inline">Gọi điện</span>
-              </button>
-
-              {/* Đặt lịch khám */}
-              <button
-                onClick={onBookAppointment}
-                className="flex items-center space-x-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm hover:bg-green-100 transition-colors whitespace-nowrap"
-                title="Đặt lịch khám cho bệnh nhân"
-              >
-                <Calendar className="w-4 h-4" />
-                <span className="hidden sm:inline">Đặt lịch</span>
-              </button>
-
-              {/* Xem hồ sơ bệnh nhân */}
-              <button
-                onClick={onViewProfile}
-                className="flex items-center space-x-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm hover:bg-purple-100 transition-colors whitespace-nowrap"
-                title="Xem hồ sơ bệnh nhân"
-              >
-                <FileText className="w-4 h-4" />
-                <span className="hidden sm:inline">Hồ sơ</span>
-              </button>
-
-              {/* Gọi video cho bệnh nhân */}
-              {patientId && patientName && (
-                <CallButton
-                  recipientId={patientId}
-                  recipientName={patientName}
-                  recipientRole="patient"
-                  className="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm whitespace-nowrap"
-                >
-                  <span
-                    className="flex items-center space-x-1"
-                    style={{
-                      background: "var(--color-accent)",
-                      color: "var(--color-primary-600)",
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "0.375rem",
-                    }}
-                  >
-                    <Video className="w-4 h-4" />
-                    <span className="hidden sm:inline">Gọi video</span>
-                  </span>
-                </CallButton>
-              )}
-            </div>
-          )}
-
-          {/* AI Badge */}
-          {type === "ai" && (
+      {/* --- Các nút hành động (bên phải) --- */}
+      <div className="flex items-center ml-4 flex-shrink-0 space-x-2">
+        {/* Nút hành động cho AI Chat */}
+        {type === "ai" && (
             <div className="flex items-center space-x-2">
               <div className="flex items-center justify-between text-xs text-gray-500">
                 <span className="inline-flex items-center space-x-2">
@@ -218,8 +101,65 @@ export default function ChatHeader({
                 Miễn phí
               </span>
             </div>
-          )}
-        </div>
+        )}
+
+        {/* Nút hành động cho chat với người dùng */}
+        {(isPatientViewingDoctor || isDoctorViewingPatient) && (
+          <>
+            {/* Nút Gọi & Gọi Video */}
+            <div className="flex items-center rounded-lg" style={{ background: "var(--color-accent)" }}>
+              <button
+                onClick={onCall}
+                className="flex items-center space-x-1.5 pl-3 pr-2 py-2 text-sm whitespace-nowrap rounded-l-lg hover:opacity-80 transition-opacity"
+                title="Gọi thoại"
+                style={{ color: "var(--color-primary-600)" }}
+              >
+                <Phone size={16} />
+                <span className="hidden sm:inline">Gọi</span>
+              </button>
+
+              {peerId && peerName && (
+                <div className="border-l" style={{ borderColor: "rgba(var(--color-primary-rgb), 0.2)"}}>
+                  <CallButton
+                    recipientId={peerId}
+                    recipientName={peerName}
+                    recipientRole={isPatientViewingDoctor ? 'doctor' : 'patient'}
+                    className="flex items-center space-x-1.5 pl-2 pr-3 py-2 text-sm whitespace-nowrap rounded-r-lg hover:opacity-80 transition-opacity"
+                    title="Gọi video"
+                    style={{ color: "var(--color-primary-600)" }}
+                  >
+                      <Video size={16} />
+                      <span className="hidden sm:inline">Video</span>
+                  </CallButton>
+                </div>
+              )}
+            </div>
+
+            {/* Nút Đặt lịch (Chỉ cho Bệnh nhân) */}
+            {isPatientViewingDoctor && (
+              <button
+                onClick={onBookAppointment}
+                className="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap hover:opacity-80 transition-opacity"
+                title="Đặt lịch hẹn"
+                style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
+              >
+                <Calendar size={16} />
+                <span className="hidden sm:inline">Đặt lịch</span>
+              </button>
+            )}
+
+            {/* Nút Hồ sơ */}
+            <button
+              onClick={onViewProfile}
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap hover:opacity-80 transition-opacity"
+              title={isPatientViewingDoctor ? "Xem hồ sơ bác sĩ" : "Xem hồ sơ bệnh nhân"}
+              style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
+            >
+              <FileText size={16} />
+              <span className="hidden sm:inline">Hồ sơ</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
