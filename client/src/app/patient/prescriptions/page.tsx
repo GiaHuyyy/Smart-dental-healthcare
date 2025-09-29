@@ -1,9 +1,10 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { sendRequest } from "@/utils/api";
 import { Search, Pill, Calendar, User, FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import PrescriptionList from "@/components/PrescriptionList";
 
 interface Medication {
   name: string;
@@ -187,100 +188,9 @@ export default function PatientPrescriptions() {
           </div>
         </div>
 
-        {/* Prescriptions List */}
-        <div className="space-y-4">
-          {filteredPrescriptions.length === 0 ? (
-            <div className="healthcare-card p-12 text-center">
-              <Pill className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="healthcare-heading text-xl mb-2">Chưa có đơn thuốc nào</h3>
-              <p className="healthcare-body">
-                {searchTerm || statusFilter !== "all"
-                  ? "Không tìm thấy đơn thuốc phù hợp với tiêu chí tìm kiếm"
-                  : "Bạn chưa có đơn thuốc nào được kê bởi bác sĩ"}
-              </p>
-            </div>
-          ) : (
-            filteredPrescriptions.map((prescription) => (
-              <div key={prescription._id} className="healthcare-card p-6">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                  {/* Prescription Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="healthcare-heading text-xl">{prescription.diagnosis}</h3>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${getStatusBadgeClass(
-                              prescription.status
-                            )}`}
-                          >
-                            {getStatusIcon(prescription.status)}
-                            {getStatusText(prescription.status)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                          <div className="flex items-center gap-1">
-                            <User className="w-4 h-4" />
-                            <span>BS. {prescription.doctor.fullName}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>{formatDate(prescription.issuedDate)}</span>
-                          </div>
-                        </div>
-                        <p className="healthcare-body text-sm">Chuyên khoa: {prescription.doctor.specialization}</p>
-                      </div>
-                    </div>
-
-                    {/* Medications */}
-                    <div className="space-y-4">
-                      <h4 className="healthcare-heading text-lg">Thuốc được kê:</h4>
-                      <div className="grid gap-3">
-                        {prescription.medications.map((medication, index) => (
-                          <div key={index} className="bg-blue-50/50 rounded-lg p-4 border border-blue-100">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h5 className="font-semibold text-gray-900 mb-1">{medication.name}</h5>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600">
-                                  <div>
-                                    <span className="font-medium">Liều dùng:</span> {medication.dosage}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Tần suất:</span> {medication.frequency}
-                                  </div>
-                                  <div>
-                                    <span className="font-medium">Thời gian:</span> {medication.duration}
-                                  </div>
-                                </div>
-                                {medication.instructions && (
-                                  <p className="text-sm text-gray-700 mt-2">
-                                    <span className="font-medium">Hướng dẫn:</span> {medication.instructions}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Notes */}
-                    {prescription.notes && (
-                      <div className="mt-4 p-4 bg-amber-50/50 rounded-lg border border-amber-100">
-                        <div className="flex items-start gap-2">
-                          <FileText className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-amber-800 text-sm mb-1">Ghi chú từ bác sĩ:</p>
-                            <p className="text-sm text-amber-700">{prescription.notes}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
+        {/* Use shared PrescriptionList component for consistent UI and actions */}
+        <div>
+          <PrescriptionList patientId={(session as any)?.user?._id || undefined} showDoctorInfo={true} showPatientInfo={false} />
         </div>
       </div>
     </div>
