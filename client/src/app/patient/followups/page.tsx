@@ -30,7 +30,7 @@ export default function PatientFollowupsPage({ params }: any) {
   const fetchData = async () => {
     setLoading(true);
     try {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/followup/patient/${patientId}`);
+      const res = await fetch(`/api/appointments/followup/patient/${patientId}`);
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {

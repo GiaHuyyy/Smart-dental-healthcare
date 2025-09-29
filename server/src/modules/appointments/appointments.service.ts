@@ -1,8 +1,7 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
 import { Model } from 'mongoose';
-import { MedicalRecord, MedicalRecordDocument } from '../medical-records/schemas/medical-record.schemas';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { Appointment, AppointmentStatus } from './schemas/appointment.schemas';
@@ -11,12 +10,7 @@ import { Appointment, AppointmentStatus } from './schemas/appointment.schemas';
 export class AppointmentsService {
   constructor(
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
-    @InjectModel(MedicalRecord.name) private medicalRecordModel: Model<MedicalRecordDocument>,
-  ) {
-    this.logger = new Logger(AppointmentsService.name);
-  }
-
-  private logger: Logger;
+  ) { }
 
   // Convert "HH:MM" or ISO datetime string -> minutes since midnight (UTC for ISO)
   private timeToMinutes(time: string) {
@@ -378,34 +372,10 @@ export class AppointmentsService {
 
   async cancel(id: string, reason: string) {
     // For patient-initiated cancellations, remove the appointment document entirely.
-    const appointment = await this.appointmentModel.findByIdAndDelete(id).lean();
+    const appointment = await this.appointmentModel.findByIdAndDelete(id);
     if (!appointment) {
       throw new NotFoundException('Không tìm thấy lịch hẹn');
     }
-
-    // After deleting the appointment, also clear any medical-record follow-up flags that match this appointment's patient/doctor/date
-    try {
-      const patientId = appointment.patientId ? (((appointment.patientId as any)._id) || appointment.patientId).toString() : null;
-      const doctorId = appointment.doctorId ? (((appointment.doctorId as any)._id) || appointment.doctorId).toString() : null;
-      const apptDay = appointment.appointmentDate ? new Date(appointment.appointmentDate).toISOString().slice(0,10) : null;
-
-      if (patientId && apptDay) {
-        // Match followUpDate by YYYY-MM-DD in UTC to avoid timezone/range mismatches
-        const matchExpr: any = {
-          patientId,
-          isFollowUpRequired: true,
-          $expr: { $eq: [ { $dateToString: { format: "%Y-%m-%d", date: "$followUpDate", timezone: "UTC" } }, apptDay ] }
-        };
-        if (doctorId) matchExpr.doctorId = doctorId;
-
-        const res = await this.medicalRecordModel.updateMany(matchExpr, { $set: { isFollowUpRequired: false, followUpDate: null } });
-        const modified = (res && ((res as any).modifiedCount ?? (res as any).nModified ?? 0)) || 0;
-        this.logger.log(`Cleared follow-ups for patient ${patientId} on ${apptDay}: ${modified}`);
-      }
-    } catch (e) {
-      this.logger.error('Error syncing medical-records after appointment cancel', e);
-    }
-
     return { message: 'Đã xóa lịch hẹn' };
   }
 

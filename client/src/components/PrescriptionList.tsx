@@ -47,32 +47,24 @@ export default function PrescriptionList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
-  const [page, setPage] = useState(1);
-  const pageSize = limit || 10;
-  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
-    // reset when key filters change
-    setPrescriptions([]);
-    setPage(1);
-    setHasMore(true);
-    fetchPrescriptions(1);
+    fetchPrescriptions();
   }, [patientId, doctorId]);
 
-  const fetchPrescriptions = async (targetPage = 1) => {
+  const fetchPrescriptions = async () => {
     try {
-      if (targetPage === 1) setLoading(true);
+      setLoading(true);
       const params = new URLSearchParams();
 
       if (patientId) params.append("patientId", patientId);
       if (doctorId) params.append("doctorId", doctorId);
-      params.append("limit", String(pageSize));
-      params.append("page", String(targetPage));
+      if (limit) params.append("limit", limit.toString());
 
       const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
-      const response = await fetch(`/api/prescriptions?${params}` + (""), {
+      const response = await fetch(`/api/prescriptions?${params}`, {
         headers: {
-          Authorization: token ? `Bearer ${token}` : "",
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });
@@ -82,55 +74,11 @@ export default function PrescriptionList({
       }
 
       const result = await response.json();
-      const items: Prescription[] = result.data || result || [];
-
-      if (targetPage === 1) {
-        setPrescriptions(items);
-      } else {
-        setPrescriptions((prev) => [...prev, ...items]);
-      }
-
-      // if returned items less than pageSize, no more pages
-      setHasMore(items.length >= pageSize);
-      setPage(targetPage);
+      setPrescriptions(result.data || result || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadMore = () => {
-    if (!hasMore) return;
-    fetchPrescriptions(page + 1);
-  };
-
-  const markAsDispensed = async (id: string) => {
-    try {
-      const dispensedBy = localStorage.getItem("userId");
-      const response = await fetch(`/api/prescriptions/${id}/dispense`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ dispensedBy }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err?.message || "Không thể đánh dấu đã phát thuốc");
-      }
-
-      const updated = await response.json();
-
-      // update local list
-      setPrescriptions((prev) => prev.map((p) => (p._id === id ? { ...p, ...updated } : p)));
-      if (selectedPrescription && selectedPrescription._id === id) {
-        setSelectedPrescription({ ...selectedPrescription, ...updated });
-      }
-    } catch (err) {
-      console.error(err);
-      alert(err instanceof Error ? err.message : "Có lỗi xảy ra");
     }
   };
 
@@ -205,40 +153,38 @@ export default function PrescriptionList({
                 <Calendar className="inline w-4 h-4 mr-1" />
                 {formatDate(prescription.prescriptionDate)}
               </p>
-              {showDoctorInfo && (prescription as any).doctorId && (
+              {showDoctorInfo && prescription.doctorId && (
                 <p className="text-sm text-gray-600">
                   <Stethoscope className="inline w-4 h-4 mr-1" />
-                  BS. {(prescription as any).doctorId.fullName || "Không xác định"}
+                  BS. {prescription.doctorId.fullName || "Không xác định"}
                 </p>
               )}
-              {showPatientInfo && (prescription as any).patientId && (
+              {showPatientInfo && prescription.patientId && (
                 <p className="text-sm text-gray-600">
                   <User className="inline w-4 h-4 mr-1" />
-                  {(prescription as any).patientId.fullName || "Không xác định"}
+                  {prescription.patientId.fullName || "Không xác định"}
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setSelectedPrescription(prescription)}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                Xem chi tiết
-              </button>
-            </div>
+            <button
+              onClick={() => setSelectedPrescription(prescription)}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              Xem chi tiết
+            </button>
           </div>
 
           {prescription.diagnosis && (
             <div className="mb-3">
               <p className="text-sm font-medium text-gray-700">Chẩn đoán:</p>
-              <p className="text-sm text-gray-600">{(prescription as any).diagnosis}</p>
+              <p className="text-sm text-gray-600">{prescription.diagnosis}</p>
             </div>
           )}
 
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Thuốc ({(prescription as any).medications?.length || 0}):</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">Thuốc ({prescription.medications.length}):</p>
             <div className="space-y-1">
-              {((prescription as any).medications || []).slice(0, 3).map((med: any, index: number) => (
+              {prescription.medications.slice(0, 3).map((med, index) => (
                 <div key={index} className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
                   <span className="font-medium">{med.name}</span>
                   {med.dosage && <span> - {med.dosage}</span>}
@@ -246,28 +192,22 @@ export default function PrescriptionList({
                   {med.duration && <span> - {med.duration}</span>}
                 </div>
               ))}
-              {((prescription as any).medications || []).length > 3 && (
-                <p className="text-xs text-gray-500">...và {(prescription as any).medications.length - 3} thuốc khác</p>
+              {prescription.medications.length > 3 && (
+                <p className="text-xs text-gray-500">...và {prescription.medications.length - 3} thuốc khác</p>
               )}
             </div>
           </div>
 
-          {(prescription as any).isDispensed && (prescription as any).dispensedDate && (
+          {prescription.isDispensed && prescription.dispensedDate && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <p className="text-xs text-green-600">
                 <Check className="inline w-4 h-4 mr-1" />
-                Đã phát thuốc vào {formatDate((prescription as any).dispensedDate)}
+                Đã phát thuốc vào {formatDate(prescription.dispensedDate)}
               </p>
             </div>
           )}
         </div>
       ))}
-
-      {hasMore && (
-        <div className="flex justify-center">
-          <button onClick={loadMore} className="px-4 py-2 rounded bg-blue-600 text-white">Tải thêm</button>
-        </div>
-      )}
 
       {/* Prescription Detail Modal */}
       {selectedPrescription && (
@@ -289,33 +229,33 @@ export default function PrescriptionList({
                   </div>
                   <div>
                     <span className="font-medium">Ngày kê đơn:</span>
-                    <p>{formatDate((selectedPrescription as any).prescriptionDate)}</p>
+                    <p>{formatDate(selectedPrescription.prescriptionDate)}</p>
                   </div>
-                  {showDoctorInfo && (selectedPrescription as any).doctorId && (
+                  {showDoctorInfo && selectedPrescription.doctorId && (
                     <div>
                       <span className="font-medium">Bác sĩ:</span>
-                      <p>BS. {(selectedPrescription as any).doctorId.fullName}</p>
+                      <p>BS. {selectedPrescription.doctorId.fullName}</p>
                     </div>
                   )}
-                  {showPatientInfo && (selectedPrescription as any).patientId && (
+                  {showPatientInfo && selectedPrescription.patientId && (
                     <div>
                       <span className="font-medium">Bệnh nhân:</span>
-                      <p>{(selectedPrescription as any).patientId.fullName}</p>
+                      <p>{selectedPrescription.patientId.fullName}</p>
                     </div>
                   )}
                 </div>
 
-                {(selectedPrescription as any).diagnosis && (
+                {selectedPrescription.diagnosis && (
                   <div>
                     <span className="font-medium">Chẩn đoán:</span>
-                    <p className="mt-1 p-2 bg-gray-50 rounded">{(selectedPrescription as any).diagnosis}</p>
+                    <p className="mt-1 p-2 bg-gray-50 rounded">{selectedPrescription.diagnosis}</p>
                   </div>
                 )}
 
                 <div>
                   <span className="font-medium">Danh sách thuốc:</span>
                   <div className="mt-2 space-y-3">
-                    {((selectedPrescription as any).medications || []).map((med: any, index: number) => (
+                    {selectedPrescription.medications.map((med, index) => (
                       <div key={index} className="border border-gray-200 rounded p-3">
                         <div className="font-medium text-blue-600 mb-2">{med.name}</div>
                         <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
@@ -336,42 +276,34 @@ export default function PrescriptionList({
                   </div>
                 </div>
 
-                {(selectedPrescription as any).instructions && (
+                {selectedPrescription.instructions && (
                   <div>
                     <span className="font-medium">Hướng dẫn chung:</span>
-                    <p className="mt-1 p-2 bg-blue-50 rounded">{(selectedPrescription as any).instructions}</p>
+                    <p className="mt-1 p-2 bg-blue-50 rounded">{selectedPrescription.instructions}</p>
                   </div>
                 )}
 
-                {(selectedPrescription as any).notes && (
+                {selectedPrescription.notes && (
                   <div>
                     <span className="font-medium">Ghi chú:</span>
-                    <p className="mt-1 p-2 bg-gray-50 rounded">{(selectedPrescription as any).notes}</p>
+                    <p className="mt-1 p-2 bg-gray-50 rounded">{selectedPrescription.notes}</p>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div
                     className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                      (selectedPrescription as any).status,
-                      (selectedPrescription as any).isDispensed
+                      selectedPrescription.status,
+                      selectedPrescription.isDispensed
                     )}`}
                   >
-                    {getStatusText((selectedPrescription as any).status, (selectedPrescription as any).isDispensed)}
+                    {getStatusText(selectedPrescription.status, selectedPrescription.isDispensed)}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!((selectedPrescription as any).isDispensed) && (
-                      <button
-                        onClick={() => markAsDispensed(selectedPrescription._id)}
-                        className="px-3 py-1 rounded bg-green-600 text-white text-sm"
-                      >
-                        Đánh dấu đã phát thuốc
-                      </button>
-                    )}
-                    {(selectedPrescription as any).isDispensed && (selectedPrescription as any).dispensedDate && (
-                      <div className="text-sm text-green-600">Đã phát thuốc: {formatDate((selectedPrescription as any).dispensedDate)}</div>
-                    )}
-                  </div>
+                  {selectedPrescription.isDispensed && selectedPrescription.dispensedDate && (
+                    <div className="text-sm text-green-600">
+                      Đã phát thuốc: {formatDate(selectedPrescription.dispensedDate)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

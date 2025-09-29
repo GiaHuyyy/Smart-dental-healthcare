@@ -1,9 +1,9 @@
 "use client";
 
-import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import PrescriptionList from "../../../../components/PrescriptionList";
 
 interface Patient {
@@ -285,7 +285,7 @@ export default function PatientDetail() {
               duration: 30,
               appointmentType: 'follow-up',
               notes: 'Tái khám từ hồ sơ',
-              status: 'pending'
+              status: 'scheduled'
             };
 
             const apptRes = await fetch('/api/appointments', { method: 'POST', headers, body: JSON.stringify(apptBody) });
@@ -417,7 +417,7 @@ export default function PatientDetail() {
               duration: 30,
               appointmentType: 'follow-up',
               notes: 'Tái khám từ hồ sơ',
-              status: 'pending'
+              status: 'scheduled'
             };
 
             const apptRes = await fetch('/api/appointments', { method: 'POST', headers, body: JSON.stringify(apptBody) });
@@ -461,9 +461,7 @@ export default function PatientDetail() {
 
   const getStatusBadge = (status: string) => {
     const statusMap: { [key: string]: { bg: string; text: string; label: string } } = {
-  'pending': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Đã lên lịch' },
-  // 'scheduled' kept for backward compatibility where older code may use it
-  'scheduled': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Đã lên lịch' },
+      'scheduled': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Đã lên lịch' },
       'confirmed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Đã xác nhận' },
       'completed': { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Hoàn thành' },
       'cancelled': { bg: 'bg-red-100', text: 'text-red-800', label: 'Đã hủy' },
@@ -640,7 +638,7 @@ export default function PatientDetail() {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Lịch hẹn sắp tới</span>
                   <span className="text-sm font-medium text-gray-900">
-                    {appointments.filter(apt => apt.status === 'pending' || apt.status === 'confirmed').length}
+                    {appointments.filter(apt => apt.status === 'scheduled' || apt.status === 'confirmed').length}
                   </span>
                 </div>
               </div>

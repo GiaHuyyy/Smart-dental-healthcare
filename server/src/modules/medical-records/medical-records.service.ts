@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Appointment, AppointmentDocument } from '../appointments/schemas/appointment.schemas';
 import { CreateMedicalRecordDto } from './dto/create-medical-record.dto';
 import { UpdateMedicalRecordDto } from './dto/update-medical-record.dto';
 import { MedicalRecord, MedicalRecordDocument } from './schemas/medical-record.schemas';
@@ -11,8 +10,6 @@ export class MedicalRecordsService {
   constructor(
     @InjectModel(MedicalRecord.name)
     private medicalRecordModel: Model<MedicalRecordDocument>,
-    @InjectModel(Appointment.name)
-    private appointmentModel: Model<AppointmentDocument>,
   ) {}
 
   async create(createMedicalRecordDto: CreateMedicalRecordDto): Promise<MedicalRecord> {
@@ -217,43 +214,7 @@ export class MedicalRecordsService {
       record.followUpDate = new Date(followUpDate as Date);
     }
 
-    const saved = await record.save();
-
-    // If follow-up was cleared (isFollowUpRequired === false), attempt to remove related upcoming appointment(s)
-    try {
-      if (!record.isFollowUpRequired && record.followUpDate === null && this.appointmentModel) {
-  const patientId = record.patientId ? (((record.patientId as any)._id) || record.patientId).toString() : null;
-  const doctorId = record.doctorId ? (((record.doctorId as any)._id) || record.doctorId).toString() : null;
-        if (patientId) {
-          // find upcoming appointments for this patient matching the same day and doctor
-          const now = new Date();
-          const recordsToCheckDateStart = new Date();
-          recordsToCheckDateStart.setHours(0,0,0,0);
-          // We'll look for appointments with appointmentDate >= today (best-effort) and matching patient
-          const appts = await this.appointmentModel.find({ patientId, appointmentDate: { $gte: new Date(0) }, status: { $in: ['pending','confirmed'] } }).lean();
-          for (const a of appts || []) {
-            try {
-              const apptDay = a?.appointmentDate ? new Date(a.appointmentDate).toISOString().slice(0,10) : null;
-              // We previously cleared followUpDate, but the original followUp date might be stored elsewhere in saved object
-              // Try to match by doctorId and approximate date proximity: if apptDay equals the saved.followUpDate prior to clearing (not available) or if doctor matches and appt is in future, cancel it.
-              const apptDoctor = (a.doctorId as any);
-              const sameDoctor = doctorId ? ((apptDoctor && (apptDoctor._id || apptDoctor) ? String(apptDoctor._id || apptDoctor) : String(apptDoctor)) === String(doctorId)) : true;
-              const isFuture = a.appointmentDate && new Date(a.appointmentDate) >= now;
-              if (sameDoctor && isFuture) {
-                // delete appointment document
-                await this.appointmentModel.findByIdAndDelete(a._id);
-              }
-            } catch (e) {
-              // ignore per-record errors
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // ignore sync failures
-    }
-
-    return saved;
+    return record.save();
   }
 
   async addAttachment(id: string, attachment: any): Promise<MedicalRecord> {

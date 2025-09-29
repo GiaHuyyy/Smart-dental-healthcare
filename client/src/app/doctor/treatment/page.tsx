@@ -85,7 +85,7 @@ export default function TreatmentPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}`, {
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
         headers,
       });
 
@@ -286,7 +286,7 @@ export default function TreatmentPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}`, {
+      await fetch(`/api/appointments/${appointmentId}`, {
         method: "PATCH",
         headers,
         body: JSON.stringify({ status }),
