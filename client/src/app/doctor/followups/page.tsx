@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Calendar, User } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface FollowUpItem {
   patient: { _id: string; fullName: string; phone?: string; email?: string };
@@ -31,7 +31,7 @@ export default function DoctorFollowupsPage({ params }: any) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/appointments/followup/doctor/${doctorId}`);
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/followup/doctor/${doctorId}`);
       const data = await res.json();
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {

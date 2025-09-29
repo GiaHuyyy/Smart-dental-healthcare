@@ -64,7 +64,9 @@ export default function DoctorPrescriptionsPage() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
-  const [selectedPatientFilter, setSelectedPatientFilter] = useState(selectedPatientId || "");
+  // use a non-empty sentinel value for the "all" option to satisfy Select.Item value requirement
+  const ALL_PATIENTS_VALUE = "__all__";
+  const [selectedPatientFilter, setSelectedPatientFilter] = useState<string>(selectedPatientId || ALL_PATIENTS_VALUE);
   const { toast } = useToast();
 
   // Form state
@@ -654,7 +656,7 @@ export default function DoctorPrescriptionsPage() {
                   <SelectValue placeholder="Lọc theo bệnh nhân" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Tất cả bệnh nhân</SelectItem>
+                  <SelectItem value={ALL_PATIENTS_VALUE}>Tất cả bệnh nhân</SelectItem>
                   {patients.map((patient) => (
                     <SelectItem key={patient._id} value={patient._id}>
                       {patient.fullName}
@@ -667,7 +669,7 @@ export default function DoctorPrescriptionsPage() {
 
           {/* Use PrescriptionList Component */}
           <PrescriptionList
-            patientId={selectedPatientFilter || undefined}
+            patientId={selectedPatientFilter === ALL_PATIENTS_VALUE ? undefined : selectedPatientFilter}
             doctorId={localStorage.getItem("userId") || undefined}
             showPatientInfo={true}
             showDoctorInfo={false}
