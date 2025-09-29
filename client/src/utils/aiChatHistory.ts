@@ -14,7 +14,7 @@ export interface AiChatSession {
   summary?: string;
   hasImageAnalysis?: boolean;
   imageUrls?: string[];
-  analysisResults?: any;
+  analysisResults?: unknown;
   patientSatisfaction?: number;
   followUpNeeded?: boolean;
   tags?: string[];
@@ -30,13 +30,21 @@ export interface AiChatMessage {
   content: string;
   messageType?: string;
   imageUrl?: string;
-  analysisData?: any;
+  analysisData?: unknown;
   actionButtons?: string[];
   urgencyLevel?: string;
-  suggestedDoctor?: any;
+  // Optional fields used by UI
+  symptoms?: string | string[];
+  hasImages?: boolean;
+  imageAnalysis?: {
+    findings?: string[];
+    recommendations?: string[];
+    severity?: string;
+  };
+  suggestedDoctor?: unknown;
   isQuickSuggestion?: boolean;
   quickSuggestionType?: string;
-  metadata?: any;
+  metadata?: unknown;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -78,6 +86,22 @@ class AiChatHistoryService {
 
     if (!response.ok) {
       throw new Error(`Failed to get user sessions: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async createSession(createData: Partial<AiChatSession>): Promise<AiChatSession> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(createData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create session: ${response.statusText}`);
     }
 
     return await response.json();

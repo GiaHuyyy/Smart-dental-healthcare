@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Users, Star, Search, Filter, MessageSquare, Calendar, Phone, MapPin, Stethoscope } from "lucide-react";
 
 interface Doctor {
@@ -47,12 +47,25 @@ function DoctorSkeleton() {
 
 export default function PatientDoctorsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [query, setQuery] = useState<string>(searchParams.get("q") || "");
-  const [specialty, setSpecialty] = useState<string>(searchParams.get("specialty") || "all");
+  const [query, setQuery] = useState<string>("");
+  const [specialty, setSpecialty] = useState<string>("all");
+
+  // Read initial query params on client only to avoid prerender issues
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get("q");
+      const sp = params.get("specialty");
+      if (q) setQuery(q);
+      if (sp) setSpecialty(sp);
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     let list = doctors;

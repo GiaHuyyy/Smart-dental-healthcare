@@ -8,7 +8,7 @@ import ChatHeader from "@/components/chat/ChatHeader";
 import { useSession } from "next-auth/react";
 import realtimeChatService from "@/services/realtimeChatService";
 import { extractUserData } from "@/utils/sessionHelpers";
-import { useSearchParams } from "next/navigation";
+// Avoid useSearchParams in components that may be prerendered - read window.location in effect instead
 import { DoctorSuggestion } from "@/types/chat";
 
 // --- Type Definitions ---
@@ -41,7 +41,6 @@ interface SharedChatViewProps {
 // --- Component chính ---
 export default function SharedChatView({ userRole }: SharedChatViewProps) {
   const { data: session } = useSession();
-  const searchParams = useSearchParams();
 
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -88,11 +87,21 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
     [userRole]
   );
 
+  const getDisplayName = (user: any) => {
+    if (!user) return "";
+    // Prefer explicit name, fall back to first/last name or email
+    if ((user as any).name) return (user as any).name;
+    const first = (user as any).firstName || "";
+    const last = (user as any).lastName || "";
+    if (first || last) return `${first} ${last}`.trim();
+    return (user as any).email || "";
+  };
+
   // --- 1. Socket Connection & Event Listeners ---
   useEffect(() => {
     if (!session?.user || !userRole) return;
 
-    let socket;
+    let socket: any;
     if (!userData?.userId || !userData.token) {
       setConnectionError("Không thể xác thực người dùng");
       setConversationsLoading(false);
@@ -161,7 +170,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
         socket.on("conversationsLoaded", handleConversationsLoaded);
         socket.on("messagesLoaded", handleMessagesLoaded);
         socket.on("newMessage", handleNewMessage);
-        socket.on("error", (err) => setConnectionError(err.message));
+        socket.on("error", (err: any) => setConnectionError(err?.message || String(err)));
         socket.on("conversationCreated", addOrUpdateConversation);
 
         socket.emit("loadConversations", { userId: userData.userId, userRole });
@@ -184,11 +193,18 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
 
   const handleStartConversation = useCallback(
     async (doctor: DoctorSuggestion) => {
-      if (!userData?.userId) return;
-      try {
-        const newConversation = await realtimeChatService.createConversation(userData.userId, doctor._id);
+      if (!userData || !userData.userId) return;
+      if (!doctor._id) {
+        console.error("Doctor ID is undefined, cannot start conversation.");
+        return;
+      }
 
-        // ✅ GỌI HÀM CHUNG ĐỂ CẬP NHẬT UI
+      try {
+        // ép chắc chắn thành string
+        const uid = userData.userId as string;
+
+        const newConversation = await realtimeChatService.createConversation(uid, doctor._id);
+
         addOrUpdateConversation(newConversation);
         setSelectedChat(newConversation.id);
       } catch (error) {
@@ -223,50 +239,47 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
   );
 
   useEffect(() => {
-    // Chỉ bệnh nhân mới có chức năng này
-    if (userRole !== "patient" || !session?.user) {
-      return;
-    }
+    // Only for patients and when in browser
+    if (userRole !== "patient" || !session?.user || typeof window === "undefined") return;
 
-    // Kiểm tra URL param để tạo cuộc hội thoại mới
-    if (searchParams?.get("newConversation") === "true") {
-      const newConvDataRaw = localStorage.getItem("newConversation");
-      if (newConvDataRaw) {
-        try {
-          const conversationData = JSON.parse(newConvDataRaw);
-          const userData = extractUserData(session);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("newConversation") === "true") {
+        const newConvDataRaw = localStorage.getItem("newConversation");
+        if (newConvDataRaw) {
+          try {
+            const conversationData = JSON.parse(newConvDataRaw);
+            const userData = extractUserData(session);
 
-          console.log("Đang tạo cuộc hội thoại mới qua SOCKET với:", conversationData);
+            console.log("Đang tạo cuộc hội thoại mới qua SOCKET với:", conversationData);
 
-          const createConvViaSocket = async () => {
-            try {
-              // Gọi service để emit sự kiện qua socket
-              const newConversationId = await realtimeChatService.createConversation(
-                userData!.userId,
-                conversationData.doctorId
-              );
+            const createConvViaSocket = async () => {
+              try {
+                const newConversationId = await realtimeChatService.createConversation(
+                  userData!.userId,
+                  conversationData.doctorId
+                );
 
-              console.log("Socket: Tạo cuộc hội thoại thành công, ID:", newConversationId);
+                console.log("Socket: Tạo cuộc hội thoại thành công, ID:", newConversationId);
+                setSelectedChat(newConversationId);
+              } catch (socketError) {
+                console.error("Lỗi socket khi tạo cuộc hội thoại:", socketError);
+              } finally {
+                localStorage.removeItem("newConversation");
+                window.history.replaceState(null, "", "/patient/chat");
+              }
+            };
 
-              // Chọn luôn cuộc hội thoại vừa tạo.
-              // Sidebar sẽ được cập nhật tự động qua sự kiện 'conversationCreated'.
-              setSelectedChat(newConversationId);
-            } catch (socketError) {
-              console.error("Lỗi socket khi tạo cuộc hội thoại:", socketError);
-            } finally {
-              // Dọn dẹp để tránh tạo lại khi reload
-              localStorage.removeItem("newConversation");
-              window.history.replaceState(null, "", "/patient/chat");
-            }
-          };
-
-          createConvViaSocket();
-        } catch (error) {
-          console.error("Lỗi xử lý newConversation:", error);
+            createConvViaSocket();
+          } catch (error) {
+            console.error("Lỗi xử lý newConversation:", error);
+          }
         }
       }
+    } catch (err) {
+      // ignore URL parse errors
     }
-  }, [searchParams, session, userRole]);
+  }, [session, userRole]);
 
   useEffect(() => {
     if (selectedChat && selectedChat !== "ai" && socketInitialized) {
@@ -430,10 +443,10 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                 ) : selectedConversation ? (
                   <ChatHeader
                     type={userRole === "doctor" ? "patient" : "doctor"}
-                    patientName={userRole === "doctor" ? selectedConversation.peerName : session?.user?.name || ""}
+                    patientName={userRole === "doctor" ? selectedConversation.peerName : getDisplayName(session?.user)}
                     patientId={userRole === "doctor" ? selectedConversation.peerId : userData?.userId || ""}
                     patientEmail={userRole === "doctor" ? selectedConversation.peerDetails : session?.user?.email || ""}
-                    doctorName={userRole === "patient" ? selectedConversation.peerName : session?.user?.name || ""}
+                    doctorName={userRole === "patient" ? selectedConversation.peerName : getDisplayName(session?.user)}
                     doctorId={userRole === "patient" ? selectedConversation.peerId : userData?.userId || ""}
                     specialty={
                       userRole === "patient"
@@ -460,8 +473,8 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
               currentUserRole={userRole}
               preloadedMessages={selectedChat ? conversationMessages[selectedChat] || [] : []}
               isLoadingMessages={selectedChat ? loadingMessages[selectedChat] || false : false}
-              doctorName={userRole === "patient" ? selectedConversation.peerName : session?.user?.name || ""}
-              patientName={userRole === "doctor" ? selectedConversation.peerName : session?.user?.name || ""}
+              doctorName={userRole === "patient" ? selectedConversation.peerName : getDisplayName(session?.user)}
+              patientName={userRole === "doctor" ? selectedConversation.peerName : getDisplayName(session?.user)}
               onInputFocus={() => {
                 if (selectedConversation && selectedConversation.unread) {
                   markConversationAsRead(selectedConversation.id);

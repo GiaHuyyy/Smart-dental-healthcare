@@ -3,43 +3,16 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useAiChatHistory } from "@/hooks/useAiChatHistory";
-
-interface AiChatSession {
-  _id: string;
-  userId: string;
-  symptoms: string[];
-  urgencyLevel: "low" | "medium" | "high";
-  status: "active" | "completed";
-  messageCount: number;
-  createdAt: string;
-  updatedAt: string;
-  sessionSummary?: string;
-}
-
-interface AiChatMessage {
-  _id: string;
-  sessionId: string;
-  role: "user" | "assistant";
-  content: string;
-  urgencyLevel: "low" | "medium" | "high";
-  symptoms: string[];
-  hasImages: boolean;
-  imageAnalysis?: {
-    findings: string[];
-    recommendations: string[];
-    severity: string;
-  };
-  createdAt: string;
-}
+import type { AiChatSession, AiChatMessage, ChatStats } from "@/utils/aiChatHistory";
 
 export default function AiChatHistoryPage() {
   const { data: session } = useSession();
-  const { getUserSessions, getSessionMessages, getSessionAnalytics } = useAiChatHistory();
+  const { loadUserSessions, getSessionMessages, userSessions } = useAiChatHistory();
 
   const [sessions, setSessions] = useState<AiChatSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<ChatStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [messageLoading, setMessageLoading] = useState(false);
 
@@ -50,12 +23,8 @@ export default function AiChatHistoryPage() {
 
       try {
         setLoading(true);
-        const userSessions = await getUserSessions();
-        setSessions(userSessions);
-
-        // Load analytics
-        const userAnalytics = await getSessionAnalytics();
-        setAnalytics(userAnalytics);
+        await loadUserSessions();
+        // sessions will be synced from hook's userSessions state
       } catch (error) {
         console.error("Failed to load AI chat sessions:", error);
       } finally {
@@ -64,7 +33,30 @@ export default function AiChatHistoryPage() {
     };
 
     loadSessions();
-  }, [session, getUserSessions, getSessionAnalytics]);
+  }, [session, loadUserSessions]);
+
+  // Sync local sessions and compute analytics when hook state updates
+  useEffect(() => {
+    setSessions(userSessions || []);
+    if (userSessions && userSessions.length > 0) {
+      const totalSessions = userSessions.length;
+      const totalMessages = userSessions.reduce((sum, s) => sum + (s.messageCount || 0), 0);
+      const sessionsWithImages = userSessions.reduce((sum, s) => sum + (s.hasImageAnalysis ? 1 : 0), 0);
+      const urgentSessions = userSessions.filter((s) => s.urgencyLevel === "high").length;
+      const activeSessions = userSessions.filter((s) => s.status === "active").length;
+      const completedSessions = userSessions.filter((s) => s.status === "completed").length;
+      setAnalytics({
+        totalSessions,
+        totalMessages,
+        sessionsWithImages,
+        urgentSessions,
+        activeSessions,
+        completedSessions,
+      });
+    } else {
+      setAnalytics(null);
+    }
+  }, [userSessions]);
 
   // Load messages for selected session
   const loadSessionMessages = async (sessionId: string) => {
@@ -80,7 +72,7 @@ export default function AiChatHistoryPage() {
     }
   };
 
-  const getUrgencyColor = (urgency: string) => {
+  const getUrgencyColor = (urgency?: string) => {
     switch (urgency) {
       case "high":
         return "text-red-600 bg-red-100";
@@ -93,7 +85,7 @@ export default function AiChatHistoryPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case "completed":
         return "text-blue-600 bg-blue-100";
@@ -104,8 +96,25 @@ export default function AiChatHistoryPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-";
     return new Date(dateString).toLocaleString("vi-VN");
+  };
+
+  const formatSymptoms = (sess: AiChatSession) => {
+    if (!sess) return "Không có";
+    const s: unknown = (sess as unknown as AiChatSession).symptoms;
+    if (!s) return "Không có";
+    if (Array.isArray(s)) return (s as string[]).join(", ");
+    if (typeof s === "string") {
+      // try split by comma or semicolon
+      const parts = (s as string)
+        .split(/[,;]+/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      return parts.length > 0 ? parts.join(", ") : (s as string);
+    }
+    return String(s);
   };
 
   if (!session?.user) {
@@ -154,7 +163,7 @@ export default function AiChatHistoryPage() {
                 </div>
                 <div className="bg-yellow-50 rounded-lg p-4">
                   <h3 className="text-sm font-medium text-yellow-800">Ảnh đã phân tích</h3>
-                  <p className="text-2xl font-bold text-yellow-900">{analytics.totalImagesAnalyzed}</p>
+                  <p className="text-2xl font-bold text-yellow-900">{analytics.sessionsWithImages}</p>
                 </div>
                 <div className="bg-red-50 rounded-lg p-4">
                   <h3 className="text-sm font-medium text-red-800">Trường hợp khẩn cấp</h3>
@@ -178,10 +187,10 @@ export default function AiChatHistoryPage() {
                       <p className="text-sm mt-2">Hãy bắt đầu chat với AI để nhận tư vấn về sức khỏe răng miệng!</p>
                     </div>
                   ) : (
-                    sessions.map((session) => (
+                    sessions.map((session, idx) => (
                       <div
-                        key={session._id}
-                        onClick={() => loadSessionMessages(session._id)}
+                        key={session._id ?? idx}
+                        onClick={() => session._id && loadSessionMessages(session._id)}
                         className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                           selectedSession === session._id ? "bg-blue-50 border-blue-200" : ""
                         }`}
@@ -204,17 +213,15 @@ export default function AiChatHistoryPage() {
                         </div>
 
                         <div className="mb-2">
-                          <p className="text-sm text-gray-600">
-                            Triệu chứng: {session.symptoms.length > 0 ? session.symptoms.join(", ") : "Không có"}
-                          </p>
+                          <p className="text-sm text-gray-600">Triệu chứng: {formatSymptoms(session)}</p>
                           <p className="text-xs text-gray-500">{session.messageCount} tin nhắn</p>
                         </div>
 
                         <p className="text-xs text-gray-400">{formatDate(session.createdAt)}</p>
 
-                        {session.sessionSummary && (
+                        {session.summary && (
                           <p className="text-xs text-gray-600 mt-2 italic">
-                            "{session.sessionSummary.substring(0, 60)}..."
+                            &quot;{session.summary.substring(0, 60)}...&quot;
                           </p>
                         )}
                       </div>
@@ -255,7 +262,7 @@ export default function AiChatHistoryPage() {
                             >
                               <p className="text-sm">{message.content}</p>
 
-                              {message.symptoms.length > 0 && (
+                              {Array.isArray(message.symptoms) && message.symptoms.length > 0 && (
                                 <div className="mt-2">
                                   <p className="text-xs opacity-75">Triệu chứng: {message.symptoms.join(", ")}</p>
                                 </div>
@@ -270,12 +277,14 @@ export default function AiChatHistoryPage() {
                               {message.imageAnalysis && (
                                 <div className="mt-2 text-xs opacity-75">
                                   <p>🔍 Phân tích ảnh:</p>
-                                  {message.imageAnalysis.findings.length > 0 && (
-                                    <p>• Phát hiện: {message.imageAnalysis.findings.join(", ")}</p>
-                                  )}
-                                  {message.imageAnalysis.recommendations.length > 0 && (
-                                    <p>• Khuyến nghị: {message.imageAnalysis.recommendations.join(", ")}</p>
-                                  )}
+                                  {Array.isArray(message.imageAnalysis.findings) &&
+                                    message.imageAnalysis.findings.length > 0 && (
+                                      <p>• Phát hiện: {message.imageAnalysis.findings.join(", ")}</p>
+                                    )}
+                                  {Array.isArray(message.imageAnalysis.recommendations) &&
+                                    message.imageAnalysis.recommendations.length > 0 && (
+                                      <p>• Khuyến nghị: {message.imageAnalysis.recommendations.join(", ")}</p>
+                                    )}
                                 </div>
                               )}
 

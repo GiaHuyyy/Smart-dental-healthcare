@@ -1,16 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const resolved = await params;
 
-  const response = await fetch(`${apiUrl}/api/v1/prescriptions/${params.id}`, { headers });
+    const response = await fetch(`${apiUrl}/api/v1/prescriptions/${resolved.id}`, { headers });
 
     if (!response.ok) {
       throw new Error(`Backend responded with ${response.status}`);
@@ -19,28 +17,23 @@ export async function GET(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching prescription:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error("Error fetching prescription:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await request.json();
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const response = await fetch(`${apiUrl}/api/v1/prescriptions/${params.id}`, {
-      method: 'PATCH',
+    const resolved = await params;
+    const response = await fetch(`${apiUrl}/api/v1/prescriptions/${resolved.id}`, {
+      method: "PATCH",
       headers,
       body: JSON.stringify(body),
     });
@@ -53,26 +46,21 @@ export async function PATCH(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error updating prescription:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error("Error updating prescription:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081';
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = request.headers.get("authorization")?.replace("Bearer ", "");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const response = await fetch(`${apiUrl}/api/v1/prescriptions/${params.id}`, {
-      method: 'DELETE',
+    const resolved = await params;
+    const response = await fetch(`${apiUrl}/api/v1/prescriptions/${resolved.id}`, {
+      method: "DELETE",
       headers,
     });
 
@@ -83,10 +71,7 @@ export async function DELETE(
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error deleting prescription:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error("Error deleting prescription:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

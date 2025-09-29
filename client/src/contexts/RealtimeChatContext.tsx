@@ -142,12 +142,12 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
       // If the active conversation is updated (e.g., after call end), reload messages inline
       if (activeConversation && conversation._id === activeConversation._id) {
         try {
-          const response = await sendRequest({
-            endpoint: `/realtime-chat/conversations/${activeConversation._id}/messages`,
+          const response = await sendRequest<IBackendRes<Message[]>>({
+            url: `/realtime-chat/conversations/${activeConversation._id}/messages`,
             method: "GET",
           });
-          if ((response as any)?.success) {
-            setMessages((response as any).data || []);
+          if (response?.data !== undefined) {
+            setMessages(response.data || []);
           }
         } catch (e) {
           console.error("Failed to refresh messages after conversation update:", e);
@@ -174,51 +174,57 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
   }, [activeConversation]);
 
   // Connect to chat
-  const connectToChat = useCallback(async (token: string, user: User) => {
-    try {
-      setIsLoading(true);
-      setCurrentUser(user);
+  const connectToChat = useCallback(
+    async (token: string, user: User) => {
+      try {
+        setIsLoading(true);
+        setCurrentUser(user);
 
-      await realtimeChatService.connect(token, user._id, user.role);
-      setIsConnected(true);
+        await realtimeChatService.connect(token, user._id, user.role);
+        setIsConnected(true);
 
-      // Setup event listeners
-      setupEventListeners();
+        // Setup event listeners
+        setupEventListeners();
 
-      // Re-join active conversation after (re)connect
-      realtimeChatService.onReconnect(async () => {
+        // Re-join active conversation after (re)connect
+        realtimeChatService.onReconnect(async () => {
+          if (activeConversation?._id) {
+            realtimeChatService.joinConversation(activeConversation._id);
+            try {
+              const res = await sendRequest<IBackendRes<Message[]>>({
+                url: `/realtime-chat/conversations/${activeConversation._id}/messages`,
+                method: "GET",
+              });
+              if (res?.data !== undefined) setMessages(res.data || []);
+            } catch (err) {
+              console.error("Failed to refresh messages after reconnect:", err);
+            }
+          }
+        });
+
+        // Load initial conversations inline (avoid TDZ)
+        try {
+          const resp = await sendRequest<IBackendRes<Conversation[]>>({
+            url: "/realtime-chat/conversations",
+            method: "GET",
+          });
+          if (resp?.data !== undefined) setConversations(resp.data || []);
+        } catch (e) {
+          console.error("Failed to load conversations:", e);
+        }
+
+        // If user has an active conversation already, join its room
         if (activeConversation?._id) {
           realtimeChatService.joinConversation(activeConversation._id);
-          try {
-            const res = await sendRequest({
-              endpoint: `/realtime-chat/conversations/${activeConversation._id}/messages`,
-              method: "GET",
-            });
-            if ((res as any)?.success) setMessages((res as any).data || []);
-          } catch (err) {
-            console.error("Failed to refresh messages after reconnect:", err);
-          }
         }
-      });
-
-      // Load initial conversations inline (avoid TDZ)
-      try {
-        const resp = await sendRequest({ endpoint: "/realtime-chat/conversations", method: "GET" });
-        if ((resp as any)?.success) setConversations((resp as any).data || []);
-      } catch (e) {
-        console.error("Failed to load conversations:", e);
+      } catch (error) {
+        console.error("Failed to connect to chat:", error);
+      } finally {
+        setIsLoading(false);
       }
-
-      // If user has an active conversation already, join its room
-      if (activeConversation?._id) {
-        realtimeChatService.joinConversation(activeConversation._id);
-      }
-    } catch (error) {
-      console.error("Failed to connect to chat:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeConversation, setupEventListeners]);
+    },
+    [activeConversation, setupEventListeners]
+  );
 
   // Disconnect from chat
   const disconnectFromChat = useCallback(() => {
@@ -234,12 +240,12 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
   // Load conversations
   const loadConversations = useCallback(async () => {
     try {
-      const response = await sendRequest({
-        endpoint: "/realtime-chat/conversations",
+      const response = await sendRequest<IBackendRes<Conversation[]>>({
+        url: "/realtime-chat/conversations",
         method: "GET",
       });
 
-      if (response.success) {
+      if (response.data !== undefined) {
         setConversations(response.data || []);
       }
     } catch (error) {
@@ -250,12 +256,12 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
   // Load messages for a conversation
   const loadMessages = useCallback(async (conversationId: string) => {
     try {
-      const response = await sendRequest({
-        endpoint: `/realtime-chat/conversations/${conversationId}/messages`,
+      const response = await sendRequest<IBackendRes<Message[]>>({
+        url: `/realtime-chat/conversations/${conversationId}/messages`,
         method: "GET",
       });
 
-      if (response.success) {
+      if (response.data !== undefined) {
         // Server now returns newest first reversed on server; do not reverse again
         setMessages(response.data || []);
       }
@@ -267,13 +273,13 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
   // Start a conversation with another user
   const startConversation = useCallback(async (otherUserId: string): Promise<Conversation> => {
     try {
-      const response = await sendRequest({
-        endpoint: `/realtime-chat/conversations/with/${otherUserId}`,
+      const response = await sendRequest<IBackendRes<Conversation>>({
+        url: `/realtime-chat/conversations/with/${otherUserId}`,
         method: "GET",
       });
 
-      if (response.success) {
-        const conversation = response.data;
+      if (response.data !== undefined) {
+        const conversation = response.data as Conversation;
 
         // Add to conversations list if not already there
         setConversations((prev) => {

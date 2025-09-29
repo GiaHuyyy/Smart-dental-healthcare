@@ -40,7 +40,7 @@ interface WebRTCContextType {
     callType: "video" | "audio"
   ) => Promise<void>;
   acceptCall: () => Promise<void>;
-  rejectCall: () => void;
+  rejectCall: (reason?: string) => void;
   endCall: () => void;
 
   // Media controls

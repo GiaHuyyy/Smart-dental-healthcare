@@ -4,13 +4,20 @@ if (typeof global === "undefined") {
 }
 // Ensure all required globals are defined
 if (typeof process === "undefined") {
-  window.process = { env: { DEBUG: undefined }, nextTick: (cb) => setTimeout(cb, 0) };
+  // Minimal browser-side polyfill for `process` used by some libraries.
+  // Provide NODE_ENV so TS's ProcessEnv type is satisfied and a simple nextTick implementation.
+  window.process = {
+    env: { NODE_ENV: "development", DEBUG: undefined },
+    nextTick: (cb: (...args: any[]) => void) => setTimeout(cb, 0),
+  } as any;
 }
 // Add Buffer polyfill
 if (typeof window !== "undefined" && !window.Buffer) {
-  window.Buffer = {
-    isBuffer: () => false,
-    from: () => ({}),
+  // Minimal browser-side Buffer shim. Use a proper predicate signature for isBuffer
+  // and assign via a typed cast to avoid conflicting with Node's Buffer type declarations.
+  (window as any).Buffer = {
+    isBuffer: (obj: any): obj is Buffer => false,
+    from: (..._args: any[]) => ({}),
   };
 }
 
@@ -52,7 +59,7 @@ interface CallContextType {
   remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
   callUser: (receiverId: string, receiverName: string, receiverRole: string, isVideoCall?: boolean) => Promise<void>;
   answerCall: () => Promise<void>;
-  rejectCall: () => void;
+  rejectCall: (reason?: string) => void;
   endCall: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
@@ -75,7 +82,6 @@ const createPeerConnection = (config: any) => {
     iceTransportPolicy: "all",
     bundlePolicy: "balanced",
     rtcpMuxPolicy: "require",
-    sdpSemantics: "unified-plan",
   });
 
   // Add local stream tracks to connection
@@ -152,7 +158,7 @@ const createPeerConnection = (config: any) => {
         const offer = await pc.createOffer(offerOptions);
 
         // Make sure audio is prioritized and enabled
-        let modifiedSdp = offer.sdp;
+        let modifiedSdp: string = String(offer.sdp ?? "");
         // Ensure audio is given higher priority
         modifiedSdp = modifiedSdp.replace(/(a=mid:audio\r\n)/, "$1a=setup:actpass\r\n");
         offer.sdp = modifiedSdp;
@@ -247,7 +253,7 @@ const createPeerConnection = (config: any) => {
           console.warn("Received SDP without rtcp-mux, adding it");
 
           // Add rtcp-mux to each media section if missing
-          let modifiedSdp = signal.sdp;
+          let modifiedSdp: string = String(signal.sdp ?? "");
           const mediaMatches = modifiedSdp.match(/m=[^\r\n]+\r\n/g) || [];
 
           for (const mediaLine of mediaMatches) {
@@ -289,15 +295,18 @@ const createPeerConnection = (config: any) => {
           const answer = await pc.createAnswer();
 
           // Modify SDP to ensure audio works
-          let modifiedSdp = answer.sdp;
+          let modifiedSdp: string = String(answer.sdp ?? "");
           modifiedSdp = modifiedSdp.replace(/(a=mid:audio\r\n)/, "$1a=setup:active\r\n");
 
-          // Ensure rtcp-mux is present in our answer
-          if (!modifiedSdp.includes("a=rtcp-mux")) {
-            modifiedSdp = modifiedSdp.replace(/(a=mid:(audio|video)\r\n)/g, "$1a=rtcp-mux\r\n");
+          // Ensure rtcp-mux is present in our answer - guard modifiedSdp which may be undefined
+          {
+            const sdpStr = String(modifiedSdp ?? "");
+            if (!sdpStr.includes("a=rtcp-mux")) {
+              const newSdp = sdpStr.replace(/(a=mid:(audio|video)\r\n)/g, "$1a=rtcp-mux\r\n");
+              modifiedSdp = newSdp;
+            }
+            answer.sdp = modifiedSdp ?? "";
           }
-
-          answer.sdp = modifiedSdp;
 
           await pc.setLocalDescription(answer);
           console.log("Local description set (answer)");
@@ -310,7 +319,7 @@ const createPeerConnection = (config: any) => {
             console.warn("rtcp-mux error detected, attempting to fix the SDP");
 
             // Create a modified offer with rtcp-mux
-            let fixedOfferSdp = signal.sdp;
+            let fixedOfferSdp = String(signal.sdp ?? "");
             if (!fixedOfferSdp.includes("a=rtcp-mux")) {
               fixedOfferSdp = fixedOfferSdp.replace(/(a=mid:(audio|video)\r\n)/g, "$1a=rtcp-mux\r\n");
 
@@ -324,12 +333,14 @@ const createPeerConnection = (config: any) => {
                 const answer = await pc.createAnswer();
 
                 // Ensure our answer also has rtcp-mux
-                let modifiedSdp = answer.sdp;
-                if (!modifiedSdp.includes("a=rtcp-mux")) {
-                  modifiedSdp = modifiedSdp.replace(/(a=mid:(audio|video)\r\n)/g, "$1a=rtcp-mux\r\n");
+                let modifiedSdp = String(answer.sdp ?? "");
+                {
+                  const sdpStr = String(modifiedSdp ?? "");
+                  if (!sdpStr.includes("a=rtcp-mux")) {
+                    modifiedSdp = sdpStr.replace(/(a=mid:(audio|video)\r\n)/g, "$1a=rtcp-mux\r\n");
+                  }
+                  answer.sdp = modifiedSdp ?? "";
                 }
-
-                answer.sdp = modifiedSdp;
                 await pc.setLocalDescription(answer);
                 onSignal(pc.localDescription);
                 console.log("Recovery successful: fixed rtcp-mux issue");
@@ -358,15 +369,16 @@ const createPeerConnection = (config: any) => {
             const localDesc = pc.localDescription;
             if (localDesc && localDesc.sdp) {
               // Extract media sections from local description to ensure same order
-              const mediaPattern = /m=(?:audio|video).*?(?=m=|$)/gs;
-              const localMedia = localDesc.sdp.match(mediaPattern) || [];
+              // Use [\s\S] instead of the 's' flag for broader compatibility
+              const mediaPattern = /m=(?:audio|video)[\s\S]*?(?=m=|$)/g;
+              const localMedia = (localDesc.sdp || "").match(mediaPattern) || [];
 
               if (localMedia.length > 0) {
                 console.log("Creating compatible answer based on our offer structure");
 
                 // Create basic SDP with session-level attributes
-                const sessionPattern = /(v=.*?)m=/s;
-                const sessionMatch = localDesc.sdp.match(sessionPattern);
+                const sessionPattern = /(v=[\s\S]*?)m=/;
+                const sessionMatch = (localDesc.sdp || "").match(sessionPattern);
                 const sessionPart = sessionMatch
                   ? sessionMatch[1]
                   : "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n";
@@ -585,14 +597,14 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Format call duration
-  const formatDuration = (seconds) => {
+  const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Get user media
-  const getUserMedia = async (isVideoCall) => {
+  const getUserMedia = async (isVideoCall: boolean): Promise<MediaStream> => {
     try {
       const constraints = {
         audio: {
@@ -617,9 +629,9 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       }
 
       return stream;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error accessing media devices:", error);
-      if (error.name === "NotAllowedError") {
+      if (error?.name === "NotAllowedError") {
         toast.error("Vui lòng cấp quyền truy cập camera và microphone");
       } else {
         toast.error("Không thể truy cập thiết bị media");
@@ -629,7 +641,12 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Initiate call
-  const callUser = async (receiverId, receiverName, receiverRole, isVideoCall = false) => {
+  const callUser = async (
+    receiverId: string,
+    receiverName: string,
+    receiverRole: string,
+    isVideoCall = false
+  ): Promise<void> => {
     try {
       if (!socket) {
         toast.error("Kết nối socket không khả dụng");
@@ -704,7 +721,7 @@ export const CallProvider = ({ children }: { children: ReactNode }) => {
       });
 
       peerConnectionRef.current = peer;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error initiating call:", error);
       toast.error("Không thể bắt đầu cuộc gọi");
       endCall();
