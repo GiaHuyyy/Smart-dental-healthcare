@@ -1,3 +1,4 @@
+// CallButton.tsx - Fixed version
 "use client";
 
 import React from "react";
@@ -12,6 +13,8 @@ interface CallButtonProps {
   showIcon?: boolean;
   children?: React.ReactNode;
   isVideoCall?: boolean;
+  style?: React.CSSProperties;
+  title?: string;
 }
 
 const CallButton: React.FC<CallButtonProps> = ({
@@ -22,12 +25,24 @@ const CallButton: React.FC<CallButtonProps> = ({
   showIcon = true,
   children,
   isVideoCall = true,
+  style,
+  title,
 }) => {
   const { callUser, callState } = useCallContext();
 
-  const handleStartCall = async () => {
-    if (!callState.inCall) {
+  const handleStartCall = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!callState.inCall && !callState.isReceivingCall) {
       try {
+        console.log(`Starting ${isVideoCall ? 'video' : 'audio'} call to:`, {
+          recipientId,
+          recipientName,
+          recipientRole,
+          isVideoCall
+        });
+
         await callUser(recipientId, recipientName, recipientRole, isVideoCall);
       } catch (error) {
         console.error("Failed to start call:", error);
@@ -37,6 +52,10 @@ const CallButton: React.FC<CallButtonProps> = ({
 
   const isDisabled = callState.inCall || callState.isReceivingCall || callState.callConnectionStatus === "connecting";
 
+  const defaultTitle = isDisabled
+    ? "Đang trong cuộc gọi"
+    : `${isVideoCall ? "Gọi video" : "Gọi thoại"} cho ${recipientName}`;
+
   // If children is provided, render custom content
   if (children) {
     return (
@@ -44,7 +63,8 @@ const CallButton: React.FC<CallButtonProps> = ({
         onClick={handleStartCall}
         disabled={isDisabled}
         className={`${className} ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        title={isDisabled ? "Đang trong cuộc gọi" : `${isVideoCall ? "Gọi video" : "Gọi thoại"} cho ${recipientName}`}
+        style={style}
+        title={title || defaultTitle}
       >
         {children}
       </button>
@@ -65,7 +85,8 @@ const CallButton: React.FC<CallButtonProps> = ({
         transition-colors duration-200
         ${className}
       `}
-      title={isDisabled ? "Đang trong cuộc gọi" : `${isVideoCall ? "Gọi video" : "Gọi thoại"} cho ${recipientName}`}
+      style={style}
+      title={title || defaultTitle}
     >
       {showIcon && (isVideoCall ? <Video className="w-4 h-4 mr-2" /> : <Phone className="w-4 h-4 mr-2" />)}
       {isDisabled ? "Đang gọi..." : isVideoCall ? "Gọi video" : "Gọi thoại"}
