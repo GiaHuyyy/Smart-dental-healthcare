@@ -32,6 +32,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+// removed useRouter import because we no longer navigate after saving follow-ups
 
 interface MedicalRecord {
   _id: string;
@@ -79,11 +80,31 @@ export default function DoctorMedicalRecordsPage() {
   const { toast } = useToast();
   // helper wrapper to bypass strict Toast typing in some places where 'variant' is used
   const toastAny = (payload: any) => (toast as any)(payload);
+  // no client-side navigation needed after saving follow-ups
   const [followUpModal, setFollowUpModal] = useState<{ open: boolean; recordId?: string; date?: string }>({ open: false });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchMedicalRecords();
+  }, []);
+
+  // keep the doctor's view in sync: refresh on focus/visibility and poll periodically
+  useEffect(() => {
+    const onFocus = () => fetchMedicalRecords();
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchMedicalRecords(); };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const intervalId = setInterval(() => {
+      fetchMedicalRecords();
+    }, 20000); // 20s
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+      clearInterval(intervalId as any);
+    };
   }, []);
 
   useEffect(() => {
@@ -278,7 +299,7 @@ export default function DoctorMedicalRecordsPage() {
             const headers: Record<string,string> = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const body = {
+              const body = {
               patientId,
               doctorId,
               appointmentDate: isoDate,
@@ -287,11 +308,12 @@ export default function DoctorMedicalRecordsPage() {
               duration: 30,
               appointmentType: 'follow-up',
               notes: 'Tái khám từ hồ sơ',
-              status: 'scheduled'
+              status: 'pending'
             };
 
             const apptRes = await fetch('/api/appointments', { method: 'POST', headers, body: JSON.stringify(body) });
             if (apptRes.ok) {
+              // stay on the current doctor UI; only notify success
               toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' });
             } else {
               const txt = await apptRes.text();
@@ -309,6 +331,107 @@ export default function DoctorMedicalRecordsPage() {
     } catch (err) {
       console.error('Error saving follow-up from modal', err);
   toastAny({ title: 'Lỗi', description: 'Có lỗi khi lưu tái khám', variant: 'destructive' });
+      return false;
+    }
+  };
+
+  const cancelFollowUp = async (recordId?: string) => {
+    if (!recordId) return false;
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/medical-records/${recordId}/follow-up`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ isFollowUpRequired: false, followUpDate: null })
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        toastAny({ title: 'Lỗi', description: txt || 'Không thể hủy tái khám', variant: 'destructive' });
+        return false;
+      }
+
+      // refresh list
+      toast({ title: 'Thành công', description: 'Đã hủy tái khám' });
+      // also remove any upcoming appointment(s) for this patient/doctor on the follow-up date
+      try {
+        const updated = await res.json();
+        // determine patient and doctor ids
+  const rec = (records || []).find((r) => r._id === recordId) as any;
+  const patientId = rec?.patientId?._id || (rec?.patientId || {})._id || rec?.patientId;
+        const doctorId = (updated && updated.doctorId && updated.doctorId._id) ? updated.doctorId._id : (rec && rec.doctorId && rec.doctorId._id) ? rec.doctorId._id : rec?.doctorId;
+        // follow-up date may be in the previous rec.followUpDate or updated.followUpDate
+        const followUpDate = (rec && rec.followUpDate) || (updated && updated.followUpDate) || null;
+
+        if (patientId && doctorId && followUpDate) {
+          // normalize to ISO date string 'YYYY-MM-DD'
+          const fd = new Date(followUpDate);
+          const isoDay = fd.toISOString().slice(0,10);
+          // Prefer using client proxy route to fetch upcoming appointments (keeps auth and CORS local)
+          const authHeader = (headers as any)?.Authorization || '';
+          let apptsList: any[] = [];
+          try {
+            const proxyRes = await fetch(`/api/appointments/patient/${patientId}/history?status=upcoming`, { headers: { Authorization: authHeader } });
+            if (proxyRes.ok) {
+              const payload = await proxyRes.json();
+              // payload may be { success: true, data: [...] } or raw array
+              const arr = payload?.data ?? payload?.results ?? payload ?? [];
+              apptsList = Array.isArray(arr) ? arr : [];
+            } else {
+              // fallback to backend direct call
+              const apiBase = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
+              if (apiBase) {
+                const apptRes = await fetch(`${apiBase}/api/v1/appointments/patient/${patientId}/upcoming`, { headers });
+                if (apptRes.ok) {
+                  const appts = await apptRes.json();
+                  apptsList = Array.isArray(appts?.data) ? appts.data : Array.isArray(appts) ? appts : (appts?.appointments || []);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to fetch upcoming appointments for cancellation sync', e);
+          }
+
+          const toCancel = (apptsList || []).filter((a: any) => {
+            const apptDay = a?.appointmentDate ? new Date(a.appointmentDate).toISOString().slice(0,10) : null;
+            const sameDay = apptDay === isoDay;
+            const apptDoctorId = a?.doctorId?._id || a?.doctorId || (a?.doctorId && a.doctorId.id) || null;
+            const sameDoctor = apptDoctorId ? String(apptDoctorId) === String(doctorId) : false;
+            return sameDay && sameDoctor;
+          });
+
+          for (const a of toCancel) {
+            try {
+              const apiBase = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
+              if (apiBase) {
+                await fetch(`${apiBase}/api/v1/appointments/${a._id}/cancel`, {
+                  method: 'DELETE',
+                  headers: headers,
+                  body: JSON.stringify({ reason: 'Hủy tái khám bởi bác sĩ' }),
+                });
+              } else {
+                // try proxy cancel via appointments id route
+                await fetch(`/api/appointments/${a._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: authHeader }, body: JSON.stringify({ status: 'cancelled', cancellationReason: 'Hủy tái khám bởi bác sĩ' }) });
+              }
+            } catch (e) {
+              // non-fatal
+              console.warn('Failed to cancel appointment during follow-up cancel', e);
+            }
+          }
+        }
+
+        fetchMedicalRecords();
+      } catch (e) {
+        // if parsing or cancellation fails, still refresh
+        fetchMedicalRecords();
+      }
+      return true;
+    } catch (err) {
+      console.error('Error cancelling follow-up', err);
+      toastAny({ title: 'Lỗi', description: 'Có lỗi khi hủy tái khám', variant: 'destructive' });
       return false;
     }
   };
@@ -451,6 +574,8 @@ export default function DoctorMedicalRecordsPage() {
       </div>
     );
   }
+
+    // Local FollowUpModal (copied from patient detail page implementation)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20">
@@ -805,15 +930,19 @@ export default function DoctorMedicalRecordsPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => {
-                                    const oneMonth = new Date();
-                                    oneMonth.setMonth(oneMonth.getMonth() + 1);
-                                    openFollowUpModal(record._id, oneMonth.toISOString());
+                                  onClick={async () => {
+                                    if (record.isFollowUpRequired) {
+                                      await cancelFollowUp(record._id);
+                                    } else {
+                                      const oneMonth = new Date();
+                                      oneMonth.setMonth(oneMonth.getMonth() + 1);
+                                      openFollowUpModal(record._id, oneMonth.toISOString());
+                                    }
                                   }}
                                   className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 bg-white/80 backdrop-blur-sm"
                                 >
                                   <AlertCircle className="h-4 w-4" />
-                                  <span className="hidden lg:inline">Cần tái khám</span>
+                                  <span className="hidden lg:inline">{record.isFollowUpRequired ? 'Hủy tái khám' : 'Cần tái khám'}</span>
                                 </Button>
                               </div>
                             </div>
@@ -966,15 +1095,19 @@ export default function DoctorMedicalRecordsPage() {
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => {
-                                          const oneMonth = new Date();
-                                          oneMonth.setMonth(oneMonth.getMonth() + 1);
-                                          openFollowUpModal(child._id, oneMonth.toISOString());
+                                        onClick={async () => {
+                                          if (child.isFollowUpRequired) {
+                                            await cancelFollowUp(child._id);
+                                          } else {
+                                            const oneMonth = new Date();
+                                            oneMonth.setMonth(oneMonth.getMonth() + 1);
+                                            openFollowUpModal(child._id, oneMonth.toISOString());
+                                          }
                                         }}
                                         className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 bg-white/80 backdrop-blur-sm"
                                       >
                                         <AlertCircle className="h-4 w-4" />
-                                        <span className="hidden lg:inline">Cần tái khám</span>
+                                        <span className="hidden lg:inline">{child.isFollowUpRequired ? 'Hủy tái khám' : 'Cần tái khám'}</span>
                                       </Button>
                                     </div>
                                   </div>
