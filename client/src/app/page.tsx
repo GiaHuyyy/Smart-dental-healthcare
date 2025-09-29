@@ -57,7 +57,7 @@ export default function HomePage() {
       {/* Hero Section with Booking */}
       <section
         className="text-white py-20"
-        style={{ background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-600))" }}
+        style={{ background: "linear-gradient(-20deg, var(--color-primary-100), var(--color-primary))" }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -94,7 +94,7 @@ export default function HomePage() {
                       className="w-full pl-10 pr-20 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none"
                       style={{ boxShadow: "none" }}
                     />
-                    <button type="button" className="absolute inset-y-0 right-0 px-6 btn-primary-filled">
+                    <button type="button" className="absolute inset-y-0 right-0 px-6 btn-primary-filled cursor-pointer">
                       Tìm kiếm
                     </button>
                   </div>

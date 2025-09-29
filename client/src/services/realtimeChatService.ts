@@ -50,8 +50,16 @@ export interface SocketEvents {
   // Conversation events
   conversationUpdated: (conversation: Conversation) => void;
 
+  // List events
+  conversationsLoaded: (data: { conversations: Array<Conversation> }) => void;
+  messagesLoaded: (data: { conversationId: string; messages: Array<Message> }) => void;
+
   // Typing events
   userTyping: (data: { conversationId: string; userId: string; userRole: string; isTyping: boolean }) => void;
+
+  // Error events
+  error: (error: any) => void;
+  connect_error: (error: any) => void;
 }
 
 class RealtimeChatService {
@@ -61,28 +69,54 @@ class RealtimeChatService {
   private reconnectDelay = 1000;
   private joinedRooms: Set<string> = new Set();
   private reconnectCallbacks: Array<() => void> = [];
+  private userId: string | null = null;
+  private userRole: "patient" | "doctor" | null = null;
 
   connect(token: string, userId: string, userRole: "patient" | "doctor"): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        // Store user info for reconnections
+        this.userId = userId;
+        this.userRole = userRole;
+
+        console.log(`Attempting to connect socket with userID: ${userId}, role: ${userRole}`);
+        console.log(`Server URL: ${process.env.NEXT_PUBLIC_BACKEND_URL}`);
+
         // Disconnect existing connection
         if (this.socket) {
+          console.log("Disconnecting existing socket connection");
           this.socket.disconnect();
         }
 
-        this.socket = io(`${process.env.NEXT_PUBLIC_SERVER_URL}/chat`, {
+        // Ensure token is properly formatted
+        const formattedToken = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+
+        this.socket = io(`${process.env.NEXT_PUBLIC_BACKEND_URL}/chat`, {
           auth: {
-            token,
+            token: formattedToken,
             userId,
             userRole,
+          },
+          extraHeaders: {
+            Authorization: formattedToken,
           },
           transports: ["websocket", "polling"],
           upgrade: true,
           timeout: 20000,
+          path: "/socket.io",
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+        });
+
+        // Debug listener for all events
+        this.socket.onAny((event, ...args) => {
+          if (event !== "ping" && event !== "pong") {
+            console.log(`[Socket] Received event: ${event}`, args);
+          }
         });
 
         this.socket.on("connect", () => {
-          console.log("Connected to realtime chat server");
+          console.log(`Socket connected with ID: ${this.socket?.id}`);
           this.reconnectAttempts = 0;
           resolve();
         });
@@ -143,16 +177,18 @@ class RealtimeChatService {
       this.socket = null;
     }
     this.joinedRooms.clear();
+    this.userId = null;
+    this.userRole = null;
   }
 
   // Event listeners
-  on<K extends keyof SocketEvents>(event: K, callback: SocketEvents[K]) {
+  on(event: string, callback: (...args: any[]) => void) {
     if (this.socket) {
       this.socket.on(event, callback);
     }
   }
 
-  off<K extends keyof SocketEvents>(event: K, callback?: SocketEvents[K]) {
+  off(event: string, callback?: (...args: any[]) => void) {
     if (this.socket) {
       this.socket.off(event, callback);
     }
@@ -164,7 +200,7 @@ class RealtimeChatService {
 
   // Conversation actions
   joinConversation(conversationId: string) {
-    if (this.socket) {
+    if (this.socket && conversationId) {
       this.socket.emit("joinConversation", { conversationId });
       this.joinedRooms.add(conversationId);
     }
@@ -180,12 +216,90 @@ class RealtimeChatService {
   // Message actions
   sendMessage(conversationId: string, content: string, messageType: "text" | "image" | "file" = "text") {
     if (this.socket) {
-      this.socket.emit("sendMessage", {
-        conversationId,
-        content,
-        messageType,
+      return new Promise<void>((resolve, reject) => {
+        this.socket?.emit(
+          "sendMessage",
+          {
+            conversationId,
+            content,
+            messageType,
+          },
+          (response: { success: boolean; error?: string }) => {
+            if (response.success) {
+              resolve();
+            } else {
+              reject(new Error(response.error || "Failed to send message"));
+            }
+          }
+        );
       });
     }
+    return Promise.reject(new Error("Socket not connected"));
+  }
+
+  // Load conversations
+  loadConversations() {
+    if (this.socket && this.userId && this.userRole) {
+      return new Promise<void>((resolve, reject) => {
+        console.log(`Emitting loadConversations event with userId: ${this.userId}, userRole: ${this.userRole}`);
+
+        this.socket?.emit("loadConversations", {
+          userId: this.userId,
+          userRole: this.userRole,
+        });
+
+        // Set up a one-time listener to resolve the promise
+        const timeout = setTimeout(() => {
+          console.warn("Server did not respond to loadConversations event after 10 seconds");
+          resolve(); // Resolve anyway to not block UI
+        }, 10000);
+
+        this.socket?.once("conversationsLoaded", () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+
+        this.socket?.once("error", (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+    }
+    return Promise.reject(new Error("Socket not connected or user info missing"));
+  }
+
+  // Load messages for a conversation
+  loadMessages(conversationId: string, limit: number = 100) {
+    if (this.socket && this.userId && this.userRole) {
+      return new Promise<void>((resolve, reject) => {
+        console.log(`Emitting loadMessages event for conversation: ${conversationId}`);
+
+        this.socket?.emit("loadMessages", {
+          conversationId,
+          userId: this.userId,
+          userRole: this.userRole,
+          limit,
+        });
+
+        const timeout = setTimeout(() => {
+          console.warn("Server did not respond to loadMessages event after 10 seconds");
+          resolve();
+        }, 10000);
+
+        this.socket?.once("messagesLoaded", (data) => {
+          if (data.conversationId === conversationId) {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+
+        this.socket?.once("error", (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+    }
+    return Promise.reject(new Error("Socket not connected or user info missing"));
   }
 
   markMessageAsRead(conversationId: string, messageId: string) {
@@ -197,6 +311,37 @@ class RealtimeChatService {
     }
   }
 
+  // Mark all messages in a conversation as read
+markConversationAsRead(conversationId: string) {
+    if (this.socket) {
+      console.log(`[Socket] Emitting markConversationAsRead for ${conversationId}`);
+      this.socket.emit("markConversationAsRead", { conversationId });
+    }
+  }
+
+  // Create a new conversation
+createConversation(patientId: string, doctorId: string): Promise<any> { // Thay đổi kiểu trả về thành any để linh hoạt
+    if (this.socket) {
+      return new Promise<any>((resolve, reject) => {
+        // Cung cấp hàm callback (ack) làm tham số thứ 3
+        this.socket?.emit(
+          "createConversation",
+          { patientId, doctorId },
+          // Hàm này sẽ được server gọi để trả kết quả về
+          (response: { success: boolean; conversation?: any; error?: string }) => {
+            if (response.success && response.conversation) {
+              console.log("Client received new conversation:", response.conversation);
+              resolve(response.conversation);
+            } else {
+              reject(new Error(response.error || "Failed to create conversation on server"));
+            }
+          }
+        );
+      });
+    }
+    return Promise.reject(new Error("Socket not connected"));
+}
+
   // Typing indicator
   sendTypingStatus(conversationId: string, isTyping: boolean) {
     if (this.socket) {
@@ -207,6 +352,27 @@ class RealtimeChatService {
     }
   }
 
+  // Upload image via socket
+  uploadImage(conversationId: string, imageData: string, fileName: string, fileType: string) {
+    if (this.socket) {
+      return new Promise<{ success: boolean; url?: string; public_id?: string; error?: string }>((resolve) => {
+        this.socket?.emit(
+          "uploadImage",
+          {
+            conversationId,
+            image: imageData,
+            fileName,
+            fileType,
+          },
+          (response: { success: boolean; url?: string; public_id?: string; error?: string }) => {
+            resolve(response);
+          }
+        );
+      });
+    }
+    return Promise.reject(new Error("Socket not connected"));
+  }
+
   // Check connection status
   isConnected(): boolean {
     return this.socket?.connected || false;
@@ -215,6 +381,14 @@ class RealtimeChatService {
   // Get socket instance (for advanced usage)
   getSocket(): Socket | null {
     return this.socket;
+  }
+
+  // Get current user info
+  getUserInfo() {
+    return {
+      userId: this.userId,
+      userRole: this.userRole,
+    };
   }
 }
 

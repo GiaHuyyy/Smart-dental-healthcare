@@ -3,11 +3,11 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearAppointmentData } from "@/store/slices/appointmentSlice";
 import { sendRequest } from "@/utils/api";
+import { FileText, Search } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Search, FileText } from "lucide-react";
 
 export default function PatientAppointments() {
   const { data: session } = useSession();
@@ -79,11 +79,14 @@ export default function PatientAppointments() {
     }
 
     async function loadAppointments() {
-      if (!session?.user?._id) return;
+      // allow reading appointments for a specific patient when ?patientId=... is provided
+      const patientIdFromQuery = searchParams?.get?.("patientId");
+      const targetPatientId = patientIdFromQuery || session?.user?._id;
+      if (!targetPatientId) return;
       try {
         const res = await sendRequest<any>({
           method: "GET",
-          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${session.user._id}`,
+          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${targetPatientId}`,
         });
         const list = res?.data || res || [];
         setAppointments(Array.isArray(list) ? list : []);
@@ -264,8 +267,11 @@ export default function PatientAppointments() {
       const [y, m, d] = selectedDate.split("-").map(Number);
       const appointmentDateISO = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 0, 0, 0)).toISOString();
 
+      const patientIdFromQuery = searchParams?.get?.("patientId");
+      const patientId = patientIdFromQuery || session.user._id;
+
       const body = {
-        patientId: session.user._id,
+        patientId,
         doctorId: selectedDoctorId,
         appointmentDate: appointmentDateISO,
         startTime: selectedTime,
@@ -275,10 +281,13 @@ export default function PatientAppointments() {
         duration: Number(duration),
       };
 
+      const headers = getAuthHeaders();
+
       const res = await sendRequest<any>({
         method: "POST",
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments`,
         body,
+        headers,
       });
 
       if (res && (res as any).statusCode && (res as any).statusCode >= 400) {
@@ -310,14 +319,60 @@ export default function PatientAppointments() {
     if (!confirm("Bạn có chắc muốn hủy lịch hẹn này không?")) return;
     try {
       const headers = getAuthHeaders();
+
+      // First, fetch the appointment details so we have patientId/doctorId/appointmentDate
+      let appt: any = null;
+      try {
+        const detailRes = await sendRequest<any>({ method: 'GET', url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}` });
+        appt = detailRes?.data || detailRes || null;
+      } catch (e) {
+        // If we can't read details, continue to attempt delete but we won't be able to sync follow-ups
+        console.warn('Could not fetch appointment details before delete', e);
+      }
+
+      // Then delete the appointment
       const res = await sendRequest<any>({
         method: "DELETE",
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/cancel`,
         body: { reason: "Hủy bởi bệnh nhân" },
         headers,
       });
+
       setAppointments((prev) => prev.filter((a) => a._id !== appointmentId));
       alert("Đã hủy lịch hẹn");
+
+      // If we have appointment details, try to clear matching medical-record follow-ups
+      try {
+        if (appt) {
+          const patientId = appt?.patientId?._id || appt?.patientId;
+          const apptDay = appt?.appointmentDate ? new Date(appt.appointmentDate).toISOString().slice(0,10) : null;
+          if (patientId && apptDay) {
+            const authHeader = (headers as any)?.Authorization || '';
+            const mrRes = await fetch(`/api/medical-records/patient/${patientId}`, { headers: { Authorization: authHeader } });
+            if (mrRes.ok) {
+              const mdata = await mrRes.json();
+              const list = Array.isArray(mdata) ? mdata : (mdata?.data || mdata?.records || []);
+              for (const r of list || []) {
+                const rDay = r?.followUpDate ? new Date(r.followUpDate).toISOString().slice(0,10) : null;
+                if (r.isFollowUpRequired && rDay === apptDay) {
+                  try {
+                    await fetch(`/api/medical-records/${r._id}/follow-up`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+                      body: JSON.stringify({ isFollowUpRequired: false, followUpDate: null }),
+                    });
+                  } catch (e) {
+                    console.warn('Failed to clear follow-up after patient cancel', e);
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // non-fatal
+        console.warn('Sync medical-records after cancel failed', e);
+      }
     } catch (err: any) {
       alert("Hủy lịch thất bại");
     }

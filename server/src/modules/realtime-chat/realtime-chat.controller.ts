@@ -22,13 +22,14 @@ import { MarkMessageReadDto } from './dto/chat-actions.dto';
 import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
 import { Public } from 'src/decorator/customize';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
-
+import { RealtimeChatGateway } from './realtime-chat.gateway';
 @Controller('realtime-chat')
 @Public()
 export class RealtimeChatController {
   constructor(
     private readonly realtimeChatService: RealtimeChatService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly chatGateway: RealtimeChatGateway,
   ) {}
 
   @Post('conversations')
@@ -304,44 +305,42 @@ export class RealtimeChatController {
     }
 
     try {
-      // Upload to Cloudinary using the new uploadFile method
-      const uploadResult = await this.cloudinaryService.uploadFile(file);
+    const uploadResult = await this.cloudinaryService.uploadFile(file);
 
-      // Determine message type based on MIME type
-      let messageType = 'file';
-      if (file.mimetype.startsWith('image/')) {
-        messageType = 'image';
-      } else if (file.mimetype.startsWith('video/')) {
-        messageType = 'video';
-      }
+    let messageType: 'image' | 'video' | 'file' = 'file';
+    if (file.mimetype.startsWith('image/')) messageType = 'image';
+    else if (file.mimetype.startsWith('video/')) messageType = 'video';
 
-      // Create message with file attachment
-      const sendMessageDto: SendMessageDto = {
-        conversationId: new Types.ObjectId(body.conversationId),
-        content: body.content || '', // Nếu không có text thì content là rỗng
-        messageType: messageType as 'text' | 'image' | 'video' | 'file',
-        fileUrl: uploadResult.url,
-        fileName: file.originalname,
-        fileType: file.mimetype,
-        fileSize: file.size,
-      };
+    const sendMessageDto: SendMessageDto = {
+      conversationId: new Types.ObjectId(body.conversationId),
+      content: body.content || '',
+      messageType,
+      fileUrl: uploadResult.url,
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size,
+    };
 
-      // Send the message
-      const message = await this.realtimeChatService.sendMessage(
-        new Types.ObjectId(body.senderId),
-        body.senderRole, // Changed from userRole to senderRole
-        sendMessageDto,
-      );
+    const savedMessage = await this.realtimeChatService.sendMessage(
+      new Types.ObjectId(body.senderId),
+      body.senderRole,
+      sendMessageDto,
+    );
 
-      return {
-        success: true,
-        message,
-        fileUrl: uploadResult.url,
-      };
-    } catch (error) {
-      console.error('File upload error:', error);
-      throw new BadRequestException('Failed to upload file');
-    }
+    await this.chatGateway.broadcastNewMessage(
+        new Types.ObjectId(body.conversationId),
+        savedMessage
+    );
+
+    return {
+      success: true,
+      message: savedMessage,
+    };
+
+  } catch (error) {
+    console.error('File upload error:', error);
+    throw new BadRequestException('Failed to upload file');
+  }
   }
 
   @Get('conversations/with/:otherUserId')
