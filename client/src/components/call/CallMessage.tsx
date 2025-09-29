@@ -156,9 +156,9 @@ const CallMessage: React.FC<CallMessageProps> = ({
         {/* Call Details */}
         <div className="flex-1 min-w-0">
           {/* Status và Duration */}
-          <div className={`font-medium text-sm ${getStatusColor()}`}>
+          {/* <div className={`font-medium text-sm ${getStatusColor()}`}>
             {getCallStatusText()}
-          </div>
+          </div> */}
 
           {/* Call type */}
           <div className="text-xs text-gray-600 mt-0.5">

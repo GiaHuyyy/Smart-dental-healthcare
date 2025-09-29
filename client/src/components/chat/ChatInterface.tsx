@@ -1621,8 +1621,8 @@ export default function ChatInterface({
                   // Render CALL message card
                   if ((message as any).messageType === "call") {
                     const callData = (message as any).callData || {};
-                    const senderId = (message as any).senderId?._id || (message as any).senderId;
-                    const isMyMessage = senderId?.toString() === currentUserId?.toString();
+                    // const senderId = (message as any).senderId?._id || (message as any).senderId;
+                    const isMyMessage = message.role === "user"
 
                     return (
                       <CallMessage
