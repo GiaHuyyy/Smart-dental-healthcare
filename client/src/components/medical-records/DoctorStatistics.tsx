@@ -95,18 +95,18 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
             <div className="flex-1">
               <label className="block text-sm font-medium mb-2">Từ ngày</label>
               <DatePicker
-                selected={startDate}
-                onChange={(date) => setStartDate(date)}
-                placeholderText="Chọn ngày bắt đầu"
+                value={startDate ? startDate.toISOString().slice(0, 10) : ""}
+                onChange={(dateStr) => setStartDate(dateStr ? new Date(dateStr) : null)}
+                placeholder="Chọn ngày bắt đầu"
                 className="w-full p-2 border rounded-md"
               />
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium mb-2">Đến ngày</label>
               <DatePicker
-                selected={endDate}
-                onChange={(date) => setEndDate(date)}
-                placeholderText="Chọn ngày kết thúc"
+                value={endDate ? endDate.toISOString().slice(0, 10) : ""}
+                onChange={(dateStr) => setEndDate(dateStr ? new Date(dateStr) : null)}
+                placeholder="Chọn ngày kết thúc"
                 className="w-full p-2 border rounded-md"
               />
             </div>
@@ -185,7 +185,10 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => {
+                    const pct = (percent ?? 0) * 100;
+                    return `${name} ${pct.toFixed(0)}%`;
+                  }}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"

@@ -6,12 +6,14 @@ import { sendRequest } from "@/utils/api";
 import { FileText, Search } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+// Note: avoid `useSearchParams` here to prevent Next.js prerender issues.
+// We'll read window.location.search inside an effect when running in the browser.
 import { useEffect, useState } from "react";
 
 export default function PatientAppointments() {
   const { data: session } = useSession();
-  const searchParams = useSearchParams();
+  // searchParams replaced by client-side URLSearchParams in effect
+  // const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const appointmentState = useAppSelector((state: any) => state.appointment);
   const { appointmentData, selectedDoctor, symptoms, urgencyLevel, notes: chatNotes } = appointmentState;
@@ -145,14 +147,22 @@ export default function PatientAppointments() {
   }, [doctors, prefilledData?.doctorId]);
 
   useEffect(() => {
-    if (doctors.length > 0 && searchParams.get("doctorId") && !selectedDoctorId) {
-      const doctorId = searchParams.get("doctorId");
-      const doctor = doctors.find((d) => d._id === doctorId || d.id === doctorId);
-      if (doctor) {
-        setSelectedDoctorId(doctor._id || doctor.id);
+    // Only run in browser
+    if (typeof window === "undefined") return;
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const doctorId = params.get("doctorId");
+      if (doctors.length > 0 && doctorId && !selectedDoctorId) {
+        const doctor = doctors.find((d) => d._id === doctorId || d.id === doctorId);
+        if (doctor) {
+          setSelectedDoctorId(doctor._id || doctor.id);
+        }
       }
+    } catch (e) {
+      // ignore malformed URL
     }
-  }, [doctors, searchParams, selectedDoctorId]);
+  }, [doctors, selectedDoctorId]);
 
   useEffect(() => {
     async function fetchBusy() {
@@ -526,14 +536,18 @@ export default function PatientAppointments() {
                           selectedTime === time
                             ? "bg-primary-100 text-primary border-primary-outline"
                             : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                        } ${disabledByRules ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] transition-transform"}`}
+                        } ${
+                          disabledByRules ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] transition-transform"
+                        }`}
                         onClick={() => {
                           if (!disabledByRules) setSelectedTime(time);
                         }}
                       >
                         <span>{time}</span>
                         {slotOccupiedByDoctor ? (
-                          <span className="ml-2 text-xs" style={{ color: "var(--color-primary)" }}>(Bận)</span>
+                          <span className="ml-2 text-xs" style={{ color: "var(--color-primary)" }}>
+                            (Bận)
+                          </span>
                         ) : null}
                       </button>
                     );
@@ -556,7 +570,10 @@ export default function PatientAppointments() {
                 </select>
 
                 {prefilledData?.symptoms && (
-                  <div className="mt-2 p-2 rounded border text-xs" style={{ background: "var(--color-primary-outline)", borderColor: "var(--color-primary-outline)" }}>
+                  <div
+                    className="mt-2 p-2 rounded border text-xs"
+                    style={{ background: "var(--color-primary-outline)", borderColor: "var(--color-primary-outline)" }}
+                  >
                     <p className="font-medium mb-1" style={{ color: "var(--color-primary-contrast)" }}>
                       <Search className="inline w-4 h-4 mr-1" /> Triệu chứng từ chatbot:
                     </p>

@@ -1,7 +1,8 @@
 import Verify from "@/components/auth/Verify";
 
-export default function VerifyEmailPage({ params }: { params: { id: string } }) {
-  if (!params?.id) {
+export default async function VerifyEmailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolved = await params;
+  if (!resolved?.id) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -11,10 +12,9 @@ export default function VerifyEmailPage({ params }: { params: { id: string } }) 
       </div>
     );
   }
-
   return (
     <>
-      <Verify id={params.id} />
+      <Verify id={resolved.id} />
     </>
   );
 }

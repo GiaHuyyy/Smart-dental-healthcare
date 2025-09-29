@@ -47,6 +47,15 @@ interface Conversation {
   unreadDoctorCount: number;
 }
 
+type UserWithOptionalSpecialization = {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  email: string;
+  specialization?: string;
+};
+
 interface ChatWindowProps {
   conversation: Conversation;
   currentUserId: string;
@@ -73,9 +82,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [inputMessage, setInputMessage] = useState("");
   const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const otherUser = currentUserRole === "patient" ? conversation.doctorId : conversation.patientId;
+  const otherUser: UserWithOptionalSpecialization =
+    currentUserRole === "patient"
+      ? (conversation.doctorId as UserWithOptionalSpecialization)
+      : (conversation.patientId as UserWithOptionalSpecialization);
+  const otherUserSpec: string | undefined = otherUser.specialization;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -123,7 +136,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     });
   };
 
-  const getDisplayName = (user: any) => {
+  const getDisplayName = (user: UserWithOptionalSpecialization) => {
     return `${user.firstName} ${user.lastName}`;
   };
 
@@ -144,9 +157,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
             <div>
               <p className="font-medium text-sm">{getDisplayName(otherUser)}</p>
-              {currentUserRole === "patient" && otherUser.specialization && (
+              {currentUserRole === "patient" && otherUserSpec && (
                 <p className="text-xs" style={{ color: "rgba(255,255,255,0.9)" }}>
-                  {otherUser.specialization}
+                  {otherUserSpec}
                 </p>
               )}
             </div>
@@ -192,9 +205,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
           <div>
             <p className="font-medium text-sm">{getDisplayName(otherUser)}</p>
-            {currentUserRole === "patient" && otherUser.specialization && (
+            {currentUserRole === "patient" && otherUserSpec && (
               <p className="text-xs" style={{ color: "rgba(255,255,255,0.9)" }}>
-                {otherUser.specialization}
+                {otherUserSpec}
               </p>
             )}
           </div>

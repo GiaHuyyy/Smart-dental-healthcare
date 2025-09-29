@@ -1,17 +1,12 @@
-'use client';
+"use client";
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import {
-    Download,
-    File,
-    FileText,
-    Table
-} from 'lucide-react';
-import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Download, File, FileText, Table } from "lucide-react";
+import { useState } from "react";
 
 interface ExportMedicalRecordProps {
   recordId: string;
@@ -19,7 +14,7 @@ interface ExportMedicalRecordProps {
 }
 
 interface ExportOptions {
-  format: 'pdf' | 'excel' | 'json';
+  format: "pdf" | "excel" | "json";
   includeAttachments: boolean;
   includeDentalChart: boolean;
   includeProcedures: boolean;
@@ -28,11 +23,11 @@ interface ExportOptions {
 
 export default function ExportMedicalRecord({ recordId, onClose }: ExportMedicalRecordProps) {
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
-    format: 'pdf',
+    format: "pdf",
     includeAttachments: true,
     includeDentalChart: true,
     includeProcedures: true,
-    includeNotes: true
+    includeNotes: true,
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -41,23 +36,23 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
     setLoading(true);
     try {
       const response = await fetch(`/api/medical-records/${recordId}/export`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify(exportOptions)
+        body: JSON.stringify(exportOptions),
       });
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // Tạo file download
         const blob = new Blob([JSON.stringify(data.data, null, 2)], {
-          type: 'application/json'
+          type: "application/json",
         });
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
         a.download = `medical-record-${recordId}.${exportOptions.format}`;
         document.body.appendChild(a);
@@ -71,13 +66,13 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
         });
         onClose();
       } else {
-        throw new Error('Export failed');
+        throw new Error("Export failed");
       }
     } catch (error) {
       toast({
         title: "Lỗi",
         description: "Không thể xuất hồ sơ bệnh án",
-        variant: "destructive"
+        type: "error",
       });
     } finally {
       setLoading(false);
@@ -86,9 +81,9 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
 
   const getFormatIcon = (format: string) => {
     switch (format) {
-      case 'pdf':
+      case "pdf":
         return <File className="h-4 w-4" />;
-      case 'excel':
+      case "excel":
         return <Table className="h-4 w-4" />;
       default:
         return <FileText className="h-4 w-4" />;
@@ -109,8 +104,8 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
           <label className="text-sm font-medium">Định dạng xuất</label>
           <Select
             value={exportOptions.format}
-            onValueChange={(value: 'pdf' | 'excel' | 'json') => 
-              setExportOptions(prev => ({ ...prev, format: value }))
+            onValueChange={(value: "pdf" | "excel" | "json") =>
+              setExportOptions((prev) => ({ ...prev, format: value }))
             }
           >
             <SelectTrigger>
@@ -119,19 +114,19 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
             <SelectContent>
               <SelectItem value="pdf">
                 <div className="flex items-center gap-2">
-                  {getFormatIcon('pdf')}
+                  {getFormatIcon("pdf")}
                   PDF Document
                 </div>
               </SelectItem>
               <SelectItem value="excel">
                 <div className="flex items-center gap-2">
-                  {getFormatIcon('excel')}
+                  {getFormatIcon("excel")}
                   Excel Spreadsheet
                 </div>
               </SelectItem>
               <SelectItem value="json">
                 <div className="flex items-center gap-2">
-                  {getFormatIcon('json')}
+                  {getFormatIcon("json")}
                   JSON Data
                 </div>
               </SelectItem>
@@ -142,13 +137,13 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
         {/* Export Options */}
         <div className="space-y-3">
           <label className="text-sm font-medium">Tùy chọn xuất</label>
-          
+
           <div className="flex items-center space-x-2">
             <Checkbox
               id="includeAttachments"
               checked={exportOptions.includeAttachments}
-              onCheckedChange={(checked) => 
-                setExportOptions(prev => ({ ...prev, includeAttachments: checked as boolean }))
+              onCheckedChange={(checked) =>
+                setExportOptions((prev) => ({ ...prev, includeAttachments: checked as boolean }))
               }
             />
             <label htmlFor="includeAttachments" className="text-sm">
@@ -160,8 +155,8 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
             <Checkbox
               id="includeDentalChart"
               checked={exportOptions.includeDentalChart}
-              onCheckedChange={(checked) => 
-                setExportOptions(prev => ({ ...prev, includeDentalChart: checked as boolean }))
+              onCheckedChange={(checked) =>
+                setExportOptions((prev) => ({ ...prev, includeDentalChart: checked as boolean }))
               }
             />
             <label htmlFor="includeDentalChart" className="text-sm">
@@ -173,8 +168,8 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
             <Checkbox
               id="includeProcedures"
               checked={exportOptions.includeProcedures}
-              onCheckedChange={(checked) => 
-                setExportOptions(prev => ({ ...prev, includeProcedures: checked as boolean }))
+              onCheckedChange={(checked) =>
+                setExportOptions((prev) => ({ ...prev, includeProcedures: checked as boolean }))
               }
             />
             <label htmlFor="includeProcedures" className="text-sm">
@@ -186,9 +181,7 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
             <Checkbox
               id="includeNotes"
               checked={exportOptions.includeNotes}
-              onCheckedChange={(checked) => 
-                setExportOptions(prev => ({ ...prev, includeNotes: checked as boolean }))
-              }
+              onCheckedChange={(checked) => setExportOptions((prev) => ({ ...prev, includeNotes: checked as boolean }))}
             />
             <label htmlFor="includeNotes" className="text-sm">
               Bao gồm ghi chú
@@ -198,11 +191,7 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
 
         {/* Action Buttons */}
         <div className="flex gap-2 pt-4">
-          <Button
-            onClick={handleExport}
-            disabled={loading}
-            className="flex-1"
-          >
+          <Button onClick={handleExport} disabled={loading} className="flex-1">
             {loading ? (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
             ) : (
@@ -212,11 +201,7 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
               </>
             )}
           </Button>
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-          >
+          <Button variant="outline" onClick={onClose} disabled={loading}>
             Hủy
           </Button>
         </div>

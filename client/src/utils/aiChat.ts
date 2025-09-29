@@ -120,7 +120,7 @@ export const aiChatAPI = {
   },
 
   // For doctors - analyze patient chat history
-  async analyzeForDoctor(chatHistory: ChatMessage[], patientInfo: any) {
+  async analyzeForDoctor(chatHistory: ChatMessage[], patientInfo: unknown): Promise<unknown> {
     try {
       const response = await sendRequest({
         method: "POST",
@@ -140,15 +140,3 @@ export const aiChatAPI = {
 
 // Re-export types for backward compatibility
 export type { AiResponse, ChatMessage, DoctorSuggestion };
-
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-  imageUrl?: string;
-  actionButtons?: string[];
-  isAnalysisResult?: boolean;
-  analysisData?: any;
-  isUrgent?: boolean;
-  messageType?: "normal" | "urgent" | "analysis" | "suggestion";
-}

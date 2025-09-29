@@ -105,7 +105,30 @@ export default function ChatInterface({
   const { isCallIncoming, incomingCall, isInCall } = useWebRTC();
 
   // AI Chat History hook
-  const { currentSession, getOrInitializeSession, addMessage: saveMessage, setCurrentSession } = useAiChatHistory();
+  const { currentSession, addMessage: saveMessage, setCurrentSession, loadUserSessions } = useAiChatHistory();
+
+  // Helper to ensure a session exists (replaces legacy getOrInitializeSession)
+  const ensureSessionExists = useCallback(async () => {
+    if (currentSession) return;
+    if (!session?.user) return;
+
+    try {
+      // Try to load recent sessions
+      await loadUserSessions(1, 5);
+      if (!currentSession) {
+        // Create a new session via service and set it
+        const userId = (session.user as any)._id || (session.user as any).id;
+        const newSession = await aiChatHistoryService.createSession({
+          userId,
+          sessionId: aiChatHistoryService.generateSessionId(),
+          status: "active",
+        });
+        setCurrentSession(newSession as any);
+      }
+    } catch (err) {
+      console.error("Failed to ensure AI chat session:", err);
+    }
+  }, [currentSession, session?.user, loadUserSessions, setCurrentSession]);
 
   // Redux hooks
   const dispatch = useAppDispatch();
@@ -350,15 +373,11 @@ export default function ChatInterface({
 
     // Create new session if user is logged in
     if (session?.user) {
-      try {
-        await getOrInitializeSession();
-      } catch (err) {
-        console.error("Failed to get/initialize AI chat session:", err);
-      }
+      await ensureSessionExists();
     }
 
     setIsCreatingSession(false);
-  }, [session?.user, getOrInitializeSession]);
+  }, [session?.user, ensureSessionExists]);
 
   // Load AI chat history from database
   const loadAiChatHistory = useCallback(async () => {
@@ -393,7 +412,7 @@ export default function ChatInterface({
               role: msg.role as "user" | "assistant",
               content: msg.content,
               timestamp: new Date(msg.createdAt!),
-              analysisData: msg.analysisData,
+              analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
               isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
               actionButtons: msg.actionButtons,
               imageUrl: msg.imageUrl,
@@ -462,11 +481,7 @@ export default function ChatInterface({
       if (type === "ai") {
         // Đảm bảo có session (session đã được tạo khi user đăng nhập)
         if (!currentSession && session?.user) {
-          try {
-            await getOrInitializeSession();
-          } catch (err) {
-            console.error("Failed to get/initialize AI chat session:", err);
-          }
+          await ensureSessionExists();
         }
 
         // Lưu tin nhắn user vào database
@@ -587,11 +602,7 @@ export default function ChatInterface({
       if (type === "ai") {
         // Đảm bảo có session (session đã được tạo khi user đăng nhập)
         if (!currentSession && session?.user) {
-          try {
-            await getOrInitializeSession();
-          } catch (err) {
-            console.error("Failed to get/initialize AI chat session:", err);
-          }
+          await ensureSessionExists();
         }
 
         // Lưu tin nhắn user vào database
@@ -691,11 +702,7 @@ export default function ChatInterface({
 
     // Đảm bảo có session (session đã được tạo khi user đăng nhập)
     if (!currentSession && session?.user) {
-      try {
-        await getOrInitializeSession();
-      } catch (err) {
-        console.error("Failed to get/initialize AI chat session:", err);
-      }
+      await ensureSessionExists();
     }
 
     dispatch(setIsAnalyzing(true));
@@ -870,9 +877,9 @@ export default function ChatInterface({
       notes: comprehensiveNotes,
       hasImageAnalysis: !!analysisResult,
       // Thêm thông tin hình ảnh và phân tích
-      uploadedImage: uploadedImage || null,
+      uploadedImage: uploadedImage || undefined,
       analysisResult: analysisResult || null,
-      imageUrl: uploadedImage || null,
+      imageUrl: uploadedImage || undefined,
     };
 
     dispatch(setAppointmentData(appointmentData));
@@ -1028,7 +1035,7 @@ export default function ChatInterface({
         alert("Failed to send message. Please try again.");
         // If error, restore input and remove temp message
         setInput(originalInput);
-        setConversationMessages((prev) => prev.filter((msg) => !msg._id.startsWith("temp_")));
+        setConversationMessages((prev) => prev.filter((msg) => !(msg as any)?._id?.toString?.().startsWith?.("temp_")));
       }
       return; // End function after sending text message
     }
@@ -1158,16 +1165,7 @@ export default function ChatInterface({
               </button>
             </div>
             {showDoctorSuggestion && (
-              <div
-                className={`max-w-xs p-2 rounded-lg ${
-                  message.senderId._id === currentUserId ? "text-white" : "bg-gray-100 text-gray-800"
-                }`}
-                style={
-                  message.senderId._id === currentUserId
-                    ? { background: "var(--color-primary)", color: "white" }
-                    : undefined
-                }
-              >
+              <div className={`max-w-xs p-2 rounded-lg bg-gray-100 text-gray-800`}>
                 <button className="text-sm bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600">
                   Liên hệ phòng khám
                 </button>
@@ -1621,8 +1619,8 @@ export default function ChatInterface({
                   // Render CALL message card
                   if ((message as any).messageType === "call") {
                     const callData = (message as any).callData || {};
-                    const senderId = (message as any).senderId?._id || (message as any).senderId;
-                    const isMyMessage = senderId?.toString() === currentUserId?.toString();
+                    // const senderId = (message as any).senderId?._id || (message as any).senderId;
+                    const isMyMessage = message.role === "user";
 
                     return (
                       <CallMessage
@@ -1631,11 +1629,19 @@ export default function ChatInterface({
                           callType: callData.callType || "audio",
                           callStatus: callData.callStatus || "completed",
                           callDuration: callData.callDuration || 0,
-                          startedAt: callData.startedAt || message.timestamp,
+                          startedAt:
+                            callData.startedAt ||
+                            (message.timestamp instanceof Date
+                              ? message.timestamp.toISOString()
+                              : String(message.timestamp)),
                           endedAt: callData.endedAt,
                         }}
                         isOutgoing={isMyMessage}
-                        timestamp={message.timestamp}
+                        timestamp={
+                          message.timestamp instanceof Date
+                            ? message.timestamp.toISOString()
+                            : String(message.timestamp)
+                        }
                         className="mb-3"
                       />
                     );
@@ -1829,7 +1835,7 @@ export default function ChatInterface({
       {/* Video Call Components */}
       {isInCall && <VideoCallInterface />}
 
-      <IncomingCallModal isOpen={showIncomingCallModal} onClose={() => setShowIncomingCallModal(false)} />
+      <IncomingCallModal />
     </div>
   );
 }

@@ -27,13 +27,15 @@ export const ChatIntegration: React.FC<ChatIntegrationProps> = ({ doctorsList = 
   }
 
   // Convert session user to our User interface
+  const rawUser: any = session.user;
+
   const currentUser: User = {
-    _id: (session.user as any).id || (session.user as any)._id,
-    firstName: (session.user as any).firstName || session.user.name?.split(" ")[0] || "",
-    lastName: (session.user as any).lastName || session.user.name?.split(" ").slice(1).join(" ") || "",
-    email: session.user.email || "",
-    role: (session.user as any).role || "patient",
-    specialization: (session.user as any).specialization,
+    _id: rawUser.id || rawUser._id,
+    firstName: rawUser.firstName || (rawUser.name ? String(rawUser.name).split(" ")[0] : "") || "",
+    lastName: rawUser.lastName || (rawUser.name ? String(rawUser.name).split(" ").slice(1).join(" ") : "") || "",
+    email: rawUser.email || "",
+    role: rawUser.role || "patient",
+    specialization: rawUser.specialization,
   };
 
   // Get auth token (you might need to adjust this based on your auth implementation)

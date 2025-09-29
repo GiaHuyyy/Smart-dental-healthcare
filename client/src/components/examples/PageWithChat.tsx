@@ -26,10 +26,10 @@ export const PageWithChat: React.FC = () => {
         setIsLoading(true);
 
         // Load doctors list (for patients to chat with)
-        const doctorsResponse = await sendRequest({
+        const doctorsResponse = await sendRequest<IBackendRes<User[]>>({
           url: "/users",
           method: "GET",
-          params: { role: "doctor" },
+          queryParams: { role: "doctor" },
         });
 
         if (doctorsResponse?.data) {
@@ -37,10 +37,10 @@ export const PageWithChat: React.FC = () => {
         }
 
         // Load patients list (for doctors to chat with)
-        const patientsResponse = await sendRequest({
+        const patientsResponse = await sendRequest<IBackendRes<User[]>>({
           url: "/users",
           method: "GET",
-          params: { role: "patient" },
+          queryParams: { role: "patient" },
         });
 
         if (patientsResponse?.data) {

@@ -1,12 +1,13 @@
 "use client";
 
 import Header from "@/components/Header";
-import { BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings } from "lucide-react";
+import { BarChart2, Calendar, MessageSquare, FileText, Pill, CreditCard, Settings, Users } from "lucide-react";
 import ShellLayout from "@/components/ShellLayout";
 
 const navigation = [
   { name: "Tổng quan", href: "/patient", icon: <BarChart2 className="w-4 h-4" /> },
   { name: "Đặt lịch hẹn", href: "/patient/appointments", icon: <Calendar className="w-4 h-4" /> },
+  { name: "Bác sĩ", href: "/patient/doctors", icon: <Users className="w-4 h-4" /> },
   { name: "Chat & Tư vấn", href: "/patient/chat", icon: <MessageSquare className="w-4 h-4" /> },
   { name: "Hồ sơ điều trị", href: "/patient/records", icon: <FileText className="w-4 h-4" /> },
   { name: "Đơn thuốc", href: "/patient/prescriptions", icon: <Pill className="w-4 h-4" /> },

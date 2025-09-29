@@ -1,6 +1,15 @@
 import React from "react";
 import { MessageSquare, X } from "lucide-react";
 
+type UserWithOptionalSpecialization = {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  email: string;
+  specialization?: string;
+};
+
 interface Conversation {
   _id: string;
   patientId: {
@@ -39,7 +48,6 @@ interface ConversationListProps {
 
 export const ConversationList: React.FC<ConversationListProps> = ({
   conversations,
-  currentUserId,
   currentUserRole,
   onSelectConversation,
   onClose,
@@ -48,7 +56,9 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   if (!isVisible) return null;
 
   const getOtherUser = (conversation: Conversation) => {
-    return currentUserRole === "patient" ? conversation.doctorId : conversation.patientId;
+    return currentUserRole === "patient"
+      ? (conversation.doctorId as UserWithOptionalSpecialization)
+      : (conversation.patientId as UserWithOptionalSpecialization);
   };
 
   const getDisplayName = (user: { firstName: string; lastName: string }) => {
@@ -102,7 +112,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           </div>
         ) : (
           conversations.map((conversation) => {
-            const otherUser = getOtherUser(conversation);
+            const otherUser = getOtherUser(conversation) as UserWithOptionalSpecialization;
+            const otherUserSpec: string | undefined = otherUser.specialization;
             const unreadCount = getUnreadCount(conversation);
 
             return (
@@ -130,8 +141,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">{getDisplayName(otherUser)}</p>
-                        {currentUserRole === "patient" && "specialization" in otherUser && (
-                          <p className="text-xs text-gray-500 truncate">{otherUser.specialization}</p>
+                        {currentUserRole === "patient" && otherUserSpec && (
+                          <p className="text-xs text-gray-500 truncate">{otherUserSpec}</p>
                         )}
                       </div>
                       <p className="text-xs text-gray-500 ml-2 flex-shrink-0">

@@ -6,6 +6,31 @@ export interface ChatMessage {
   actionButtons?: string[]; // Add optional action buttons
   quickActions?: string[]; // Add quick action buttons
   followUpQuestions?: string[]; // Add follow-up questions
+  // Additional fields used by AI/image analysis features
+  isAnalysisResult?: boolean;
+  analysisData?: AnalysisData;
+  messageType?: "normal" | "urgent" | "analysis" | "suggestion";
+  urgencyLevel?: "low" | "medium" | "high";
+  confidence?: number;
+}
+
+export interface AnalysisRichSection {
+  heading?: string;
+  text?: string;
+  bullets?: string[];
+}
+
+export interface AnalysisRichContent {
+  analysis?: string;
+  sections?: AnalysisRichSection[];
+  recommendations?: string[];
+}
+
+export interface AnalysisData {
+  richContent?: AnalysisRichContent;
+  suggestedDoctor?: DoctorSuggestion;
+  urgencyLevel?: "low" | "medium" | "high";
+  analysis?: string;
 }
 
 export interface DoctorSuggestion {
@@ -21,7 +46,7 @@ export interface AiResponse {
   message: string;
   suggestedDoctor: DoctorSuggestion | null;
   timestamp: Date;
-  context?: any;
+  context?: unknown;
   quickActions?: string[];
   followUpQuestions?: string[];
   urgencyLevel?: "low" | "medium" | "high";
