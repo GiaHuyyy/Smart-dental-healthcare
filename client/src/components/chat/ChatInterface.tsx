@@ -32,6 +32,7 @@ import { useWebRTC } from "@/contexts/WebRTCContext";
 import IncomingCallModal from "@/components/call/IncomingCallModal";
 import VideoCallInterface from "@/components/call/VideoCallInterface";
 import realtimeChatService from "@/services/realtimeChatService";
+import CallMessage from "../call/CallMessage";
 
 // Helper to format timestamps consistently
 function formatTimestampLocalized(input: Date | string): string {
@@ -96,7 +97,6 @@ export default function ChatInterface({
   isLoadingMessages = false,
   onInputFocus,
   onStartConversation,
-
 }: ChatInterfaceProps) {
   // Session and user data
   const { data: session } = useSession();
@@ -173,20 +173,20 @@ export default function ChatInterface({
       let welcomeMessage: any;
 
       // Nếu người xem là bệnh nhân
-      if (currentUserRole === 'patient') {
+      if (currentUserRole === "patient") {
         welcomeMessage = {
-          _id: 'welcome-msg-1',
-          role: 'doctor', // Tin nhắn từ bác sĩ, hiển thị bên trái
-          content: `Chào bạn, tôi là ${doctorName || 'Bác sĩ'}. Bạn cần giúp gì?`,
+          _id: "welcome-msg-1",
+          role: "doctor", // Tin nhắn từ bác sĩ, hiển thị bên trái
+          content: `Chào bạn, tôi là ${doctorName || "Bác sĩ"}. Bạn cần giúp gì?`,
           timestamp: new Date(),
         };
       }
       // Nếu người xem là bác sĩ
-      else if (currentUserRole === 'doctor') {
+      else if (currentUserRole === "doctor") {
         welcomeMessage = {
-          _id: 'welcome-msg-2',
-          role: 'patient', // Tin nhắn hệ thống, hiển thị bên trái
-          content: `Bạn có cuộc trò chuyện mới, vui lòng đợi bệnh nhân ${patientName || ''} liên hệ!`,
+          _id: "welcome-msg-2",
+          role: "patient", // Tin nhắn hệ thống, hiển thị bên trái
+          content: `Bạn có cuộc trò chuyện mới, vui lòng đợi bệnh nhân ${patientName || ""} liên hệ!`,
           timestamp: new Date(),
         };
       }
@@ -1621,28 +1621,23 @@ export default function ChatInterface({
                   // Render CALL message card
                   if ((message as any).messageType === "call") {
                     const callData = (message as any).callData || {};
-                    const isVideo = callData.callType === "video";
-                    const status = callData.callStatus || "completed";
-                    const duration = formatDuration(callData.callDuration);
+                    const senderId = (message as any).senderId?._id || (message as any).senderId;
+                    const isMyMessage = senderId?.toString() === currentUserId?.toString();
+
                     return (
-                      <div key={index} className="flex justify-center">
-                        <div
-                          className="px-4 py-2 rounded-md border text-sm bg-white"
-                          style={{ borderColor: "var(--color-border)" }}
-                        >
-                          <span className="font-medium" style={{ color: "var(--color-primary-contrast)" }}>
-                            {isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại"}
-                          </span>
-                          <span className="mx-2 text-gray-400">•</span>
-                          <span className="text-gray-600 capitalize">{status}</span>
-                          {status === "completed" && (
-                            <>
-                              <span className="mx-2 text-gray-400">•</span>
-                              <span className="text-gray-600">{duration}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                      <CallMessage
+                        key={`call-${index}`}
+                        callData={{
+                          callType: callData.callType || "audio",
+                          callStatus: callData.callStatus || "completed",
+                          callDuration: callData.callDuration || 0,
+                          startedAt: callData.startedAt || message.timestamp,
+                          endedAt: callData.endedAt,
+                        }}
+                        isOutgoing={isMyMessage}
+                        timestamp={message.timestamp}
+                        className="mb-3"
+                      />
                     );
                   }
 
@@ -1701,9 +1696,11 @@ export default function ChatInterface({
                             );
                           }
                           return null;
-                        })()}{" "}
+                        })()}
+
                         {/* Render text content */}
-                        <p className="text-sm leading-normal">{message.content}</p>
+                        {message.content && <p className="text-sm leading-normal">{message.content}</p>}
+
                         <div className="text-xs opacity-70 mt-1">{formatTime(message.timestamp)}</div>
                       </div>
                     </div>

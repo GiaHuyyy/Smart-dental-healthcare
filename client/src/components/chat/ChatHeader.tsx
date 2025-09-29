@@ -1,4 +1,4 @@
-// File: src/components/chat/ChatHeader.tsx
+// ChatHeader.tsx - Fixed version với nút gọi thoại hoạt động
 "use client";
 
 import CallButton from "@/components/call/CallButton";
@@ -104,35 +104,42 @@ export default function ChatHeader({
         )}
 
         {/* Nút hành động cho chat với người dùng */}
-        {(isPatientViewingDoctor || isDoctorViewingPatient) && (
+        {(isPatientViewingDoctor || isDoctorViewingPatient) && peerId && peerName && (
           <>
             {/* Nút Gọi & Gọi Video */}
-            <div className="flex items-center rounded-lg" style={{ background: "var(--color-accent)" }}>
-              <button
-                onClick={onCall}
-                className="flex items-center space-x-1.5 pl-3 pr-2 py-2 text-sm whitespace-nowrap rounded-l-lg hover:opacity-80 transition-opacity"
-                title="Gọi thoại"
+            <div className="flex items-center rounded-lg overflow-hidden" style={{ background: "var(--color-accent)" }}>
+              {/* Nút Gọi thoại */}
+              <CallButton
+                recipientId={peerId}
+                recipientName={peerName}
+                recipientRole={isPatientViewingDoctor ? 'doctor' : 'patient'}
+                isVideoCall={false}
+                showIcon={false}
+                className="flex items-center space-x-1.5 pl-3 pr-2 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
                 style={{ color: "var(--color-primary-600)" }}
+                title="Gọi thoại"
               >
                 <Phone size={16} />
                 <span className="hidden sm:inline">Gọi</span>
-              </button>
+              </CallButton>
 
-              {peerId && peerName && (
-                <div className="border-l" style={{ borderColor: "rgba(var(--color-primary-rgb), 0.2)"}}>
-                  <CallButton
-                    recipientId={peerId}
-                    recipientName={peerName}
-                    recipientRole={isPatientViewingDoctor ? 'doctor' : 'patient'}
-                    className="flex items-center space-x-1.5 pl-2 pr-3 py-2 text-sm whitespace-nowrap rounded-r-lg hover:opacity-80 transition-opacity"
-                    title="Gọi video"
-                    style={{ color: "var(--color-primary-600)" }}
-                  >
-                      <Video size={16} />
-                      <span className="hidden sm:inline">Video</span>
-                  </CallButton>
-                </div>
-              )}
+              {/* Divider */}
+              <div className="border-l h-8" style={{ borderColor: "rgba(var(--color-primary-rgb), 0.2)"}}></div>
+
+              {/* Nút Gọi Video */}
+              <CallButton
+                recipientId={peerId}
+                recipientName={peerName}
+                recipientRole={isPatientViewingDoctor ? 'doctor' : 'patient'}
+                isVideoCall={true}
+                showIcon={false}
+                className="flex items-center space-x-1.5 pl-2 pr-3 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
+                style={{ color: "var(--color-primary-600)" }}
+                title="Gọi video"
+              >
+                <Video size={16} />
+                <span className="hidden sm:inline">Video</span>
+              </CallButton>
             </div>
 
             {/* Nút Đặt lịch (Chỉ cho Bệnh nhân) */}

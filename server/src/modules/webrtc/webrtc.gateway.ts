@@ -105,7 +105,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('webrtc-joined', { success: true });
   }
 
-  @SubscribeMessage('call-user')
+@SubscribeMessage('call-user')
   async handleCallUser(
     @MessageBody()
     data: {
@@ -122,17 +122,30 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       `Call initiated from ${data.callerId} to ${data.receiverId} (${data.isVideoCall ? 'video' : 'audio'})`,
     );
 
+    // ---- THAY ĐỔI 1: Tạo key để kiểm tra và khóa ----
+    // Dùng key này để đảm bảo chỉ có 1 cuộc gọi (theo 1 chiều) được thiết lập
+    const callKey = `${data.callerId}-${data.receiverId}`;
+
+    // Kiểm tra xem có cuộc gọi nào đang được thiết lập hoặc đang diễn ra không
+    if (this.activeCalls.has(callKey)) {
+      this.logger.warn(
+        `Call from ${data.callerId} to ${data.receiverId} is already being processed. Ignoring duplicate request.`,
+      );
+      return; // Dừng ngay nếu đã có yêu cầu trước đó
+    }
+
+    // ---- THAY ĐỔI 2: "Khóa" ngay lập tức ----
+    // Đặt một giá trị tạm thời vào map để chặn các yêu cầu tiếp theo
+    // Giá trị này sẽ được cập nhật sau khi có messageId thật
+    this.activeCalls.set(callKey, {
+      messageId: 'pending-' + new Types.ObjectId().toString(), // ID tạm thời
+      callerId: data.callerId,
+      receiverId: data.receiverId,
+      callType: data.isVideoCall ? 'video' : 'audio',
+      startedAt: new Date(),
+    });
+
     try {
-      // Check if there's already an active call between these users
-      const callKey = `${data.callerId}-${data.receiverId}`;
-
-      if (this.activeCalls.has(callKey)) {
-        this.logger.log(
-          `Call already in progress between ${data.callerId} and ${data.receiverId}, ignoring duplicate`,
-        );
-        return;
-      }
-
       // Create call history message
       const callMessage = await this.realtimeChatService.createCallMessage(
         data.callerId,
@@ -146,14 +159,19 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
         },
       );
 
-      // Store active call info
-      this.activeCalls.set(callKey, {
-        messageId: (callMessage as any)._id.toString(),
-        callerId: data.callerId,
-        receiverId: data.receiverId,
-        callType: data.isVideoCall ? 'video' : 'audio',
-        startedAt: new Date(),
-      });
+      const realMessageId = (callMessage as any)._id.toString();
+
+      // ---- THAY ĐỔI 3: Cập nhật messageId thật ----
+      // Lấy lại mục đã khóa và cập nhật với messageId chính xác từ DB
+      const activeCallData = this.activeCalls.get(callKey);
+      if (activeCallData) {
+        activeCallData.messageId = realMessageId;
+        this.activeCalls.set(callKey, activeCallData);
+      } else {
+         // Trường hợp hiếm gặp: cuộc gọi đã bị hủy bởi một tiến trình khác
+         this.logger.warn(`Active call data for ${callKey} disappeared unexpectedly.`);
+         return;
+      }
 
       const receiver = this.connectedUsers.get(data.receiverId);
 
@@ -165,21 +183,22 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
           callerRole: data.callerRole,
           isVideoCall: data.isVideoCall,
           signal: data.signal,
-          messageId: (callMessage as any)._id.toString(),
+          messageId: realMessageId, // Gửi đi messageId thật
         });
 
         // Confirm to caller that call was initiated
         client.emit('call-initiated', {
           receiverId: data.receiverId,
-          messageId: (callMessage as any)._id.toString(),
+          messageId: realMessageId, // Gửi đi messageId thật
         });
       } else {
         // Receiver not online - update call status to missed
         await this.realtimeChatService.updateCallStatus(
-          (callMessage as any)._id.toString(),
+          realMessageId,
           'missed',
           0,
         );
+        // Dọn dẹp khóa vì cuộc gọi thất bại
         this.activeCalls.delete(callKey);
 
         client.emit('call-failed', {
@@ -189,6 +208,8 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch (error) {
       this.logger.error('Failed to create call message:', error);
+      // Dọn dẹp khóa nếu có lỗi xảy ra
+      this.activeCalls.delete(callKey);
       client.emit('call-failed', {
         receiverId: data.receiverId,
         reason: 'Internal error',
