@@ -1,7 +1,7 @@
 // File: src/components/chat/SharedChatView.tsx
 "use client";
 
-import { User, Menu, Bot, Stethoscope } from "lucide-react";
+import { User, Menu, Stethoscope, Drone } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ChatHeader from "@/components/chat/ChatHeader";
@@ -225,13 +225,8 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
 
       // Chỉ tải khi chưa từng tải trước đó HOẶC khi bị ép tải lại
       if ((isCurrentlyLoading || hasLoadedBefore) && !forceReload) {
-        console.log(
-          `Skipping load for ${conversationId}. Loaded before: ${hasLoadedBefore}, Loading now: ${isCurrentlyLoading}`
-        );
         return;
       }
-
-      console.log(`Requesting messages for ${conversationId} from server...`);
       setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
       realtimeChatService.loadMessages(conversationId, 100);
     },
@@ -251,35 +246,82 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
             const conversationData = JSON.parse(newConvDataRaw);
             const userData = extractUserData(session);
 
-            console.log("Đang tạo cuộc hội thoại mới qua SOCKET với:", conversationData);
-
-            const createConvViaSocket = async () => {
-              try {
-                const newConversationId = await realtimeChatService.createConversation(
-                  userData!.userId,
-                  conversationData.doctorId
-                );
-
-                console.log("Socket: Tạo cuộc hội thoại thành công, ID:", newConversationId);
-                setSelectedChat(newConversationId);
-              } catch (socketError) {
-                console.error("Lỗi socket khi tạo cuộc hội thoại:", socketError);
-              } finally {
-                localStorage.removeItem("newConversation");
-                window.history.replaceState(null, "", "/patient/chat");
-              }
+            // If conversationData already contains a conversation id or full conversation object,
+            // open it immediately. Otherwise, fall back to creating via socket using doctorId.
+            const tryExtractId = (obj: unknown): string | null => {
+              if (!obj) return null;
+              if (typeof obj === "string") return obj;
+              const o = obj as Record<string, unknown>;
+              if (o.conversationId) return String(o.conversationId);
+              if (o.id) return String(o.id);
+              if (o._id) return String(o._id);
+              if (o.databaseId) return String(o.databaseId);
+              return null;
             };
 
-            createConvViaSocket();
-          } catch (error) {
-            console.error("Lỗi xử lý newConversation:", error);
+            const convObj = conversationData as unknown as Record<string, unknown> | null;
+            const existingConvId = tryExtractId(conversationData) || tryExtractId(convObj?.conversation as unknown);
+
+            if (existingConvId) {
+              setSelectedChat(existingConvId);
+              localStorage.removeItem("newConversation");
+              window.history.replaceState(null, "", "/patient/chat");
+            } else if (conversationData && (conversationData as unknown as Record<string, unknown>).doctorId) {
+              const createConvViaSocket = async () => {
+                try {
+                  const resp = await realtimeChatService.createConversation(
+                    userData!.userId,
+                    conversationData.doctorId
+                  );
+
+                  // Normalize response to id
+                  let convId: string | null = null;
+                  if (!resp) {
+                    console.warn("createConversation returned empty response", resp);
+                  } else if (typeof resp === "string") {
+                    convId = resp;
+                  } else if (typeof resp === "object") {
+                    const r = resp as Record<string, unknown>;
+                    if (r.id) convId = String(r.id);
+                    else if (r._id) convId = String(r._id);
+                    else if (r.conversation && typeof r.conversation === "object") {
+                      const inner = r.conversation as Record<string, unknown>;
+                      if (inner.id) convId = String(inner.id);
+                    }
+                  }
+
+                  if (convId) {
+                    setSelectedChat(convId);
+                  } else {
+                    addOrUpdateConversation(resp);
+                    const tryId =
+                      (resp && (resp as unknown as Record<string, unknown>)?.id) ||
+                      (resp && (resp as unknown as Record<string, unknown>)?.databaseId);
+                    if (tryId) setSelectedChat(String(tryId));
+                  }
+                } catch (socketError) {
+                  console.error("Lỗi socket khi tạo cuộc hội thoại:", socketError);
+                } finally {
+                  localStorage.removeItem("newConversation");
+                  window.history.replaceState(null, "", "/patient/chat");
+                }
+              };
+
+              createConvViaSocket();
+            } else {
+              console.warn("newConversation payload did not contain doctorId or conv id:", conversationData);
+              localStorage.removeItem("newConversation");
+              window.history.replaceState(null, "", "/patient/chat");
+            }
+          } catch {
+            // ignore JSON parse or processing errors
           }
         }
       }
-    } catch (err) {
+    } catch {
       // ignore URL parse errors
     }
-  }, [session, userRole]);
+  }, [session, userRole, addOrUpdateConversation]);
 
   useEffect(() => {
     if (selectedChat && selectedChat !== "ai" && socketInitialized) {
@@ -333,16 +375,16 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
               {/* AI Assistant (Patient only) */}
               {userRole === "patient" && (
                 <div
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                  className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
                     selectedChat === "ai"
-                      ? "bg-primary-100 border-primary-300"
-                      : "bg-white hover:bg-gray-50 border-gray-200"
+                      ? "bg-primary-100 !border-[var(--color-primary)]"
+                      : "bg-white hover:bg-gray-50"
                   }`}
                   onClick={() => setSelectedChat("ai")}
                 >
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-primary text-white">
-                      <Bot size={16} />
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-primary text-primary">
+                      <Drone size={16} />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">AI Tư vấn</h4>
@@ -364,7 +406,8 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                   <div
                     key={conv.id}
                     className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
-                      selectedChat === conv.id ? "bg-primary-100 border-primary-300" : "bg-white hover:bg-gray-50"
+                      selectedChat === conv.id ? "bg-primary-100 !border-[var(--color-primary)]"
+                      : "bg-white hover:bg-gray-50"
                     }`}
                     onClick={() => {
                       setSelectedChat(conv.id);
@@ -451,7 +494,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                     specialty={
                       userRole === "patient"
                         ? selectedConversation.peerDetails
-                        : (session?.user as any)?.specialty || ""
+                        : ((session?.user as unknown as Record<string, unknown>)?.specialty as string | undefined) || ""
                     }
                     isOnline={true}
                     embedded={true}

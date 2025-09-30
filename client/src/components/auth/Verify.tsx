@@ -59,7 +59,7 @@ export default function Verify({ id }: VerifyProps) {
         },
       });
 
-      console.log("Verification response:", res);
+      // verification response handled below; avoid logging sensitive info in production
       // Handle both wrapped and unwrapped response formats
       if (res && !res.error && (res.data || (res as any)._id || res.message)) {
         toast.success("Xác thực thành công! Tài khoản đã được kích hoạt.");
@@ -67,8 +67,9 @@ export default function Verify({ id }: VerifyProps) {
       } else {
         toast.error(res?.message || "Mã xác thực không đúng hoặc đã hết hạn");
       }
-    } catch (error) {
-      console.error("Verification error:", error);
+    } catch {
+      // Log minimal error for debugging if needed; do not print full error to console in prod
+      console.error("Verification error");
       toast.error("Có lỗi xảy ra khi xác thực");
     } finally {
       setIsLoading(false);
@@ -92,8 +93,8 @@ export default function Verify({ id }: VerifyProps) {
       } else {
         toast.error(res?.message || "Không thể gửi lại mã xác thực");
       }
-    } catch (error) {
-      console.error("Resend error:", error);
+    } catch {
+      console.error("Resend error");
       toast.error("Có lỗi xảy ra khi gửi lại mã xác thực");
     } finally {
       setIsResending(false);
@@ -101,7 +102,14 @@ export default function Verify({ id }: VerifyProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div
+      className="min-h-screen bg-gradient-to-br flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{
+        backgroundColor: "var(--color-primary-50)",
+        backgroundImage:
+          "linear-gradient(135deg, var(--color-primary-50) 0%, rgba(var(--color-primary-rgb), 0.06) 50%, var(--color-primary) 100%)",
+      }}
+    >
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">

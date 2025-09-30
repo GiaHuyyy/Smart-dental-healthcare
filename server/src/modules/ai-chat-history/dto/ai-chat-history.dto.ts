@@ -5,7 +5,6 @@ import {
   IsNumber,
   IsArray,
 } from 'class-validator';
-import { Types } from 'mongoose';
 
 export class CreateAiChatSessionDto {
   @IsOptional()
@@ -31,6 +30,9 @@ export class CreateAiChatSessionDto {
   @IsOptional()
   @IsString()
   suggestedDoctorId?: string;
+
+  @IsOptional()
+  suggestedDoctor?: any;
 
   @IsOptional()
   @IsArray()
@@ -120,6 +122,13 @@ export class UpdateAiChatSessionDto {
   @IsOptional()
   @IsBoolean()
   followUpNeeded?: boolean;
+
+  @IsOptional()
+  suggestedDoctor?: any;
+
+  @IsOptional()
+  @IsString()
+  suggestedDoctorId?: string;
 
   @IsOptional()
   @IsArray()

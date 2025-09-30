@@ -98,22 +98,25 @@ export const useAiChatHistory = (): UseAiChatHistoryReturn => {
   );
 
   // Get messages for a session
-  const getSessionMessages = useCallback(async (sessionId: string): Promise<AiChatMessage[]> => {
-    setIsLoading(true);
-    setError(null);
+  const getSessionMessages = useCallback(
+    async (sessionId: string, page: number = 1, limit: number = 50): Promise<AiChatMessage[]> => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const messages = await aiChatHistoryService.getSessionMessages(sessionId);
-      return messages;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to load messages";
-      setError(errorMessage);
-      console.error("Error loading messages:", err);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      try {
+        const messages = await aiChatHistoryService.getSessionMessages(sessionId, page, limit);
+        return messages;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load messages";
+        setError(errorMessage);
+        console.error("Error loading messages:", err);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
 
   // Load user sessions
   const loadUserSessions = useCallback(

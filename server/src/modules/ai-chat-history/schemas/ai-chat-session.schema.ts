@@ -23,6 +23,9 @@ export class AiChatSession {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   suggestedDoctorId: Types.ObjectId; // Doctor suggested by AI
 
+  @Prop({ type: Object })
+  suggestedDoctor: any; // full suggested doctor object snapshot
+
   @Prop()
   finalAction: string; // 'appointment_booked', 'self_care', 'emergency_referral'
 

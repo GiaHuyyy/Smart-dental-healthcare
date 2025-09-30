@@ -63,7 +63,8 @@ export default function AiChatHistoryPage() {
     try {
       setMessageLoading(true);
       setSelectedSession(sessionId);
-      const sessionMessages = await getSessionMessages(sessionId);
+      // Request all messages for this AI session (limit=0 => no limit)
+      const sessionMessages = await getSessionMessages(sessionId, 1, 0);
       setMessages(sessionMessages);
     } catch (error) {
       console.error("Failed to load session messages:", error);

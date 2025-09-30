@@ -32,13 +32,23 @@ export class AiChatHistoryService {
       throw new Error('User ID is required');
     }
 
-    const session = new this.aiChatSessionModel({
+    const sessionData: any = {
       ...createSessionDto,
       userId: new Types.ObjectId(createSessionDto.userId),
-      suggestedDoctorId: createSessionDto.suggestedDoctorId
-        ? new Types.ObjectId(createSessionDto.suggestedDoctorId)
-        : undefined,
-    });
+    };
+
+    if (createSessionDto.suggestedDoctorId) {
+      sessionData.suggestedDoctorId = new Types.ObjectId(
+        createSessionDto.suggestedDoctorId,
+      );
+    }
+
+    if ((createSessionDto as any).suggestedDoctor) {
+      // store snapshot of suggested doctor object in session for persistence
+      sessionData.suggestedDoctor = (createSessionDto as any).suggestedDoctor;
+    }
+
+    const session = new this.aiChatSessionModel(sessionData);
 
     return await session.save();
   }
@@ -92,9 +102,26 @@ export class AiChatHistoryService {
     sessionId: string,
     updateDto: UpdateAiChatSessionDto,
   ): Promise<AiChatSessionDocument> {
+    // Normalize update payload: convert suggestedDoctorId strings to ObjectId
+    const updateData: any = { ...updateDto };
+    try {
+      if ((updateDto as any).suggestedDoctorId) {
+        updateData.suggestedDoctorId = new Types.ObjectId(
+          (updateDto as any).suggestedDoctorId,
+        );
+      }
+    } catch (e) {
+      // If invalid id provided, let mongoose validation handle it or simply ignore conversion
+    }
+
+    // Allow storing a suggestedDoctor snapshot object directly
+    if ((updateDto as any).suggestedDoctor) {
+      updateData.suggestedDoctor = (updateDto as any).suggestedDoctor;
+    }
+
     const session = await this.aiChatSessionModel.findByIdAndUpdate(
       sessionId,
-      updateDto,
+      updateData,
       { new: true },
     );
 
@@ -170,11 +197,16 @@ export class AiChatHistoryService {
   ): Promise<AiChatMessageDocument[]> {
     const skip = (page - 1) * limit;
 
-    return await this.aiChatMessageModel
+    const query = this.aiChatMessageModel
       .find({ sessionId: new Types.ObjectId(sessionId) })
-      .sort({ createdAt: 1 }) // Oldest first for chat display
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: 1 });
+
+    // If limit <= 0, we interpret as 'no limit' and return all messages
+    if (limit <= 0) {
+      return await query.exec();
+    }
+
+    return await query.skip(skip).limit(limit).exec();
   }
 
   async getSessionMessagesWithSession(sessionId: string) {
