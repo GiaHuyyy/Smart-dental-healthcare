@@ -15,6 +15,7 @@ import {
   CreateAiChatMessageDto,
   UpdateAiChatSessionDto,
 } from './dto/ai-chat-history.dto';
+import { CreateAiChatSessionDto } from './dto/ai-chat-history.dto';
 import { Public } from 'src/decorator/customize';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
@@ -25,6 +26,13 @@ export class AiChatHistoryController {
     private readonly aiChatHistoryService: AiChatHistoryService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
+
+  @Post('sessions')
+  async createSession(@Body() createSessionDto: CreateAiChatSessionDto) {
+    return await this.aiChatHistoryService.createSession(
+      createSessionDto as any,
+    );
+  }
 
   // Essential session endpoints
   @Get('users/:userId/sessions')

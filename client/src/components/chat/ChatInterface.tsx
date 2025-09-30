@@ -105,7 +105,13 @@ export default function ChatInterface({
   const { isCallIncoming, incomingCall, isInCall } = useWebRTC();
 
   // AI Chat History hook
-  const { currentSession, addMessage: saveMessage, setCurrentSession, loadUserSessions } = useAiChatHistory();
+  const {
+    currentSession,
+    addMessage: saveMessage,
+    setCurrentSession,
+    loadUserSessions,
+    updateSession,
+  } = useAiChatHistory();
 
   // Helper to ensure a session exists (replaces legacy getOrInitializeSession)
   const ensureSessionExists = useCallback(async () => {
@@ -336,6 +342,29 @@ export default function ChatInterface({
 
       setSuggestedDoctor(validatedDoctor);
       dispatch(setSelectedDoctor(validatedDoctor));
+
+      // Persist suggestion to server session if available
+      (async () => {
+        try {
+          if (currentSession?._id && updateSession) {
+            await updateSession(currentSession._id, {
+              suggestedDoctor: validatedDoctor as any,
+              suggestedDoctorId: (validatedDoctor as any)._id,
+            } as any);
+          }
+        } catch (err) {
+          // ignore persistence errors
+          console.error("Failed to persist suggested doctor to session:", err);
+        }
+      })();
+
+      // Persist locally as a fallback
+      try {
+        localStorage.setItem("sd_suggestedDoctor", JSON.stringify(validatedDoctor));
+      } catch (e) {
+        // ignore
+      }
+
       return true;
     } else {
       return false;
@@ -420,6 +449,26 @@ export default function ChatInterface({
 
             setMessages(chatMessages);
             setCurrentSession(latestSession);
+            // Restore suggested doctor from session if present
+            try {
+              const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
+              if (sd) {
+                // If it's an object, use it, otherwise try to match against available doctors
+                if (typeof sd === "object" && sd.fullName) {
+                  setSuggestedDoctor(sd as any);
+                } else if (typeof sd === "string" && availableDoctors.length > 0) {
+                  const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
+                  if (match)
+                    setSuggestedDoctor({
+                      _id: match._id || match.id,
+                      fullName: match.fullName || match.name,
+                      specialty: match.specialty,
+                    } as any);
+                }
+              }
+            } catch (e) {
+              // ignore
+            }
             setHasLoadedFromDatabase(true);
             return;
           } else {
@@ -457,11 +506,30 @@ export default function ChatInterface({
     loadDoctors();
   }, []);
 
+  // Restore quick suggestion preference from localStorage
+  useEffect(() => {
+    try {
+      const val = localStorage.getItem("sd_showQuickSuggestions");
+      if (val !== null) setShowQuickSuggestions(val === "true");
+    } catch (err) {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     if (type === "ai" && !hasLoadedFromDatabase && session?.user) {
       loadAiChatHistory();
     }
   }, [type, session?.user, hasLoadedFromDatabase, loadAiChatHistory]);
+
+  // Persist quick suggestion preference when toggled
+  useEffect(() => {
+    try {
+      localStorage.setItem("sd_showQuickSuggestions", showQuickSuggestions ? "true" : "false");
+    } catch (e) {
+      // ignore
+    }
+  }, [showQuickSuggestions]);
 
   // Message handlers
   const handleSendMessageAI = async () => {
@@ -1242,6 +1310,11 @@ export default function ChatInterface({
                     <button
                       className="text-sm px-2 py-1 rounded-md transition-colors"
                       style={{ background: "var(--color-primary)", color: "white" }}
+                      onClick={() => {
+                        // Navigate to patient-facing doctor profile
+                        const id = (suggestedDoctor as any)?._id;
+                        if (id) router.push(`/patient/doctors/${id}`);
+                      }}
                     >
                       Hồ sơ
                     </button>
