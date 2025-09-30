@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Users, Star, Search, Filter, MessageSquare, Calendar, Phone, MapPin, Stethoscope } from "lucide-react";
+import { Search, Filter, Stethoscope } from "lucide-react";
+import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
+import realtimeChatService from "@/services/realtimeChatService";
+import DoctorCard from "@/components/ui/DoctorCard";
+import { toast } from "sonner";
 
 interface Doctor {
   _id: string;
@@ -62,7 +65,7 @@ export default function PatientDoctorsPage() {
       const sp = params.get("specialty");
       if (q) setQuery(q);
       if (sp) setSpecialty(sp);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, []);
@@ -105,8 +108,8 @@ export default function PatientDoctorsPage() {
         const list = data?.data || data?.users || data?.results || data || [];
         const arr: Doctor[] = Array.isArray(list) ? list : list?.result || [];
         setDoctors(arr);
-      } catch (e) {
-        console.error("load doctors failed", e);
+      } catch {
+        console.error("load doctors failed");
         setError("Không tải được danh sách bác sĩ. Vui lòng thử lại.");
       } finally {
         setLoading(false);
@@ -132,11 +135,56 @@ export default function PatientDoctorsPage() {
     router.push(`/patient/appointments?${qs.toString()}`);
   };
 
-  const onChat = (doctor: Doctor) => {
-    const name = doctor.fullName;
-    const qs = new URLSearchParams();
-    if (name) qs.set("to", name);
-    router.push(`/patient/chat?${qs.toString()}`);
+  useRealtimeChat();
+  const [creatingConvFor, setCreatingConvFor] = useState<string | null>(null);
+
+  // Use SharedChatView's localStorage/newConversation flow: store doctorId into localStorage
+  // and navigate to /patient/chat?newConversation=true. SharedChatView will create via socket if needed.
+  const onChat = async (doctor: Doctor) => {
+    const doctorId = doctor._id || doctor.id;
+    if (!doctorId) return;
+    try {
+      setCreatingConvFor(doctorId);
+      // If socket is connected, try to create conversation immediately via socket
+      if (realtimeChatService.isConnected()) {
+        try {
+          const userInfo = realtimeChatService.getUserInfo();
+          const resp = await realtimeChatService.createConversation(userInfo.userId || "", doctorId);
+
+          // store the returned conversation or its id into localStorage for SharedChatView to pick up
+          try {
+            localStorage.setItem("newConversation", JSON.stringify(resp));
+          } catch {
+            // ignore
+          }
+
+          router.push(`/patient/chat?newConversation=true`);
+          toast.success("Đang mở cửa sổ chat", { description: "Cuộc hội thoại đã được tạo và mở" });
+          return;
+        } catch (socketErr) {
+          console.warn("Socket createConversation failed, falling back to doctorId flow", socketErr);
+          // fallback to doctorId-based flow below
+        }
+      }
+
+      // Fallback: Save data for SharedChatView to pick up and create via socket on chat page
+      const payload = { doctorId };
+      try {
+        localStorage.setItem("newConversation", JSON.stringify(payload));
+      } catch {
+        // ignore storage errors
+      }
+
+      // Navigate to chat page which will read localStorage and create/join via socket
+      router.push(`/patient/chat?newConversation=true`);
+      // Optionally show a quick success toast
+      toast.success("Đang mở cửa sổ chat", { description: "Đang tạo/khôi phục cuộc hội thoại với bác sĩ" });
+    } catch (err) {
+      console.error("Failed to start/open conversation", err);
+      toast.error("Không thể mở chat", { description: "Vui lòng thử lại sau" });
+    } finally {
+      setCreatingConvFor(null);
+    }
   };
 
   const uniqueSpecialties = useMemo(() => {
@@ -213,65 +261,16 @@ export default function PatientDoctorsPage() {
           <div className="healthcare-card p-6 text-center">Không tìm thấy bác sĩ phù hợp.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((d) => {
-              const id = d._id || d.id;
-              const name = d.fullName || "Chưa rõ tên";
-              const sp = d.specialty || d.specialization || "Đa khoa";
-              const rating = d.rating ?? 4.7;
-              const exp = d.experienceYears ?? 5;
-              return (
-                <div key={id || name} className="healthcare-card group">
-                  <div className="p-6">
-                    <div className="flex items-center gap-4 mb-4">
-                      {d.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={d.avatarUrl} alt={name} className="w-14 h-14 rounded-full object-cover" />
-                      ) : (
-                        <div
-                          className="w-14 h-14 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: "var(--color-primary-50)" }}
-                        >
-                          <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-semibold text-gray-900">{name}</div>
-                        <div className="text-sm text-gray-600">{sp}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-sm text-gray-600 mb-2">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      {rating} • {exp}+ năm kinh nghiệm
-                    </div>
-                    {d.address && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                        <MapPin className="w-4 h-4" /> {d.address}
-                      </div>
-                    )}
-                    {d.phone && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                        <Phone className="w-4 h-4" /> {d.phone}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      {id && (
-                        <Link href={`/patient/doctors/${id}`} className="btn-healthcare-secondary flex-1 text-center">
-                          Xem chi tiết
-                        </Link>
-                      )}
-                      <button className="btn-healthcare-primary flex-1" onClick={() => onBook(d)}>
-                        <Calendar className="w-4 h-4 mr-1" /> Đặt lịch
-                      </button>
-                      <button className="btn-healthcare ghost flex-1 border" onClick={() => onChat(d)}>
-                        <MessageSquare className="w-4 h-4 mr-1" /> Chat
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {filtered.map((d) => (
+              <DoctorCard
+                key={d._id || d.id || d.fullName}
+                doctor={d}
+                creatingConvFor={creatingConvFor}
+                onView={(doc) => router.push(`/patient/doctors/${doc._id || doc.id}`)}
+                onBook={onBook}
+                onChat={onChat}
+              />
+            ))}
           </div>
         )}
       </div>

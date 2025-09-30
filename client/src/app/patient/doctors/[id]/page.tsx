@@ -140,16 +140,30 @@ export default function DoctorDetailsPage() {
               <div className="flex items-center gap-3 text-sm text-gray-600 mt-2">
                 <Star className="w-4 h-4 text-yellow-400 fill-current" /> {rating} • {exp}+ năm kinh nghiệm
               </div>
-              <div className="flex gap-2 mt-4">
-                <button className="btn-healthcare-primary" onClick={onBook}>
-                  <Calendar className="w-4 h-4 mr-1" /> Đặt lịch
-                </button>
-                <button className="btn-healthcare ghost border" onClick={onChat}>
-                  <MessageSquare className="w-4 h-4 mr-1" /> Chat
-                </button>
-                <Link href="/patient/doctors" className="btn-healthcare-secondary">
-                  <ArrowLeft className="w-4 h-4 mr-1" /> Quay lại
+              <div className="flex items-center gap-3 mt-4">
+                <Link
+                  href="/patient/doctors"
+                  className="inline-flex items-center justify-center border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-xl py-3 px-4 text-sm font-medium hover:shadow-sm transition"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Xem chi tiết
                 </Link>
+
+                <button
+                  className="flex-1 cursor-pointer inline-flex items-center justify-center bg-[var(--color-primary)] text-white rounded-xl py-3 px-6 text-sm font-semibold shadow-md hover:brightness-95 transition"
+                  onClick={onBook}
+                >
+                  <Calendar className="w-4 h-4 mr-2" /> Đặt lịch
+                </button>
+
+                <button
+                  className="inline-flex border-[var(--color-primary)] text-[var(--color-primary)] items-center cursor-pointer hover:bg-gray-50 transition"
+                  onClick={onChat}
+                  aria-label={`Chat với ${name}`}
+                >
+                  <span className="w-10 h-10 flex items-center justify-center border rounded-lg">
+                    <MessageSquare className="w-5 h-5" />
+                  </span>
+                </button>
               </div>
             </div>
           </div>
