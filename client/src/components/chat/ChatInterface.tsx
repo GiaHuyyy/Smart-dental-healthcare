@@ -532,7 +532,7 @@ export default function ChatInterface({
       const chatMessages: ChatMessage[] = lastSlice.map((msg) => ({
         role: msg.role as "user" | "assistant",
         content: msg.content,
-        timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+        timestamp: new Date(msg.createdAt || Date.now()),
         analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
         isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
         actionButtons: msg.actionButtons,
@@ -1519,7 +1519,9 @@ export default function ChatInterface({
         <>
           {/* Messages - Scrollable Area */}
           <div
-            ref={(el) => (aiContainerRef.current = el)}
+            ref={(el) => {
+              aiContainerRef.current = el;
+            }}
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.scrollTop === 0 && aiPagesLoaded < aiTotalPagesRef.current) {
@@ -1800,7 +1802,9 @@ export default function ChatInterface({
         <>
           {/* Messages - Scrollable Area */}
           <div
-            ref={(el) => (doctorContainerRef.current = el)}
+            ref={(el) => {
+              aiContainerRef.current = el;
+            }}
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.scrollTop === 0 && doctorPagesLoaded > 0) {
