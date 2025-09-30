@@ -1,7 +1,7 @@
 // File: src/components/chat/SharedChatView.tsx
 "use client";
 
-import { User, Menu, Bot, Stethoscope } from "lucide-react";
+import { User, Menu, Stethoscope, Drone } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ChatHeader from "@/components/chat/ChatHeader";
@@ -375,16 +375,16 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
               {/* AI Assistant (Patient only) */}
               {userRole === "patient" && (
                 <div
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                  className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
                     selectedChat === "ai"
-                      ? "bg-primary-100 border-primary-300"
-                      : "bg-white hover:bg-gray-50 border-gray-200"
+                      ? "bg-primary-100 !border-[var(--color-primary)]"
+                      : "bg-white hover:bg-gray-50"
                   }`}
                   onClick={() => setSelectedChat("ai")}
                 >
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-primary text-white">
-                      <Bot size={16} />
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-primary text-primary">
+                      <Drone size={16} />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">AI Tư vấn</h4>
@@ -406,7 +406,8 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                   <div
                     key={conv.id}
                     className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
-                      selectedChat === conv.id ? "bg-primary-100 border-primary-300" : "bg-white hover:bg-gray-50"
+                      selectedChat === conv.id ? "bg-primary-100 !border-[var(--color-primary)]"
+                      : "bg-white hover:bg-gray-50"
                     }`}
                     onClick={() => {
                       setSelectedChat(conv.id);

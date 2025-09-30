@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import { Smile } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 

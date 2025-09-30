@@ -180,24 +180,22 @@ export default function ChatInterface({
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const aiContainerRef = useRef<HTMLDivElement | null>(null);
   const userMessagesEndRef = useRef<HTMLDivElement>(null);
+  const doctorContainerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
-    // Chỉ chạy logic khi type là 'doctor' hoặc 'simple-doctor'
-    if (type !== "doctor" && type !== "simple-doctor") {
-      return;
-    }
+    // doctor chat pagination: only run for doctor/simple-doctor
+    if (type !== "doctor" && type !== "simple-doctor") return;
 
-    // Chỉ thực hiện khi có mảng tin nhắn được truyền vào
     if (!preloadedMessages) {
-      setConversationMessages([]); // Đảm bảo clear tin nhắn nếu preloadedMessages là null/undefined
+      setConversationMessages([]);
       return;
     }
 
-    // Nếu không có tin nhắn, set mảng rỗng và thoát
     if (preloadedMessages.length === 0) {
       let welcomeMessage: any;
 
@@ -220,48 +218,53 @@ export default function ChatInterface({
         };
       }
 
-      if (welcomeMessage) {
-        setConversationMessages([welcomeMessage]);
-      } else {
-        setConversationMessages([]);
-      }
+      if (welcomeMessage) setConversationMessages([welcomeMessage]);
+      else setConversationMessages([]);
 
-      // Dừng lại tại đây, không xử lý gì thêm
       return;
     }
 
-    // Bắt đầu chuyển đổi tin nhắn
-    const transformedMessages = preloadedMessages
-      .filter(isRenderableMessage) // Lọc các tin nhắn có thể hiển thị
-      .map((msg) => {
-        const senderId = msg.senderId?._id || msg.senderId;
-        const isMyMessage = senderId?.toString() === currentUserId?.toString();
+    // Transform and paginate preloadedMessages: show only last PAGE_SIZE initially
+    const filtered = preloadedMessages.filter(isRenderableMessage);
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    doctorTotalPagesRef.current = pages;
+    // load last page
+    const start = Math.max(0, total - PAGE_SIZE);
+    const lastSlice = filtered.slice(start, total);
 
-        let finalRole = "";
+    const transformedMessages = lastSlice.map((msg) => {
+      const senderId = msg.senderId?._id || msg.senderId;
+      const isMyMessage = senderId?.toString() === currentUserId?.toString();
 
-        if (isMyMessage) {
-          finalRole = "user"; // "user" sẽ luôn hiển thị bên phải
-        } else {
-          // Nếu không phải tin của tôi, thì role là của người gửi
-          finalRole = msg.senderRole; // 'doctor' hoặc 'patient'
-        }
+      let finalRole = "";
 
-        return {
-          role: finalRole,
-          content: msg.content || "",
-          timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
-          messageType: msg.messageType || (msg.fileUrl ? "file" : "text"),
-          fileUrl: msg.fileUrl,
-          fileName: msg.fileName,
-          fileType: msg.fileType,
-          fileSize: msg.fileSize,
-          callData: msg.callData,
-        };
-      });
+      if (isMyMessage) {
+        finalRole = "user"; // "user" sẽ luôn hiển thị bên phải
+      } else {
+        // Nếu không phải tin của tôi, thì role là của người gửi
+        finalRole = msg.senderRole; // 'doctor' hoặc 'patient'
+      }
+
+      return {
+        role: finalRole,
+        content: msg.content || "",
+        timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+        messageType: msg.messageType || (msg.fileUrl ? "file" : "text"),
+        fileUrl: msg.fileUrl,
+        fileName: msg.fileName,
+        fileType: msg.fileType,
+        fileSize: msg.fileSize,
+        callData: msg.callData,
+      };
+    });
 
     setConversationMessages(transformedMessages);
+    setDoctorPagesLoaded(1);
+    lastDoctorLengthRef.current = transformedMessages.length;
 
-    // Mảng dependency chỉ chứa các props đầu vào quyết định nội dung cuộc trò chuyện.
+    // After rendering, jump to bottom immediately
+    setTimeout(() => scrollMessagesToBottomInstant(doctorContainerRef.current), 0);
   }, [type, preloadedMessages, currentUserId, currentUserRole, conversationId]);
 
   // Video call: Show incoming call modal when there's an incoming call
@@ -274,22 +277,92 @@ export default function ChatInterface({
   }, [isCallIncoming, incomingCall]);
 
   // Auto scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const scrollMessagesToBottom = () => {
-    userMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Auto scroll when messages change
-  useEffect(() => {
-    if (type === "ai") {
-      scrollToBottom();
-    } else if (type === "doctor") {
-      scrollMessagesToBottom();
+  const scrollToBottomInstant = (container?: HTMLDivElement | null) => {
+    // jump to bottom immediately (no animation)
+    try {
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+        return;
+      }
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    } catch (e) {
+      // ignore
     }
-  }, [messages, conversationMessages, type]);
+  };
+
+  const scrollMessagesToBottomInstant = (container?: HTMLDivElement | null) => {
+    try {
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+        return;
+      }
+      userMessagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Track pagination / load-more state
+  // Unified page size because doctor and patient views share the same UI
+  const PAGE_SIZE = 10;
+
+  const aiTotalPagesRef = useRef<number>(1);
+  const [aiPagesLoaded, setAiPagesLoaded] = useState<number>(0); // number of pages (from the end) loaded, 0 = none
+  const [aiLoadingMore, setAiLoadingMore] = useState(false);
+  const aiAllMessagesRef = useRef<any[] | null>(null);
+
+  const doctorTotalPagesRef = useRef<number>(1);
+  const [doctorPagesLoaded, setDoctorPagesLoaded] = useState<number>(0);
+  const [doctorLoadingMore, setDoctorLoadingMore] = useState(false);
+
+  // Keep previous lengths to decide when to scroll
+  const lastAiLengthRef = useRef<number>(0);
+  const lastDoctorLengthRef = useRef<number>(0);
+
+  // Load previous AI page from aiAllMessagesRef and prepend to messages
+  const loadPreviousAiPage = useCallback(() => {
+    if (aiLoadingMore) return;
+    const all = aiAllMessagesRef.current || [];
+    const filtered = all.filter(isRenderableMessage);
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const loaded = aiPagesLoaded;
+    if (loaded >= pages) return;
+
+    setAiLoadingMore(true);
+    const container = aiContainerRef.current;
+    const prevScroll = container?.scrollHeight || 0;
+
+    const endIndex = total - loaded * PAGE_SIZE;
+    const startIndex = Math.max(0, endIndex - PAGE_SIZE);
+    const slice = filtered.slice(startIndex, endIndex);
+    const transformed: ChatMessage[] = slice.map((msg) => ({
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+      timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+      analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
+      isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
+      actionButtons: msg.actionButtons,
+      imageUrl: msg.imageUrl,
+    }));
+
+    setMessages((prev) => [...transformed, ...prev]);
+
+    setTimeout(() => {
+      const newScroll = container?.scrollHeight || 0;
+      if (container) container.scrollTop = newScroll - prevScroll;
+      setAiPagesLoaded((p) => p + 1);
+      setAiLoadingMore(false);
+    }, 1000);
+  }, [aiPagesLoaded, aiLoadingMore]);
+
+  // quiet unused state variable warnings by referencing doctorLoadingMore in a noop effect
+  useEffect(() => {
+    // noop to reference doctorLoadingMore
+    if (doctorLoadingMore) {
+      // nothing
+    }
+  }, [doctorLoadingMore]);
 
   // Load doctors from API
   const loadDoctors = async () => {
@@ -371,18 +444,7 @@ export default function ChatInterface({
     }
   };
 
-  // Initialize component
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Log AI chat history for debugging when in AI chat mode
-  useEffect(() => {
-    if (type === "ai") {
-      console.log("[AI Chat History] currentSession:", currentSession);
-      console.log("[AI Chat History] messages:", messages);
-    }
-  }, [type, currentSession, messages]);
+  // Initialization: removed auto-scroll and debug logs; pagination handles scrolling explicitly
 
   // Create new session with welcome message
   const createNewSessionAndWelcome = useCallback(async () => {
@@ -410,97 +472,89 @@ export default function ChatInterface({
 
   // Load AI chat history from database
   const loadAiChatHistory = useCallback(async () => {
-    if (!session?.user || type !== "ai") {
-      return;
-    }
+    if (!session?.user || type !== "ai") return;
 
     setIsLoadingHistory(true);
     try {
-      // Get user's most recent active session
       const userId =
         (session.user as { _id?: string; id?: string })?._id || (session.user as { _id?: string; id?: string })?.id;
-
       if (!userId) return;
 
-      const sessionsResponse = await aiChatHistoryService.getUserSessions(userId, 1, 5); // Get up to 5 recent sessions
-
-      if (sessionsResponse.sessions.length > 0) {
-        // Get the most recent active session (not just from today)
-        const activeSessions = sessionsResponse.sessions.filter((session) => session.status === "active");
-
-        if (activeSessions.length > 0) {
-          // Use the most recent active session
-          const latestSession = activeSessions[0];
-
-          // Load all messages from this session (no limit)
-          const messages = await aiChatHistoryService.getSessionMessages(latestSession._id!, 1, 0);
-
-          if (messages.length > 0) {
-            // Convert database messages to ChatMessage format
-            const chatMessages: ChatMessage[] = messages.map((msg) => ({
-              role: msg.role as "user" | "assistant",
-              content: msg.content,
-              timestamp: new Date(msg.createdAt!),
-              analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
-              isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
-              actionButtons: msg.actionButtons,
-              imageUrl: msg.imageUrl,
-            }));
-
-            setMessages(chatMessages);
-            setCurrentSession(latestSession);
-            // Restore suggested doctor from session if present
-            try {
-              const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
-              if (sd) {
-                // If it's an object, use it, otherwise try to match against available doctors
-                if (typeof sd === "object" && sd.fullName) {
-                  setSuggestedDoctor(sd as any);
-                } else if (typeof sd === "string" && availableDoctors.length > 0) {
-                  const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
-                  if (match)
-                    setSuggestedDoctor({
-                      _id: match._id || match.id,
-                      fullName: match.fullName || match.name,
-                      specialty: match.specialty,
-                    } as any);
-                }
-              }
-            } catch (e) {
-              // ignore
-            }
-            setHasLoadedFromDatabase(true);
-            return;
-          } else {
-            // Session exists but no messages, reuse session
-            setCurrentSession(latestSession);
-            setHasLoadedFromDatabase(true);
-
-            // Just set welcome message without creating new session
-            const welcomeMessage: ChatMessage = {
-              role: "assistant",
-              content:
-                "Chào bạn! Tôi là trợ lý AI của Smart Dental Healthcare. Tôi có thể giúp bạn tư vấn sơ bộ về các vấn đề răng miệng. Hãy chia sẻ với tôi triệu chứng hoặc thắc mắc của bạn nhé!",
-              timestamp: new Date(),
-            };
-            setMessages([welcomeMessage]);
-            return;
-          }
-        }
+      const sessionsResponse = await aiChatHistoryService.getUserSessions(userId, 1, 5);
+      if (!sessionsResponse.sessions || sessionsResponse.sessions.length === 0) {
+        await createNewSessionAndWelcome();
+        setHasLoadedFromDatabase(true);
+        return;
       }
 
-      // No recent session found, create new session and welcome message
-      await createNewSessionAndWelcome();
+      const activeSessions = sessionsResponse.sessions.filter((s) => s.status === "active");
+      const latestSession = (activeSessions.length > 0 ? activeSessions[0] : sessionsResponse.sessions[0]) as any;
+      setCurrentSession(latestSession);
+
+      // Load all messages once and paginate locally
+      const allMessages = await aiChatHistoryService.getSessionMessages(latestSession._id!, 1, 0);
+      aiAllMessagesRef.current = allMessages || [];
+
+      const filtered = (allMessages || []).filter(isRenderableMessage);
+      const total = filtered.length;
+      const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      aiTotalPagesRef.current = pages;
+
+      if (total === 0) {
+        const welcomeMessage: ChatMessage = {
+          role: "assistant",
+          content:
+            "Chào bạn! Tôi là trợ lý AI của Smart Dental Healthcare. Tôi có thể giúp bạn tư vấn sơ bộ về các vấn đề răng miệng. Hãy chia sẻ với tôi triệu chứng hoặc thắc mắc của bạn nhé!",
+          timestamp: new Date(),
+        };
+        setMessages([welcomeMessage]);
+        setHasLoadedFromDatabase(true);
+        return;
+      }
+
+      const start = Math.max(0, total - PAGE_SIZE);
+      const lastSlice = filtered.slice(start, total);
+      const chatMessages: ChatMessage[] = lastSlice.map((msg) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+        timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+        analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
+        isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
+        actionButtons: msg.actionButtons,
+        imageUrl: msg.imageUrl,
+      }));
+
+      setMessages(chatMessages);
+      setAiPagesLoaded(1);
+      lastAiLengthRef.current = chatMessages.length;
+
+      try {
+        const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
+        if (sd) {
+          if (typeof sd === "object" && sd.fullName) setSuggestedDoctor(sd as any);
+          else if (typeof sd === "string" && availableDoctors.length > 0) {
+            const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
+            if (match)
+              setSuggestedDoctor({
+                _id: match._id || match.id,
+                fullName: match.fullName || match.name,
+                specialty: match.specialty,
+              } as any);
+          }
+        }
+      } catch {
+        // ignore
+      }
+
       setHasLoadedFromDatabase(true);
+      setTimeout(() => scrollToBottomInstant(aiContainerRef.current), 0);
     } catch (error) {
-      console.error("Error loading AI chat history:", error);
-      // Fallback to creating new session
       await createNewSessionAndWelcome();
       setHasLoadedFromDatabase(true);
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [session?.user, type, setCurrentSession, createNewSessionAndWelcome]);
+  }, [session?.user, type, setCurrentSession, createNewSessionAndWelcome, availableDoctors]);
 
   useEffect(() => {
     loadDoctors();
@@ -1412,7 +1466,25 @@ export default function ChatInterface({
         // AI Chat Interface
         <>
           {/* Messages - Scrollable Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0">
+          <div
+            ref={(el) => (aiContainerRef.current = el)}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.scrollTop === 0 && aiPagesLoaded < aiTotalPagesRef.current) {
+                // load previous page if available
+                loadPreviousAiPage();
+              }
+            }}
+            className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0"
+          >
+            {aiLoadingMore && (
+              <div className="flex justify-center py-2">
+                <div
+                  className="animate-spin rounded-full h-6 w-6"
+                  style={{ borderTop: "2px solid var(--color-primary-600)", border: "2px solid rgba(0,0,0,0.05)" }}
+                />
+              </div>
+            )}
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
@@ -1675,7 +1747,47 @@ export default function ChatInterface({
         // Doctor Chat Interface - Simple input for conversations from AI suggestions
         <>
           {/* Messages - Scrollable Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0">
+          <div
+            ref={(el) => (doctorContainerRef.current = el)}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.scrollTop === 0 && doctorPagesLoaded > 0) {
+                const filtered = (preloadedMessages || []).filter(isRenderableMessage);
+                const total = filtered.length;
+                const loaded = doctorPagesLoaded;
+                const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+                if (loaded < pages) {
+                  // show loading spinner at top
+                  setDoctorLoadingMore(true);
+
+                  // compute slice and prepend
+                  const endIndex = total - loaded * PAGE_SIZE;
+                  const startIndex = Math.max(0, endIndex - PAGE_SIZE);
+                  const slice = filtered.slice(startIndex, endIndex);
+                  const transformed = slice.map((msg) => ({
+                    role: (msg.senderId?._id || msg.senderId)?.toString() === currentUserId ? "user" : msg.senderRole,
+                    content: msg.content || "",
+                    timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+                    messageType: msg.messageType || (msg.fileUrl ? "file" : "text"),
+                    fileUrl: msg.fileUrl,
+                    fileName: msg.fileName,
+                    fileType: msg.fileType,
+                    fileSize: msg.fileSize,
+                    callData: msg.callData,
+                  }));
+                  const prevScroll = doctorContainerRef.current?.scrollHeight || 0;
+                  setConversationMessages((prev) => [...transformed, ...prev]);
+                  setDoctorPagesLoaded((p) => p + 1);
+                  setTimeout(() => {
+                    const now = doctorContainerRef.current;
+                    if (now) now.scrollTop = now.scrollHeight - prevScroll;
+                    setDoctorLoadingMore(false);
+                  }, 2000);
+                }
+              }
+            }}
+            className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 min-h-0"
+          >
             {isLoadingMessages ? (
               <div className="flex justify-center items-center py-8">
                 <div className="text-center">
@@ -1688,6 +1800,15 @@ export default function ChatInterface({
               </div>
             ) : (
               <>
+                {doctorLoadingMore && (
+                  <div className="flex justify-center py-2">
+                    <div
+                      className="animate-spin rounded-full h-6 w-6"
+                      style={{ borderTop: "2px solid var(--color-primary-600)", border: "2px solid rgba(0,0,0,0.05)" }}
+                    />
+                  </div>
+                )}
+
                 {conversationMessages.map((message, index) => {
                   // Render CALL message card
                   if ((message as any).messageType === "call") {

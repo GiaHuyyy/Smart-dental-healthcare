@@ -2,7 +2,7 @@
 "use client";
 
 import CallButton from "@/components/call/CallButton";
-import { User, Bot, Phone, Calendar, FileText, Video, Lightbulb, Lock, Zap } from "lucide-react";
+import { User, Phone, Calendar, FileText, Video, Lightbulb, Lock, Zap, Drone } from "lucide-react";
 
 interface ChatHeaderProps {
   type: "ai" | "doctor" | "patient";
@@ -56,7 +56,7 @@ export default function ChatHeader({
         >
           <span className="text-white">
             {type === "ai" ? (
-              <Bot size={18} />
+              <Drone size={18} />
             ) : (
               <User size={18} />
             )}
