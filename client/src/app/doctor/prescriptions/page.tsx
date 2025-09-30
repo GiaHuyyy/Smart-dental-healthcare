@@ -64,7 +64,7 @@ export default function DoctorPrescriptionsPage() {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
-  const [selectedPatientFilter, setSelectedPatientFilter] = useState(selectedPatientId || "");
+  const [selectedPatientFilter, setSelectedPatientFilter] = useState<string>(selectedPatientId || "all");
   const { toast } = useToast();
 
   // Form state
@@ -654,7 +654,7 @@ export default function DoctorPrescriptionsPage() {
                   <SelectValue placeholder="Lọc theo bệnh nhân" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Tất cả bệnh nhân</SelectItem>
+                  <SelectItem value="all">Tất cả bệnh nhân</SelectItem>
                   {patients.map((patient) => (
                     <SelectItem key={patient._id} value={patient._id}>
                       {patient.fullName}
@@ -667,7 +667,7 @@ export default function DoctorPrescriptionsPage() {
 
           {/* Use PrescriptionList Component */}
           <PrescriptionList
-            patientId={selectedPatientFilter || undefined}
+            patientId={selectedPatientFilter && selectedPatientFilter !== 'all' ? selectedPatientFilter : undefined}
             doctorId={localStorage.getItem("userId") || undefined}
             showPatientInfo={true}
             showDoctorInfo={false}

@@ -8,10 +8,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const resolved = await params;
 
-    const response = await fetch(`${apiUrl}/api/v1/prescriptions/${resolved.id}`, { headers });
+    const target = `${apiUrl}/api/v1/prescriptions/${resolved.id}`;
+    console.debug("Proxying GET ->", target);
+    const response = await fetch(target, { headers });
 
     if (!response.ok) {
-      throw new Error(`Backend responded with ${response.status}`);
+      // try to surface backend error body (json or text)
+      let details: any;
+      try {
+        const text = await response.text();
+        try {
+          details = JSON.parse(text);
+        } catch (_) {
+          details = text;
+        }
+      } catch (e) {
+        details = `Failed to read backend response body: ${String(e)}`;
+      }
+
+      console.error("Backend prescriptions/:id error:", response.status, details);
+      return NextResponse.json({ error: "Backend error", details }, { status: response.status });
     }
 
     const data = await response.json();
