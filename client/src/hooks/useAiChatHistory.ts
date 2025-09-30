@@ -12,7 +12,7 @@ interface UseAiChatHistoryReturn {
   addMessage: (
     message: Omit<AiChatMessage, "_id" | "sessionId" | "userId" | "createdAt" | "updatedAt">
   ) => Promise<AiChatMessage>;
-  getSessionMessages: (sessionId: string) => Promise<AiChatMessage[]>;
+  getSessionMessages: (sessionId: string, page?: number, limit?: number) => Promise<AiChatMessage[]>;
 
   // User sessions
   userSessions: AiChatSession[];
