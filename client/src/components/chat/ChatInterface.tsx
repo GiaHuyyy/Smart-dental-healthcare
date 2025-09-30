@@ -20,11 +20,13 @@ import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { sendRequest } from "@/utils/api";
 import { chatStorage } from "@/utils/chatStorage";
 import { imageAnalysisAPI } from "@/utils/imageAnalysis";
+import { extractUserData } from "@/utils/sessionHelpers";
 import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
 import { Lightbulb, Calendar, Wrench, Stethoscope, Check, FileText, X, Search, BarChart2 } from "lucide-react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -132,12 +134,26 @@ export default function ChatInterface({
         setCurrentSession(newSession as any);
       }
     } catch (err) {
-      console.error("Failed to ensure AI chat session:", err);
+      // ignore ensure session errors
     }
   }, [currentSession, session?.user, loadUserSessions, setCurrentSession]);
 
   // Redux hooks
   const dispatch = useAppDispatch();
+  // Client-side timeouts to avoid UI getting stuck when network/server hangs
+  const ANALYSIS_TIMEOUT_MS = 30_000; // 30s for image analysis HTTP call
+
+  const withTimeout = async <T,>(p: Promise<T>, ms: number, errorMessage = "Request timed out") => {
+    let timer: NodeJS.Timeout | null = null;
+    try {
+      const timeoutPromise = new Promise<never>((_, rej) => {
+        timer = setTimeout(() => rej(new Error(errorMessage)), ms);
+      });
+      return (await Promise.race([p, timeoutPromise])) as T;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
   const { analysisResult, uploadedImage, isAnalyzing } = useAppSelector((state) => state.imageAnalysis);
   const { urgencyLevel } = useAppSelector((state) => state.appointment);
 
@@ -249,8 +265,7 @@ export default function ChatInterface({
       return {
         role: finalRole,
         content: msg.content || "",
-        // normalize timestamp from createdAt or fallback to now
-        timestamp: new Date(msg.createdAt ?? Date.now()),
+        timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
         messageType: msg.messageType || (msg.fileUrl ? "file" : "text"),
         fileUrl: msg.fileUrl,
         fileName: msg.fileName,
@@ -340,7 +355,7 @@ export default function ChatInterface({
     const transformed: ChatMessage[] = slice.map((msg) => ({
       role: msg.role as "user" | "assistant",
       content: msg.content,
-      timestamp: new Date(msg.createdAt ?? Date.now()),
+      timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
       analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
       isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
       actionButtons: msg.actionButtons,
@@ -376,7 +391,7 @@ export default function ChatInterface({
       setAvailableDoctors(Array.isArray(list) ? list : []);
       setDoctorsLoaded(true);
     } catch (e) {
-      console.error("Error loading doctors from API:", e);
+      // ignore doctor load errors
       setAvailableDoctors([]);
       setDoctorsLoaded(true);
     }
@@ -428,14 +443,13 @@ export default function ChatInterface({
           }
         } catch (err) {
           // ignore persistence errors
-          console.error("Failed to persist suggested doctor to session:", err);
         }
       })();
 
       // Persist locally as a fallback
       try {
         localStorage.setItem("sd_suggestedDoctor", JSON.stringify(validatedDoctor));
-      } catch (e) {
+      } catch {
         // ignore
       }
 
@@ -518,7 +532,7 @@ export default function ChatInterface({
       const chatMessages: ChatMessage[] = lastSlice.map((msg) => ({
         role: msg.role as "user" | "assistant",
         content: msg.content,
-        timestamp: new Date(msg.createdAt ?? Date.now()),
+        timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
         analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
         isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
         actionButtons: msg.actionButtons,
@@ -615,8 +629,8 @@ export default function ChatInterface({
               content: inputMessage,
               urgencyLevel: "medium", // Default value, will be updated after analysis
             });
-          } catch (err) {
-            console.error("Failed to save user message to database:", err);
+          } catch {
+            // ignore save errors
           }
         }
 
@@ -643,8 +657,8 @@ export default function ChatInterface({
               content: response.message,
               urgencyLevel: urgency,
             });
-          } catch (err) {
-            console.error("Failed to save AI message to database:", err);
+          } catch {
+            // ignore save errors
           }
         }
 
@@ -673,8 +687,8 @@ export default function ChatInterface({
                 content: urgentMessage.content,
                 urgencyLevel: "high",
               });
-            } catch (err) {
-              console.error("Failed to save urgent message to database:", err);
+            } catch {
+              // ignore save errors
             }
           }
         }
@@ -700,6 +714,12 @@ export default function ChatInterface({
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
+      // Clear any stuck image-analysis flag when sending messages
+      try {
+        dispatch(setIsAnalyzing(false));
+      } catch {
+        // ignore
+      }
       setIsLoading(false);
     }
   };
@@ -738,8 +758,8 @@ export default function ChatInterface({
               content: cleanText,
               urgencyLevel: urgency,
             });
-          } catch (err) {
-            console.error("Failed to save quick suggestion user message:", err);
+          } catch {
+            // ignore save errors
           }
         }
 
@@ -764,8 +784,8 @@ export default function ChatInterface({
               content: response.message,
               urgencyLevel: urgency,
             });
-          } catch (err) {
-            console.error("Failed to save quick suggestion AI message:", err);
+          } catch {
+            // ignore save errors
           }
         }
 
@@ -807,6 +827,12 @@ export default function ChatInterface({
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
+      // Ensure image-analysis flag is cleared if it was stuck
+      try {
+        dispatch(setIsAnalyzing(false));
+      } catch (e) {
+        // ignore
+      }
       setIsLoading(false);
     }
   };
@@ -844,15 +870,36 @@ export default function ChatInterface({
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      // Upload image to Cloudinary first
-      const uploadResult = await uploadService.uploadImage(file);
+      // Directly call server upload+analyze endpoint (server handles Cloudinary upload and analysis)
+      let analysisResponse: any = null;
+      try {
+        // derive token from session safely (support various token fields)
+        const extracted = extractUserData(session as any);
+        const token = extracted?.token || (session as any)?.accessToken || (session as any)?.access_token || "";
 
-      // Update message with Cloudinary URL
-      setMessages((prev) =>
-        prev.map((msg, index) => (index === prev.length - 1 ? { ...msg, imageUrl: uploadResult.url } : msg))
-      );
+        analysisResponse = await withTimeout(
+          imageAnalysisAPI.uploadAndAnalyze(file, token),
+          ANALYSIS_TIMEOUT_MS,
+          "Analysis timed out"
+        );
+      } catch (err) {
+        toast.error("Phân tích ảnh thất bại hoặc quá thời gian. Vui lòng thử lại.");
+        throw err;
+      }
 
-      // Lưu tin nhắn upload ảnh vào database với Cloudinary URL
+      if (!analysisResponse.success || !analysisResponse.data) {
+        throw new Error(analysisResponse.error || "Lỗi phân tích ảnh");
+      }
+
+      // If server uploaded to Cloudinary, update the temp message image URL
+      const cloudUrl = analysisResponse.data?.cloudinaryUrl || analysisResponse.data?.imageUrl || null;
+      if (cloudUrl) {
+        setMessages((prev) =>
+          prev.map((msg, index) => (index === prev.length - 1 ? { ...msg, imageUrl: cloudUrl } : msg))
+        );
+      }
+
+      // Lưu tin nhắn upload ảnh vào database với Cloudinary URL nếu có
       if (currentSession && session?.user) {
         try {
           await saveMessage({
@@ -860,15 +907,12 @@ export default function ChatInterface({
             content: `Tải lên ảnh để phân tích: ${file.name}`,
             urgencyLevel: "medium",
             messageType: "image_upload",
-            imageUrl: uploadResult.url,
+            imageUrl: cloudUrl || undefined,
           });
         } catch (err) {
           console.error("Failed to save image upload message:", err);
         }
       }
-
-      // Continue with analysis using the original file
-      const analysisResponse = await imageAnalysisAPI.uploadAndAnalyze(file);
 
       if (!analysisResponse.success || !analysisResponse.data) {
         throw new Error(analysisResponse.error || "Lỗi phân tích ảnh");
@@ -1124,6 +1168,13 @@ export default function ChatInterface({
   const handleUserSendMessage = async () => {
     // 1. Check if there is content to send or if it is already sending
     if ((!Input.trim() && !selectedFile) || isInputFocusedLoading) return;
+
+    // Safety: if analysis flag was stuck, clear it when user actively sends a message
+    try {
+      dispatch(setIsAnalyzing(false));
+    } catch {
+      // ignore
+    }
 
     setIsInputFocusedLoading(true);
     const originalInput = Input; // Save original message to restore on error
@@ -1468,9 +1519,7 @@ export default function ChatInterface({
         <>
           {/* Messages - Scrollable Area */}
           <div
-            ref={(el) => {
-              aiContainerRef.current = el;
-            }}
+            ref={(el) => (aiContainerRef.current = el)}
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.scrollTop === 0 && aiPagesLoaded < aiTotalPagesRef.current) {
@@ -1751,9 +1800,7 @@ export default function ChatInterface({
         <>
           {/* Messages - Scrollable Area */}
           <div
-            ref={(el) => {
-              doctorContainerRef.current = el;
-            }}
+            ref={(el) => (doctorContainerRef.current = el)}
             onScroll={(e) => {
               const el = e.currentTarget;
               if (el.scrollTop === 0 && doctorPagesLoaded > 0) {

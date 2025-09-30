@@ -30,7 +30,7 @@ export interface ImageAnalysisResponse {
 
 export const imageAnalysisAPI = {
   // Upload và phân tích ảnh
-  async uploadAndAnalyze(file: File): Promise<ImageAnalysisResponse> {
+  async uploadAndAnalyze(file: File, token: string): Promise<ImageAnalysisResponse> {
     try {
       const formData = new FormData();
       formData.append("image", file);
@@ -39,6 +39,9 @@ export const imageAnalysisAPI = {
         method: "POST",
         url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/image-analysis/upload`,
         body: formData,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       // Kiểm tra response từ server
