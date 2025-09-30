@@ -1,8 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
-const DentalChart = dynamic(() => import("@/components/medical-records/DentalChart"), { ssr: false });
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +18,9 @@ import {
   Stethoscope,
   TrendingUp,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import React, { useState } from "react";
+const DentalChart = dynamic(() => import("@/components/medical-records/DentalChart"), { ssr: false });
 
 interface MedicalRecord {
   _id: string;

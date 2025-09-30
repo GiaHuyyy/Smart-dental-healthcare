@@ -1,9 +1,9 @@
 "use client";
 
+import { sendRequest } from "@/utils/api";
+import { AlertCircle, Calendar, CheckCircle, Clock, FileText, Pill, Search, User } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { sendRequest } from "@/utils/api";
-import { Search, Pill, Calendar, User, FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
 
 interface Medication {
   name: string;
@@ -53,9 +53,46 @@ export default function PatientPrescriptions() {
         },
       });
 
-      if (response && response.data) {
-        setPrescriptions(response.data);
+      // The backend/pipeline may return either an array of prescriptions, or a wrapper { data: [...] }
+      // Also handle error objects returned by our proxy (e.g. { statusCode, message, error })
+      let rawList: any[] = [];
+      if (!response) {
+        rawList = [];
+      } else if (Array.isArray(response)) {
+        rawList = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        rawList = response.data;
+      } else if (response.statusCode && response.statusCode >= 400) {
+        console.error("Backend error fetching patient prescriptions:", response);
+        rawList = [];
+      } else {
+        // fallback: if it's an object with fields, try to convert to array
+        rawList = Array.isArray(response) ? response : (response && typeof response === 'object' ? [response] : []);
       }
+
+      // Normalize objects to the shape this UI expects: { _id, doctor: { fullName, specialization }, patient: { fullName }, medications, diagnosis, notes, issuedDate, status }
+      const normalized = rawList.map((p: any) => {
+        const doctorSrc = p.doctor || p.doctorId || p.doctor_id || null;
+        const patientSrc = p.patient || p.patientId || p.patient_id || null;
+        return {
+          _id: p._id || p.id || '',
+          doctor: {
+            fullName: doctorSrc?.fullName || doctorSrc?.full_name || doctorSrc || 'Unknown',
+            specialization: doctorSrc?.specialty || doctorSrc?.specialization || '',
+          },
+          patient: {
+            fullName: patientSrc?.fullName || patientSrc?.full_name || patientSrc || '',
+          },
+          medications: Array.isArray(p.medications) ? p.medications : p.medications || [],
+          diagnosis: p.diagnosis || p.description || '',
+          notes: p.notes || p.note || '',
+          issuedDate: p.issuedDate || p.prescriptionDate || p.prescription_date || p.createdAt || p.created_at || '',
+          status: p.status || 'active',
+          medicalRecordId: p.medicalRecordId || p.medical_record_id || p.medicalRecord || null,
+        } as Prescription;
+      });
+
+      setPrescriptions(normalized);
     } catch (error) {
       console.error("Error fetching prescriptions:", error);
     } finally {
