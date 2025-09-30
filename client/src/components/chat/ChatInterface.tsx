@@ -403,8 +403,8 @@ export default function ChatInterface({
           // Use the most recent active session
           const latestSession = activeSessions[0];
 
-          // Load messages from this session
-          const messages = await aiChatHistoryService.getSessionMessages(latestSession._id!);
+          // Load all messages from this session (no limit)
+          const messages = await aiChatHistoryService.getSessionMessages(latestSession._id!, 1, 0);
 
           if (messages.length > 0) {
             // Convert database messages to ChatMessage format

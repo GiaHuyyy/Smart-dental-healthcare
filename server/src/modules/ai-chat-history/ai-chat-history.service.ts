@@ -170,11 +170,14 @@ export class AiChatHistoryService {
   ): Promise<AiChatMessageDocument[]> {
     const skip = (page - 1) * limit;
 
-    return await this.aiChatMessageModel
-      .find({ sessionId: new Types.ObjectId(sessionId) })
-      .sort({ createdAt: 1 }) // Oldest first for chat display
-      .skip(skip)
-      .limit(limit);
+    const query = this.aiChatMessageModel.find({ sessionId: new Types.ObjectId(sessionId) }).sort({ createdAt: 1 });
+
+    // If limit <= 0, we interpret as 'no limit' and return all messages
+    if (limit <= 0) {
+      return await query.exec();
+    }
+
+    return await query.skip(skip).limit(limit).exec();
   }
 
   async getSessionMessagesWithSession(sessionId: string) {
