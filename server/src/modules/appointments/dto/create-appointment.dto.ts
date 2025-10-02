@@ -51,4 +51,8 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsMongoId()
   previousAppointmentId: string;
+
+  @IsOptional()
+  @IsMongoId()
+  medicalRecordId: string;
 }

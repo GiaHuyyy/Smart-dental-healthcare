@@ -41,6 +41,7 @@ interface MedicalRecordForm {
   status: string;
   isFollowUpRequired: boolean;
   followUpDate?: string;
+  followUpTime?: string;
   dentalChart: Array<{
     toothNumber: number;
     condition: string;
@@ -71,6 +72,7 @@ export default function TreatmentPage() {
     status: "active",
     isFollowUpRequired: false,
     followUpDate: "",
+    followUpTime: "09:00",
     dentalChart: [],
   });
 
@@ -158,6 +160,37 @@ export default function TreatmentPage() {
   }, [appointmentId, patientId, fetchAppointmentDetails, fetchPatientDetails, router, toast]);
 
   const handleInputChange = (field: keyof MedicalRecordForm, value: string | boolean | string[]) => {
+    if (field === "isFollowUpRequired") {
+      const isChecked = Boolean(value);
+      setMedicalRecord((prev) => ({
+        ...prev,
+        isFollowUpRequired: isChecked,
+        followUpDate: isChecked ? prev.followUpDate : "",
+        followUpTime: isChecked
+          ? prev.followUpTime && prev.followUpTime.trim()
+            ? prev.followUpTime
+            : "09:00"
+          : "",
+      }));
+      return;
+    }
+
+    if (field === "followUpDate") {
+      setMedicalRecord((prev) => ({
+        ...prev,
+        followUpDate: typeof value === "string" ? value : "",
+      }));
+      return;
+    }
+
+    if (field === "followUpTime") {
+      setMedicalRecord((prev) => ({
+        ...prev,
+        followUpTime: typeof value === "string" ? value : prev.followUpTime,
+      }));
+      return;
+    }
+
     setMedicalRecord((prev) => ({
       ...prev,
       [field]: value,
@@ -211,14 +244,19 @@ export default function TreatmentPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
+      const requestPayload = {
+        ...medicalRecord,
+        medications: medicalRecord.medications.filter((med) => med.trim() !== ""),
+        recordDate: new Date().toISOString(),
+      };
+
+  const { followUpTime: _ignoredFollowUpTime, ...sanitizedPayload } = requestPayload;
+  void _ignoredFollowUpTime;
+
       const response = await fetch("/api/medical-records", {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          ...medicalRecord,
-          medications: medicalRecord.medications.filter((med) => med.trim() !== ""),
-          recordDate: new Date().toISOString(),
-        }),
+        body: JSON.stringify(sanitizedPayload),
       });
 
       if (response.ok) {
@@ -240,10 +278,21 @@ export default function TreatmentPage() {
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
             // send explicit payload containing both fields; if not required, send followUpDate=null to clear
-            const payload = {
-              isFollowUpRequired: !!medicalRecord.isFollowUpRequired,
-              followUpDate: medicalRecord.isFollowUpRequired ? (medicalRecord.followUpDate || null) : null
-            };
+            const normalizedTime = medicalRecord.followUpTime && medicalRecord.followUpTime.trim()
+              ? medicalRecord.followUpTime.trim()
+              : "09:00";
+
+            const payload = medicalRecord.isFollowUpRequired && medicalRecord.followUpDate
+              ? {
+                  isFollowUpRequired: true,
+                  followUpDate: medicalRecord.followUpDate,
+                  followUpTime: normalizedTime,
+                }
+              : {
+                  isFollowUpRequired: false,
+                  followUpDate: null,
+                  followUpTime: null,
+                };
 
             await fetch(`/api/medical-records/${created._id}/follow-up`, {
               method: 'PATCH',
@@ -533,6 +582,15 @@ export default function TreatmentPage() {
                       onChange={(e) => handleInputChange("followUpDate", e.target.value)}
                       min={new Date().toISOString().split("T")[0]}
                     />
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Giờ tái khám</label>
+                      <Input
+                        type="time"
+                        value={medicalRecord.followUpTime || "09:00"}
+                        onChange={(e) => handleInputChange("followUpTime", e.target.value)}
+                        step="900"
+                      />
+                    </div>
                   </div>
                 )}
               </CardContent>

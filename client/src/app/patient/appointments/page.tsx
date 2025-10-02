@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 // Note: avoid `useSearchParams` here to prevent Next.js prerender issues.
 // We'll read window.location.search inside an effect when running in the browser.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Search, FileText } from "lucide-react";
 
 export default function PatientAppointments() {
@@ -17,6 +17,28 @@ export default function PatientAppointments() {
   const dispatch = useAppDispatch();
   const appointmentState = useAppSelector((state: any) => state.appointment);
   const { appointmentData, selectedDoctor, symptoms, urgencyLevel, notes: chatNotes } = appointmentState;
+  const patientId = session?.user?._id;
+
+  const loadAppointments = useCallback(async () => {
+    if (!patientId) return;
+    try {
+      const res = await sendRequest<any>({
+        method: "GET",
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}`,
+      });
+      const list = res?.data || res || [];
+      if (Array.isArray(list)) {
+        setAppointments(list);
+      } else if (Array.isArray((list as any)?.results)) {
+        setAppointments((list as any).results);
+      } else {
+        setAppointments([]);
+      }
+    } catch (e) {
+      // ignore fetch failures; UI retains previous state and polling will retry
+      console.warn("loadAppointments failed", e);
+    }
+  }, [patientId]);
 
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
@@ -80,23 +102,9 @@ export default function PatientAppointments() {
       }
     }
 
-    async function loadAppointments() {
-      if (!session?.user?._id) return;
-      try {
-        const res = await sendRequest<any>({
-          method: "GET",
-          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${session.user._id}`,
-        });
-        const list = res?.data || res || [];
-        setAppointments(Array.isArray(list) ? list : []);
-      } catch (e) {
-        // ignore
-      }
-    }
-
     loadDoctors();
-    loadAppointments();
-  }, [session]);
+    void loadAppointments();
+  }, [session, loadAppointments]);
 
   // Process Redux data for pre-filling data
   useEffect(() => {
@@ -142,6 +150,17 @@ export default function PatientAppointments() {
       }
     }
   }, [doctors, prefilledData?.doctorId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!patientId) return;
+
+    const intervalId = window.setInterval(() => {
+      void loadAppointments();
+    }, 20000);
+
+    return () => window.clearInterval(intervalId);
+  }, [patientId, loadAppointments]);
 
   useEffect(() => {
     // Only run in browser
@@ -296,8 +315,7 @@ export default function PatientAppointments() {
         throw new Error(msg);
       }
 
-      const created = res?.data || res;
-      setAppointments((prev) => (Array.isArray(prev) ? [created, ...prev] : prev));
+  await loadAppointments();
       alert("Tạo lịch hẹn thành công");
       setSelectedDate("");
       setSelectedTime("");
@@ -328,6 +346,7 @@ export default function PatientAppointments() {
       });
       setAppointments((prev) => prev.filter((a) => a._id !== appointmentId));
       alert("Đã hủy lịch hẹn");
+      await loadAppointments();
     } catch (err: any) {
       alert("Hủy lịch thất bại");
     }

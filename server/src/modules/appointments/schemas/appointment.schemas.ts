@@ -49,6 +49,9 @@ export class Appointment {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Appointment' })
   previousAppointmentId: Appointment;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'MedicalRecord' })
+  medicalRecordId?: MongooseSchema.Types.ObjectId;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);

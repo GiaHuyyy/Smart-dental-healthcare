@@ -212,5 +212,9 @@ export class CreateMedicalRecordDto {
 
   @IsString()
   @IsOptional()
+  followUpTime?: string;
+
+  @IsString()
+  @IsOptional()
   status?: string;
 }

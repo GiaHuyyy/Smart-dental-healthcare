@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
 import { AlertCircle, Calendar, CheckCircle, Clock, FileText, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Statistics {
@@ -18,19 +18,14 @@ interface DoctorStatisticsProps {
   doctorId: string;
 }
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
-
 export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
 
-  useEffect(() => {
-    fetchStatistics();
-  }, [doctorId, startDate, endDate]);
-
-  const fetchStatistics = async () => {
+  const fetchStatistics = useCallback(async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       params.append("doctorId", doctorId);
@@ -52,7 +47,11 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [doctorId, endDate, startDate]);
+
+  useEffect(() => {
+    void fetchStatistics();
+  }, [fetchStatistics]);
 
   const chartData = statistics
     ? [

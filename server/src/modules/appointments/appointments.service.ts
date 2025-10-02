@@ -5,11 +5,13 @@ import { Model } from 'mongoose';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { Appointment, AppointmentStatus } from './schemas/appointment.schemas';
+import { MedicalRecord } from '../medical-records/schemas/medical-record.schemas';
 
 @Injectable()
 export class AppointmentsService {
   constructor(
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
+    @InjectModel(MedicalRecord.name) private readonly medicalRecordModel: Model<MedicalRecord>,
   ) { }
 
   // Convert "HH:MM" or ISO datetime string -> minutes since midnight (UTC for ISO)
@@ -367,6 +369,11 @@ export class AppointmentsService {
 
     await appointment.save();
 
+    await this.syncFollowUpRecord(appointment as any, {
+      updatedDate: appointment.appointmentDate,
+      updatedTime: appointment.startTime,
+    });
+
     return appointment;
   }
 
@@ -376,6 +383,7 @@ export class AppointmentsService {
     if (!appointment) {
       throw new NotFoundException('Không tìm thấy lịch hẹn');
     }
+    await this.syncFollowUpRecord(appointment as any, { cancelled: true });
     return { message: 'Đã xóa lịch hẹn' };
   }
 
@@ -456,6 +464,8 @@ export class AppointmentsService {
     appointment.cancellationReason = reason;
 
     await appointment.save();
+
+    await this.syncFollowUpRecord(appointment as any, { cancelled: true });
 
     return appointment;
   }
@@ -578,6 +588,11 @@ export class AppointmentsService {
     appointment.cancellationReason = 'Đã đổi lịch';
 
     await appointment.save();
+
+    await this.syncFollowUpRecord(newAppointment as any, {
+      updatedDate: newAppointment.appointmentDate,
+      updatedTime: newAppointment.startTime,
+    });
 
     return newAppointment;
   }
@@ -821,5 +836,61 @@ export class AppointmentsService {
     }
 
     return results;
+  }
+
+  private async syncFollowUpRecord(
+    appointment: Appointment & { _id: any; medicalRecordId?: any },
+    options: { cancelled?: boolean; updatedDate?: Date; updatedTime?: string } = {},
+  ): Promise<void> {
+    const appointmentId = appointment?._id ? appointment._id.toString() : undefined;
+    if (!appointmentId) return;
+
+    const medicalRecordId = (appointment as any).medicalRecordId;
+
+    let record = medicalRecordId
+      ? await this.medicalRecordModel.findById(medicalRecordId).exec()
+      : null;
+
+    if (!record) {
+      record = await this.medicalRecordModel.findOne({ followUpAppointmentId: appointmentId }).exec();
+    }
+
+    if (!record) return;
+
+    if (options.cancelled) {
+      record.isFollowUpRequired = false;
+      record.followUpDate = null;
+      (record as any).followUpTime = null;
+      (record as any).followUpAppointmentId = null;
+      await record.save();
+      return;
+    }
+
+    const dateSource = options.updatedDate
+      ? new Date(options.updatedDate)
+      : appointment.appointmentDate instanceof Date
+      ? new Date(appointment.appointmentDate)
+      : new Date(appointment.appointmentDate as any);
+
+    if (Number.isNaN(dateSource.getTime())) return;
+
+    const startTime = options.updatedTime || appointment.startTime;
+    if (!startTime || typeof startTime !== 'string') return;
+
+    const timeMatch = startTime.match(/^(\d{1,2}):(\d{2})$/);
+    if (!timeMatch) return;
+    const hours = Number(timeMatch[1]);
+    const minutes = Number(timeMatch[2]);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return;
+
+    dateSource.setHours(hours, minutes, 0, 0);
+
+    record.followUpDate = dateSource;
+    (record as any).followUpTime = `${hours.toString().padStart(2, '0')}:${minutes
+      .toString()
+      .padStart(2, '0')}`;
+    (record as any).followUpAppointmentId = appointment._id;
+    record.isFollowUpRequired = true;
+    await record.save();
   }
 }
