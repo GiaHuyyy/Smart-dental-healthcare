@@ -1,15 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import mongoose, { Model, Types } from 'mongoose';
 import { CreateMedicalRecordDto } from './dto/create-medical-record.dto';
 import { UpdateMedicalRecordDto } from './dto/update-medical-record.dto';
 import { MedicalRecord, MedicalRecordDocument } from './schemas/medical-record.schemas';
+import { AppointmentsService } from '../appointments/appointments.service';
+import { CreateAppointmentDto } from '../appointments/dto/create-appointment.dto';
+import { AppointmentStatus } from '../appointments/schemas/appointment.schemas';
 
 @Injectable()
 export class MedicalRecordsService {
   constructor(
     @InjectModel(MedicalRecord.name)
     private medicalRecordModel: Model<MedicalRecordDocument>,
+    private readonly appointmentsService: AppointmentsService,
   ) {}
 
   async create(createMedicalRecordDto: CreateMedicalRecordDto): Promise<MedicalRecord> {
@@ -179,7 +183,15 @@ export class MedicalRecordsService {
 
   async scheduleFollowUp(
     id: string,
-    payload: { followUpDate?: Date | string | null; isFollowUpRequired?: boolean } | Date | string | null,
+    payload:
+      | {
+          followUpDate?: Date | string | null;
+          followUpTime?: string | null;
+          isFollowUpRequired?: boolean;
+        }
+      | Date
+      | string
+      | null,
   ): Promise<MedicalRecord> {
     const record = await this.medicalRecordModel.findById(id).exec();
 
@@ -187,34 +199,152 @@ export class MedicalRecordsService {
       throw new NotFoundException(`Không tìm thấy hồ sơ bệnh án với ID: ${id}`);
     }
 
-    // Backwards-compatibility: allow direct Date/string payload
     let followUpDate: Date | null | undefined = undefined;
+    let followUpTime: string | null | undefined = undefined;
     let isFollowUpRequired: boolean | undefined = undefined;
 
     if (payload instanceof Date || typeof payload === 'string' || payload === null) {
       followUpDate = payload ? new Date(payload as any) : null;
       isFollowUpRequired = !!followUpDate;
     } else if (typeof payload === 'object' && payload !== null) {
-      followUpDate = payload.followUpDate ? new Date(payload.followUpDate as any) : (payload.followUpDate === null ? null : undefined);
-      isFollowUpRequired = typeof payload.isFollowUpRequired === 'boolean' ? payload.isFollowUpRequired : undefined;
+      const { followUpDate: rawDate, followUpTime: rawTime, isFollowUpRequired: rawFlag } = payload;
+      if (rawDate !== undefined) {
+        followUpDate = rawDate === null ? null : new Date(rawDate as any);
+      }
+      if (rawTime !== undefined) {
+        followUpTime = rawTime === null ? null : this.normalizeTimeInput(rawTime as string);
+      }
+      if (typeof rawFlag === 'boolean') {
+        isFollowUpRequired = rawFlag;
+      }
     }
 
-    // If explicit flag provided, use it. Otherwise infer from date presence.
+    // Infer flag from follow-up date when not explicitly provided
     if (typeof isFollowUpRequired === 'boolean') {
       record.isFollowUpRequired = isFollowUpRequired;
     } else if (followUpDate !== undefined) {
       record.isFollowUpRequired = !!followUpDate;
     }
 
-    // Update followUpDate according to provided value. If followUpDate === null, clear it.
-    if (followUpDate === null) {
-      // explicitly clear stored date
-      (record as any).followUpDate = null;
-    } else if (followUpDate !== undefined) {
-      record.followUpDate = new Date(followUpDate as Date);
+    if (record.isFollowUpRequired && followUpDate === null) {
+      throw new BadRequestException('followUpDate không được bỏ trống khi yêu cầu tái khám');
     }
 
+    // Determine final follow-up time
+    if (followUpTime === null) {
+      record.followUpTime = null;
+    } else if (followUpTime !== undefined) {
+      record.followUpTime = followUpTime;
+    } else if (record.isFollowUpRequired && !record.followUpTime) {
+      record.followUpTime = '09:00';
+    }
+
+    // Update follow-up date (preserve combined time when present)
+    if (followUpDate === null) {
+      record.followUpDate = null;
+    } else if (followUpDate !== undefined) {
+      const finalTime = record.followUpTime || '09:00';
+      record.followUpDate = this.combineDateAndTime(followUpDate, finalTime);
+    }
+
+    await this.syncFollowUpAppointment(record);
+
     return record.save();
+  }
+
+  private normalizeTimeInput(time?: string | null): string | undefined | null {
+    if (time === undefined) return undefined;
+    if (time === null) return null;
+    const trimmed = time.trim();
+    if (!trimmed) return undefined;
+    const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) {
+      throw new BadRequestException('followUpTime không hợp lệ (định dạng HH:MM)');
+    }
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      throw new BadRequestException('followUpTime không hợp lệ (giờ hoặc phút vượt phạm vi)');
+    }
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  }
+
+  private combineDateAndTime(dateInput: Date, time: string): Date {
+    const date = new Date(dateInput);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException('followUpDate không hợp lệ');
+    }
+    const [hours, minutes] = time.split(':').map((value) => Number(value));
+    date.setHours(hours || 0, minutes || 0, 0, 0);
+    return date;
+  }
+
+  private addMinutesToTime(time: string, minutesToAdd: number): string {
+    const [hours, minutes] = time.split(':').map((value) => Number(value));
+    const totalMinutes = (hours || 0) * 60 + (minutes || 0) + minutesToAdd;
+    const normalized = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+    const finalHours = Math.floor(normalized / 60);
+    const finalMinutes = normalized % 60;
+    return `${finalHours.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}`;
+  }
+
+  private async syncFollowUpAppointment(record: MedicalRecordDocument): Promise<void> {
+    const wantsFollowUp = !!record.isFollowUpRequired && !!record.followUpDate;
+
+    if (!wantsFollowUp) {
+      if (record.followUpAppointmentId) {
+        try {
+          await this.appointmentsService.cancel(record.followUpAppointmentId.toString(), 'Hủy lịch tái khám');
+        } catch (error) {
+          // swallow cancellation errors to avoid blocking record update
+          console.warn('⚠️ Không thể hủy lịch tái khám:', error?.message || error);
+        }
+  record.followUpAppointmentId = null;
+  record.followUpDate = null;
+  record.followUpTime = null;
+        record.isFollowUpRequired = false;
+      }
+      return;
+    }
+
+    if (!record.followUpDate) {
+      throw new BadRequestException('followUpDate không hợp lệ');
+    }
+
+    const startTime = record.followUpTime || '09:00';
+    const appointmentDate = record.followUpDate;
+
+    if (record.followUpAppointmentId) {
+      await this.appointmentsService.reschedule(
+        record.followUpAppointmentId.toString(),
+        appointmentDate,
+        startTime,
+      );
+      return;
+    }
+
+    const appointmentPayload: CreateAppointmentDto = {
+      patientId: record.patientId.toString(),
+      doctorId: record.doctorId.toString(),
+      appointmentDate,
+      startTime,
+      endTime: this.addMinutesToTime(startTime, 30),
+      duration: 30,
+      appointmentType: 'Tái khám',
+      notes: `Lịch tái khám cho hồ sơ bệnh án ${record._id.toString()}`,
+      status: AppointmentStatus.PENDING,
+      medicalRecordId: record._id.toString(),
+    } as CreateAppointmentDto;
+
+    const appointment = await this.appointmentsService.create(appointmentPayload);
+    const appointmentIdRaw = appointment?._id;
+    if (!appointmentIdRaw) {
+      throw new BadRequestException('Không thể tạo lịch tái khám: thiếu ID lịch hẹn');
+    }
+    const normalizedAppointmentId = appointmentIdRaw instanceof mongoose.Types.ObjectId
+      ? appointmentIdRaw
+      : new mongoose.Types.ObjectId(String(appointmentIdRaw));
+    record.followUpAppointmentId = normalizedAppointmentId;
   }
 
   async addAttachment(id: string, attachment: any): Promise<MedicalRecord> {

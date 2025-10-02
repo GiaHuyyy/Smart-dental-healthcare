@@ -1,7 +1,6 @@
 "use client";
 
 import CreateMedicalRecordModal from "@/components/medical-records/CreateMedicalRecordModal";
-import DoctorStatistics from "@/components/medical-records/DoctorStatistics";
 import EditMedicalRecordModal from "@/components/medical-records/EditMedicalRecordModal";
 import ExportMedicalRecord from "@/components/medical-records/ExportMedicalRecord";
 import MedicalRecordDetailModal from "@/components/medical-records/MedicalRecordDetailModal";
@@ -14,52 +13,335 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
-    Activity,
-    AlertCircle,
-    Calendar,
-    CheckCircle,
-    Clock,
-    Download,
-    Edit,
-    Eye,
-    FileText,
-    Filter,
-    Plus,
-    Search,
-    Stethoscope,
-    TrendingUp,
+  Activity,
+  AlertCircle,
+  Calendar,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Download,
+  Edit,
+  Eye,
+  FileText,
+  Filter,
+  Plus,
+  Search,
+  Stethoscope,
+  TrendingUp,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
+
+interface IdObject {
+  _id?: string;
+  id?: string;
+}
+
+type IdLike = string | IdObject | null | undefined;
+
+interface PatientReference extends IdObject {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface DoctorReference extends IdObject {
+  fullName?: string;
+  email?: string;
+  specialty?: string;
+}
+
+interface MedicalRecordProcedure {
+  name?: string;
+  description?: string;
+  date?: string;
+  cost?: number | string;
+  status?: string;
+}
+
+interface DentalChartEntry {
+  toothNumber?: number | string;
+  condition?: string;
+  treatment?: string;
+  notes?: string;
+}
 
 interface MedicalRecord {
+  [key: string]: unknown;
   _id: string;
-  patientId: {
-    _id?: string;
-    fullName?: string;
-    email?: string;
-    phone?: string;
-  };
+  patientId?: PatientReference | string;
+  doctorId?: DoctorReference | string;
   recordDate: string;
   chiefComplaint: string;
-  diagnosis: string;
-  treatmentPlan: string;
+  diagnosis?: string;
+  treatmentPlan?: string;
   status: string;
   isFollowUpRequired: boolean;
   followUpDate?: string;
-  procedures: Array<{
-    name: string;
-    description: string;
-    date: string;
-    cost: number;
-    status: string;
-  }>;
-  dentalChart: Array<{
-    toothNumber: number;
-    condition: string;
-    treatment: string;
-    notes: string;
-  }>;
+  followUpTime?: string;
+  followUpAppointmentId?: IdLike;
+  appointmentId?: IdLike;
+  procedures?: MedicalRecordProcedure[];
+  dentalChart?: DentalChartEntry[];
+  vitalSigns?: {
+    bloodPressure?: string;
+    heartRate?: number;
+    temperature?: number;
+  };
+  medications?: string[];
+  notes?: string;
+  attachments?: string[];
+  parentId?: IdLike;
+  originalRecordId?: IdLike;
+  sourceRecordId?: IdLike;
+  followUpOf?: IdLike;
+  followUpOfId?: IdLike;
+  parentRecordId?: IdLike;
+  rootRecordId?: IdLike;
+  relatedRecordId?: IdLike;
 }
+
+type MedicalRecordFormData = Record<string, unknown>;
+
+interface FollowUpModalState {
+  open: boolean;
+  recordId?: string;
+  date?: string;
+  time?: string;
+}
+
+interface RecordsPayloadLike {
+  data?: unknown;
+  results?: unknown;
+  records?: unknown;
+}
+
+const getIdFromValue = (value: unknown): string | undefined => {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    const obj = value as IdObject;
+    if (typeof obj._id === "string") return obj._id;
+    if (typeof obj.id === "string") return obj.id;
+  }
+  return undefined;
+};
+
+const DoctorStatistics = dynamic(() => import("@/components/medical-records/DoctorStatistics"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+    </div>
+  ),
+});
+
+type DetailModalProps = ComponentProps<typeof MedicalRecordDetailModal>;
+type DetailModalRecord = DetailModalProps["record"];
+type EditModalProps = ComponentProps<typeof EditMedicalRecordModal>;
+type EditModalRecord = EditModalProps["record"];
+
+const parseMedicalRecords = (input: unknown): MedicalRecord[] => {
+  if (Array.isArray(input)) return input as MedicalRecord[];
+  if (input && typeof input === "object") {
+    const payload = input as RecordsPayloadLike;
+    if (Array.isArray(payload.data)) return payload.data as MedicalRecord[];
+    if (Array.isArray(payload.results)) return payload.results as MedicalRecord[];
+    if (Array.isArray(payload.records)) return payload.records as MedicalRecord[];
+  }
+  return [];
+};
+
+const getPatientDetails = (patient: MedicalRecord["patientId"]): PatientReference | undefined => {
+  if (!patient) return undefined;
+  if (typeof patient === "string") {
+    return {
+      _id: patient,
+      fullName: "Chưa cập nhật",
+      email: "",
+      phone: "",
+    };
+  }
+
+  return {
+    _id: patient._id ?? patient.id ?? "",
+    fullName: patient.fullName ?? "Chưa cập nhật",
+    email: patient.email ?? "",
+    phone: patient.phone ?? "",
+  };
+};
+
+const getDoctorDetails = (doctor: MedicalRecord["doctorId"]): DoctorReference | undefined => {
+  if (!doctor) return undefined;
+  if (typeof doctor === "string") {
+    return {
+      _id: doctor,
+      fullName: "Chưa cập nhật",
+      email: "",
+      specialty: "",
+    };
+  }
+
+  return {
+    _id: doctor._id ?? doctor.id ?? "",
+    fullName: doctor.fullName ?? "Chưa cập nhật",
+    email: doctor.email ?? "",
+    specialty: doctor.specialty ?? "",
+  };
+};
+
+const getPatientName = (record: MedicalRecord): string => {
+  const patient = getPatientDetails(record.patientId);
+  if (patient?.fullName) return patient.fullName;
+  if (typeof record.patientId === "string") return record.patientId;
+  return "Chưa cập nhật";
+};
+
+const getPatientEmail = (record: MedicalRecord): string => {
+  const patient = getPatientDetails(record.patientId);
+  return patient?.email ?? "";
+};
+
+const getPatientInitial = (record: MedicalRecord): string => {
+  const name = getPatientName(record);
+  return name.charAt(0).toUpperCase() || "U";
+};
+
+const toDetailModalRecord = (record: MedicalRecord): DetailModalRecord => {
+  const patient = getPatientDetails(record.patientId);
+  const doctor = getDoctorDetails(record.doctorId);
+
+  return {
+    _id: record._id,
+    patientId: patient
+      ? {
+          _id: patient._id ?? "",
+          fullName: patient.fullName ?? "Chưa cập nhật",
+          email: patient.email ?? "",
+          phone: patient.phone ?? "",
+        }
+      : undefined,
+    doctorId: doctor
+      ? {
+          _id: doctor._id ?? "",
+          fullName: doctor.fullName ?? "Chưa cập nhật",
+          email: doctor.email ?? "",
+          specialty: doctor.specialty ?? "",
+        }
+      : undefined,
+    recordDate: record.recordDate,
+    chiefComplaint: record.chiefComplaint ?? "",
+    diagnosis: record.diagnosis ?? "",
+    treatmentPlan: record.treatmentPlan ?? "",
+    status: record.status ?? "active",
+    isFollowUpRequired: Boolean(record.isFollowUpRequired),
+    followUpDate: record.followUpDate,
+    vitalSigns: record.vitalSigns
+      ? {
+          bloodPressure: record.vitalSigns.bloodPressure ?? undefined,
+          heartRate: typeof record.vitalSigns.heartRate === "number"
+            ? record.vitalSigns.heartRate
+            : record.vitalSigns.heartRate !== undefined
+              ? Number(record.vitalSigns.heartRate) || undefined
+              : undefined,
+          temperature: typeof record.vitalSigns.temperature === "number"
+            ? record.vitalSigns.temperature
+            : record.vitalSigns.temperature !== undefined
+              ? Number(record.vitalSigns.temperature) || undefined
+              : undefined,
+        }
+      : undefined,
+    procedures: (record.procedures ?? []).map((procedure) => ({
+      name: procedure.name ?? "",
+      description: procedure.description ?? "",
+      date: procedure.date ?? record.recordDate,
+      cost: typeof procedure.cost === "number" ? procedure.cost : Number(procedure.cost) || 0,
+      status: procedure.status ?? "pending",
+    })),
+    dentalChart: (record.dentalChart ?? []).map((tooth) => ({
+      toothNumber:
+        typeof tooth.toothNumber === "number"
+          ? tooth.toothNumber
+          : tooth.toothNumber !== undefined
+            ? Number(tooth.toothNumber) || 0
+            : 0,
+      condition: tooth.condition ?? "",
+      treatment: tooth.treatment ?? "",
+      notes: tooth.notes ?? "",
+    })),
+    medications: record.medications ? record.medications.map((item) => String(item)) : [],
+    notes: record.notes ?? "",
+    attachments: record.attachments ? record.attachments.map((item) => String(item)) : [],
+  };
+};
+
+const parseOptionalNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
+const toEditModalRecord = (record: MedicalRecord): EditModalRecord => {
+  const patient = getPatientDetails(record.patientId);
+  const doctor = getDoctorDetails(record.doctorId);
+
+  return {
+    _id: record._id,
+    patientId: {
+      _id: patient?._id ?? "",
+      fullName: patient?.fullName ?? "",
+      email: patient?.email ?? "",
+      phone: patient?.phone ?? "",
+    },
+    doctorId: {
+      _id: doctor?._id ?? "",
+      fullName: doctor?.fullName ?? "",
+      email: doctor?.email ?? "",
+      specialty: doctor?.specialty ?? "",
+    },
+    recordDate: record.recordDate,
+    chiefComplaint: record.chiefComplaint ?? "",
+    diagnosis: record.diagnosis ?? "",
+    treatmentPlan: record.treatmentPlan ?? "",
+    status: record.status ?? "active",
+    isFollowUpRequired: Boolean(record.isFollowUpRequired),
+    followUpDate: record.followUpDate,
+    vitalSigns: {
+      bloodPressure: record.vitalSigns?.bloodPressure ?? "",
+      heartRate: parseOptionalNumber(record.vitalSigns?.heartRate),
+      temperature: parseOptionalNumber(record.vitalSigns?.temperature),
+    },
+    procedures: (record.procedures ?? []).map((procedure) => ({
+      name: procedure.name ?? "",
+      description: procedure.description ?? "",
+      date: procedure.date ?? record.recordDate,
+      cost: typeof procedure.cost === "number" ? procedure.cost : Number(procedure.cost) || 0,
+      status: procedure.status ?? "pending",
+    })),
+    dentalChart: (record.dentalChart ?? []).map((tooth) => ({
+      toothNumber:
+        typeof tooth.toothNumber === "number"
+          ? tooth.toothNumber
+          : tooth.toothNumber !== undefined
+            ? Number(tooth.toothNumber) || 0
+            : 0,
+      condition: tooth.condition ?? "",
+      treatment: tooth.treatment ?? "",
+      notes: tooth.notes ?? "",
+    })),
+    medications: record.medications ? record.medications.map((item) => String(item)) : [],
+    notes: record.notes ?? "",
+    attachments: record.attachments ? record.attachments.map((item) => String(item)) : [],
+  };
+};
 
 export default function DoctorMedicalRecordsPage() {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
@@ -67,63 +349,65 @@ export default function DoctorMedicalRecordsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showStatistics, setShowStatistics] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
-  const { toast } = useToast();
-  // helper wrapper to bypass strict Toast typing in some places where 'variant' is used
-  const toastAny = (payload: any) => (toast as any)(payload);
-  const [followUpModal, setFollowUpModal] = useState<{ open: boolean; recordId?: string; date?: string }>({ open: false });
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
+  const [followUpModal, setFollowUpModal] = useState<FollowUpModalState>({ open: false });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const detailModalRecord = useMemo(() => (selectedRecord ? toDetailModalRecord(selectedRecord) : null), [selectedRecord]);
+  const editModalRecord = useMemo(() => (selectedRecord ? toEditModalRecord(selectedRecord) : null), [selectedRecord]);
 
-  useEffect(() => {
-    fetchMedicalRecords();
-  }, []);
-
-  useEffect(() => {
-    filterRecords();
-  }, [records, searchTerm, statusFilter, activeTab]);
-
-  const fetchMedicalRecords = async () => {
+  const fetchMedicalRecords = useCallback(async () => {
     try {
+      const token = localStorage.getItem("token");
       const response = await fetch("/api/medical-records/doctor", {
         headers: {
-          Authorization: localStorage.getItem("token") ? `Bearer ${localStorage.getItem("token")}` : "",
+          Authorization: token ? `Bearer ${token}` : "",
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setRecords(data);
-      } else {
-        const errorData = await response.json();
-        toastAny({
-          title: "Lỗi",
-          description: errorData.message || "Không thể tải danh sách hồ sơ bệnh án",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        const errorPayload = await response
+          .json()
+          .catch(() => ({ message: "Không thể tải danh sách hồ sơ bệnh án" }));
+        const description =
+          typeof errorPayload === "object" && errorPayload && "message" in errorPayload
+            ? String((errorPayload as { message?: unknown }).message ?? "Không thể tải danh sách hồ sơ bệnh án")
+            : "Không thể tải danh sách hồ sơ bệnh án";
+        showErrorToast("Lỗi", description);
+        return;
       }
-    } catch (error) {
-      toastAny({ title: "Lỗi", description: "Có lỗi xảy ra khi tải dữ liệu", variant: "destructive" });
+
+      const payload = await response.json().catch(() => []);
+      setRecords(parseMedicalRecords(payload));
+    } catch {
+      showErrorToast("Lỗi", "Có lỗi xảy ra khi tải dữ liệu");
     } finally {
       setLoading(false);
     }
-  };
+  }, [showErrorToast]);
 
-  const filterRecords = () => {
+  const filterRecords = useCallback(() => {
     let filtered = records;
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(
-        (record) =>
-          (record.patientId?.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.chiefComplaint.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          record.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const lowerSearch = searchTerm.toLowerCase();
+      filtered = filtered.filter((record) => {
+        const patientName = getPatientName(record).toLowerCase();
+        const complaint = record.chiefComplaint?.toLowerCase() ?? "";
+        const diagnosis = record.diagnosis?.toLowerCase() ?? "";
+        return (
+          patientName.includes(lowerSearch) ||
+          complaint.includes(lowerSearch) ||
+          diagnosis.includes(lowerSearch)
+        );
+      });
     }
 
     // Filter by status
@@ -147,54 +431,93 @@ export default function DoctorMedicalRecordsPage() {
     }
 
     setFilteredRecords(filtered);
-  };
+  }, [records, searchTerm, statusFilter, activeTab]);
 
-  const handleCreateRecord = async (data: any) => {
+  useEffect(() => {
+    setLoading(true);
+    void fetchMedicalRecords();
+  }, [fetchMedicalRecords]);
+
+  // keep the doctor's view in sync: refresh on focus/visibility and poll periodically
+  useEffect(() => {
+    const onFocus = () => {
+      void fetchMedicalRecords();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void fetchMedicalRecords();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    const intervalId = window.setInterval(() => {
+      void fetchMedicalRecords();
+    }, 20000); // 20s
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(intervalId);
+    };
+  }, [fetchMedicalRecords]);
+
+  useEffect(() => {
+    filterRecords();
+  }, [filterRecords]);
+
+  const getAuthHeaders = useCallback((includeJson = false): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (includeJson) headers["Content-Type"] = "application/json";
+    const token = localStorage.getItem("token");
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  }, []);
+
+  const handleCreateRecord = async (formData: MedicalRecordFormData) => {
     try {
       const response = await fetch("/api/medical-records", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(data),
+        headers: getAuthHeaders(true),
+        body: JSON.stringify(formData),
       });
 
-      if (response.ok) {
-        toast({
-          title: "Thành công",
-          description: "Hồ sơ bệnh án đã được tạo thành công",
-        });
-        setShowCreateModal(false);
-        fetchMedicalRecords();
-      } else {
-        toastAny({ title: "Lỗi", description: "Không thể tạo hồ sơ bệnh án", variant: "destructive" });
+      if (!response.ok) {
+        const text = await response.text();
+        showErrorToast("Lỗi", text || "Không thể tạo hồ sơ bệnh án");
+        return;
       }
-    } catch (error) {
-        toastAny({ title: "Lỗi", description: "Có lỗi xảy ra khi tạo hồ sơ", variant: "destructive" });
+
+      showSuccessToast("Thành công", "Hồ sơ bệnh án đã được tạo thành công");
+      setShowCreateModal(false);
+      setLoading(true);
+      await fetchMedicalRecords();
+    } catch {
+      showErrorToast("Lỗi", "Có lỗi xảy ra khi tạo hồ sơ");
     }
   };
 
-  const handleUpdateRecord = async (id: string, data: any) => {
+  const handleUpdateRecord = async (id: string, formData: MedicalRecordFormData) => {
     try {
       const response = await fetch(`/api/medical-records/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(data),
+        headers: getAuthHeaders(true),
+        body: JSON.stringify(formData),
       });
 
-      if (response.ok) {
-        toastAny({ title: "Thành công", description: "Hồ sơ bệnh án đã được cập nhật thành công" });
-        setShowEditModal(false);
-        fetchMedicalRecords();
-      } else {
-        toastAny({ title: "Lỗi", description: "Không thể cập nhật hồ sơ bệnh án", variant: "destructive" });
+      if (!response.ok) {
+        const text = await response.text();
+        showErrorToast("Lỗi", text || "Không thể cập nhật hồ sơ bệnh án");
+        return;
       }
-    } catch (error) {
-        toastAny({ title: "Lỗi", description: "Có lỗi xảy ra khi cập nhật hồ sơ", variant: "destructive" });
+
+      showSuccessToast("Thành công", "Hồ sơ bệnh án đã được cập nhật thành công");
+      setShowEditModal(false);
+      setLoading(true);
+      await fetchMedicalRecords();
+    } catch {
+      showErrorToast("Lỗi", "Có lỗi xảy ra khi cập nhật hồ sơ");
     }
   };
 
@@ -203,110 +526,93 @@ export default function DoctorMedicalRecordsPage() {
     setShowExportModal(true);
   };
 
-  const openFollowUpModal = (recordId: string, date?: string) => {
-    setFollowUpModal({ open: true, recordId, date: date ? new Date(date).toISOString().slice(0,10) : '' });
+  const openFollowUpModal = (recordId: string, date?: string, time?: string) => {
+    setFollowUpModal({
+      open: true,
+      recordId,
+      date: date ? new Date(date).toISOString().slice(0, 10) : "",
+      time: time ?? "09:00",
+    });
   };
 
   const closeFollowUpModal = () => setFollowUpModal({ open: false });
 
   const saveFollowUpFromModal = async (recordId?: string, date?: string, time?: string) => {
     if (!recordId) return false;
-    const followUpDate = date || null;
-    const followUpTime = time || '09:00';
+    const existingRecord = records.find((record) => record._id === recordId);
+    const hasDate = Boolean(date && date.trim());
+    const normalizedTime = time && time.trim() ? time.trim() : "09:00";
+    const payload = hasDate
+      ? {
+          followUpDate: date,
+          followUpTime: normalizedTime,
+          isFollowUpRequired: true,
+        }
+      : {
+          followUpDate: null,
+          followUpTime: null,
+          isFollowUpRequired: false,
+        };
+
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string,string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const body = { followUpDate, isFollowUpRequired: !!followUpDate };
-
-      const res = await fetch(`/api/medical-records/${recordId}/follow-up`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify(body)
+      const response = await fetch(`/api/medical-records/${recordId}/follow-up`, {
+        method: "PATCH",
+        headers: getAuthHeaders(true),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        let msg = 'Không thể cập nhật tái khám';
-        // Read body once as text, then try to parse JSON out of it.
-        try {
-          const txt = await res.text();
-          if (txt) {
-            try {
-              const json = JSON.parse(txt);
-              msg = json?.message || json?.error || txt || msg;
-            } catch (e) {
-              msg = txt;
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-        toastAny({ title: 'Lỗi', description: msg, variant: 'destructive' });
+      if (!response.ok) {
+        const text = await response.text();
+        showErrorToast("Lỗi", text || "Không thể cập nhật tái khám");
         return false;
       }
 
-      const updated = await res.json();
-      setRecords((prev) => prev.map((r) => r._id === recordId ? { ...r, isFollowUpRequired: !!updated.isFollowUpRequired, followUpDate: updated.followUpDate || undefined } : r));
-      setFilteredRecords((prev) => prev.map((r) => r._id === recordId ? { ...r, isFollowUpRequired: !!updated.isFollowUpRequired, followUpDate: updated.followUpDate || undefined } : r));
-      toast({ title: 'Thành công', description: 'Đã cập nhật tái khám' });
+      await fetchMedicalRecords();
 
-      // Try to create an appointment automatically for this follow-up
-      try {
-        if (updated && updated.followUpDate) {
-          // find the record to extract patient & doctor
-          const rec = (records || []).find((x) => x._id === recordId) as any;
-          const patientId = rec?.patientId?._id || (rec?.patientId || (updated.patientId && updated.patientId._id)) || undefined;
-          const doctorId = updated.doctorId?._id || rec?.doctorId?._id || undefined;
+      const successMessage = hasDate
+        ? existingRecord?.isFollowUpRequired
+          ? "Đã cập nhật lịch tái khám"
+          : "Đã đặt lịch tái khám"
+        : "Đã hủy lịch tái khám";
 
-          if (patientId && doctorId) {
-            // appointmentDate should be the date portion from followUpDate, keep time from followUpTime
-            const appointmentDateObj = new Date(updated.followUpDate);
-            // build ISO appointmentDate with the same date and zeroed time (server expects a Date)
-            const dayIso = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate()).toISOString();
-            const startTime = followUpTime || '09:00';
-            // compute end time by adding 30 minutes
-            const [h, m] = startTime.split(':').map((s) => parseInt(s, 10));
-            const endDate = new Date(appointmentDateObj.getFullYear(), appointmentDateObj.getMonth(), appointmentDateObj.getDate(), h, m + 30);
-            const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-            const isoDate = dayIso;
-
-            const token = localStorage.getItem('token');
-            const headers: Record<string,string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
-            const body = {
-              patientId,
-              doctorId,
-              appointmentDate: isoDate,
-              startTime,
-              endTime,
-              duration: 30,
-              appointmentType: 'follow-up',
-              notes: 'Tái khám từ hồ sơ',
-              status: 'scheduled'
-            };
-
-            const apptRes = await fetch('/api/appointments', { method: 'POST', headers, body: JSON.stringify(body) });
-            if (apptRes.ok) {
-              toast({ title: 'Lịch hẹn', description: 'Đã tạo lịch tái khám tự động' });
-            } else {
-              const txt = await apptRes.text();
-              // not critical, just inform
-              toastAny({ title: 'Lưu ý', description: 'Không tạo được lịch tái khám tự động: ' + (txt || apptRes.statusText), variant: 'default' });
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Auto-create appointment failed', e);
-      }
-
+      showSuccessToast("Thành công", successMessage);
       setFollowUpModal({ open: false });
       return true;
-    } catch (err) {
-      console.error('Error saving follow-up from modal', err);
-  toastAny({ title: 'Lỗi', description: 'Có lỗi khi lưu tái khám', variant: 'destructive' });
+    } catch {
+      showErrorToast("Lỗi", "Có lỗi khi lưu tái khám");
       return false;
+    }
+  };
+
+  const cancelFollowUp = async (recordId?: string) => {
+    if (!recordId) return false;
+    return saveFollowUpFromModal(recordId);
+  };
+
+  const handleMarkCompleted = async (recordId: string) => {
+    try {
+      const response = await fetch(`/api/medical-records/${recordId}`, {
+        method: "PATCH",
+        headers: getAuthHeaders(true),
+        body: JSON.stringify({ status: "completed", isFollowUpRequired: false, followUpDate: null }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        showErrorToast("Lỗi", text || "Không thể cập nhật trạng thái");
+        return;
+      }
+
+      setRecords((prev) =>
+        prev.map((record) =>
+          record._id === recordId
+            ? { ...record, status: "completed", isFollowUpRequired: false, followUpDate: undefined }
+            : record
+        )
+      );
+      showSuccessToast("Thành công", "Đã cập nhật trạng thái là Hoàn thành");
+    } catch {
+      showErrorToast("Lỗi", "Có lỗi khi cập nhật trạng thái");
     }
   };
 
@@ -332,6 +638,111 @@ export default function DoctorMedicalRecordsPage() {
     return records.filter((record) => record.status === status).length;
   };
 
+  // Build parent -> children mapping using common linking fields if present in the payload
+  const { roots, childrenMap } = useMemo(() => {
+    const recordMap: Record<string, MedicalRecord> = {};
+    const children: Record<string, MedicalRecord[]> = {};
+    const rootRecords: MedicalRecord[] = [];
+
+    const candidateKeys = [
+      "parentId",
+      "originalRecordId",
+      "sourceRecordId",
+      "followUpOf",
+      "followUpOfId",
+      "parentRecordId",
+      "rootRecordId",
+      "relatedRecordId",
+    ];
+
+    filteredRecords.forEach((record) => {
+      recordMap[record._id] = record;
+    });
+
+    filteredRecords.forEach((record) => {
+      let parentFound: string | undefined;
+      for (const key of candidateKeys) {
+        const value = record[key];
+        const parentId = getIdFromValue(value);
+        if (parentId && recordMap[parentId]) {
+          parentFound = parentId;
+          break;
+        }
+      }
+
+      if (parentFound) {
+        if (!children[parentFound]) {
+          children[parentFound] = [];
+        }
+        children[parentFound].push(record);
+      } else {
+        rootRecords.push(record);
+      }
+    });
+
+    if (Object.keys(children).length === 0) {
+      const byPatient: Record<string, MedicalRecord[]> = {};
+      filteredRecords.forEach((record) => {
+        const patientId = getIdFromValue(record.patientId);
+        if (!patientId) return;
+        if (!byPatient[patientId]) {
+          byPatient[patientId] = [];
+        }
+        byPatient[patientId].push(record);
+      });
+
+      const fallbackChildren: Record<string, MedicalRecord[]> = {};
+      const fallbackRoots: MedicalRecord[] = [];
+
+      const DAY = 24 * 60 * 60 * 1000;
+      const WINDOW = 120 * DAY; // 120 days
+
+      Object.keys(byPatient).forEach((patientId) => {
+        const arr = byPatient[patientId]
+          .slice()
+          .sort((a, b) => new Date(a.recordDate).getTime() - new Date(b.recordDate).getTime());
+
+        for (let i = 0; i < arr.length; i += 1) {
+          const candidateParent = arr[i];
+          if (!(candidateParent.status === "completed" || candidateParent.isFollowUpRequired)) {
+            continue;
+          }
+
+          for (let j = i + 1; j < arr.length; j += 1) {
+            const possibleChild = arr[j];
+            const possibleChildDate = new Date(possibleChild.recordDate).getTime();
+            const candidateParentDate = new Date(candidateParent.recordDate).getTime();
+
+            if (possibleChildDate >= candidateParentDate && possibleChildDate - candidateParentDate <= WINDOW) {
+              if (!fallbackChildren[candidateParent._id]) {
+                fallbackChildren[candidateParent._id] = [];
+              }
+              fallbackChildren[candidateParent._id].push(possibleChild);
+            }
+          }
+        }
+      });
+
+      const childIds = new Set<string>();
+      Object.values(fallbackChildren).forEach((childList) => {
+        childList.forEach((child) => childIds.add(child._id));
+      });
+
+      filteredRecords.forEach((record) => {
+        if (childIds.has(record._id)) {
+          return;
+        }
+        fallbackRoots.push(record);
+      });
+
+      if (Object.keys(fallbackChildren).length > 0) {
+        return { roots: fallbackRoots, childrenMap: fallbackChildren };
+      }
+    }
+
+    return { roots: rootRecords, childrenMap: children };
+  }, [filteredRecords]);
+
   if (loading) {
     return (
       <div
@@ -354,6 +765,8 @@ export default function DoctorMedicalRecordsPage() {
       </div>
     );
   }
+
+  // Local FollowUpModal (copied from patient detail page implementation)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20">
@@ -539,167 +952,316 @@ export default function DoctorMedicalRecordsPage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  filteredRecords.map((record) => (
-                    <Card
-                      key={record._id}
-                      className="hover:shadow-lg transition-all duration-300 border-gray-100 hover:border-blue-200 group bg-white/80 backdrop-blur-sm"
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
-                          <div className="flex-1 space-y-4">
-                            {/* Header */}
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                                  {(record.patientId?.fullName || "U").charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                    {record.patientId?.fullName || "Chưa cập nhật"}
-                                  </h3>
-                                  <p className="text-gray-500 text-sm">{record.patientId?.email || ""}</p>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {getStatusBadge(record.status)}
-                                {record.isFollowUpRequired && (
-                                  <Badge variant="outline" className="text-orange-600 border-orange-600 bg-orange-50">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    Cần tái khám
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
+                  // Render roots and nested follow-ups if any
+                  roots.map((record) => {
+                    const kids = childrenMap[record._id] || [];
+                    const isExpanded = !!expanded[record._id];
 
-                            {/* Details Grid */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                              <div className="space-y-3">
-                                <div className="flex items-center gap-3 text-gray-700">
-                                  <Calendar className="h-5 w-5 text-blue-500" />
-                                  <span className="font-medium">Ngày khám:</span>
-                                  <span>{format(new Date(record.recordDate), "dd/MM/yyyy", { locale: vi })}</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-gray-700">
-                                  <Stethoscope className="h-5 w-5 text-green-500" />
-                                  <span className="font-medium">Triệu chứng:</span>
-                                  <span className="text-gray-600">{record.chiefComplaint}</span>
-                                </div>
-                                {record.followUpDate && (
-                                  <div className="flex items-center gap-3 text-orange-600">
-                                    <Clock className="h-5 w-5" />
-                                    <span className="font-medium">Tái khám:</span>
-                                    <span>{format(new Date(record.followUpDate), "dd/MM/yyyy", { locale: vi })}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="space-y-3">
-                                {record.diagnosis && (
-                                  <div className="text-gray-700">
-                                    <span className="font-medium text-gray-900">Chẩn đoán:</span>
-                                    <p className="text-gray-600 mt-1 leading-relaxed">{record.diagnosis}</p>
-                                  </div>
-                                )}
-                                {record.treatmentPlan && (
-                                  <div className="text-gray-700">
-                                    <span className="font-medium text-gray-900">Kế hoạch điều trị:</span>
-                                    <p className="text-gray-600 mt-1 leading-relaxed">{record.treatmentPlan}</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                    return (
+                      <div key={record._id}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            {kids.length > 0 ? (
+                              <button
+                                onClick={() => setExpanded((prev) => ({ ...prev, [record._id]: !prev[record._id] }))}
+                                className="flex items-center gap-2 text-sm text-gray-600 px-2 py-1 rounded hover:bg-gray-100"
+                              >
+                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                Hồ sơ góc
+                                <span className="ml-1 text-xs text-gray-500">({kids.length})</span>
+                              </button>
+                            ) : (
+                              <span className="text-sm text-gray-600 px-2 py-1">Hồ sơ</span>
+                            )}
                           </div>
 
-                          {/* Actions */}
-                          <div className="flex gap-2 lg:flex-col">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRecord(record);
-                                setShowDetailModal(true);
-                              }}
-                              className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 bg-white/80 backdrop-blur-sm"
-                            >
-                              <Eye className="h-4 w-4" />
-                              <span className="hidden lg:inline">Xem</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedRecord(record);
-                                setShowEditModal(true);
-                              }}
-                              className="flex items-center gap-2 hover:bg-green-50 hover:border-green-200 hover:text-green-600 bg-white/80 backdrop-blur-sm"
-                            >
-                              <Edit className="h-4 w-4" />
-                              <span className="hidden lg:inline">Sửa</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleExportRecord(record)}
-                              className="flex items-center gap-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 bg-white/80 backdrop-blur-sm"
-                            >
-                              <Download className="h-4 w-4" />
-                              <span className="hidden lg:inline">Xuất</span>
-                            </Button>
-                            {/* New status actions: mark completed and quick follow-up */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={async () => {
-                                // mark as completed and clear follow-up
-                                try {
-                                  const token = localStorage.getItem('token');
-                                  const headers: Record<string,string> = { 'Content-Type': 'application/json' };
-                                  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-                                  const res = await fetch(`/api/medical-records/${record._id}`, {
-                                    method: 'PATCH',
-                                    headers,
-                                    body: JSON.stringify({ status: 'completed', isFollowUpRequired: false, followUpDate: null })
-                                  });
-
-                                  if (!res.ok) {
-                                    const txt = await res.text();
-                                    toastAny({ title: 'Lỗi', description: txt || 'Không thể cập nhật trạng thái', variant: 'destructive' });
-                                    return;
-                                  }
-
-                                  toast({ title: 'Thành công', description: 'Đã cập nhật trạng thái là Hoàn thành' });
-                                  fetchMedicalRecords();
-                                } catch (err) {
-                                  console.error('Failed to mark completed', err);
-                                  toastAny({ title: 'Lỗi', description: 'Có lỗi khi cập nhật trạng thái', variant: 'destructive' });
-                                }
-                              }}
-                              className="flex items-center gap-2 hover:bg-gray-50 hover:border-gray-200 text-gray-700 bg-white/80 backdrop-blur-sm"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                              <span className="hidden lg:inline">Đã điều trị</span>
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                // open follow-up modal with default +1 month
-                                const oneMonth = new Date();
-                                oneMonth.setMonth(oneMonth.getMonth() + 1);
-                                openFollowUpModal(record._id, oneMonth.toISOString());
-                              }}
-                              className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 bg-white/80 backdrop-blur-sm"
-                            >
-                              <AlertCircle className="h-4 w-4" />
-                              <span className="hidden lg:inline">Cần tái khám</span>
-                            </Button>
-                          </div>
+                          <div className="text-sm text-gray-500">{getPatientName(record)}</div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
+
+                        {/* Root record card (use existing card style) */}
+                        <Card
+                          key={record._id}
+                          className="hover:shadow-lg transition-all duration-300 border-gray-100 hover:border-blue-200 group bg-white/80 backdrop-blur-sm"
+                        >
+                          <CardContent className="p-6">
+                            <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+                              <div className="flex-1 space-y-4">
+                                {/* Header */}
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                                      {getPatientInitial(record)}
+                                    </div>
+                                    <div>
+                                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                        {getPatientName(record)}
+                                      </h3>
+                                      <p className="text-gray-500 text-sm">{getPatientEmail(record)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {getStatusBadge(record.status)}
+                                    {record.isFollowUpRequired && (
+                                      <Badge variant="outline" className="text-orange-600 border-orange-600 bg-orange-50">
+                                        <AlertCircle className="h-3 w-3 mr-1" />
+                                        Cần tái khám
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Details Grid */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-3 text-gray-700">
+                                      <Calendar className="h-5 w-5 text-blue-500" />
+                                      <span className="font-medium">Ngày khám:</span>
+                                      <span>{format(new Date(record.recordDate), "dd/MM/yyyy", { locale: vi })}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-gray-700">
+                                      <Stethoscope className="h-5 w-5 text-green-500" />
+                                      <span className="font-medium">Triệu chứng:</span>
+                                      <span className="text-gray-600">{record.chiefComplaint}</span>
+                                    </div>
+                                    {record.followUpDate && (
+                                      <div className="flex items-center gap-3 text-orange-600">
+                                        <Clock className="h-5 w-5" />
+                                        <span className="font-medium">Tái khám:</span>
+                                        <span>{format(new Date(record.followUpDate), "dd/MM/yyyy HH:mm", { locale: vi })}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    {record.diagnosis && (
+                                      <div className="text-gray-700">
+                                        <span className="font-medium text-gray-900">Chẩn đoán:</span>
+                                        <p className="text-gray-600 mt-1 leading-relaxed">{record.diagnosis}</p>
+                                      </div>
+                                    )}
+                                    {record.treatmentPlan && (
+                                      <div className="text-gray-700">
+                                        <span className="font-medium text-gray-900">Kế hoạch điều trị:</span>
+                                        <p className="text-gray-600 mt-1 leading-relaxed">{record.treatmentPlan}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex gap-2 lg:flex-col">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedRecord(record);
+                                    setShowDetailModal(true);
+                                  }}
+                                  className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 bg-white/80 backdrop-blur-sm"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  <span className="hidden lg:inline">Xem</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedRecord(record);
+                                    setShowEditModal(true);
+                                  }}
+                                  className="flex items-center gap-2 hover:bg-green-50 hover:border-green-200 hover:text-green-600 bg-white/80 backdrop-blur-sm"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                  <span className="hidden lg:inline">Sửa</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleExportRecord(record)}
+                                  className="flex items-center gap-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 bg-white/80 backdrop-blur-sm"
+                                >
+                                  <Download className="h-4 w-4" />
+                                  <span className="hidden lg:inline">Xuất</span>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleMarkCompleted(record._id)}
+                                  className="flex items-center gap-2 hover:bg-gray-50 hover:border-gray-200 text-gray-700 bg-white/80 backdrop-blur-sm"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  <span className="hidden lg:inline">Đã điều trị</span>
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={async () => {
+                                    if (record.isFollowUpRequired) {
+                                      await cancelFollowUp(record._id);
+                                    } else {
+                                      const oneMonth = new Date();
+                                      oneMonth.setMonth(oneMonth.getMonth() + 1);
+                                      openFollowUpModal(record._id, oneMonth.toISOString(), "09:00");
+                                    }
+                                  }}
+                                  className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 bg-white/80 backdrop-blur-sm"
+                                >
+                                  <AlertCircle className="h-4 w-4" />
+                                  <span className="hidden lg:inline">{record.isFollowUpRequired ? "Hủy tái khám" : "Cần tái khám"}</span>
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Children follow-up cards rendered as full records (indented) */}
+                        {isExpanded && kids.length > 0 && (
+                          <div className="space-y-4 mt-3">
+                            {kids.map((child) => (
+                              <Card
+                                key={child._id}
+                                className="ml-8 hover:shadow-lg transition-all duration-300 border-gray-100 hover:border-blue-200 group bg-white/80 backdrop-blur-sm"
+                              >
+                                <CardContent className="p-6">
+                                  <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
+                                    <div className="flex-1 space-y-4">
+                                      {/* Header */}
+                                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-12 h-12 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                                            {getPatientInitial(child)}
+                                          </div>
+                                          <div>
+                                            <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                                              {getPatientName(child)}
+                                            </h3>
+                                            <p className="text-gray-500 text-sm">{getPatientEmail(child)}</p>
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          {getStatusBadge(child.status)}
+                                          {child.isFollowUpRequired && (
+                                            <Badge variant="outline" className="text-orange-600 border-orange-600 bg-orange-50">
+                                              <AlertCircle className="h-3 w-3 mr-1" />
+                                              Cần tái khám
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Details Grid */}
+                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        <div className="space-y-3">
+                                          <div className="flex items-center gap-3 text-gray-700">
+                                            <Calendar className="h-5 w-5 text-blue-500" />
+                                            <span className="font-medium">Ngày khám:</span>
+                                            <span>{format(new Date(child.recordDate), "dd/MM/yyyy", { locale: vi })}</span>
+                                          </div>
+                                          <div className="flex items-center gap-3 text-gray-700">
+                                            <Stethoscope className="h-5 w-5 text-green-500" />
+                                            <span className="font-medium">Triệu chứng:</span>
+                                            <span className="text-gray-600">{child.chiefComplaint}</span>
+                                          </div>
+                                          {child.followUpDate && (
+                                            <div className="flex items-center gap-3 text-orange-600">
+                                              <Clock className="h-5 w-5" />
+                                              <span className="font-medium">Tái khám:</span>
+                                              <span>{format(new Date(child.followUpDate), "dd/MM/yyyy HH:mm", { locale: vi })}</span>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                          {child.diagnosis && (
+                                            <div className="text-gray-700">
+                                              <span className="font-medium text-gray-900">Chẩn đoán:</span>
+                                              <p className="text-gray-600 mt-1 leading-relaxed">{child.diagnosis}</p>
+                                            </div>
+                                          )}
+                                          {child.treatmentPlan && (
+                                            <div className="text-gray-700">
+                                              <span className="font-medium text-gray-900">Kế hoạch điều trị:</span>
+                                              <p className="text-gray-600 mt-1 leading-relaxed">{child.treatmentPlan}</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex gap-2 lg:flex-col">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedRecord(child);
+                                          setShowDetailModal(true);
+                                        }}
+                                        className="flex items-center gap-2 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 bg-white/80 backdrop-blur-sm"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                        <span className="hidden lg:inline">Xem</span>
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedRecord(child);
+                                          setShowEditModal(true);
+                                        }}
+                                        className="flex items-center gap-2 hover:bg-green-50 hover:border-green-200 hover:text-green-600 bg-white/80 backdrop-blur-sm"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                        <span className="hidden lg:inline">Sửa</span>
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleExportRecord(child)}
+                                        className="flex items-center gap-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 bg-white/80 backdrop-blur-sm"
+                                      >
+                                        <Download className="h-4 w-4" />
+                                        <span className="hidden lg:inline">Xuất</span>
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleMarkCompleted(child._id)}
+                                        className="flex items-center gap-2 hover:bg-gray-50 hover:border-gray-200 text-gray-700 bg-white/80 backdrop-blur-sm"
+                                      >
+                                        <CheckCircle className="h-4 w-4" />
+                                        <span className="hidden lg:inline">Đã điều trị</span>
+                                      </Button>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={async () => {
+                                          if (child.isFollowUpRequired) {
+                                            await cancelFollowUp(child._id);
+                                          } else {
+                                            const oneMonth = new Date();
+                                            oneMonth.setMonth(oneMonth.getMonth() + 1);
+                                            openFollowUpModal(child._id, oneMonth.toISOString(), "09:00");
+                                          }
+                                        }}
+                                        className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 bg-white/80 backdrop-blur-sm"
+                                      >
+                                        <AlertCircle className="h-4 w-4" />
+                                        <span className="hidden lg:inline">{child.isFollowUpRequired ? "Hủy tái khám" : "Cần tái khám"}</span>
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </TabsContent>
@@ -716,11 +1278,11 @@ export default function DoctorMedicalRecordsPage() {
         />
       )}
 
-      {showDetailModal && selectedRecord && (
+      {showDetailModal && detailModalRecord && (
         <MedicalRecordDetailModal
           isOpen={showDetailModal}
           onClose={() => setShowDetailModal(false)}
-          record={selectedRecord}
+          record={detailModalRecord}
           onEdit={() => {
             setShowDetailModal(false);
             setShowEditModal(true);
@@ -728,12 +1290,15 @@ export default function DoctorMedicalRecordsPage() {
         />
       )}
 
-      {showEditModal && selectedRecord && (
+      {showEditModal && editModalRecord && (
         <EditMedicalRecordModal
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
-          record={selectedRecord}
-          onSubmit={(data) => handleUpdateRecord(selectedRecord._id, data)}
+          record={editModalRecord}
+          onSubmit={(data) => {
+            if (!selectedRecord) return;
+            handleUpdateRecord(selectedRecord._id, data);
+          }}
         />
       )}
 
@@ -745,6 +1310,7 @@ export default function DoctorMedicalRecordsPage() {
         open={followUpModal.open}
         recordId={followUpModal.recordId}
         date={followUpModal.date}
+        time={followUpModal.time}
         onClose={closeFollowUpModal}
         onSave={saveFollowUpFromModal}
       />
@@ -753,19 +1319,34 @@ export default function DoctorMedicalRecordsPage() {
 }
 
 // Local FollowUpModal (copied from patient detail page implementation)
-function FollowUpModal({ open, recordId, date, onClose, onSave }: { open: boolean; recordId?: string; date?: string; onClose: () => void; onSave: (id?: string, date?: string, time?: string) => Promise<boolean> | boolean }) {
-  const [selectedDate, setSelectedDate] = useState<string>(date || '');
-  const [selectedTime, setSelectedTime] = useState<string>('09:00');
+function FollowUpModal({
+  open,
+  recordId,
+  date,
+  time,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  recordId?: string;
+  date?: string;
+  time?: string;
+  onClose: () => void;
+  onSave: (id?: string, date?: string, time?: string) => Promise<boolean> | boolean;
+}) {
+  const [selectedDate, setSelectedDate] = useState<string>(date || "");
+  const [selectedTime, setSelectedTime] = useState<string>("09:00");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => setSelectedDate(date || ''), [date]);
+  useEffect(() => setSelectedDate(date || ""), [date]);
+  useEffect(() => setSelectedTime(time || "09:00"), [time]);
 
   if (!open) return null;
 
   const choose = (months: number) => {
     const d = new Date();
     d.setMonth(d.getMonth() + months);
-    setSelectedDate(d.toISOString().slice(0,10));
+    setSelectedDate(d.toISOString().slice(0, 10));
   };
 
   return (
@@ -774,21 +1355,59 @@ function FollowUpModal({ open, recordId, date, onClose, onSave }: { open: boolea
       <div className="bg-white rounded-lg shadow-lg z-60 p-6 w-full max-w-md">
         <h3 className="text-lg font-semibold mb-3">Đặt lịch tái khám</h3>
         <div className="flex gap-2 mb-3">
-          <button onClick={() => choose(1)} className="px-3 py-1 border rounded">+1 tháng</button>
-          <button onClick={() => choose(3)} className="px-3 py-1 border rounded">+3 tháng</button>
-          <button onClick={() => choose(6)} className="px-3 py-1 border rounded">+6 tháng</button>
+          <button onClick={() => choose(1)} className="px-3 py-1 border rounded">
+            +1 tháng
+          </button>
+          <button onClick={() => choose(3)} className="px-3 py-1 border rounded">
+            +3 tháng
+          </button>
+          <button onClick={() => choose(6)} className="px-3 py-1 border rounded">
+            +6 tháng
+          </button>
         </div>
         <div className="mb-4">
           <label className="text-sm">Ngày tái khám (tùy chọn)</label>
-          <input type="date" className="block mt-1 p-2 border rounded w-full" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+          <input
+            type="date"
+            className="block mt-1 p-2 border rounded w-full"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+          />
         </div>
         <div className="mb-4">
           <label className="text-sm">Giờ (tùy chọn)</label>
-          <input type="time" className="block mt-1 p-2 border rounded w-full" value={selectedTime} onChange={(e) => setSelectedTime(e.target.value)} />
+          <input
+            type="time"
+            className="block mt-1 p-2 border rounded w-full"
+            value={selectedTime}
+            onChange={(e) => setSelectedTime(e.target.value)}
+          />
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={() => { if (!saving) onClose(); }} className="px-3 py-1 border rounded" disabled={saving}>Hủy</button>
-          <button onClick={async () => { setSaving(true); try { const ok = await onSave(recordId, selectedDate, selectedTime); if (ok) onClose(); } finally { setSaving(false); } }} className="px-3 py-1 bg-blue-600 text-white rounded" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+          <button
+            onClick={() => {
+              if (!saving) onClose();
+            }}
+            className="px-3 py-1 border rounded"
+            disabled={saving}
+          >
+            Hủy
+          </button>
+          <button
+            onClick={async () => {
+              setSaving(true);
+              try {
+                const ok = await onSave(recordId, selectedDate, selectedTime);
+                if (ok) onClose();
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="px-3 py-1 bg-blue-600 text-white rounded"
+            disabled={saving}
+          >
+            {saving ? "Đang lưu..." : "Lưu"}
+          </button>
         </div>
       </div>
     </div>

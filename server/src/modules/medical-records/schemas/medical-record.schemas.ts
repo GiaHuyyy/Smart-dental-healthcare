@@ -99,8 +99,14 @@ export class MedicalRecord {
   @Prop({ default: false })
   isFollowUpRequired: boolean;
 
-  @Prop()
-  followUpDate: Date;
+  @Prop({ type: Date, default: null })
+  followUpDate?: Date | null;
+
+  @Prop({ type: String, default: null })
+  followUpTime?: string | null;
+
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Appointment', default: null })
+  followUpAppointmentId?: mongoose.Types.ObjectId | null;
 
   @Prop({ default: 'active' })
   status: string;

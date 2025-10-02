@@ -13,6 +13,7 @@ export default function DoctorSchedule() {
   const [selectedView, setSelectedView] = useState("day");
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   const [apptLoading, setApptLoading] = useState<Record<string, boolean>>({});
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleApptId, setRescheduleApptId] = useState<string | null>(null);
@@ -237,7 +238,18 @@ export default function DoctorSchedule() {
       }
     }
     load();
-  }, [session, selectedDate]);
+  }, [session, selectedDate, refreshTick]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!session?.user?._id) return;
+
+    const intervalId = window.setInterval(() => {
+      setRefreshTick((tick) => tick + 1);
+    }, 20000);
+
+    return () => window.clearInterval(intervalId);
+  }, [session?.user?._id]);
 
   // aggregated counts
   const statusCounts = appointments.reduce((acc: Record<string, number>, a: any) => {
@@ -278,7 +290,13 @@ export default function DoctorSchedule() {
         });
 
       const updated = res?.data || res;
-      setAppointments((prev) => prev.map((p) => (p._id === id || p.id === id ? { ...p, ...(updated || {}) } : p)));
+      setAppointments((prev) => {
+        if (action === "cancel") {
+          return prev.filter((p) => (p._id || p.id) !== id);
+        }
+        return prev.map((p) => (p._id === id || p.id === id ? { ...p, ...(updated || {}) } : p));
+      });
+      setRefreshTick((tick) => tick + 1);
       addToast("Cập nhật thành công", "success");
     } catch (e) {
       console.error("updateStatus", e);
