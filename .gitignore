@@ -102,3 +102,35 @@ chatbot-service/node_modules/
 chatbot-service/dist/
 chatbot-service/build/
 chatbot-service/logs/
+
+# Mobile / React Native / Expo (ignore artifacts under the mobile/ workspace)
+mobile/node_modules/
+mobile/.expo/
+mobile/.expo-shared/
+mobile/.expo-shared/**
+mobile/.expo/*
+
+# Android build artifacts
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/local.properties
+
+# iOS build artifacts
+mobile/ios/Pods/
+mobile/ios/Pods/**
+mobile/ios/DerivedData/
+mobile/ios/build/
+mobile/ios/*.xcworkspace
+mobile/ios/*.xcodeproj/xcuserdata/
+
+# Local env / credentials / signing
+mobile/.env*
+mobile/*.jks
+mobile/*.p12
+mobile/*.p8
+mobile/*.mobileprovision
+
+# Metro + TS cache
+mobile/.metro-cache/
+*.tsbuildinfo
