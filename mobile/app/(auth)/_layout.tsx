@@ -1,11 +1,18 @@
-import { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Stack } from 'expo-router';
 
-export default function AuthLayout({ children }: { children: ReactNode }) {
+export default function AuthLayout() {
   return (
-    <View className="flex-1 bg-white">
-      <Text className="text-2xl font-bold text-center">Auth</Text>
-      {children}
-    </View>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade',
+        contentStyle: {
+          backgroundColor: 'transparent',
+        },
+      }}
+    >
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="register" options={{ headerShown: false }} />
+    </Stack>
   );
 }
