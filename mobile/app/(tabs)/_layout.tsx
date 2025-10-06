@@ -30,6 +30,55 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="doctors"
+        options={{
+          title: 'Bác sĩ',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="stethoscope" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="records"
+        options={{
+          title: 'Hồ sơ',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="doc.text.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="prescriptions"
+        options={{
+          title: 'Đơn thuốc',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="pills.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="followups"
+        options={{
+          title: 'Tái khám',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar.badge.clock" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="payments"
+        options={{
+          title: 'Thanh toán',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="creditcard.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Cài đặt',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Chat',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
