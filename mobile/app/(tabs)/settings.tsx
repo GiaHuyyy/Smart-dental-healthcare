@@ -1,27 +1,28 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-    Bell,
-    BookOpen,
-    ChevronRight,
-    Globe,
-    HelpCircle,
-    Lock,
-    LogOut,
-    Mail,
-    ShieldCheck,
-    Smartphone,
-    UserCircle,
+  Bell,
+  BookOpen,
+  ChevronRight,
+  FileText,
+  Globe,
+  HelpCircle,
+  Lock,
+  LogOut,
+  Mail,
+  ShieldCheck,
+  Smartphone,
+  UserCircle,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import {
-    Alert,
-    Linking,
-    ScrollView,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Linking,
+  ScrollView,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

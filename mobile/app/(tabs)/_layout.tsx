@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
+import { FloatingTabBar } from '@/components/ui/floating-tab-bar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -14,8 +14,10 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarHideOnKeyboard: true,
+      }}
+      tabBar={(props) => <FloatingTabBar {...props} />}
+    >
       <Tabs.Screen
         name="index"
         options={{
@@ -28,6 +30,13 @@ export default function TabLayout() {
         options={{
           title: 'Lịch hẹn',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Chat',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -52,13 +61,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="followups"
-        options={{
-          title: 'Tái khám',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar.badge.clock" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="payments"
         options={{
           title: 'Thanh toán',
@@ -70,13 +72,6 @@ export default function TabLayout() {
         options={{
           title: 'Cài đặt',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="gearshape.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: 'Chat',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
         }}
       />
     </Tabs>

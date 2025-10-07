@@ -19,6 +19,12 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   calendar: 'calendar-today',
+  'bubble.left.and.bubble.right.fill': 'chat-bubble',
+  stethoscope: 'medical-services',
+  'doc.text.fill': 'description',
+  'pills.fill': 'medication',
+  'creditcard.fill': 'credit-card',
+  'gearshape.fill': 'settings',
 } as IconMapping;
 
 /**
