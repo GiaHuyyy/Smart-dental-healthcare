@@ -3,13 +3,12 @@ import { useRouter } from 'expo-router';
 import { Calendar, Filter, MapPin, MessageSquare, Search, Star, Stethoscope, UserPlus } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -109,7 +108,8 @@ function DoctorCard({ doctor, onBook, onChat }: DoctorCardProps) {
 
 export default function DoctorsScreen() {
   const router = useRouter();
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, session } = useAuth();
+  const token = session?.token;
 
   const [search, setSearch] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
@@ -183,12 +183,9 @@ export default function DoctorsScreen() {
     });
   }, [router]);
 
-  const handleChat = useCallback((doctor: Doctor) => {
-    Alert.alert(
-      'Chat với bác sĩ',
-      'Tính năng chat thời gian thực sẽ sớm có mặt trên ứng dụng di động. Vui lòng sử dụng cổng web để trò chuyện với bác sĩ.',
-    );
-  }, []);
+  const handleChat = useCallback((_doctor: Doctor) => {
+    router.push('/(tabs)/chat');
+  }, [router]);
 
   return (
     <LinearGradient colors={['#eef2ff', '#e0f2fe', '#fff']} className="flex-1">
