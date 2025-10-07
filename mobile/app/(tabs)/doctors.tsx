@@ -1,17 +1,17 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, Filter, MapPin, MessageSquare, Search, Star, Stethoscope, UserPlus } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/auth-context';
 import { apiRequest, formatApiError } from '@/utils/api';
