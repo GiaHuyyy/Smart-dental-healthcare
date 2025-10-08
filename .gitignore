@@ -134,3 +134,4 @@ mobile/*.mobileprovision
 # Metro + TS cache
 mobile/.metro-cache/
 *.tsbuildinfo
+.env
