@@ -14,6 +14,7 @@ export interface Doctor {
   reviewCount?: number;
   consultationFee?: number;
   clinicName?: string;
+  clinicAddress?: string;
   address?: string;
   clinicCity?: string;
   clinicState?: string;

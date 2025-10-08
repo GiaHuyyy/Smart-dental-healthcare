@@ -28,22 +28,49 @@ export default function TimeSlotPicker({ doctor, onClose, onSelectSlot }: TimeSl
     return dates;
   }, [currentWeekStart]);
 
-  // Mock time slots - in real app, fetch from API based on doctor and date
-  const timeSlots: TimeSlot[] = useMemo(() => {
-    if (!selectedDate) return [];
+  const timeSlotsByPeriod = useMemo(() => {
+    if (!selectedDate) {
+      return {
+        morning: [] as TimeSlot[],
+        afternoon: [] as TimeSlot[],
+      };
+    }
 
-    const morning = ["10:00 AM", "10:15 AM", "10:30 AM", "10:45 AM", "11:00 AM", "11:15 AM", "11:30 AM", "11:45 AM"];
-    const afternoon = ["12:00 PM", "12:15 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM"];
-    const evening = ["05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM"];
+    const baseDate = new Date(`${selectedDate}T00:00:00`);
 
-    const allSlots = [...morning, ...afternoon, ...evening];
+    const generateSlots = (startHour: number, endHour: number) => {
+      const intervalMinutes = 30;
+      const slots: TimeSlot[] = [];
+      const current = new Date(baseDate);
+      current.setHours(startHour, 0, 0, 0);
 
-    return allSlots.map((time) => ({
-      time,
-      available: Math.random() > 0.3, // Mock availability
-      booked: false,
-      selected: time === selectedTime,
-    }));
+      const end = new Date(baseDate);
+      end.setHours(endHour, 0, 0, 0);
+
+      while (current < end) {
+        const time = current.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+        slots.push({
+          time,
+          available: Math.random() > 0.3,
+          booked: false,
+          selected: time === selectedTime,
+        });
+
+        current.setMinutes(current.getMinutes() + intervalMinutes);
+      }
+
+      return slots;
+    };
+
+    return {
+      morning: generateSlots(8, 12),
+      afternoon: generateSlots(13, 17),
+    };
   }, [selectedDate, selectedTime]);
 
   const handleDateSelect = (date: Date) => {
@@ -191,57 +218,35 @@ export default function TimeSlotPicker({ doctor, onClose, onSelectSlot }: TimeSl
                 Khung giờ khả dụng
               </h3>
 
-              {/* Morning */}
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Buổi sáng</h4>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {timeSlots
-                    .filter((slot) => slot.time.includes("AM"))
-                    .map((slot) => (
-                      <TimeSlotButton
-                        key={slot.time}
-                        slot={slot}
-                        onClick={() => slot.available && handleTimeSelect(slot.time)}
-                      />
-                    ))}
+                  {timeSlotsByPeriod.morning.map((slot) => (
+                    <TimeSlotButton
+                      key={`${slot.time}-morning`}
+                      slot={slot}
+                      onClick={() => slot.available && handleTimeSelect(slot.time)}
+                    />
+                  ))}
+                  {timeSlotsByPeriod.morning.length === 0 && (
+                    <span className="col-span-full text-sm text-gray-500">Không có khung giờ phù hợp</span>
+                  )}
                 </div>
               </div>
 
-              {/* Afternoon */}
-              <div className="mb-4">
+              <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3">Buổi chiều</h4>
                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {timeSlots
-                    .filter((slot) => {
-                      const hour = parseInt(slot.time.split(":")[0]);
-                      return slot.time.includes("PM") && hour >= 12 && hour < 5;
-                    })
-                    .map((slot) => (
-                      <TimeSlotButton
-                        key={slot.time}
-                        slot={slot}
-                        onClick={() => slot.available && handleTimeSelect(slot.time)}
-                      />
-                    ))}
-                </div>
-              </div>
-
-              {/* Evening */}
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Buổi tối</h4>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {timeSlots
-                    .filter((slot) => {
-                      const hour = parseInt(slot.time.split(":")[0]);
-                      return slot.time.includes("PM") && hour >= 5;
-                    })
-                    .map((slot) => (
-                      <TimeSlotButton
-                        key={slot.time}
-                        slot={slot}
-                        onClick={() => slot.available && handleTimeSelect(slot.time)}
-                      />
-                    ))}
+                  {timeSlotsByPeriod.afternoon.map((slot) => (
+                    <TimeSlotButton
+                      key={`${slot.time}-afternoon`}
+                      slot={slot}
+                      onClick={() => slot.available && handleTimeSelect(slot.time)}
+                    />
+                  ))}
+                  {timeSlotsByPeriod.afternoon.length === 0 && (
+                    <span className="col-span-full text-sm text-gray-500">Không có khung giờ phù hợp</span>
+                  )}
                 </div>
               </div>
 
