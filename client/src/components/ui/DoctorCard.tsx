@@ -72,7 +72,11 @@ export default function DoctorCard({ doctor, onView, onBook, onChat, creatingCon
         <div className="flex items-center gap-3">
           {id && (
             <button
-              onClick={() => onView && onView(doctor)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onView && onView(doctor);
+              }}
               className="flex-1 cursor-pointer inline-flex items-center justify-center border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-xl py-3 px-4 text-sm font-medium hover:shadow-sm transition"
             >
               Xem chi tiết
@@ -80,14 +84,22 @@ export default function DoctorCard({ doctor, onView, onBook, onChat, creatingCon
           )}
 
           <button
+            type="button"
             className="flex-1 cursor-pointer inline-flex items-center justify-center bg-[var(--color-primary)] text-white rounded-xl py-3 px-6 text-sm font-semibold shadow-md hover:brightness-95 transition"
-            onClick={() => onBook && onBook(doctor)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onBook && onBook(doctor);
+            }}
           >
             <Calendar className="w-4 h-4 mr-2" /> Đặt lịch
           </button>
 
           <button
-            onClick={() => onChat && onChat(doctor)}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChat && onChat(doctor);
+            }}
             aria-label={`Chat với ${name}`}
             className="inline-flex cursor-pointer items-center border-[var(--color-primary)] text-[var(--color-primary)] rounded-lg p-1"
           >
