@@ -32,7 +32,7 @@ export class UsersController {
   ) {
     return this.usersService.findAll(query, +current, +pageSize);
   }
-  
+
   @Get('patients')
   @Public()
   async findAllPatients() {
@@ -43,8 +43,8 @@ export class UsersController {
 
   @Get('doctors')
   @Public()
-  async findAllDoctors() {
-    return this.usersService.findAllDoctors(null);
+  async findAllDoctors(@Query() query: any) {
+    return this.usersService.findAllDoctors(query);
   }
 
   @Get('patients/stats')
@@ -61,7 +61,10 @@ export class UsersController {
 
   @Get('patients/:id/details')
   @Public()
-  async getPatientDetails(@Param('id') id: string, @Query('doctorId') doctorId?: string) {
+  async getPatientDetails(
+    @Param('id') id: string,
+    @Query('doctorId') doctorId?: string,
+  ) {
     return this.usersService.getPatientDetails(id, doctorId);
   }
 

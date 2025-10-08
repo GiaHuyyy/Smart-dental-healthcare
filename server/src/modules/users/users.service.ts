@@ -5,10 +5,10 @@ import aqp from 'api-query-params';
 import dayjs from 'dayjs';
 import mongoose, { Model } from 'mongoose';
 import {
-    CodeAuthDto,
-    CreateAuthDto,
-    ResetPasswordDto,
-    VerifyResetCodeDto,
+  CodeAuthDto,
+  CreateAuthDto,
+  ResetPasswordDto,
+  VerifyResetCodeDto,
 } from 'src/auth/dto/create-auth.dto';
 import { hashPasswordHelper } from 'src/helpers/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -133,11 +133,39 @@ export class UsersService {
     }
   }
 
-  async findAllDoctors(user: any) {
+  async findAllDoctors(query: any) {
     try {
-      // Lấy danh sách bác sĩ (role = 'doctor')
+      // Build filter object
+      const filter: any = { role: 'doctor' };
+
+      // Search by name, email, or specialty
+      if (query?.search) {
+        const searchRegex = new RegExp(query.search, 'i');
+        filter.$or = [
+          { fullName: searchRegex },
+          { email: searchRegex },
+          { specialty: searchRegex },
+        ];
+      }
+
+      // Filter by specialty
+      if (query?.specialty && query.specialty !== 'all') {
+        filter.specialty = new RegExp(query.specialty, 'i');
+      }
+
+      // Filter by gender
+      if (query?.gender && query.gender !== 'all') {
+        filter.gender = query.gender;
+      }
+
+      // Filter by minimum experience
+      if (query?.minExperience) {
+        filter.experienceYears = { $gte: parseInt(query.minExperience) };
+      }
+
+      // Lấy danh sách bác sĩ với filters
       const doctors = await this.userModel
-        .find({ role: 'doctor' }) // Bỏ điều kiện isActive để lấy tất cả bác sĩ
+        .find(filter)
         .select('-password')
         .sort({ createdAt: -1 })
         .exec();

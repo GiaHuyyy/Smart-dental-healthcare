@@ -38,4 +38,10 @@ export class UpdateUserDto {
   @IsString()
   @IsNotEmpty({ message: 'Địa chỉ không được để trống khi cung cấp' })
   address?: string;
+
+  @IsOptional()
+  latitude?: number;
+
+  @IsOptional()
+  longitude?: number;
 }
