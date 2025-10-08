@@ -246,6 +246,15 @@ export default function AppointmentsMap({
     const backgroundColor = isSelected ? "#059669" : "#3b82f6"; // Green for selected, blue for normal
     const shadowColor = isSelected ? "rgba(5,150,105,0.5)" : "rgba(59,130,246,0.5)";
 
+    el.style.cssText = `
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease;
+      transform-origin: center center;
+    `;
+
     el.innerHTML = `
   <div style="
     width: 26px;
@@ -272,18 +281,24 @@ export default function AppointmentsMap({
   </div>
 `;
 
-    el.style.cursor = "pointer";
     el.title = `${doctor.fullName} - ${doctor.specialty || "Bác sĩ"}`;
 
-    // Add hover effects
-    el.onmouseover = () => {
+    // Add hover effects with proper element reference
+    el.addEventListener("mouseenter", () => {
       el.style.transform = "scale(1.15)";
-      el.style.zIndex = "1001";
-    };
-    el.onmouseout = () => {
+      const innerDiv = el.querySelector("div") as HTMLElement;
+      if (innerDiv) {
+        innerDiv.style.zIndex = "1001";
+      }
+    });
+
+    el.addEventListener("mouseleave", () => {
       el.style.transform = "scale(1)";
-      el.style.zIndex = "1000";
-    };
+      const innerDiv = el.querySelector("div") as HTMLElement;
+      if (innerDiv) {
+        innerDiv.style.zIndex = "1000";
+      }
+    });
 
     return el;
   }, []);
@@ -426,7 +441,9 @@ export default function AppointmentsMap({
         .addTo(mapInstanceRef.current!);
 
       // Handle marker click - additional actions
-      markerEl.addEventListener("click", () => {
+      markerEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+
         // Close all other popups first
         popupsRef.current.forEach((p, id) => {
           if (id !== doctorId) {
@@ -434,7 +451,7 @@ export default function AppointmentsMap({
           }
         });
 
-        // Select doctor and fly to location
+        // Select doctor and fly to location (but DON'T trigger booking)
         onDoctorSelect(doctor);
         mapInstanceRef.current?.flyTo({
           center: [coords.lng, coords.lat],

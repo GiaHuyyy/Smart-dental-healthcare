@@ -84,9 +84,9 @@ export default function DoctorList({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {currentDoctors.map((doctor) => {
-          const isSelected = selectedDoctor
-            ? selectedDoctor._id === doctor._id || selectedDoctor.id === doctor.id
-            : false;
+          const doctorId = doctor._id || doctor.id;
+          const selectedId = selectedDoctor?._id || selectedDoctor?.id;
+          const isSelected = selectedDoctor && doctorId && selectedId ? doctorId === selectedId : false;
           return (
             <div
               key={doctor._id || doctor.id}
@@ -99,7 +99,7 @@ export default function DoctorList({
               />
             </div>
           );
-        })}
+        })}}
       </div>
 
       {/* Pagination */}
@@ -247,9 +247,9 @@ function MapView({
         <h3 className="font-semibold text-gray-900 mb-4">{doctors.length} bác sĩ gần bạn</h3>
         <div className="space-y-4">
           {doctors.map((doctor) => {
-            const isSelected = selectedDoctor
-              ? selectedDoctor._id === doctor._id || selectedDoctor.id === doctor.id
-              : false;
+            const doctorId = doctor._id || doctor.id;
+            const selectedId = selectedDoctor?._id || selectedDoctor?.id;
+            const isSelected = selectedDoctor && doctorId && selectedId ? doctorId === selectedId : false;
 
             return (
               <div
