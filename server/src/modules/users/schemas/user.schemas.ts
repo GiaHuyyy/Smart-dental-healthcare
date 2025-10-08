@@ -27,6 +27,12 @@ export class User {
   address: string;
 
   @Prop()
+  latitude: number;
+
+  @Prop()
+  longitude: number;
+
+  @Prop()
   avatar: string;
 
   @Prop({ required: true })

@@ -1,716 +1,372 @@
 "use client";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { clearAppointmentData } from "@/store/slices/appointmentSlice";
-import { sendRequest } from "@/utils/api";
+import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import Image from "next/image";
-// Note: avoid `useSearchParams` here to prevent Next.js prerender issues.
-// We'll read window.location.search inside an effect when running in the browser.
-import { useCallback, useEffect, useState } from "react";
-import { Search, FileText } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Map, List, Calendar } from "lucide-react";
+import { toast } from "sonner";
+import SearchDoctors from "@/components/appointments/SearchDoctors";
+import DoctorList from "@/components/appointments/DoctorList";
+import TimeSlotPicker from "@/components/appointments/TimeSlotPicker";
+import BookingForm from "@/components/appointments/BookingForm";
+import AppointmentConfirmationComponent from "@/components/appointments/AppointmentConfirmation";
+import { Doctor, SearchFilters, BookingFormData, AppointmentConfirmation, ConsultType } from "@/types/appointment";
 
-export default function PatientAppointments() {
+type BookingStep = "search" | "timeslot" | "details" | "confirmation";
+
+export default function PatientAppointmentsPage() {
   const { data: session } = useSession();
-  // searchParams replaced by client-side URLSearchParams in effect
-  // const searchParams = useSearchParams();
-  const dispatch = useAppDispatch();
-  const appointmentState = useAppSelector((state: any) => state.appointment);
-  const { appointmentData, selectedDoctor, symptoms, urgencyLevel, notes: chatNotes } = appointmentState;
-  const patientId = session?.user?._id;
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const loadAppointments = useCallback(async () => {
-    if (!patientId) return;
-    try {
-      const res = await sendRequest<any>({
-        method: "GET",
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}`,
-      });
-      const list = res?.data || res || [];
-      if (Array.isArray(list)) {
-        setAppointments(list);
-      } else if (Array.isArray((list as any)?.results)) {
-        setAppointments((list as any).results);
-      } else {
-        setAppointments([]);
-      }
-    } catch (e) {
-      // ignore fetch failures; UI retains previous state and polling will retry
-      console.warn("loadAppointments failed", e);
-    }
-  }, [patientId]);
-
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
-  const [selectedDoctorId, setSelectedDoctorId] = useState("");
-  const [appointmentType, setAppointmentType] = useState("Khám định kỳ");
-  const [notes, setNotes] = useState("");
-  const [doctors, setDoctors] = useState<any[]>([]);
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [doctorBusyTimes, setDoctorBusyTimes] = useState<Set<string>>(new Set());
+  // State
+  const [step, setStep] = useState<BookingStep>("search");
+  const [viewMode, setViewMode] = useState<"list" | "map">("map");
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
-  const [prefilledData, setPrefilledData] = useState<{
-    doctorId?: string;
-    doctorName?: string;
-    specialty?: string;
-    notes?: string;
-    urgency?: string;
-    symptoms?: string;
-    uploadedImage?: string;
-    analysisResult?: any;
-    imageUrl?: string;
-  } | null>(null);
+  const [filters, setFilters] = useState<SearchFilters>({
+    searchQuery: searchParams.get("q") || "",
+    specialty: searchParams.get("specialty") || "",
+    gender: "all",
+    consultType: "all",
+    availability: "all",
+  });
 
-  const availableTimes = [
-    "08:00",
-    "08:30",
-    "09:00",
-    "09:30",
-    "10:00",
-    "10:30",
-    "11:00",
-    "11:30",
-    "14:00",
-    "14:30",
-    "15:00",
-    "15:30",
-    "16:00",
-    "16:30",
-  ];
+  // Booking flow state
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [bookingData, setBookingData] = useState<Partial<BookingFormData>>({});
+  const [confirmation, setConfirmation] = useState<AppointmentConfirmation | null>(null);
 
-  function getDateTimeFrom(dateStr: string, timeStr: string) {
-    if (!dateStr || !timeStr) return null;
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const [hh, mm] = timeStr.split(":").map(Number);
-    return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0, 0);
-  }
-
+  // Load initial doctors on mount (without filters)
   useEffect(() => {
-    async function loadDoctors() {
-      try {
-        const res = await sendRequest<any>({
-          method: "GET",
-          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/doctors`,
-        });
-        const list = res?.data || res?.users || res || [];
-        setDoctors(Array.isArray(list) ? list : []);
-      } catch (e) {
-        setDoctors([
-          { _id: "1", fullName: "bác sĩ ảo", specialty: "Nha khoa tổng quát" },
-          { _id: "2", fullName: "server chưa hiện bác sĩ", specialty: "Thẩm mỹ răng" },
-        ]);
-      }
-    }
+    if (!session?.user) return;
+    fetchDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
-    loadDoctors();
-    void loadAppointments();
-  }, [session, loadAppointments]);
-
-  // Process Redux data for pre-filling data
-  useEffect(() => {
-    // Check if we have data from Redux (coming from chat)
-    if (appointmentData || selectedDoctor || symptoms || chatNotes) {
-      const data = {
-        doctorId: appointmentData?.doctorId || selectedDoctor?._id || "",
-        doctorName: appointmentData?.doctorName || selectedDoctor?.fullName || "",
-        specialty: appointmentData?.specialty || selectedDoctor?.specialty || "",
-        notes: appointmentData?.notes || chatNotes || "",
-        urgency: appointmentData?.urgency || urgencyLevel || "low",
-        symptoms: appointmentData?.symptoms || symptoms || "",
-        uploadedImage: appointmentData?.uploadedImage || "",
-        analysisResult: appointmentData?.analysisResult || "",
-        imageUrl: appointmentData?.imageUrl || "",
-      };
-
-      setPrefilledData(data);
-
-      if (data.doctorId) {
-        setSelectedDoctorId(data.doctorId);
-      }
-
-      if (data.notes) {
-        let normalized = data.notes.replace(/🔍\s*/g, "");
-        normalized = normalized.replace("KẾT QUẢ PHÂN TÍCH AI", "KẾT QUẢ PHÂN TÍCH AI");
-        setNotes(normalized);
-      }
-
-      if (data.urgency === "high") {
-        setAppointmentType("Khám cấp cứu");
-      } else if (data.urgency === "medium") {
-        setAppointmentType("Khám định kỳ");
-      }
-    }
-  }, [appointmentData, selectedDoctor, symptoms, chatNotes, urgencyLevel]);
-
-  useEffect(() => {
-    if (doctors.length > 0 && prefilledData?.doctorId) {
-      const doctor = doctors.find((d) => d._id === prefilledData.doctorId || d.id === prefilledData.doctorId);
-      if (doctor) {
-        setSelectedDoctorId(doctor._id || doctor.id);
-      }
-    }
-  }, [doctors, prefilledData?.doctorId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!patientId) return;
-
-    const intervalId = window.setInterval(() => {
-      void loadAppointments();
-    }, 20000);
-
-    return () => window.clearInterval(intervalId);
-  }, [patientId, loadAppointments]);
-
-  useEffect(() => {
-    // Only run in browser
-    if (typeof window === "undefined") return;
-
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const doctorId = params.get("doctorId");
-      if (doctors.length > 0 && doctorId && !selectedDoctorId) {
-        const doctor = doctors.find((d) => d._id === doctorId || d.id === doctorId);
-        if (doctor) {
-          setSelectedDoctorId(doctor._id || doctor.id);
-        }
-      }
-    } catch (e) {
-      // ignore malformed URL
-    }
-  }, [doctors, selectedDoctorId]);
-
-  useEffect(() => {
-    async function fetchBusy() {
-      setDoctorBusyTimes(new Set());
-      if (!selectedDoctorId || !selectedDate) return;
-      try {
-        const res = await sendRequest<any>({
-          method: "GET",
-          url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${selectedDoctorId}`,
-        });
-        const list = res?.data || res || [];
-        const arr = Array.isArray(list) ? list : list?.results || [];
-        const busy = new Set<string>();
-        for (const a of arr) {
-          const d = a.appointmentDate || a.date;
-          if (!d) continue;
-          const sameDay = new Date(d).toISOString().slice(0, 10) === selectedDate;
-          if (!sameDay) continue;
-          const status = (a.status || "").toString().toLowerCase();
-          if (status === "cancelled" || status === "canceled") continue;
-          const start = a.startTime || a.time || a.appointmentTime;
-          if (!start) continue;
-          const m = start.toString().match(/(\d{1,2}:\d{2})/);
-          if (m) busy.add(m[1]);
-        }
-        setDoctorBusyTimes(busy);
-      } catch (e) {
-        console.warn("fetch doctor busy times failed", e);
-      }
-    }
-    fetchBusy();
-  }, [selectedDoctorId, selectedDate]);
-
-  function addMinutesToTime(time: string, minsToAdd: number) {
-    const [hh, mm] = time.split(":").map(Number);
-    const date = new Date();
-    date.setHours(hh, mm + minsToAdd, 0, 0);
-    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-  }
-
-  function isTimeDisabledForBooking(dateStr: string, timeStr: string) {
-    const dt = getDateTimeFrom(dateStr, timeStr);
-    if (!dt) return true;
-    const now = new Date();
-    if (dt.getTime() <= now.getTime()) return true;
-    const minLead = 2 * 60 * 60 * 1000;
-    if (dt.getTime() - now.getTime() < minLead) return true;
-    return false;
-  }
-
-  function formatAppointmentDate(appt: any) {
-    const d = appt?.appointmentDate || appt?.date;
-    if (!d) return "—";
-    const dt = new Date(d);
-    if (isNaN(dt.getTime())) return "—";
-    return dt.toLocaleDateString();
-  }
-
-  function formatAppointmentTime(appt: any) {
-    const t = appt?.startTime || appt?.time || appt?.appointmentTime;
-    return t || "—";
-  }
-
-  function getAuthHeaders() {
-    const token =
-      (session as any)?.access_token ||
-      (session as any)?.user?.access_token ||
-      (session as any)?.user?.accessToken ||
-      (session as any)?.token?.access_token;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!session?.user?._id) {
-      alert("Vui lòng đăng nhập để đặt lịch");
-      return;
-    }
-
-    if (!selectedDoctorId) {
-      alert("Vui lòng chọn bác sĩ");
-      return;
-    }
-    if (!selectedDate || !selectedTime) {
-      alert("Vui lòng chọn ngày và giờ");
-      return;
-    }
-
-    const chosen = getDateTimeFrom(selectedDate, selectedTime);
-    if (!chosen) {
-      alert("Ngày hoặc giờ không hợp lệ");
-      return;
-    }
-    const now = new Date();
-    if (chosen.getTime() <= now.getTime()) {
-      alert("Không thể đặt lịch vào thời gian đã qua");
-      return;
-    }
-    const minLead = 2 * 60 * 60 * 1000;
-    if (chosen.getTime() - now.getTime() < minLead) {
-      alert("Vui lòng đặt lịch ít nhất 2 tiếng trước giờ hẹn");
-      return;
-    }
-
+  const fetchDoctors = async () => {
     setLoading(true);
-
     try {
-      const duration = 30;
-      const endTime = addMinutesToTime(selectedTime, duration);
-
-      const [y, m, d] = selectedDate.split("-").map(Number);
-      const appointmentDateISO = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 0, 0, 0)).toISOString();
-
-      const body = {
-        patientId: session.user._id,
-        doctorId: selectedDoctorId,
-        appointmentDate: appointmentDateISO,
-        startTime: selectedTime,
-        endTime,
-        appointmentType,
-        notes,
-        duration: Number(duration),
-      };
-
-      const res = await sendRequest<any>({
-        method: "POST",
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments`,
-        body,
-      });
-
-      if (res && (res as any).statusCode && (res as any).statusCode >= 400) {
-        const msg = (res as any).message || (res as any).error || "Lỗi server";
-        throw new Error(msg);
+      const params = new URLSearchParams();
+      if (filters.searchQuery) params.set("search", filters.searchQuery);
+      if (filters.specialty && filters.specialty !== "all") params.set("specialty", filters.specialty);
+      if (filters.gender && filters.gender !== "all") params.set("gender", filters.gender);
+      if (filters.experienceRange && filters.experienceRange[0] > 0) {
+        params.set("minExperience", filters.experienceRange[0].toString());
       }
 
-  await loadAppointments();
-      alert("Tạo lịch hẹn thành công");
-      setSelectedDate("");
-      setSelectedTime("");
-      setNotes("");
+      console.log("Fetch doctors with params:", params.toString());
 
-      dispatch(clearAppointmentData());
-    } catch (err: any) {
-      const message = err?.message || err?.error || "Tạo lịch hẹn thất bại";
-      if (message.includes("Bác sĩ đã có lịch hẹn vào khung giờ này")) {
-        alert("Bác sĩ đã có lịch hẹn vào khung giờ này. Vui lòng chọn khung giờ khác.");
-      } else {
-        alert(`Lỗi: ${message}`);
-      }
+      const url = `/api/users/doctors?${params.toString()}`;
+      const res = await fetch(url, { method: "GET" });
+      console.log("Fetch response:", res);
+      if (!res.ok) throw new Error("Failed to fetch doctors");
+
+      const data = await res.json();
+      console.log("Fetch data:", data);
+      const doctorList = data?.data || data?.users || data?.results || data || [];
+      setDoctors(Array.isArray(doctorList) ? doctorList : []);
+    } catch (error) {
+      console.error("Error fetching doctors:", error);
+      toast.error("Không thể tải danh sách bác sĩ");
+      setDoctors([]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  async function handleCancel(appointmentId: string) {
-    if (!confirm("Bạn có chắc muốn hủy lịch hẹn này không?")) return;
-    try {
-      const headers = getAuthHeaders();
-      const res = await sendRequest<any>({
-        method: "DELETE",
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/cancel`,
-        body: { reason: "Hủy bởi bệnh nhân" },
-        headers,
-      });
-      setAppointments((prev) => prev.filter((a) => a._id !== appointmentId));
-      alert("Đã hủy lịch hẹn");
-      await loadAppointments();
-    } catch (err: any) {
-      alert("Hủy lịch thất bại");
-    }
-  }
+  const handleSearch = () => {
+    fetchDoctors();
+  };
 
-  async function handleEdit(appointment: any) {
-    if (appointment.status === "confirmed") {
-      alert("Lịch đã được xác nhận, không thể sửa.");
+  const handleDoctorSelect = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    // Open modal for TimeSlotPicker
+  };
+
+  const handleBookAppointment = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    // Open modal for TimeSlotPicker
+  };
+
+  const handleTimeSlotSelect = (date: string, time: string, consultType: ConsultType) => {
+    if (!selectedDoctor) return;
+
+    setBookingData({
+      doctorId: selectedDoctor._id || selectedDoctor.id || "",
+      appointmentDate: date,
+      startTime: time,
+      consultType,
+    });
+    setStep("details");
+  };
+
+  const handleBookingSubmit = async (formData: BookingFormData) => {
+    const userId = (session?.user as { _id?: string })._id;
+    if (!userId) {
+      toast.error("Vui lòng đăng nhập để đặt lịch");
+      router.push("/auth/signin");
       return;
     }
-    const newDate = prompt(
-      "Nhập ngày mới (YYYY-MM-DD)",
-      appointment.appointmentDate ? new Date(appointment.appointmentDate).toISOString().slice(0, 10) : ""
-    );
-    if (!newDate) return;
-    const newTime = prompt("Nhập giờ mới (HH:MM)", appointment.startTime || "08:00");
-    if (!newTime) return;
 
     try {
-      const [yy, mm, dd] = newDate.split("-").map(Number);
-      const appointmentDateISO = new Date(Date.UTC(yy, (mm || 1) - 1, dd || 1, 0, 0, 0)).toISOString();
-      await sendRequest<any>({
-        method: "PATCH",
-        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointment._id}/reschedule`,
-        body: { appointmentDate: appointmentDateISO, appointmentTime: newTime },
+      const payload = {
+        ...formData,
+        patientId: userId,
+        status: "pending",
+      };
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
-      setAppointments((prev) =>
-        prev.map((a) =>
-          a._id === appointment._id
-            ? { ...a, appointmentDate: appointmentDateISO, startTime: newTime, status: "pending" }
-            : a
-        )
-      );
-      alert("Đã gửi yêu cầu đổi lịch");
-    } catch (err: any) {
-      alert("Đổi lịch thất bại");
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to create appointment");
+      }
+
+      const result = await res.json();
+      const appointment = result?.data || result;
+
+      // Create confirmation
+      const confirmationData: AppointmentConfirmation = {
+        appointment: {
+          ...appointment,
+          doctor: selectedDoctor,
+        },
+        doctor: selectedDoctor!,
+        bookingId: appointment._id || appointment.id || `BK${Date.now()}`,
+        confirmationMessage: "Lịch hẹn của bạn đã được đặt thành công!",
+        instructions: [
+          "Đến phòng khám trước giờ hẹn 10-15 phút",
+          "Mang theo giấy tờ tùy thân và bảo hiểm y tế (nếu có)",
+          "Gặp bác sĩ để thảo luận về tình trạng sức khỏe và phương án điều trị",
+          "Bác sĩ sẽ lên kế hoạch điều trị có thể bao gồm làm sạch, trám, nhổ răng hoặc các thủ thuật khác",
+        ],
+        calendarLinks: {
+          google: generateGoogleCalendarLink(appointment, selectedDoctor!),
+          ics: `/api/appointments/${appointment._id}/ics`,
+        },
+        receiptUrl: `/api/appointments/${appointment._id}/receipt`,
+      };
+
+      setConfirmation(confirmationData);
+      setStep("confirmation");
+      toast.success("Đặt lịch thành công!");
+    } catch (error: unknown) {
+      console.error("Booking error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Không thể đặt lịch";
+      toast.error(errorMessage);
     }
-  }
+  };
+
+  const handleReschedule = () => {
+    setStep("search");
+    setConfirmation(null);
+    // Keep selectedDoctor so TimeSlotPicker remains visible
+  };
+
+  const handleCloseConfirmation = () => {
+    router.push("/patient/appointments/my-appointments");
+  };
+
+  const handleBackToSearch = () => {
+    setStep("search");
+    setSelectedDoctor(null);
+    setBookingData({});
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="healthcare-card-elevated p-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Tìm kiếm và đặt lịch hẹn</h1>
+              <p className="text-gray-600">
+                {step === "search" && "Tìm bác sĩ nha khoa và chọn thời gian khám phù hợp"}
+                {step === "details" && "Điền thông tin chi tiết"}
+                {step === "confirmation" && "Lịch hẹn đã được xác nhận"}
+              </p>
+            </div>
+
+            {/* Step Indicator */}
+            <div className="hidden md:flex items-center gap-2">
+              <StepIndicator
+                step={1}
+                label="Chọn bác sĩ & giờ"
+                active={step === "search"}
+                completed={step !== "search"}
+              />
+              <div className="w-8 h-0.5 bg-gray-300" />
+              <StepIndicator
+                step={2}
+                label="Chi tiết"
+                active={step === "details"}
+                completed={step === "confirmation"}
+              />
+              <div className="w-8 h-0.5 bg-gray-300" />
+              <StepIndicator step={3} label="Xác nhận" active={step === "confirmation"} completed={false} />
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        {step === "search" && (
+          <>
+            {/* Search and Filters */}
+            <SearchDoctors filters={filters} onFiltersChange={setFilters} onSearch={handleSearch} />
+
+            {/* View Toggle */}
+            <div className="healthcare-card p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setViewMode("map")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      viewMode === "map"
+                        ? "bg-[var(--color-primary)] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Map className="w-5 h-5" />
+                    Bản đồ
+                  </button>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      viewMode === "list"
+                        ? "bg-[var(--color-primary)] text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <List className="w-5 h-5" />
+                    Danh sách
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => router.push("/patient/appointments/my-appointments")}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Calendar className="w-5 h-5" />
+                  Lịch hẹn của tôi
+                </button>
+              </div>
+            </div>
+
+            {/* Doctor List */}
+            <DoctorList
+              doctors={doctors}
+              loading={loading}
+              viewMode={viewMode}
+              onDoctorSelect={handleDoctorSelect}
+              onBookAppointment={handleBookAppointment}
+              selectedDoctor={selectedDoctor}
+            />
+
+            {/* TimeSlot Picker Modal */}
+            {selectedDoctor && (
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
-                style={{
-                  backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
-                }}
+                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in"
+                onClick={() => setSelectedDoctor(null)}
               >
-                <FileText className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="healthcare-heading text-2xl">Đặt lịch hẹn</h1>
-                <p className="healthcare-body mt-1">Quản lý và đặt lịch khám mới</p>
-
-                {prefilledData?.notes && prefilledData.notes.includes("KẾT QUẢ PHÂN TÍCH AI") && (
-                  <div className="mt-3 p-3 bg-blue-50 border rounded-lg border-blue-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="mr-2" style={{ color: "var(--color-primary)" }}>
-                          🤖
-                        </span>
-                        <span className="text-sm font-medium" style={{ color: "var(--color-primary)" }}>
-                          Đã chuyển từ chatbot với phân tích AI và hình ảnh X-ray
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          dispatch(clearAppointmentData());
-                          setPrefilledData(null);
-                          setNotes("");
-                          setSelectedDoctorId("");
-                          setAppointmentType("Khám định kỳ");
-                        }}
-                        className="text-xs underline"
-                        style={{ color: "var(--color-primary)" }}
-                      >
-                        Xóa dữ liệu chatbot
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <button className="btn-healthcare-primary">Đặt lịch mới</button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Booking Form */}
-          <div className="healthcare-card p-6">
-            <h2 className="healthcare-heading text-xl mb-4">Đặt lịch khám mới</h2>
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Chọn bác sĩ</label>
-                <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  value={selectedDoctorId}
-                  onChange={(e) => setSelectedDoctorId(e.target.value)}
-                >
-                  <option value="">Chọn bác sĩ</option>
-                  {doctors.map((doctor) => (
-                    <option key={doctor._id || doctor.id} value={doctor._id || doctor.id}>
-                      {doctor.fullName || doctor.name} - {doctor.specialty}
-                    </option>
-                  ))}
-                </select>
-                {prefilledData?.doctorName && !selectedDoctorId && doctors.length > 0 && (
-                  <div className="mt-2 p-3 bg-primary-100 border border-primary-outline rounded-lg">
-                    <div className="flex items-center">
-                      <span className="mr-2" style={{ color: "var(--color-primary)" }}>
-                        🤖
-                      </span>
-                      <div className="text-sm">
-                        <p className="font-medium" style={{ color: "var(--color-primary-600)" }}>
-                          Gợi ý bác sĩ từ chatbot:
-                        </p>
-                        <p style={{ color: "var(--color-primary-700)" }}>
-                          {prefilledData.doctorName} - {prefilledData.specialty}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Chọn ngày</label>
-                <input
-                  type="date"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Chọn giờ</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {availableTimes.map((time) => {
-                    const slotOccupiedByDoctor = doctorBusyTimes.has(time);
-                    const disabledByRules = isTimeDisabledForBooking(selectedDate, time) || slotOccupiedByDoctor;
-                    return (
-                      <button
-                        key={time}
-                        type="button"
-                        className={`p-2 text-sm rounded border flex items-center justify-center ${
-                          selectedTime === time
-                            ? "bg-primary-100 text-primary border-primary-outline"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                        } ${
-                          disabledByRules ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] transition-transform"
-                        }`}
-                        onClick={() => {
-                          if (!disabledByRules) setSelectedTime(time);
-                        }}
-                      >
-                        <span>{time}</span>
-                        {slotOccupiedByDoctor ? (
-                          <span className="ml-2 text-xs" style={{ color: "var(--color-primary)" }}>
-                            (Bận)
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Loại khám</label>
-                <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2"
-                  value={appointmentType}
-                  onChange={(e) => setAppointmentType(e.target.value)}
-                >
-                  <option>Khám định kỳ</option>
-                  <option>Khám cấp cứu</option>
-                  <option>Tẩy trắng răng</option>
-                  <option>Chỉnh nha</option>
-                  <option>Nhổ răng</option>
-                </select>
-
-                {prefilledData?.symptoms && (
-                  <div
-                    className="mt-2 p-2 rounded border text-xs"
-                    style={{ background: "var(--color-primary-outline)", borderColor: "var(--color-primary-outline)" }}
-                  >
-                    <p className="font-medium mb-1" style={{ color: "var(--color-primary-contrast)" }}>
-                      <Search className="inline w-4 h-4 mr-1" /> Triệu chứng từ chatbot:
-                    </p>
-                    <p style={{ color: "var(--color-primary-contrast)" }}>{prefilledData.symptoms}</p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ghi chú
-                  {prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI") && (
-                    <span
-                      className="ml-2 text-xs px-2 py-1 rounded-full"
-                      style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-contrast)" }}
-                    >
-                      🤖 Từ chatbot
-                    </span>
-                  )}
-                </label>
-                <textarea
-                  className={`w-full border border-gray-300 rounded-md px-3 py-2`}
-                  style={
-                    prefilledData?.notes && prefilledData.notes.includes("🔍 KẾT QUẢ PHÂN TÍCH AI")
-                      ? {
-                          borderColor: "rgba(var(--color-primary-rgb),0.12)",
-                          background: "var(--color-primary-outline)",
-                        }
-                      : undefined
-                  }
-                  rows={6}
-                  placeholder="Mô tả triệu chứng hoặc yêu cầu đặc biệt..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-
-                {prefilledData?.imageUrl && (
-                  <div
-                    className="mt-4 p-4 rounded-lg"
-                    style={{
-                      background: "var(--color-primary-outline)",
-                      border: "1px solid rgba(var(--color-primary-rgb),0.12)",
-                    }}
-                  >
-                    <h4
-                      className="text-sm font-medium mb-2 flex items-center"
-                      style={{ color: "var(--color-primary-contrast)" }}
-                    >
-                      <span className="mr-2">🖼️</span>
-                      Hình ảnh X-ray từ chatbot
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="relative w-full h-64">
-                        <Image
-                          src={prefilledData.imageUrl}
-                          alt="X-ray image from chat"
-                          fill
-                          className="object-contain rounded-lg border border-gray-300"
-                        />
-                      </div>
-                      {prefilledData.analysisResult && (
-                        <div className="text-sm" style={{ color: "var(--color-primary-contrast)" }}>
-                          <p className="font-medium mb-2 flex items-center">
-                            <span className="mr-1">
-                              <Search className="w-4 h-4" />
-                            </span>
-                            Kết quả phân tích AI:
-                          </p>
-                          <div className="bg-white p-3 rounded border text-xs max-h-48 overflow-y-auto">
-                            {prefilledData.analysisResult.richContent?.analysis ? (
-                              <div>
-                                <p className="font-medium mb-1">Chẩn đoán:</p>
-                                <p className="mb-2">{prefilledData.analysisResult.richContent.analysis}</p>
-                                {prefilledData.analysisResult.richContent.recommendations && (
-                                  <div>
-                                    <p className="font-medium mb-1">Khuyến nghị:</p>
-                                    <ul className="list-disc list-inside space-y-1">
-                                      {prefilledData.analysisResult.richContent.recommendations.map(
-                                        (rec: string, index: number) => (
-                                          <li key={index}>{rec}</li>
-                                        )
-                                      )}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <p>{prefilledData.analysisResult.analysis || "Đã phân tích hình ảnh X-ray"}</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full btn-healthcare-primary py-3 rounded-md"
-                style={loading ? { opacity: 0.6, pointerEvents: "none" } : undefined}
-              >
-                {loading ? "Đang xử lý..." : "Đặt lịch hẹn"}
-              </button>
-            </form>
-          </div>
-
-          {/* Current Appointments */}
-          <div className="healthcare-card">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="healthcare-heading text-xl">Lịch hẹn của bạn</h2>
-            </div>
-            <div className="p-6 space-y-4">
-              {appointments.length === 0 && <p className="text-sm text-gray-500">Chưa có lịch hẹn nào.</p>}
-              {appointments.map((appointment, idx) => (
                 <div
-                  key={
-                    appointment._id ||
-                    appointment.id ||
-                    `${appointment.appointmentDate || appointment.date}-${appointment.startTime || appointment.time}` ||
-                    idx
-                  }
-                  className="border rounded-lg p-4 hover:bg-gray-50"
+                  className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto shadow-2xl animate-scale-in"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{appointment.appointmentType || appointment.type}</h3>
-                      <p className="text-sm text-gray-600">{appointment.doctor?.fullName || appointment.doctor}</p>
-                      <p className="text-sm text-gray-500">
-                        {formatAppointmentDate(appointment)} - {formatAppointmentTime(appointment)}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end space-y-2">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          appointment.status === "confirmed"
-                            ? "bg-primary-100 text-primary"
-                            : "bg-primary-100 text-primary"
-                        }`}
-                      >
-                        {appointment.status === "confirmed" ? "Đã xác nhận" : "Chờ xác nhận"}
-                      </span>
-                      <div className="flex space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(appointment)}
-                          className={`text-primary text-sm ${
-                            appointment.status === "confirmed" ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                          disabled={appointment.status === "confirmed"}
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCancel(appointment._id)}
-                          className={`text-gray-600 hover:text-gray-800 text-sm ${
-                            appointment.status === "confirmed" ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                          disabled={appointment.status === "confirmed"}
-                        >
-                          Hủy
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <TimeSlotPicker
+                    doctor={selectedDoctor}
+                    onClose={() => setSelectedDoctor(null)}
+                    onSelectSlot={handleTimeSlotSelect}
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Booking Form */}
+        {step === "details" && selectedDoctor && (
+          <div className="healthcare-card p-6">
+            <BookingForm initialData={bookingData} onSubmit={handleBookingSubmit} onCancel={handleBackToSearch} />
           </div>
-        </div>
+        )}
+
+        {/* Confirmation */}
+        {step === "confirmation" && confirmation && (
+          <AppointmentConfirmationComponent
+            confirmation={confirmation}
+            onClose={handleCloseConfirmation}
+            onReschedule={handleReschedule}
+            onDownloadReceipt={() => {
+              window.open(confirmation.receiptUrl, "_blank");
+            }}
+          />
+        )}
       </div>
     </div>
   );
+}
+
+// Step Indicator Component
+function StepIndicator({
+  step,
+  label,
+  active,
+  completed,
+}: {
+  step: number;
+  label: string;
+  active: boolean;
+  completed: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
+          active ? "text-white" : completed ? "bg-green-600 text-white" : "bg-gray-200 text-gray-600"
+        }`}
+        style={active ? { backgroundColor: "var(--color-primary)" } : {}}
+      >
+        {completed ? "✓" : step}
+      </div>
+      <span
+        className={`text-xs mt-1 ${active ? "font-medium" : "text-gray-600"}`}
+        style={active ? { color: "var(--color-primary)" } : {}}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// Helper function to generate Google Calendar link
+function generateGoogleCalendarLink(
+  appointment: { appointmentDate: string; startTime: string },
+  doctor: Doctor
+): string {
+  const date = new Date(appointment.appointmentDate);
+  const [hours, minutes] = appointment.startTime.split(":");
+  date.setHours(parseInt(hours), parseInt(minutes));
+
+  const endDate = new Date(date);
+  endDate.setMinutes(endDate.getMinutes() + 60); // Assume 1 hour appointment
+
+  const formatDate = (d: Date) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `Lịch hẹn với ${doctor.fullName}`,
+    dates: `${formatDate(date)}/${formatDate(endDate)}`,
+    details: `Khám với ${doctor.fullName} - ${doctor.specialty}`,
+    location: doctor.clinicAddress || "",
+  });
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
