@@ -1,28 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import maplibregl, { Map as MapLibreMap, Marker as MapLibreMarker, Popup as MapLibrePopup } from "maplibre-gl";
+import maplibregl, {
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+  Popup as MapLibrePopup,
+  GeoJSONSource,
+} from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Navigation, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Doctor } from "@/types/appointment";
 
 interface AppointmentsMapProps {
   doctors: Doctor[];
   selectedDoctor: Doctor | null;
-  onDoctorSelect: (doctor: Doctor) => void;
+  onDoctorSelect: (doctor: Doctor | null) => void;
   onBookAppointment?: (doctor: Doctor) => void;
   center?: { lat: number; lng: number };
   zoom?: number;
 }
 
-// Default coordinates for Ho Chi Minh City
-const DEFAULT_CENTER = { lat: 10.7769, lng: 106.7009 };
+type RoutingResponse = {
+  routes?: Array<{
+    geometry: GeoJSON.LineString;
+    distance: number;
+    duration: number;
+  }>;
+};
 
-// Sample coordinates for doctors in HCM area (for testing)
+const DEFAULT_CENTER = { lat: 10.7769, lng: 106.7009 };
+const ROUTE_SOURCE_ID = "doctor-route";
+const ROUTE_LAYER_ID = "doctor-route-line";
+const ROUTE_OUTLINE_LAYER_ID = "doctor-route-outline";
+
 const SAMPLE_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  "BS. Nguyễn Văn Minh": { lat: 10.782, lng: 106.6952 }, // District 1
-  "BS. Trần Thị": { lat: 10.7895, lng: 106.701 }, // District 3
-  // Add more as needed
+  "BS. Nguyễn Văn Minh": { lat: 10.782, lng: 106.6952 },
+  "BS. Trần Thị": { lat: 10.7895, lng: 106.701 },
 };
 
 export default function AppointmentsMap({
@@ -38,51 +51,67 @@ export default function AppointmentsMap({
   const markersRef = useRef<Map<string, MapLibreMarker>>(new Map());
   const popupsRef = useRef<Map<string, MapLibrePopup>>(new Map());
   const userMarkerRef = useRef<MapLibreMarker | null>(null);
+  const routeAbortControllerRef = useRef<AbortController | null>(null);
+  const activeRouteDoctorRef = useRef<string | null>(null);
 
   const [isMapReady, setIsMapReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [isRouting, setIsRouting] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
+  const [routePositions, setRoutePositions] = useState<{
+    origin: { lat: number; lng: number };
+    destination: { lat: number; lng: number };
+  } | null>(null);
+
+  const formatDistance = useCallback((meters: number) => {
+    if (!meters) return "0 m";
+    if (meters >= 1000) {
+      const km = meters / 1000;
+      return `${km >= 10 ? Math.round(km) : km.toFixed(1)} km`;
+    }
+    return `${Math.round(meters)} m`;
+  }, []);
+
+  const formatDuration = useCallback((seconds: number) => {
+    if (!seconds) return "0 phút";
+    const totalMinutes = Math.round(seconds / 60);
+    if (totalMinutes < 60) {
+      return `${totalMinutes} phút`;
+    }
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (minutes === 0) {
+      return `${hours} giờ`;
+    }
+    return `${hours} giờ ${minutes} phút`;
+  }, []);
 
   const resolvedCenter = useMemo(() => center ?? DEFAULT_CENTER, [center]);
 
-  const { styleUrl, styleError } = useMemo(() => {
+  const { styleUrl } = useMemo(() => {
     const maptilerKey = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
     const maptilerStyle = process.env.NEXT_PUBLIC_MAPTILER_STYLE_URL;
-
     if (maptilerKey && maptilerStyle) {
-      return {
-        styleUrl: maptilerStyle.replace("{key}", maptilerKey),
-        styleError: null,
-      };
+      return { styleUrl: maptilerStyle.replace("{key}", maptilerKey) };
     }
-
-    // Use OpenStreetMap tiles as fallback
-    const osmStyle = {
-      version: 8 as const,
-      sources: {
-        osm: {
-          type: "raster" as const,
-          tiles: ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"],
-          tileSize: 256,
-          attribution: "© OpenStreetMap Contributors",
-          maxzoom: 19,
-        },
-      },
-      layers: [
-        {
-          id: "osm",
-          type: "raster" as const,
-          source: "osm",
-        },
-      ],
-    };
-
-    // Return OSM style as fallback
     return {
-      styleUrl: osmStyle,
-      styleError: null,
+      styleUrl: {
+        version: 8 as const,
+        sources: {
+          osm: {
+            type: "raster" as const,
+            tiles: ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            tileSize: 256,
+            attribution: "© OpenStreetMap Contributors",
+            maxzoom: 19,
+          },
+        },
+        layers: [{ id: "osm", type: "raster" as const, source: "osm" }],
+      },
     };
   }, []);
 
@@ -91,30 +120,26 @@ export default function AppointmentsMap({
   }, []);
 
   useEffect(() => {
-    if (!mapContainer || styleError) return;
-
+    if (!mapContainer) return;
     try {
       setError(null);
       setIsMapReady(false);
-
       const map = new maplibregl.Map({
         container: mapContainer,
         style: styleUrl,
         center: [resolvedCenter.lng, resolvedCenter.lat],
         zoom,
       });
-
+      map.getCanvas().tabIndex = -1;
       map.addControl(new maplibregl.NavigationControl(), "top-right");
       map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
-
       mapInstanceRef.current = map;
-
-      const handleLoad = () => {
-        setIsMapReady(true);
-      };
-
+      const handleLoad = () => setIsMapReady(true);
       map.on("load", handleLoad);
-
+      map.on("popupopen", () => {
+        const popupEl = document.querySelector(".maplibregl-popup");
+        if (popupEl) (popupEl as HTMLElement).tabIndex = -1;
+      });
       return () => {
         map.off("load", handleLoad);
         map.remove();
@@ -125,406 +150,361 @@ export default function AppointmentsMap({
       console.error("Map initialization error:", err);
       setError("Không thể khởi tạo bản đồ");
     }
-  }, [mapContainer, styleUrl, styleError, resolvedCenter, zoom]);
+  }, [mapContainer, styleUrl, resolvedCenter, zoom]);
 
-  const requestUserLocation = useCallback(() => {
-    if (!mapInstanceRef.current) return;
+  const requestUserLocation = useCallback(async () => {
+    if (!mapInstanceRef.current) {
+      setLocationError("Bản đồ chưa sẵn sàng để xác định vị trí.");
+      return null;
+    }
 
     setIsRequestingLocation(true);
     setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const userPos = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
-
-        setUserLocation(userPos);
-
-        // Remove old marker if exists
-        if (userMarkerRef.current) {
-          userMarkerRef.current.remove();
-        }
-
-        // Create new user location marker (red)
-        const el = document.createElement("div");
-        el.className = "user-location-marker";
-        el.innerHTML = `
-        <div style="
-          width: 24px;
-          height: 24px;
-          background: #DC2626;
-          border: 3px solid white;
-          border-radius: 50%;
-          box-shadow: 0 0 12px 4px rgba(220,38,38,0.5);
-          position: relative;
-        ">
-          <div style="
-            position: absolute;
-            top: -10px;
-            left: -10px;
-            right: -10px;
-            bottom: -10px;
-            border: 3px solid #DC2626;
-            border-radius: 50%;
-            opacity: 0;
-            animation: pulse 1.5s infinite ease-out;
-          "></div>
-        </div>
-      `;
-
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([userPos.lng, userPos.lat])
-          .addTo(mapInstanceRef.current!);
-
-        userMarkerRef.current = marker;
-        setIsRequestingLocation(false);
-
-        // Fly to user location
-        setTimeout(() => {
-          mapInstanceRef.current?.flyTo({
-            center: [userPos.lng, userPos.lat],
-            zoom: 15,
-            speed: 1.2,
-            curve: 1.5,
-            essential: true,
-          });
-        }, 200);
-      },
-      (err) => {
-        console.error("Không lấy được vị trí:", err);
-        setLocationError("Không thể xác định vị trí của bạn. Vui lòng kiểm tra quyền truy cập vị trí.");
-        setIsRequestingLocation(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    return new Promise<{ lat: number; lng: number } | null>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setUserLocation(userPos);
+          if (userMarkerRef.current) userMarkerRef.current.remove();
+          const el = document.createElement("div");
+          el.innerHTML = `<div style="width:24px;height:24px;background:#DC2626;border:3px solid white;border-radius:50%;box-shadow:0 0 12px 4px rgba(220,38,38,0.5);position:relative;"><div style="position:absolute;top:-10px;left:-10px;right:-10px;bottom:-10px;border:3px solid #DC2626;border-radius:50%;opacity:0;animation:pulse 1.5s infinite ease-out;"></div></div>`;
+          const marker = new maplibregl.Marker({ element: el })
+            .setLngLat([userPos.lng, userPos.lat])
+            .addTo(mapInstanceRef.current!);
+          userMarkerRef.current = marker;
+          setIsRequestingLocation(false);
+          setTimeout(() => {
+            mapInstanceRef.current?.flyTo({
+              center: [userPos.lng, userPos.lat],
+              zoom: 15,
+              speed: 1.2,
+              curve: 1.5,
+              essential: true,
+            });
+          }, 200);
+          resolve(userPos);
+        },
+        (err) => {
+          console.error("Không lấy được vị trí:", err);
+          setLocationError("Không thể xác định vị trí của bạn.");
+          setIsRequestingLocation(false);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
   }, []);
 
   const getDoctorCoordinates = useCallback((doctor: Doctor): { lat: number; lng: number } | null => {
-    console.log("🔍 [DEBUG] Fetching coordinates for doctor:", {
-      fullName: doctor.fullName,
-      hasLatitude: !!doctor.latitude,
-      hasLongitude: !!doctor.longitude,
-      latitude: doctor.latitude,
-      longitude: doctor.longitude,
-      clinicAddress: doctor.clinicAddress,
-      clinicCity: doctor.clinicCity,
-    });
-
-    // First check if doctor has coordinates
-    if (doctor.latitude && doctor.longitude) {
-      console.log("✅ [DEBUG] Using REAL coordinates from database:", {
-        lat: doctor.latitude,
-        lng: doctor.longitude,
-      });
-      return { lat: doctor.latitude, lng: doctor.longitude };
-    }
-
-    // Use sample coordinates for demo
+    if (doctor.latitude && doctor.longitude) return { lat: doctor.latitude, lng: doctor.longitude };
     const coords = SAMPLE_COORDINATES[doctor.fullName];
-    if (coords) {
-      console.log("⚠️ [DEBUG] Using SAMPLE coordinates (hardcoded):", coords);
-      return coords;
-    }
-
-    // Generate random coordinates near HCM city center for demo
+    if (coords) return coords;
     const randomLat = DEFAULT_CENTER.lat + (Math.random() - 0.5) * 0.05;
     const randomLng = DEFAULT_CENTER.lng + (Math.random() - 0.5) * 0.05;
-    console.warn("❌ [DEBUG] Using RANDOM coordinates (no data from API):", {
-      lat: randomLat,
-      lng: randomLng,
-      reason: "Doctor has NO latitude/longitude in database",
-    });
     return { lat: randomLat, lng: randomLng };
   }, []);
 
   const createDoctorMarker = useCallback((doctor: Doctor, isSelected: boolean) => {
     const el = document.createElement("div");
-
-    // Different colors for selected vs normal doctors
-    const backgroundColor = isSelected ? "#059669" : "#3b82f6"; // Green for selected, blue for normal
-    const shadowColor = isSelected ? "rgba(5,150,105,0.5)" : "rgba(59,130,246,0.5)";
-
-    el.style.cssText = `
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.3s ease;
-      transform-origin: center center;
-    `;
-
-    el.innerHTML = `
-  <div style="
-    width: 26px;
-    height: 26px;
-    background: ${backgroundColor};
-    border: 3px solid white;
-    border-radius: 50%;
-    box-shadow: 0 0 20px 6px ${shadowColor};
-    position: relative;
-    z-index: 1000;
-    transition: all 0.3s ease;
-  ">
-    <div style="
-      position: absolute;
-      top: -10px;
-      left: -10px;
-      right: -10px;
-      bottom: -10px;
-      border: 3px solid ${backgroundColor};
-      border-radius: 50%;
-      opacity: 0;
-      animation: pulse 1.5s infinite ease-out;
-    "></div>
-  </div>
-`;
-
+    el.style.cssText = "width:32px; height:32px; cursor:pointer;";
     el.title = `${doctor.fullName} - ${doctor.specialty || "Bác sĩ"}`;
-
-    // Add hover effects with proper element reference
-    el.addEventListener("mouseenter", () => {
-      el.style.transform = "scale(1.15)";
-      const innerDiv = el.querySelector("div") as HTMLElement;
-      if (innerDiv) {
-        innerDiv.style.zIndex = "1001";
-      }
-    });
-
-    el.addEventListener("mouseleave", () => {
-      el.style.transform = "scale(1)";
-      const innerDiv = el.querySelector("div") as HTMLElement;
-      if (innerDiv) {
-        innerDiv.style.zIndex = "1000";
-      }
-    });
-
+    const backgroundColor = isSelected ? "#059669" : "#3b82f6";
+    const shadowColor = isSelected ? "rgba(5,150,105,0.5)" : "rgba(59,130,246,0.5)";
+    const markerEl = document.createElement("div");
+    markerEl.style.transition = "all 0.2s ease-in-out";
+    markerEl.innerHTML = `<div style="width:26px;height:26px;background:${backgroundColor};border:3px solid white;border-radius:50%;box-shadow:0 0 20px 6px ${shadowColor};position:relative;z-index:10;"><div style="position:absolute;top:-10px;left:-10px;right:-10px;bottom:-10px;border:3px solid ${backgroundColor};border-radius:50%;opacity:0;animation:pulse 1.5s infinite ease-out;"></div></div>`;
+    el.onmouseover = () => {
+      markerEl.style.transform = "scale(1.15)";
+      el.style.zIndex = "1001";
+    };
+    el.onmouseout = () => {
+      markerEl.style.transform = "scale(1)";
+      el.style.zIndex = "1000";
+    };
+    el.appendChild(markerEl);
     return el;
   }, []);
 
   const createPopupContent = useCallback((doctor: Doctor, doctorId: string) => {
-    const popupHtml = `
-      <div style="padding: 16px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-width: 280px; max-width: 320px;">
-        <div style="margin-bottom: 12px;">
-          <h3 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 700; color: #1f2937; line-height: 1.3;">
-            ${doctor.fullName}
-          </h3>
-          <p style="margin: 0 0 8px 0; font-size: 14px; color: #3b82f6; font-weight: 600;">
-            ${doctor.specialty || doctor.specialization || "Bác sĩ"}
-          </p>
-        </div>
-
-        ${
-          doctor.clinicAddress || doctor.address
-            ? `
-          <div style="margin-bottom: 12px; display: flex; align-items: start; gap: 8px;">
-            <span style="font-size: 14px; color: #059669;">📍</span>
-            <div style="flex: 1;">
-              <p style="margin: 0; font-size: 13px; color: #374151; line-height: 1.4; font-weight: 500;">
-                ${doctor.clinicAddress || doctor.address}
-              </p>
-              ${doctor.clinicCity ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #9ca3af;">${doctor.clinicCity}</p>` : ''}
-            </div>
-          </div>
-        `
-            : ""
-        }
-
-        ${
-          doctor.rating
-            ? `
-          <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 4px;">
-            <span style="color: #f59e0b; font-size: 14px;">⭐</span>
-            <span style="font-size: 13px; color: #f59e0b; font-weight: 600;">
-              ${doctor.rating}
-            </span>
-            ${
-              doctor.reviewCount
-                ? `
-              <span style="font-size: 13px; color: #9ca3af;">
-                (${doctor.reviewCount} đánh giá)
-              </span>
-            `
-                : ""
-            }
-          </div>
-        `
-            : ""
-        }
-
-        <div style="display: flex; gap: 8px; margin-top: 16px;">
-          <button
-            id="directions-btn-${doctorId}"
-            style="
-              flex: 1;
-              padding: 10px 14px;
-              border-radius: 8px;
-              border: none;
-              background: linear-gradient(135deg, #10b981, #059669);
-              color: white;
-              font-weight: 600;
-              cursor: pointer;
-              font-size: 13px;
-              box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
-              transition: all 0.2s ease;
-            "
-            onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(16, 185, 129, 0.3)'"
-            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(16, 185, 129, 0.2)'"
-          >
-            🧭 Chỉ đường
-          </button>
-          <button
-            id="book-btn-${doctorId}"
-            style="
-              padding: 10px 14px;
-              border-radius: 8px;
-              border: 2px solid #3b82f6;
-              background: white;
-              color: #3b82f6;
-              cursor: pointer;
-              font-size: 13px;
-              font-weight: 600;
-              transition: all 0.2s ease;
-            "
-            onmouseover="this.style.background='#3b82f6'; this.style.color='white'"
-            onmouseout="this.style.background='white'; this.style.color='#3b82f6'"
-          >
-            � Đặt lịch
-          </button>
-        </div>
-      </div>
-    `;
-    return popupHtml;
+    const navigationIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: middle;"><path d="m3 11 19-9-9 19-2-8-8-2z"></path></svg>`;
+    return `<div style="font-family: 'Segoe UI', sans-serif; min-width: 280px; max-width: 320px;"><div style="padding: 16px 16px 12px 16px;"><h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 700;">${
+      doctor.fullName
+    }</h3><p style="margin: 0; font-size: 14px; color: #3b82f6; font-weight: 600;">${
+      doctor.specialty || "Bác sĩ"
+    }</p></div>${
+      doctor.address
+        ? `<div style="padding: 0 16px 12px 16px; display: flex; align-items: start; gap: 8px; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 14px; color: #6b7280; margin-top: 2px;">📍</span><div style="flex: 1;"><p style="margin: 0; font-size: 13px;">${doctor.address}</p></div></div>`
+        : ""
+    }<div style="display: flex; gap: 8px; padding: 12px 16px;"><button id="directions-btn-${doctorId}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:8px;border:1px solid #d1d5db;background-color:#f9fafb;color:#374151;font-weight:600;cursor:pointer;font-size:13px;transition:all .2s ease" onmouseover="this.style.backgroundColor='#f3f4f6';" onmouseout="this.style.backgroundColor='#f9fafb';">${navigationIcon}Chỉ đường</button><button id="book-btn-${doctorId}" style="flex:1;padding:10px 14px;border-radius:8px;border:none;background-color:#3b82f6;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s ease" onmouseover="this.style.backgroundColor='#2563eb';" onmouseout="this.style.backgroundColor='#3b82f6';">Đặt lịch</button></div></div>`;
   }, []);
 
-  // Add markers when map is ready
+  const clearRoute = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (map.getLayer(ROUTE_LAYER_ID)) {
+      map.removeLayer(ROUTE_LAYER_ID);
+    }
+    if (map.getLayer(ROUTE_OUTLINE_LAYER_ID)) {
+      map.removeLayer(ROUTE_OUTLINE_LAYER_ID);
+    }
+    if (map.getSource(ROUTE_SOURCE_ID)) {
+      map.removeSource(ROUTE_SOURCE_ID);
+    }
+    setRouteInfo(null);
+    setRoutePositions(null);
+    activeRouteDoctorRef.current = null;
+    routeAbortControllerRef.current?.abort();
+    routeAbortControllerRef.current = null;
+    setIsRouting(false);
+  }, [setRouteInfo, setIsRouting]);
+
+  const drawRouteOnMap = useCallback(
+    async (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }, doctorKey?: string) => {
+      const map = mapInstanceRef.current;
+      if (!map) return;
+
+      clearRoute();
+      routeAbortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      routeAbortControllerRef.current = abortController;
+
+      setIsRouting(true);
+      setRouteError(null);
+
+      try {
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`,
+          { signal: abortController.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error("OSRM request failed");
+        }
+
+        const data = (await response.json()) as RoutingResponse;
+        const route = data.routes?.[0];
+
+        if (!route?.geometry?.coordinates?.length) {
+          throw new Error("Route data unavailable");
+        }
+
+        const routeFeatureCollection: GeoJSON.FeatureCollection<GeoJSON.LineString> = {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: {},
+              geometry: route.geometry,
+            },
+          ],
+        };
+
+        if (map.getSource(ROUTE_SOURCE_ID)) {
+          (map.getSource(ROUTE_SOURCE_ID) as GeoJSONSource).setData(routeFeatureCollection);
+        } else {
+          map.addSource(ROUTE_SOURCE_ID, {
+            type: "geojson",
+            data: routeFeatureCollection,
+          });
+        }
+
+        if (!map.getLayer(ROUTE_OUTLINE_LAYER_ID)) {
+          map.addLayer({
+            id: ROUTE_OUTLINE_LAYER_ID,
+            type: "line",
+            source: ROUTE_SOURCE_ID,
+            layout: {
+              "line-cap": "round",
+              "line-join": "round",
+            },
+            paint: {
+              "line-color": "#1e3a8a",
+              "line-width": 8,
+              "line-opacity": 0.25,
+            },
+          });
+        }
+
+        if (!map.getLayer(ROUTE_LAYER_ID)) {
+          map.addLayer({
+            id: ROUTE_LAYER_ID,
+            type: "line",
+            source: ROUTE_SOURCE_ID,
+            layout: {
+              "line-cap": "round",
+              "line-join": "round",
+            },
+            paint: {
+              "line-color": "#2563eb",
+              "line-width": 4,
+            },
+          });
+        }
+
+        const bounds = new maplibregl.LngLatBounds([origin.lng, origin.lat], [destination.lng, destination.lat]);
+
+        route.geometry.coordinates.forEach(([lng, lat]) => {
+          bounds.extend([lng, lat]);
+        });
+
+        map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 800 });
+        setRouteInfo({ distance: route.distance, duration: route.duration });
+        setRoutePositions({ origin, destination });
+        if (doctorKey) {
+          activeRouteDoctorRef.current = doctorKey;
+        }
+      } catch (err) {
+        if ((err as Error).name === "AbortError") {
+          return;
+        }
+        console.error("Không thể lấy tuyến đường:", err);
+        setRouteError("Không thể tìm được đường đi. Vui lòng thử lại.");
+      } finally {
+        setIsRouting(false);
+        routeAbortControllerRef.current = null;
+      }
+    },
+    [clearRoute]
+  );
+
+  useEffect(() => {
+    if (!selectedDoctor) {
+      clearRoute();
+      setRouteError(null);
+      return;
+    }
+
+    const currentDoctorKey = (selectedDoctor._id || selectedDoctor.id || selectedDoctor.fullName).replace(/\s+/g, "-");
+
+    if (activeRouteDoctorRef.current && activeRouteDoctorRef.current !== currentDoctorKey) {
+      clearRoute();
+      setRouteError(null);
+    }
+  }, [selectedDoctor, clearRoute, setRouteError]);
+
+  useEffect(() => {
+    if (!activeRouteDoctorRef.current) return;
+    const stillExists = doctors.some((doctor) => {
+      const doctorKey = (doctor._id || doctor.id || doctor.fullName).replace(/\s+/g, "-");
+      return doctorKey === activeRouteDoctorRef.current;
+    });
+    if (!stillExists) {
+      clearRoute();
+      setRouteError(null);
+    }
+  }, [doctors, clearRoute, setRouteError]);
+
+  // useEffect DUY NHẤT để xử lý toàn bộ logic của bản đồ
   useEffect(() => {
     if (!mapInstanceRef.current || !isMapReady) return;
 
-    console.log("🗺️ [DEBUG] Adding markers to map");
-    console.log("📊 [DEBUG] Total doctors:", doctors.length);
-    console.log("📊 [DEBUG] Selected doctor:", selectedDoctor?.fullName || "None");
-
-    // Clear existing markers
+    // 1. Dọn dẹp các elements cũ
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current.clear();
     popupsRef.current.forEach((popup) => popup.remove());
     popupsRef.current.clear();
 
-    // Add markers for each doctor
+    // 2. Tạo lại tất cả markers và popups
     doctors.forEach((doctor) => {
       const coords = getDoctorCoordinates(doctor);
       if (!coords) return;
-
-      const isSelected = selectedDoctor?.fullName === doctor.fullName;
+      const isSelected = selectedDoctor?._id === doctor._id;
       const markerEl = createDoctorMarker(doctor, isSelected);
-
-      // Create unique doctor ID
-      const doctorId = (doctor._id || doctor.id || doctor.fullName || `doctor-${Math.random()}`).replace(/\s+/g, "-");
-
-      // Create popup content using the new function
+      const doctorId = (doctor._id || doctor.id || doctor.fullName).replace(/\s+/g, "-");
       const popupHtml = createPopupContent(doctor, doctorId);
-
       const popup = new maplibregl.Popup({
         closeButton: true,
-        closeOnClick: false,
+        closeOnClick: true,
         offset: 25,
         maxWidth: "350px",
         className: "doctor-popup",
       }).setHTML(popupHtml);
-
-      // Create marker with popup attached - MapTiler recommended approach
-      const marker = new MapLibreMarker(markerEl)
+      const marker = new MapLibreMarker({ element: markerEl })
         .setLngLat([coords.lng, coords.lat])
-        .setPopup(popup)
         .addTo(mapInstanceRef.current!);
 
-      // Handle marker click - additional actions
       markerEl.addEventListener("click", (e) => {
         e.stopPropagation();
 
-        // Close all other popups first
-        popupsRef.current.forEach((p, id) => {
-          if (id !== doctorId) {
-            p.remove();
-          }
-        });
+        const doctorId = (doctor._id || doctor.id || doctor.fullName).replace(/\s+/g, "-");
+        const coords = getDoctorCoordinates(doctor);
+        const popup = popupsRef.current.get(doctorId);
 
-        // Select doctor and fly to location (but DON'T trigger booking)
-        onDoctorSelect(doctor);
-        mapInstanceRef.current?.flyTo({
-          center: [coords.lng, coords.lat],
-          zoom: 15,
-          essential: true,
-        });
+        // Đóng tất cả popup khác
+        popupsRef.current.forEach((p) => p.remove());
 
-        // Attach event listeners to buttons after popup is rendered
-        setTimeout(() => {
-          const directionsBtn = document.getElementById(`directions-btn-${doctorId}`);
-          const bookBtn = document.getElementById(`book-btn-${doctorId}`);
+        if (popup && coords) {
+          popup.setLngLat([coords.lng, coords.lat]).addTo(mapInstanceRef.current!);
+        }
 
-          if (directionsBtn) {
-            directionsBtn.onclick = (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-
-              // Build Google Maps directions URL
-              const destination = `${coords.lat},${coords.lng}`;
-              let url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`;
-
-              // Add origin if user location is available
-              if (userLocation) {
-                const origin = `${userLocation.lat},${userLocation.lng}`;
-                url += `&origin=${encodeURIComponent(origin)}`;
-              }
-
-              // Add destination name for better UX
-              if (doctor.clinicAddress) {
-                url += `&destination_place_id=${encodeURIComponent(doctor.clinicAddress)}`;
-              }
-
-              window.open(url, "_blank", "noopener,noreferrer");
-            };
-          }
-
-          if (bookBtn) {
-            bookBtn.onclick = (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-
-              // Close popup and trigger booking flow
-              popup.remove();
-              onDoctorSelect(doctor);
-
-              // Trigger booking appointment if handler provided
-              if (onBookAppointment) {
-                onBookAppointment(doctor);
-              }
-            };
-          }
-        }, 150); // Small delay to ensure DOM is ready
+        // Cập nhật selectedDoctor sau đó
+        if (selectedDoctor && selectedDoctor._id === doctor._id) {
+          onDoctorSelect(null);
+        } else {
+          onDoctorSelect(doctor);
+        }
       });
 
       markersRef.current.set(doctorId, marker);
       popupsRef.current.set(doctorId, popup);
     });
 
-    // Fit bounds if there are markers
-    if (markersRef.current.size > 0 && !selectedDoctor) {
-      const bounds = new maplibregl.LngLatBounds();
-      markersRef.current.forEach((marker) => {
-        bounds.extend(marker.getLngLat());
-      });
-
-      if (userLocation) {
-        bounds.extend([userLocation.lng, userLocation.lat]);
+    // 3. Xử lý bác sĩ đang được chọn (di chuyển bản đồ và mở popup)
+    if (selectedDoctor) {
+      const coords = getDoctorCoordinates(selectedDoctor);
+      if (!coords) return;
+      mapInstanceRef.current.flyTo({ center: [coords.lng, coords.lat], zoom: 15, essential: true });
+      const doctorId = (selectedDoctor._id || selectedDoctor.id || selectedDoctor.fullName).replace(/\s+/g, "-");
+      const popup = popupsRef.current.get(doctorId);
+      if (popup && !popup.isOpen()) {
+        popup.setLngLat([coords.lng, coords.lat]).addTo(mapInstanceRef.current);
+        setTimeout(() => {
+          const directionsBtn = document.getElementById(`directions-btn-${doctorId}`);
+          const bookBtn = document.getElementById(`book-btn-${doctorId}`);
+          if (directionsBtn) {
+            directionsBtn.onclick = async (e) => {
+              e.preventDefault();
+              setRouteError(null);
+              let originLocation = userLocation;
+              if (!originLocation) {
+                originLocation = await requestUserLocation();
+              }
+              if (!originLocation) {
+                setRouteError("Vui lòng cho phép truy cập vị trí để chỉ đường.");
+                return;
+              }
+              const originalContent = directionsBtn.innerHTML;
+              directionsBtn.innerHTML = "<span>Đang tính tuyến...</span>";
+              directionsBtn.setAttribute("disabled", "true");
+              directionsBtn.style.opacity = "0.7";
+              directionsBtn.style.cursor = "not-allowed";
+              try {
+                await drawRouteOnMap(originLocation, coords, doctorId);
+              } finally {
+                directionsBtn.removeAttribute("disabled");
+                directionsBtn.style.opacity = "";
+                directionsBtn.style.cursor = "";
+                directionsBtn.innerHTML = originalContent;
+              }
+            };
+          }
+          if (bookBtn && onBookAppointment) {
+            bookBtn.onclick = (e) => {
+              e.preventDefault();
+              popup.remove();
+              onBookAppointment(selectedDoctor);
+            };
+          }
+        }, 150);
       }
-
-      mapInstanceRef.current.fitBounds(bounds, {
-        padding: 80,
-        maxZoom: 14,
-      });
+    } else if (markersRef.current.size > 0) {
+      // 4. Nếu không có ai được chọn, căn giữa bản đồ
+      const bounds = new maplibregl.LngLatBounds();
+      markersRef.current.forEach((marker) => bounds.extend(marker.getLngLat()));
+      if (userLocation) bounds.extend([userLocation.lng, userLocation.lat]);
+      mapInstanceRef.current.fitBounds(bounds, { padding: 80, maxZoom: 14 });
     }
   }, [
     doctors,
@@ -536,39 +516,9 @@ export default function AppointmentsMap({
     createPopupContent,
     onDoctorSelect,
     onBookAppointment,
+    drawRouteOnMap,
+    requestUserLocation,
   ]);
-
-  // Handle selected doctor
-  useEffect(() => {
-    if (!selectedDoctor || !mapInstanceRef.current || !isMapReady) return;
-
-    const coords = getDoctorCoordinates(selectedDoctor);
-    if (!coords) return;
-
-    mapInstanceRef.current.flyTo({
-      center: [coords.lng, coords.lat],
-      zoom: 15,
-      essential: true,
-    });
-
-    // Update marker appearance
-    const doctorId = selectedDoctor._id || selectedDoctor.fullName;
-    const marker = markersRef.current.get(doctorId);
-    if (marker) {
-      const markerEl = createDoctorMarker(selectedDoctor, true);
-      marker.getElement().replaceWith(markerEl);
-    }
-  }, [selectedDoctor, isMapReady, getDoctorCoordinates, createDoctorMarker]);
-
-  const showDirections = useCallback(() => {
-    if (!selectedDoctor || !userLocation) return;
-
-    const coords = getDoctorCoordinates(selectedDoctor);
-    if (!coords) return;
-
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${coords.lat},${coords.lng}&travelmode=driving`;
-    window.open(url, "_blank");
-  }, [selectedDoctor, userLocation, getDoctorCoordinates]);
 
   return (
     <div className="relative w-full h-full">
@@ -583,36 +533,29 @@ export default function AppointmentsMap({
             transform: scale(2);
           }
         }
-
-        /* Custom popup styles */
         .maplibregl-popup.doctor-popup .maplibregl-popup-content {
           border-radius: 12px;
           box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
           border: 1px solid #e5e7eb;
           padding: 0;
-          font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+          font-family: "Segoe UI", sans-serif;
         }
-
         .maplibregl-popup.doctor-popup .maplibregl-popup-tip {
-          border-top-color: #f9fafb;
+          border-top-color: white;
         }
-
         .maplibregl-popup.doctor-popup .maplibregl-popup-close-button {
           color: #6b7280;
           font-size: 20px;
           right: 8px;
           top: 8px;
         }
-
         .maplibregl-popup.doctor-popup .maplibregl-popup-close-button:hover {
           color: #374151;
           background: rgba(0, 0, 0, 0.05);
           border-radius: 4px;
         }
       `}</style>
-
       <div ref={mapRef} className="w-full h-full" />
-
       {!isMapReady && !error && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
           <div className="text-center">
@@ -621,25 +564,77 @@ export default function AppointmentsMap({
           </div>
         </div>
       )}
-
-      {error && (
-        <div className="absolute inset-0 bg-red-50 flex items-center justify-center z-10">
-          <div className="text-center text-red-600 p-6">
-            <p className="font-semibold mb-2">Lỗi tải bản đồ</p>
-            <p className="text-sm">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Control Panel */}
       <div className="absolute top-4 left-4 flex flex-col gap-3 max-w-xs z-20">
-        {/* Location Button */}
+        {routeError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg p-3 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <p className="leading-relaxed">{routeError}</p>
+              <button
+                onClick={() => setRouteError(null)}
+                className="text-[11px] font-semibold text-red-500 hover:text-red-600"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        )}
+        {routeInfo && (
+          <div className="bg-white rounded-lg shadow-lg p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="font-semibold text-sm text-gray-900 mb-2">
+                  Đường đi tới {selectedDoctor?.fullName ?? "bác sĩ"}
+                </h4>
+                <p className="text-xs text-gray-600">
+                  Khoảng cách: <span className="font-semibold text-gray-900">{formatDistance(routeInfo.distance)}</span>
+                </p>
+                <p className="text-xs text-gray-600">
+                  Thời gian dự kiến:{" "}
+                  <span className="font-semibold text-gray-900">{formatDuration(routeInfo.duration)}</span>
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={() => {
+                    clearRoute();
+                    setRouteError(null);
+                  }}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                >
+                  Xóa
+                </button>
+              </div>
+            </div>
+            {routePositions && (
+              <button
+                onClick={() => {
+                  const { origin, destination } = routePositions;
+                  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&travelmode=driving`;
+                  window.open(url, "_blank", "noopener,noreferrer");
+                }}
+                className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 underline"
+              >
+                Mở Google Maps
+              </button>
+            )}
+          </div>
+        )}
+        {isRouting && (
+          <div className="bg-white rounded-lg shadow-lg p-3 text-xs text-gray-600">
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+              Đang tính toán tuyến đường...
+            </div>
+          </div>
+        )}
         {!userLocation && (
           <div className="bg-white rounded-lg shadow-lg p-3">
             <h4 className="font-semibold text-sm mb-2">Tìm vị trí của bạn</h4>
             <p className="text-xs text-gray-500 mb-3">Xem bác sĩ gần bạn và chỉ đường</p>
             <button
-              onClick={requestUserLocation}
+              onClick={() => {
+                void requestUserLocation();
+              }}
               disabled={isRequestingLocation}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
@@ -649,31 +644,6 @@ export default function AppointmentsMap({
             {locationError && <p className="text-xs text-red-500 mt-2">{locationError}</p>}
           </div>
         )}
-
-        {/* Doctor Info & Directions */}
-        {selectedDoctor && (
-          <div className="bg-white rounded-lg shadow-lg p-4">
-            <div className="mb-3">
-              <h4 className="font-bold text-sm text-gray-900">{selectedDoctor.fullName}</h4>
-              <p className="text-xs text-blue-600 font-medium">{selectedDoctor.specialty || "Bác sĩ"}</p>
-              {selectedDoctor.clinicAddress && (
-                <p className="text-xs text-gray-500 mt-1">📍 {selectedDoctor.clinicAddress}</p>
-              )}
-            </div>
-
-            {userLocation && (
-              <button
-                onClick={showDirections}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                <Navigation className="w-4 h-4" />
-                Chỉ đường
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Legend */}
         <div className="bg-white rounded-lg shadow-lg p-3">
           <h4 className="font-semibold text-xs mb-2 text-gray-700">Chú thích</h4>
           <div className="space-y-2">
@@ -689,7 +659,7 @@ export default function AppointmentsMap({
             )}
             {selectedDoctor && (
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-600 rounded-full"></div>
+                <div className="w-4 h-4 bg-green-600 rounded-full"></div>
                 <span className="text-xs text-gray-600">Đang chọn</span>
               </div>
             )}
