@@ -34,6 +34,7 @@ export default function PatientAppointmentsPage() {
 
   // Booking flow state
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [isTimeSlotModalOpen, setIsTimeSlotModalOpen] = useState(false);
   const [bookingData, setBookingData] = useState<Partial<BookingFormData>>({});
   const [confirmation, setConfirmation] = useState<AppointmentConfirmation | null>(null);
 
@@ -79,14 +80,15 @@ export default function PatientAppointmentsPage() {
     fetchDoctors();
   };
 
+  // FIX: This function will now ONLY select the doctor for highlighting on the map/list
   const handleDoctorSelect = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
-    // Open modal for TimeSlotPicker
   };
 
+  // FIX: This function will select the doctor AND open the modal
   const handleBookAppointment = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
-    // Open modal for TimeSlotPicker
+    setIsTimeSlotModalOpen(true);
   };
 
   const handleTimeSlotSelect = (date: string, time: string, consultType: ConsultType) => {
@@ -99,6 +101,8 @@ export default function PatientAppointmentsPage() {
       consultType,
     });
     setStep("details");
+    // Close the modal after selection
+    setIsTimeSlotModalOpen(false);
   };
 
   const handleBookingSubmit = async (formData: BookingFormData) => {
@@ -271,10 +275,12 @@ export default function PatientAppointmentsPage() {
             />
 
             {/* TimeSlot Picker Modal */}
-            {selectedDoctor && (
+            {/* FIX: Use the new state to control visibility */}
+            {selectedDoctor && isTimeSlotModalOpen && (
               <div
                 className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in"
-                onClick={() => setSelectedDoctor(null)}
+                // FIX: Close modal by setting the new state to false
+                onClick={() => setIsTimeSlotModalOpen(false)}
               >
                 <div
                   className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto shadow-2xl animate-scale-in"
@@ -282,7 +288,8 @@ export default function PatientAppointmentsPage() {
                 >
                   <TimeSlotPicker
                     doctor={selectedDoctor}
-                    onClose={() => setSelectedDoctor(null)}
+                    // FIX: Update onClose to use the new state
+                    onClose={() => setIsTimeSlotModalOpen(false)}
                     onSelectSlot={handleTimeSlotSelect}
                   />
                 </div>
@@ -365,7 +372,7 @@ function generateGoogleCalendarLink(
     text: `Lịch hẹn với ${doctor.fullName}`,
     dates: `${formatDate(date)}/${formatDate(endDate)}`,
     details: `Khám với ${doctor.fullName} - ${doctor.specialty}`,
-    location: doctor.clinicAddress || "",
+    location: doctor.address || "",
   });
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
