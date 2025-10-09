@@ -369,8 +369,93 @@ body {
   color: var(--color-primary) !important;
 }
 
+.text-primary-600 {
+  color: var(--color-primary-600) !important;
+}
+
+.text-primary-700 {
+  color: var(--color-primary-700) !important;
+}
+
+.bg-primary {
+  background-color: var(--color-primary) !important;
+}
+
 .bg-primary-100 {
   background: var(--color-primary-100) !important;
+}
+
+.bg-primary\/5 {
+  background-color: rgba(var(--color-primary-rgb), 0.05) !important;
+}
+
+.bg-primary\/10 {
+  background-color: rgba(var(--color-primary-rgb), 0.1) !important;
+}
+
+.border-primary {
+  border-color: var(--color-primary) !important;
+}
+
+.border-primary\/10 {
+  border-color: rgba(var(--color-primary-rgb), 0.1) !important;
+}
+
+.border-primary\/20 {
+  border-color: rgba(var(--color-primary-rgb), 0.2) !important;
+}
+
+.border-primary\/30 {
+  border-color: rgba(var(--color-primary-rgb), 0.3) !important;
+}
+
+.hover\:bg-primary:hover {
+  background-color: var(--color-primary) !important;
+}
+
+.hover\:bg-primary\/90:hover {
+  background-color: rgba(var(--color-primary-rgb), 0.9) !important;
+}
+
+.hover\:bg-primary\/5:hover {
+  background-color: rgba(var(--color-primary-rgb), 0.05) !important;
+}
+
+.hover\:border-primary:hover {
+  border-color: var(--color-primary) !important;
+}
+
+.hover\:border-primary\/30:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.3) !important;
+}
+
+.hover\:border-primary\/50:hover {
+  border-color: rgba(var(--color-primary-rgb), 0.5) !important;
+}
+
+.focus\:ring-primary:focus {
+  --tw-ring-color: var(--color-primary) !important;
+}
+
+.hover\:text-primary:hover {
+  color: var(--color-primary) !important;
+}
+
+/* Peer-checked variants for radio buttons */
+.peer:checked ~ .peer-checked\:border-primary {
+  border-color: var(--color-primary) !important;
+}
+
+.peer:checked ~ .peer-checked\:bg-primary\/5 {
+  background-color: rgba(var(--color-primary-rgb), 0.05) !important;
+}
+
+.peer:checked ~ .peer-checked\:text-primary {
+  color: var(--color-primary) !important;
+}
+
+.peer:checked ~ .peer-checked\:text-primary-700 {
+  color: var(--color-primary-700) !important;
 }
 
 /* Legacy message and utility styles */

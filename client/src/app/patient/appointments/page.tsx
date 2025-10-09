@@ -7,12 +7,15 @@ import { Map, List, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import SearchDoctors from "@/components/appointments/SearchDoctors";
 import DoctorList from "@/components/appointments/DoctorList";
-import TimeSlotPicker from "@/components/appointments/TimeSlotPicker";
-import BookingForm from "@/components/appointments/BookingForm";
-import AppointmentConfirmationComponent from "@/components/appointments/AppointmentConfirmation";
-import { Doctor, SearchFilters, BookingFormData, AppointmentConfirmation, ConsultType } from "@/types/appointment";
-
-type BookingStep = "search" | "timeslot" | "details" | "confirmation";
+import BookingFlowModal, { BookingFlowStep } from "@/components/appointments/BookingFlowModal";
+import {
+  Doctor,
+  SearchFilters,
+  BookingFormData,
+  AppointmentConfirmation,
+  ConsultType,
+  AppointmentStatus,
+} from "@/types/appointment";
 
 export default function PatientAppointmentsPage() {
   const { data: session } = useSession();
@@ -20,7 +23,6 @@ export default function PatientAppointmentsPage() {
   const searchParams = useSearchParams();
 
   // State
-  const [step, setStep] = useState<BookingStep>("search");
   const [viewMode, setViewMode] = useState<"list" | "map">("map");
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,7 +36,8 @@ export default function PatientAppointmentsPage() {
 
   // Booking flow state
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [isTimeSlotModalOpen, setIsTimeSlotModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [bookingStep, setBookingStep] = useState<BookingFlowStep>("time-slot");
   const [bookingData, setBookingData] = useState<Partial<BookingFormData>>({});
   const [confirmation, setConfirmation] = useState<AppointmentConfirmation | null>(null);
 
@@ -80,29 +83,35 @@ export default function PatientAppointmentsPage() {
     fetchDoctors();
   };
 
-  // FIX: This function will now ONLY select the doctor for highlighting on the map/list
-  const handleDoctorSelect = (doctor: Doctor) => {
+  const handleDoctorSelect = (doctor: Doctor | null) => {
     setSelectedDoctor(doctor);
   };
 
-  // FIX: This function will select the doctor AND open the modal
   const handleBookAppointment = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
-    setIsTimeSlotModalOpen(true);
+    setBookingData((prev) => ({
+      ...prev,
+      doctorId: doctor._id || doctor.id || "",
+      consultType: prev.consultType || doctor.availableConsultTypes?.[0] || ConsultType.ON_SITE,
+      appointmentDate: undefined,
+      startTime: undefined,
+    }));
+    setConfirmation(null);
+    setBookingStep("time-slot");
+    setIsBookingModalOpen(true);
   };
 
   const handleTimeSlotSelect = (date: string, time: string, consultType: ConsultType) => {
     if (!selectedDoctor) return;
 
-    setBookingData({
+    setBookingData((prev) => ({
+      ...prev,
       doctorId: selectedDoctor._id || selectedDoctor.id || "",
       appointmentDate: date,
       startTime: time,
       consultType,
-    });
-    setStep("details");
-    // Close the modal after selection
-    setIsTimeSlotModalOpen(false);
+    }));
+    setBookingStep("details");
   };
 
   const handleBookingSubmit = async (formData: BookingFormData) => {
@@ -114,6 +123,9 @@ export default function PatientAppointmentsPage() {
     }
 
     try {
+      // TODO: Temporarily disabled API call for testing flow
+      // Uncomment when ready to integrate with backend
+      /*
       const payload = {
         ...formData,
         patientId: userId,
@@ -135,12 +147,23 @@ export default function PatientAppointmentsPage() {
 
       const result = await res.json();
       const appointment = result?.data || result;
+      */
+
+      // Mock appointment data for testing
+      const appointment = {
+        _id: `MOCK_${Date.now()}`,
+        id: `MOCK_${Date.now()}`,
+        ...formData,
+        patientId: userId,
+        status: AppointmentStatus.PENDING,
+        createdAt: new Date().toISOString(),
+      };
 
       // Create confirmation
       const confirmationData: AppointmentConfirmation = {
         appointment: {
           ...appointment,
-          doctor: selectedDoctor,
+          doctor: selectedDoctor || undefined,
         },
         doctor: selectedDoctor!,
         bookingId: appointment._id || appointment.id || `BK${Date.now()}`,
@@ -158,8 +181,12 @@ export default function PatientAppointmentsPage() {
         receiptUrl: `/api/appointments/${appointment._id}/receipt`,
       };
 
+      setBookingData((prev) => ({
+        ...prev,
+        ...formData,
+      }));
       setConfirmation(confirmationData);
-      setStep("confirmation");
+      setBookingStep("confirmation");
       toast.success("Đặt lịch thành công!");
     } catch (error: unknown) {
       console.error("Booking error:", error);
@@ -169,20 +196,43 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleReschedule = () => {
-    setStep("search");
     setConfirmation(null);
-    // Keep selectedDoctor so TimeSlotPicker remains visible
+    setBookingData((prev) => ({
+      ...prev,
+      appointmentDate: undefined,
+      startTime: undefined,
+    }));
+    setBookingStep("time-slot");
   };
 
   const handleCloseConfirmation = () => {
+    resetBookingFlow();
     router.push("/patient/appointments/my-appointments");
   };
 
-  const handleBackToSearch = () => {
-    setStep("search");
-    setSelectedDoctor(null);
+  const resetBookingFlow = () => {
+    setIsBookingModalOpen(false);
+    setBookingStep("time-slot");
     setBookingData({});
+    setConfirmation(null);
+    setSelectedDoctor(null);
   };
+
+  const handleModalClose = () => {
+    if (bookingStep === "confirmation" && confirmation) {
+      handleCloseConfirmation();
+    } else {
+      resetBookingFlow();
+    }
+  };
+
+  // TODO: Uncomment when ready to implement receipt download
+  // const handleDownloadReceipt = () => {
+  //   const receiptUrl = confirmation?.receiptUrl;
+  //   if (receiptUrl) {
+  //     window.open(receiptUrl, "_blank", "noopener,noreferrer");
+  //   }
+  // };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -192,163 +242,84 @@ export default function PatientAppointmentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Tìm kiếm và đặt lịch hẹn</h1>
-              <p className="text-gray-600">
-                {step === "search" && "Tìm bác sĩ nha khoa và chọn thời gian khám phù hợp"}
-                {step === "details" && "Điền thông tin chi tiết"}
-                {step === "confirmation" && "Lịch hẹn đã được xác nhận"}
-              </p>
+              <p className="text-gray-600">Chọn bác sĩ phù hợp và hoàn tất đặt lịch chỉ trong vài bước.</p>
             </div>
-
-            {/* Step Indicator */}
-            <div className="hidden md:flex items-center gap-2">
-              <StepIndicator
-                step={1}
-                label="Chọn bác sĩ & giờ"
-                active={step === "search"}
-                completed={step !== "search"}
-              />
-              <div className="w-8 h-0.5 bg-gray-300" />
-              <StepIndicator
-                step={2}
-                label="Chi tiết"
-                active={step === "details"}
-                completed={step === "confirmation"}
-              />
-              <div className="w-8 h-0.5 bg-gray-300" />
-              <StepIndicator step={3} label="Xác nhận" active={step === "confirmation"} completed={false} />
+            <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">
+              <span className="font-semibold text-gray-700">Quy trình:</span>
+              <span>1. Chọn bác sĩ</span>
+              <span>→</span>
+              <span>2. Chọn giờ & điền thông tin</span>
+              <span>→</span>
+              <span>3. Xác nhận</span>
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        {step === "search" && (
-          <>
-            {/* Search and Filters */}
-            <SearchDoctors filters={filters} onFiltersChange={setFilters} onSearch={handleSearch} />
+        {/* Search and Filters */}
+        <SearchDoctors filters={filters} onFiltersChange={setFilters} onSearch={handleSearch} />
 
-            {/* View Toggle */}
-            <div className="healthcare-card p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setViewMode("map")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      viewMode === "map"
-                        ? "bg-[var(--color-primary)] text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <Map className="w-5 h-5" />
-                    Bản đồ
-                  </button>
-                  <button
-                    onClick={() => setViewMode("list")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      viewMode === "list"
-                        ? "bg-[var(--color-primary)] text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <List className="w-5 h-5" />
-                    Danh sách
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => router.push("/patient/appointments/my-appointments")}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <Calendar className="w-5 h-5" />
-                  Lịch hẹn của tôi
-                </button>
-              </div>
+        {/* View Toggle */}
+        <div className="healthcare-card p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode("map")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  viewMode === "map"
+                    ? "bg-[var(--color-primary)] text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Map className="w-5 h-5" />
+                Bản đồ
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  viewMode === "list"
+                    ? "bg-[var(--color-primary)] text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <List className="w-5 h-5" />
+                Danh sách
+              </button>
             </div>
 
-            {/* Doctor List */}
-            <DoctorList
-              doctors={doctors}
-              loading={loading}
-              viewMode={viewMode}
-              onDoctorSelect={handleDoctorSelect}
-              onBookAppointment={handleBookAppointment}
-              selectedDoctor={selectedDoctor}
-            />
-
-            {/* TimeSlot Picker Modal */}
-            {/* FIX: Use the new state to control visibility */}
-            {selectedDoctor && isTimeSlotModalOpen && (
-              <div
-                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in"
-                // FIX: Close modal by setting the new state to false
-                onClick={() => setIsTimeSlotModalOpen(false)}
-              >
-                <div
-                  className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto shadow-2xl animate-scale-in"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <TimeSlotPicker
-                    doctor={selectedDoctor}
-                    // FIX: Update onClose to use the new state
-                    onClose={() => setIsTimeSlotModalOpen(false)}
-                    onSelectSlot={handleTimeSlotSelect}
-                  />
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Booking Form */}
-        {step === "details" && selectedDoctor && (
-          <div className="healthcare-card p-6">
-            <BookingForm initialData={bookingData} onSubmit={handleBookingSubmit} onCancel={handleBackToSearch} />
+            <button
+              onClick={() => router.push("/patient/appointments/my-appointments")}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <Calendar className="w-5 h-5" />
+              Lịch hẹn của tôi
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Confirmation */}
-        {step === "confirmation" && confirmation && (
-          <AppointmentConfirmationComponent
-            confirmation={confirmation}
-            onClose={handleCloseConfirmation}
-            onReschedule={handleReschedule}
-            onDownloadReceipt={() => {
-              window.open(confirmation.receiptUrl, "_blank");
-            }}
-          />
-        )}
+        {/* Doctor List */}
+        <DoctorList
+          doctors={doctors}
+          loading={loading}
+          viewMode={viewMode}
+          onDoctorSelect={handleDoctorSelect}
+          onBookAppointment={handleBookAppointment}
+          selectedDoctor={selectedDoctor}
+        />
       </div>
-    </div>
-  );
-}
 
-// Step Indicator Component
-function StepIndicator({
-  step,
-  label,
-  active,
-  completed,
-}: {
-  step: number;
-  label: string;
-  active: boolean;
-  completed: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center">
-      <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
-          active ? "text-white" : completed ? "bg-green-600 text-white" : "bg-gray-200 text-gray-600"
-        }`}
-        style={active ? { backgroundColor: "var(--color-primary)" } : {}}
-      >
-        {completed ? "✓" : step}
-      </div>
-      <span
-        className={`text-xs mt-1 ${active ? "font-medium" : "text-gray-600"}`}
-        style={active ? { color: "var(--color-primary)" } : {}}
-      >
-        {label}
-      </span>
+      {isBookingModalOpen && selectedDoctor && (
+        <BookingFlowModal
+          doctor={selectedDoctor}
+          step={bookingStep}
+          bookingData={bookingData}
+          confirmation={confirmation}
+          onClose={handleModalClose}
+          onSelectSlot={handleTimeSlotSelect}
+          onSubmitDetails={handleBookingSubmit}
+          onBackToTimeSlot={() => setBookingStep("time-slot")}
+          onReschedule={handleReschedule}
+        />
+      )}
     </div>
   );
 }
