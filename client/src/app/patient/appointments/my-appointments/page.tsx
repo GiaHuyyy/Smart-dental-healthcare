@@ -19,6 +19,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
+import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
 
 export default function MyAppointmentsPage() {
@@ -40,110 +41,22 @@ export default function MyAppointmentsPage() {
   const fetchAppointments = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/my-appointments`, {
-      //   headers: {
-      //     Authorization: `Bearer ${session?.accessToken}`,
-      //   },
-      // });
-      // const data = await res.json();
-      // setAppointments(data.data || []);
+      const userId = (session?.user as { _id?: string })._id;
+      if (!userId) {
+        toast.error("Vui lòng đăng nhập");
+        router.push("/auth/signin");
+        return;
+      }
 
-      // Mock data for now
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mockAppointments: any[] = [
-        {
-          _id: "1",
-          patient: "patient1",
-          doctor: {
-            _id: "doc1",
-            fullName: "Bác sĩ Nguyễn Văn A",
-            email: "nguyenvana@example.com",
-            specialty: "Nha khoa tổng quát",
-            profileImage: "",
-            clinicAddress: "123 Đường Nguyễn Huệ, Q1, TP.HCM",
-            rating: 4.8,
-            consultationFee: 300000,
-          },
-          appointmentDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-          startTime: "09:00",
-          endTime: "09:30",
-          status: AppointmentStatus.CONFIRMED,
-          consultType: ConsultType.ON_SITE,
-          chiefComplaint: "Đau răng hàm dưới bên phải, kéo dài 3 ngày",
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          _id: "2",
-          patient: "patient1",
-          doctor: {
-            _id: "doc2",
-            fullName: "Bác sĩ Trần Thị B",
-            email: "tranthib@example.com",
-            specialty: "Chỉnh nha",
-            profileImage: "",
-            clinicAddress: "456 Đường Lê Lợi, Q3, TP.HCM",
-            rating: 4.9,
-            consultationFee: 500000,
-          },
-          appointmentDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-          startTime: "14:00",
-          endTime: "14:30",
-          status: AppointmentStatus.PENDING,
-          consultType: ConsultType.TELEVISIT,
-          chiefComplaint: "Tư vấn niềng răng",
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          _id: "3",
-          patient: "patient1",
-          doctor: {
-            _id: "doc3",
-            fullName: "Bác sĩ Lê Văn C",
-            email: "levanc@example.com",
-            specialty: "Implant nha khoa",
-            profileImage: "",
-            clinicAddress: "789 Đường Võ Văn Tần, Q3, TP.HCM",
-            rating: 5.0,
-            consultationFee: 800000,
-          },
-          appointmentDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          startTime: "10:00",
-          endTime: "11:00",
-          status: AppointmentStatus.COMPLETED,
-          consultType: ConsultType.ON_SITE,
-          chiefComplaint: "Trồng răng implant",
-          medicalNote: "Đã hoàn thành cấy ghép implant răng số 6 hàm dưới",
-          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          _id: "4",
-          patient: "patient1",
-          doctor: {
-            _id: "doc4",
-            fullName: "Bác sĩ Phạm Thị D",
-            email: "phamthid@example.com",
-            specialty: "Nha khoa thẩm mỹ",
-            profileImage: "",
-            clinicAddress: "321 Đường Cách Mạng Tháng 8, Q10, TP.HCM",
-            rating: 4.7,
-            consultationFee: 400000,
-          },
-          appointmentDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-          startTime: "15:00",
-          endTime: "15:30",
-          status: AppointmentStatus.CANCELLED,
-          consultType: ConsultType.HOME_VISIT,
-          chiefComplaint: "Tẩy trắng răng tại nhà",
-          cancellationReason: "Bệnh nhân có việc đột xuất",
-          createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-          updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ];
-      setAppointments(mockAppointments);
+      // Call API to get patient appointments
+      const accessToken = (session as { accessToken?: string })?.accessToken;
+      const result = await appointmentService.getPatientAppointments(userId, {}, accessToken);
+
+      if (!result.success) {
+        throw new Error(result.error || "Không thể tải danh sách lịch hẹn");
+      }
+
+      setAppointments(result.data || []);
       toast.success("Đã tải danh sách lịch hẹn");
     } catch (error) {
       console.error("Error fetching appointments:", error);

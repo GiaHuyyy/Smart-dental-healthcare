@@ -34,27 +34,37 @@ export default function TimeSlotPicker({ doctor, onSelectSlot }: TimeSlotPickerP
       };
     }
 
-    const baseDate = new Date(`${selectedDate}T00:00:00`);
+    const now = new Date();
+    const selectedDateObj = new Date(`${selectedDate}T00:00:00`);
+    const isToday = formatDate(now) === selectedDate;
 
     const generateSlots = (startHour: number, endHour: number) => {
       const intervalMinutes = 30;
       const slots: TimeSlot[] = [];
-      const current = new Date(baseDate);
+      const current = new Date(selectedDateObj);
       current.setHours(startHour, 0, 0, 0);
 
-      const end = new Date(baseDate);
+      const end = new Date(selectedDateObj);
       end.setHours(endHour, 0, 0, 0);
 
       while (current < end) {
-        const time = current.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        });
+        const hours = current.getHours();
+        const minutes = current.getMinutes();
+
+        // Format time as HH:MM (24h format)
+        const time = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+
+        // Check if time is in the past
+        let isPast = false;
+        if (isToday) {
+          const slotDateTime = new Date(selectedDateObj);
+          slotDateTime.setHours(hours, minutes, 0, 0);
+          isPast = slotDateTime <= now;
+        }
 
         slots.push({
           time,
-          available: Math.random() > 0.3,
+          available: !isPast && Math.random() > 0.3, // Not available if in past
           booked: false,
           selected: time === selectedTime,
         });
@@ -66,8 +76,8 @@ export default function TimeSlotPicker({ doctor, onSelectSlot }: TimeSlotPickerP
     };
 
     return {
-      morning: generateSlots(8, 12),
-      afternoon: generateSlots(13, 17),
+      morning: generateSlots(8, 12), // 8:00 - 11:30
+      afternoon: generateSlots(13, 17), // 13:00 - 16:30
     };
   }, [selectedDate, selectedTime]);
 

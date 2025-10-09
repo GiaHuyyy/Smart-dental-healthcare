@@ -5,17 +5,11 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Map, List, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import appointmentService from "@/services/appointmentService";
 import SearchDoctors from "@/components/appointments/SearchDoctors";
 import DoctorList from "@/components/appointments/DoctorList";
 import BookingFlowModal, { BookingFlowStep } from "@/components/appointments/BookingFlowModal";
-import {
-  Doctor,
-  SearchFilters,
-  BookingFormData,
-  AppointmentConfirmation,
-  ConsultType,
-  AppointmentStatus,
-} from "@/types/appointment";
+import { Doctor, SearchFilters, BookingFormData, AppointmentConfirmation, ConsultType } from "@/types/appointment";
 
 export default function PatientAppointmentsPage() {
   const { data: session } = useSession();
@@ -123,41 +117,62 @@ export default function PatientAppointmentsPage() {
     }
 
     try {
-      // TODO: Temporarily disabled API call for testing flow
-      // Uncomment when ready to integrate with backend
-      /*
-      const payload = {
-        ...formData,
-        patientId: userId,
-        status: "pending",
-      };
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to create appointment");
+      // Validate required fields
+      if (!formData.startTime || !formData.appointmentDate || !formData.doctorId) {
+        toast.error("Vui lòng điền đầy đủ thông tin");
+        return;
       }
 
-      const result = await res.json();
-      const appointment = result?.data || result;
-      */
+      // Validate time format HH:MM
+      const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
+      if (!timeRegex.test(formData.startTime)) {
+        toast.error("Giờ khám không hợp lệ. Vui lòng chọn lại");
+        return;
+      }
 
-      // Mock appointment data for testing
-      const appointment = {
-        _id: `MOCK_${Date.now()}`,
-        id: `MOCK_${Date.now()}`,
-        ...formData,
+      // Calculate duration (default 30 minutes)
+      const duration = 30;
+
+      // Calculate end time properly
+      const [hours, minutes] = formData.startTime.split(":").map(Number);
+      const totalMinutes = hours * 60 + minutes + duration;
+      const endHours = Math.floor(totalMinutes / 60) % 24;
+      const endMinutes = totalMinutes % 60;
+      const endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
+
+      // Prepare payload
+      const payload = {
         patientId: userId,
-        status: AppointmentStatus.PENDING,
-        createdAt: new Date().toISOString(),
+        doctorId: formData.doctorId,
+        appointmentDate: formData.appointmentDate,
+        startTime: formData.startTime,
+        endTime: endTime,
+        duration: duration,
+        appointmentType:
+          formData.consultType === ConsultType.TELEVISIT
+            ? "Tư vấn từ xa"
+            : formData.consultType === ConsultType.HOME_VISIT
+            ? "Khám tại nhà"
+            : "Khám tại phòng khám",
+        notes: formData.chiefComplaint || "",
       };
+
+      console.log("Booking payload:", payload); // Debug log
+
+      // Call API to create appointment
+      const accessToken = (session as { accessToken?: string })?.accessToken;
+      console.log("Access token:", accessToken ? "Available" : "Missing");
+
+      const result = await appointmentService.createAppointment(payload, accessToken);
+      console.log("API result:", result);
+
+      if (!result.success || !result.data) {
+        const errorMsg = result.error || "Không thể đặt lịch hẹn";
+        console.error("API error details:", errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      const appointment = result.data;
 
       // Create confirmation
       const confirmationData: AppointmentConfirmation = {
@@ -166,7 +181,7 @@ export default function PatientAppointmentsPage() {
           doctor: selectedDoctor || undefined,
         },
         doctor: selectedDoctor!,
-        bookingId: appointment._id || appointment.id || `BK${Date.now()}`,
+        bookingId: appointment._id || `BK${Date.now()}`,
         confirmationMessage: "Lịch hẹn của bạn đã được đặt thành công!",
         instructions: [
           "Đến phòng khám trước giờ hẹn 10-15 phút",
