@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays } from "lucide-react";
 import { AppointmentSocketProvider, useAppointmentSocket } from "@/contexts/AppointmentSocketContext";
 import DoctorCalendar from "@/components/Calendar/DoctorCalendar";
 import { View } from "react-big-calendar";
 import Image from "next/image";
+import { toast } from "sonner";
+import appointmentService from "@/services/appointmentService";
 
 // Appointment type
 interface Appointment {
+  _id?: string;
   id: string;
   patientName: string;
   patientAvatar: string;
@@ -25,170 +28,122 @@ interface Appointment {
   phone?: string;
 }
 
-// Helper to get current week dates
-const getCurrentWeekDates = () => {
-  const today = new Date();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - today.getDay() + 1);
-
-  const dates = [];
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    dates.push(date.toISOString().split("T")[0]);
-  }
-  return dates;
-};
-
-const weekDates = getCurrentWeekDates();
-
-// Sample data - Sử dụng tuần hiện tại
-const SAMPLE_APPOINTMENTS = [
-  {
-    id: "1",
-    patientName: "Nguyễn Văn A",
-    patientAvatar: "https://ui-avatars.com/api/?name=Nguyen+Van+A&background=F59E0B&color=fff",
-    date: weekDates[0], // Monday
-    startTime: "08:00",
-    endTime: "08:30",
-    visitType: "Clinic Visit",
-    reason: "Khám tổng quát",
-    status: "confirmed",
-    gender: "Nam",
-    location: "Hà Nội",
-  },
-  {
-    id: "2",
-    patientName: "Trần Thị B",
-    patientAvatar: "https://ui-avatars.com/api/?name=Tran+Thi+B&background=10B981&color=fff",
-    date: weekDates[0], // Monday
-    startTime: "08:30",
-    endTime: "09:30",
-    visitType: "Clinic Visit",
-    reason: "Lấy cao răng",
-    status: "confirmed",
-    gender: "Nữ",
-    location: "Hồ Chí Minh",
-  },
-  {
-    id: "3",
-    patientName: "Lê Văn C",
-    patientAvatar: "https://ui-avatars.com/api/?name=Le+Van+C&background=EC4899&color=fff",
-    date: weekDates[1], // Tuesday
-    startTime: "09:00",
-    endTime: "10:00",
-    visitType: "Clinic Visit",
-    reason: "Nhổ răng khôn",
-    status: "confirmed",
-    gender: "Nam",
-    location: "Đà Nẵng",
-  },
-  {
-    id: "4",
-    patientName: "Phạm Thị D",
-    patientAvatar: "https://ui-avatars.com/api/?name=Pham+Thi+D&background=F59E0B&color=fff",
-    date: weekDates[2], // Wednesday
-    startTime: "10:00",
-    endTime: "10:30",
-    visitType: "Clinic Visit",
-    reason: "Tư vấn niềng răng",
-    status: "confirmed",
-    gender: "Nữ",
-    location: "Hải Phòng",
-  },
-  {
-    id: "5",
-    patientName: "Hoàng Văn E",
-    patientAvatar: "https://ui-avatars.com/api/?name=Hoang+Van+E&background=3B82F6&color=fff",
-    date: weekDates[2], // Wednesday
-    startTime: "10:30",
-    endTime: "11:00",
-    visitType: "Clinic Visit",
-    reason: "Bọc răng sứ",
-    status: "confirmed",
-    gender: "Nam",
-    location: "Cần Thơ",
-  },
-  {
-    id: "6",
-    patientName: "Đỗ Thị F",
-    patientAvatar: "https://ui-avatars.com/api/?name=Do+Thi+F&background=8B5CF6&color=fff",
-    date: weekDates[3], // Thursday
-    startTime: "10:30",
-    endTime: "11:30",
-    visitType: "Clinic Visit",
-    reason: "Điều trị tủy",
-    status: "confirmed",
-    gender: "Nữ",
-    location: "Huế",
-  },
-  {
-    id: "7",
-    patientName: "Vũ Văn G",
-    patientAvatar: "https://ui-avatars.com/api/?name=Vu+Van+G&background=EF4444&color=fff",
-    date: weekDates[4], // Friday
-    startTime: "09:00",
-    endTime: "10:00",
-    visitType: "Clinic Visit",
-    reason: "Tẩy trắng răng",
-    status: "confirmed",
-    gender: "Nam",
-    location: "Nha Trang",
-  },
-  {
-    id: "8",
-    patientName: "Bùi Thị H",
-    patientAvatar: "https://ui-avatars.com/api/?name=Bui+Thi+H&background=06B6D4&color=fff",
-    date: weekDates[4], // Friday
-    startTime: "11:30",
-    endTime: "12:30",
-    visitType: "Clinic Visit",
-    reason: "Hàn răng",
-    status: "confirmed",
-    gender: "Nữ",
-    email: "buithih@gmail.com",
-    phone: "+84 901 234 567",
-    location: "Biên Hòa",
-  },
-  {
-    id: "9",
-    patientName: "Ngô Văn I",
-    patientAvatar: "https://ui-avatars.com/api/?name=Ngo+Van+I&background=EC4899&color=fff",
-    date: weekDates[5], // Saturday
-    startTime: "08:00",
-    endTime: "09:00",
-    visitType: "Home Visit",
-    reason: "Khám tại nhà",
-    status: "confirmed",
-    gender: "Nam",
-    location: "Vũng Tàu",
-  },
-  {
-    id: "10",
-    patientName: "Đinh Thị K",
-    patientAvatar: "https://ui-avatars.com/api/?name=Dinh+Thi+K&background=10B981&color=fff",
-    date: weekDates[5], // Saturday
-    startTime: "13:00",
-    endTime: "14:00",
-    visitType: "Clinic Visit",
-    reason: "Trồng răng Implant",
-    status: "pending",
-    gender: "Nữ",
-    location: "Quy Nhơn",
-  },
-];
+// Session type with accessToken
+interface ExtendedSession {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+  accessToken?: string;
+  expires: string;
+}
 
 function DoctorScheduleContent() {
   const { data: session } = useSession();
-  const { isConnected } = useAppointmentSocket();
+  const { isConnected, socket } = useAppointmentSocket();
 
   const [view, setView] = useState<View>("week");
-  const [appointments] = useState<Appointment[]>(SAMPLE_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [selectedTab, setSelectedTab] = useState<"all" | "pending" | "confirmed" | "cancelled">("all");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Fetch appointments from API
+  const fetchAppointments = useCallback(async () => {
+    const userId = (session?.user as { _id?: string })?._id;
+    if (!userId) return;
+
+    try {
+      setLoading(true);
+      const accessToken = (session as ExtendedSession).accessToken;
+      const result = await appointmentService.getDoctorAppointments(userId, {}, accessToken);
+
+      if (result.success && result.data) {
+        // Transform API data to match our Appointment interface
+        const transformedData: Appointment[] = result.data
+          .filter((apt) => apt._id) // Only include appointments with valid _id
+          .map((apt) => ({
+            _id: apt._id!,
+            id: apt._id!,
+            patientName: (apt.patientId as { fullName?: string })?.fullName || "N/A",
+            patientAvatar:
+              (apt.patientId as { avatar?: string; fullName?: string })?.avatar ||
+              `https://ui-avatars.com/api/?name=${
+                (apt.patientId as { fullName?: string })?.fullName || "Patient"
+              }&background=random`,
+            date: new Date(apt.appointmentDate).toISOString().split("T")[0],
+            startTime: apt.startTime || "08:00",
+            endTime: apt.endTime || "09:00",
+            visitType: apt.appointmentType === "home_visit" ? "Home Visit" : "Clinic Visit",
+            reason: apt.notes || "Không có ghi chú",
+            status: apt.status,
+            gender: (apt.patientId as { gender?: string })?.gender || "N/A",
+            location: (apt.patientId as { address?: string })?.address || "N/A",
+            email: (apt.patientId as { email?: string })?.email,
+            phone: (apt.patientId as { phone?: string })?.phone,
+          }));
+
+        setAppointments(transformedData);
+      } else {
+        toast.error(result.error || "Không thể tải danh sách lịch hẹn");
+      }
+    } catch (error) {
+      console.error("Fetch appointments error:", error);
+      toast.error("Lỗi khi tải danh sách lịch hẹn");
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
+
+  // Socket event listeners for real-time updates
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    console.log("🎧 Doctor schedule: Setting up socket listeners");
+
+    // When patient creates new appointment → Refresh list
+    socket.on("appointment:new", () => {
+      console.log("📅 New appointment received, refreshing list...");
+      fetchAppointments();
+    });
+
+    // When appointment is confirmed → Refresh list
+    socket.on("appointment:confirmed", () => {
+      console.log("✅ Appointment confirmed, refreshing list...");
+      fetchAppointments();
+    });
+
+    // When appointment is cancelled → Refresh list
+    socket.on("appointment:cancelled", () => {
+      console.log("❌ Appointment cancelled, refreshing list...");
+      fetchAppointments();
+    });
+
+    // When appointment is rescheduled → Refresh list
+    socket.on("appointment:rescheduled", () => {
+      console.log("🔄 Appointment rescheduled, refreshing list...");
+      fetchAppointments();
+    });
+
+    return () => {
+      console.log("🔇 Doctor schedule: Cleaning up socket listeners");
+      socket.off("appointment:new");
+      socket.off("appointment:confirmed");
+      socket.off("appointment:cancelled");
+      socket.off("appointment:rescheduled");
+    };
+  }, [socket, isConnected, fetchAppointments]);
 
   // Filter appointments based on selected tab
   const getFilteredAppointments = () => {
@@ -208,6 +163,86 @@ function DoctorScheduleContent() {
       setFilterStatus("all");
     } else {
       setFilterStatus(status);
+    }
+  };
+
+  // Handle confirm appointment
+  const handleConfirmAppointment = async (appointmentId: string) => {
+    if (!session || actionLoading) return;
+
+    try {
+      setActionLoading(true);
+      const accessToken = (session as ExtendedSession).accessToken;
+      const result = await appointmentService.confirmAppointment(appointmentId, accessToken);
+
+      if (result.success) {
+        toast.success("Đã xác nhận lịch hẹn");
+        // Update local state
+        setAppointments((prev) =>
+          prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: "confirmed" } : apt))
+        );
+      } else {
+        toast.error(result.error || "Không thể xác nhận lịch hẹn");
+      }
+    } catch (error) {
+      console.error("Confirm appointment error:", error);
+      toast.error("Lỗi khi xác nhận lịch hẹn");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle complete appointment
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    if (!session || actionLoading) return;
+
+    try {
+      setActionLoading(true);
+      const accessToken = (session as ExtendedSession).accessToken;
+      const result = await appointmentService.completeAppointment(appointmentId, accessToken);
+
+      if (result.success) {
+        toast.success("Đã hoàn thành lịch hẹn");
+        // Update local state
+        setAppointments((prev) =>
+          prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: "completed" } : apt))
+        );
+      } else {
+        toast.error(result.error || "Không thể hoàn thành lịch hẹn");
+      }
+    } catch (error) {
+      console.error("Complete appointment error:", error);
+      toast.error("Lỗi khi hoàn thành lịch hẹn");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle cancel appointment
+  const handleCancelAppointment = async (appointmentId: string, reason: string = "Bác sĩ hủy lịch hẹn") => {
+    if (!session || actionLoading) return;
+
+    try {
+      setActionLoading(true);
+      const accessToken = (session as ExtendedSession).accessToken;
+      const result = await appointmentService.cancelAppointment(appointmentId, reason, accessToken);
+
+      if (result.success) {
+        toast.success("Đã hủy lịch hẹn");
+        // Remove from local state (since backend deletes the appointment)
+        setAppointments((prev) => prev.filter((apt) => apt.id !== appointmentId));
+        if (detailModalOpen && selectedAppointment?.id === appointmentId) {
+          setDetailModalOpen(false);
+          setSelectedAppointment(null);
+        }
+      } else {
+        toast.error(result.error || "Không thể hủy lịch hẹn");
+      }
+    } catch (error) {
+      console.error("Cancel appointment error:", error);
+      toast.error("Lỗi khi hủy lịch hẹn");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -233,6 +268,17 @@ function DoctorScheduleContent() {
 
   if (!session) {
     return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -480,22 +526,22 @@ function DoctorScheduleContent() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // TODO: Confirm appointment
-                                console.log("Confirm", apt.id);
+                                handleConfirmAppointment(apt._id || apt.id);
                               }}
-                              className="px-3 py-1 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90"
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Xác nhận
+                              {actionLoading ? "..." : "Xác nhận"}
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // TODO: Cancel appointment
-                                console.log("Cancel", apt.id);
+                                handleCancelAppointment(apt._id || apt.id);
                               }}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700"
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Hủy
+                              {actionLoading ? "..." : "Hủy"}
                             </button>
                           </>
                         )}
@@ -504,22 +550,22 @@ function DoctorScheduleContent() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // TODO: Complete appointment
-                                console.log("Complete", apt.id);
+                                handleCompleteAppointment(apt._id || apt.id);
                               }}
-                              className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Hoàn thành
+                              {actionLoading ? "..." : "Hoàn thành"}
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // TODO: Cancel appointment
-                                console.log("Cancel", apt.id);
+                                handleCancelAppointment(apt._id || apt.id);
                               }}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700"
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Hủy
+                              {actionLoading ? "..." : "Hủy"}
                             </button>
                           </>
                         )}
@@ -651,18 +697,41 @@ function DoctorScheduleContent() {
               {/* Actions */}
               <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                 {selectedAppointment.status === "pending" && (
-                  <button className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">
-                    Xác Nhận
+                  <button
+                    onClick={() => {
+                      handleConfirmAppointment(selectedAppointment._id || selectedAppointment.id);
+                      setDetailModalOpen(false);
+                    }}
+                    disabled={actionLoading}
+                    className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading ? "Đang xử lý..." : "Xác Nhận"}
                   </button>
                 )}
                 {selectedAppointment.status === "confirmed" && (
-                  <button className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90">
-                    Hoàn Thành
+                  <button
+                    onClick={() => {
+                      handleCompleteAppointment(selectedAppointment._id || selectedAppointment.id);
+                      setDetailModalOpen(false);
+                    }}
+                    disabled={actionLoading}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading ? "Đang xử lý..." : "Hoàn Thành"}
                   </button>
                 )}
-                <button className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700">
-                  Hủy Lịch Hẹn
-                </button>
+                {(selectedAppointment.status === "pending" || selectedAppointment.status === "confirmed") && (
+                  <button
+                    onClick={() => {
+                      handleCancelAppointment(selectedAppointment._id || selectedAppointment.id);
+                      setDetailModalOpen(false);
+                    }}
+                    disabled={actionLoading}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading ? "Đang xử lý..." : "Hủy Lịch Hẹn"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

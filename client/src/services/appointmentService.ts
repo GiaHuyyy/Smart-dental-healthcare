@@ -123,7 +123,7 @@ const appointmentService = {
       const appointmentsData = data.data || data;
 
       // Map doctorId -> doctor and patientId -> patient for consistency
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const mappedAppointments = (Array.isArray(appointmentsData) ? appointmentsData : [appointmentsData]).map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (apt: any) => ({
@@ -386,6 +386,101 @@ const appointmentService = {
       };
     } catch (error) {
       console.error("Confirm appointment error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Complete appointment
+   */
+  async completeAppointment(appointmentId: string, token?: string): Promise<AppointmentResponse> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/complete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Không thể hoàn thành lịch hẹn",
+        };
+      }
+
+      const appointmentData = data.data || data;
+
+      return {
+        success: true,
+        data: appointmentData,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Complete appointment error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Get appointments by doctor ID
+   */
+  async getDoctorAppointments(
+    doctorId: string,
+    query?: { status?: AppointmentStatus; page?: number; limit?: number },
+    token?: string
+  ): Promise<AppointmentsListResponse> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (query?.status) queryParams.append("status", query.status);
+      if (query?.page) queryParams.append("page", query.page.toString());
+      if (query?.limit) queryParams.append("limit", query.limit.toString());
+
+      // Add populate for doctor and patient info
+      queryParams.append("populate", "doctorId,patientId");
+
+      const url = `${API_URL}/api/v1/appointments/doctor/${doctorId}${
+        queryParams.toString() ? `?${queryParams.toString()}` : ""
+      }`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Không thể lấy danh sách lịch hẹn",
+        };
+      }
+
+      const appointmentsData = data.data || data;
+
+      return {
+        success: true,
+        data: Array.isArray(appointmentsData) ? appointmentsData : [appointmentsData],
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Get doctor appointments error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Lỗi kết nối server",

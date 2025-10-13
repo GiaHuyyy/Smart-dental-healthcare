@@ -38,10 +38,7 @@ function MyAppointmentsContent() {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    if (!session?.user) {
-      router.push("/auth/signin");
-      return;
-    }
+    if (!session?.user) return;
     fetchAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
@@ -55,11 +52,13 @@ function MyAppointmentsContent() {
       fetchAppointments();
     };
 
+    socket.on("appointment:new", handleRefresh); // When appointment created
     socket.on("appointment:confirmed", handleRefresh);
     socket.on("appointment:cancelled", handleRefresh);
     socket.on("appointment:rescheduled", handleRefresh);
 
     return () => {
+      socket.off("appointment:new", handleRefresh);
       socket.off("appointment:confirmed", handleRefresh);
       socket.off("appointment:cancelled", handleRefresh);
       socket.off("appointment:rescheduled", handleRefresh);
