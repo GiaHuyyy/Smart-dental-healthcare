@@ -14,6 +14,12 @@ const nextConfig = {
         port: "",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "ui-avatars.com",
+        port: "",
+        pathname: "/**",
+      },
     ],
   },
   // Skip ESLint during production builds to avoid build failures from lint-only errors

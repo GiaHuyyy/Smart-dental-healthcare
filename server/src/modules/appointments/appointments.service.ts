@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
 import { Model } from 'mongoose';
@@ -6,13 +10,18 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { Appointment, AppointmentStatus } from './schemas/appointment.schemas';
 import { MedicalRecord } from '../medical-records/schemas/medical-record.schemas';
+import { AppointmentNotificationGateway } from './appointment-notification.gateway';
+import { AppointmentEmailService } from './appointment-email.service';
 
 @Injectable()
 export class AppointmentsService {
   constructor(
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
-    @InjectModel(MedicalRecord.name) private readonly medicalRecordModel: Model<MedicalRecord>,
-  ) { }
+    @InjectModel(MedicalRecord.name)
+    private readonly medicalRecordModel: Model<MedicalRecord>,
+    private readonly notificationGateway: AppointmentNotificationGateway,
+    private readonly emailService: AppointmentEmailService,
+  ) {}
 
   // Convert "HH:MM" or ISO datetime string -> minutes since midnight (UTC for ISO)
   private timeToMinutes(time: string) {
@@ -30,15 +39,49 @@ export class AppointmentsService {
   }
 
   // Check interval overlap: [aStart,aEnd) overlaps [bStart,bEnd)
-  private intervalsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number) {
+  private intervalsOverlap(
+    aStart: number,
+    aEnd: number,
+    bStart: number,
+    bEnd: number,
+  ) {
     return aStart < bEnd && bStart < aEnd;
   }
 
   // Check if doctor has overlapping appointment on same day, optionally excluding an appointment id
-  private async hasOverlap(doctorId: string, appointmentDate: Date, startTime: string, endTime: string, excludeId?: string) {
-  const apd = appointmentDate instanceof Date ? appointmentDate : new Date(appointmentDate);
-  const startOfDay = new Date(Date.UTC(apd.getUTCFullYear(), apd.getUTCMonth(), apd.getUTCDate(), 0, 0, 0, 0));
-  const endOfDay = new Date(Date.UTC(apd.getUTCFullYear(), apd.getUTCMonth(), apd.getUTCDate(), 23, 59, 59, 999));
+  private async hasOverlap(
+    doctorId: string,
+    appointmentDate: Date,
+    startTime: string,
+    endTime: string,
+    excludeId?: string,
+  ) {
+    const apd =
+      appointmentDate instanceof Date
+        ? appointmentDate
+        : new Date(appointmentDate);
+    const startOfDay = new Date(
+      Date.UTC(
+        apd.getUTCFullYear(),
+        apd.getUTCMonth(),
+        apd.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+    const endOfDay = new Date(
+      Date.UTC(
+        apd.getUTCFullYear(),
+        apd.getUTCMonth(),
+        apd.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
 
     const filter: any = {
       doctorId,
@@ -55,12 +98,16 @@ export class AppointmentsService {
 
     for (const appt of appointments) {
       const ap = appt as any;
-      const storedStart = (ap.startTime || ap.appointmentTime || ap.time || '').toString().trim();
+      const storedStart = (ap.startTime || ap.appointmentTime || ap.time || '')
+        .toString()
+        .trim();
       if (!storedStart) continue; // skip malformed/legacy entries without a start time
       const bStart = this.timeToMinutes(storedStart);
       const durationNum = Number(ap.duration) || 30;
       const storedEnd = (ap.endTime || '').toString().trim();
-      const bEnd = storedEnd ? this.timeToMinutes(storedEnd) : (bStart + durationNum);
+      const bEnd = storedEnd
+        ? this.timeToMinutes(storedEnd)
+        : bStart + durationNum;
       if (this.intervalsOverlap(aStart, aEnd, bStart, bEnd)) {
         return true;
       }
@@ -68,12 +115,39 @@ export class AppointmentsService {
 
     return false;
   }
-  
+
   // Kiểm tra xem bác sĩ có lịch hẹn chính xác vào khung giờ này không
-  private async hasExactTimeOverlap(doctorId: string, appointmentDate: Date, startTime: string) {
-    const apd = appointmentDate instanceof Date ? appointmentDate : new Date(appointmentDate);
-    const startOfDay = new Date(Date.UTC(apd.getUTCFullYear(), apd.getUTCMonth(), apd.getUTCDate(), 0, 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(apd.getUTCFullYear(), apd.getUTCMonth(), apd.getUTCDate(), 23, 59, 59, 999));
+  private async hasExactTimeOverlap(
+    doctorId: string,
+    appointmentDate: Date,
+    startTime: string,
+  ) {
+    const apd =
+      appointmentDate instanceof Date
+        ? appointmentDate
+        : new Date(appointmentDate);
+    const startOfDay = new Date(
+      Date.UTC(
+        apd.getUTCFullYear(),
+        apd.getUTCMonth(),
+        apd.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+    const endOfDay = new Date(
+      Date.UTC(
+        apd.getUTCFullYear(),
+        apd.getUTCMonth(),
+        apd.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
 
     const filter: any = {
       doctorId,
@@ -89,7 +163,8 @@ export class AppointmentsService {
   // Calculate end time string from startTime and duration (minutes). Returns "HH:MM"
   private calculateEndTime(startTime: string, duration: number) {
     const start = this.timeToMinutes(startTime);
-    const dur = typeof duration === 'number' && !isNaN(duration) ? duration : 30;
+    const dur =
+      typeof duration === 'number' && !isNaN(duration) ? duration : 30;
     const end = start + dur;
     const h = Math.floor(end / 60);
     const m = end % 60;
@@ -117,21 +192,40 @@ export class AppointmentsService {
       }
 
       // Normalize and validate appointmentDate -> store as UTC midnight date
-      const apptDateRaw = appointmentDate instanceof Date ? appointmentDate : new Date(appointmentDate as any);
+      const apptDateRaw =
+        appointmentDate instanceof Date
+          ? appointmentDate
+          : new Date(appointmentDate as any);
       if (!apptDateRaw || isNaN(apptDateRaw.getTime())) {
         throw new BadRequestException('appointmentDate không hợp lệ');
       }
-      const normalizedDate = new Date(Date.UTC(apptDateRaw.getUTCFullYear(), apptDateRaw.getUTCMonth(), apptDateRaw.getUTCDate(), 0, 0, 0, 0));
+      const normalizedDate = new Date(
+        Date.UTC(
+          apptDateRaw.getUTCFullYear(),
+          apptDateRaw.getUTCMonth(),
+          apptDateRaw.getUTCDate(),
+          0,
+          0,
+          0,
+          0,
+        ),
+      );
       (createAppointmentDto as any).appointmentDate = normalizedDate;
 
       if (!startTime || !this.isValidTimeString(startTime)) {
-        throw new BadRequestException('startTime không hợp lệ (định dạng HH:MM)');
+        throw new BadRequestException(
+          'startTime không hợp lệ (định dạng HH:MM)',
+        );
       }
 
       // ensure numeric duration and compute endTime if missing
-      (createAppointmentDto as any).duration = Number((createAppointmentDto as any).duration) || 30;
+      (createAppointmentDto as any).duration =
+        Number((createAppointmentDto as any).duration) || 30;
       if (!createAppointmentDto.endTime) {
-        (createAppointmentDto as any).endTime = this.calculateEndTime(startTime, (createAppointmentDto as any).duration);
+        (createAppointmentDto as any).endTime = this.calculateEndTime(
+          startTime,
+          (createAppointmentDto as any).duration,
+        );
       }
 
       // Ensure legacy appointmentTime field is populated (avoid nulls that violate old unique index)
@@ -140,26 +234,59 @@ export class AppointmentsService {
       }
 
       // Ensure appointmentDate is a Date
-      const apptDate = appointmentDate instanceof Date ? appointmentDate : new Date(appointmentDate);
-      
-  // Per product decision: allow patients to create multiple appointments with the same doctor on the same day.
-  // Do not block creation by exact-time overlap here. The DB unique index on (doctorId, appointmentDate, startTime)
-  // will still prevent two appointments with the exact same startTime for the same doctor and date.
+      const apptDate =
+        appointmentDate instanceof Date
+          ? appointmentDate
+          : new Date(appointmentDate);
+
+      // Per product decision: allow patients to create multiple appointments with the same doctor on the same day.
+      // Do not block creation by exact-time overlap here. The DB unique index on (doctorId, appointmentDate, startTime)
+      // will still prevent two appointments with the exact same startTime for the same doctor and date.
 
       // Save appointment (also keep legacy appointmentTime if needed elsewhere)
       const payload = {
         ...(createAppointmentDto as any),
         // force legacy field to be the start time to avoid nulls that trigger legacy unique index
-        appointmentTime: (createAppointmentDto as any).startTime || (createAppointmentDto as any).appointmentTime || (createAppointmentDto as any).time,
+        appointmentTime:
+          (createAppointmentDto as any).startTime ||
+          (createAppointmentDto as any).appointmentTime ||
+          (createAppointmentDto as any).time,
       };
 
       const appointment = await this.appointmentModel.create(payload as any);
+
+      // Populate doctor and patient info for notifications
+      const populatedAppointment = await appointment.populate([
+        { path: 'doctorId', select: 'fullName email phone specialty address' },
+        { path: 'patientId', select: 'fullName email phone' },
+      ]);
+
+      // Send real-time notification to doctor
+      const docId = (populatedAppointment.doctorId as any)._id.toString();
+      this.notificationGateway.notifyDoctorNewAppointment(
+        docId,
+        populatedAppointment.toObject(),
+      );
+
+      // Send email to doctor (async, don't wait)
+      void this.emailService.sendNewAppointmentEmailToDoctor(
+        populatedAppointment.toObject(),
+        populatedAppointment.doctorId as any,
+        populatedAppointment.patientId as any,
+      );
+
       return appointment;
     } catch (error) {
       // Handle legacy duplicate-key errors caused by old DB indexes pointing to appointmentTime
-      if (error && (error.code === 11000 || error.name === 'MongoServerError')) {
+      if (
+        error &&
+        (error.code === 11000 || error.name === 'MongoServerError')
+      ) {
         // Surface more info when possible
-        const keyInfo = (error.keyValue && JSON.stringify(error.keyValue)) || (error.keyPattern && JSON.stringify(error.keyPattern)) || '';
+        const keyInfo =
+          (error.keyValue && JSON.stringify(error.keyValue)) ||
+          (error.keyPattern && JSON.stringify(error.keyPattern)) ||
+          '';
         // Log server-side so ops can inspect (kept minimal)
         console.warn('Duplicate key on create appointment:', keyInfo);
         throw new BadRequestException(
@@ -172,7 +299,8 @@ export class AppointmentsService {
 
   async findAll(query: string) {
     const { filter, sort, population, projection } = aqp(query);
-    const appointments = await this.appointmentModel.find(filter)
+    const appointments = await this.appointmentModel
+      .find(filter)
       .sort(sort as any)
       .populate(population)
       .select(projection as any);
@@ -180,7 +308,8 @@ export class AppointmentsService {
   }
 
   async findOne(id: string) {
-    const appointment = await this.appointmentModel.findById(id)
+    const appointment = await this.appointmentModel
+      .findById(id)
       .populate('patientId', 'fullName email phone')
       .populate('doctorId', 'fullName email specialty');
 
@@ -217,10 +346,11 @@ export class AppointmentsService {
 
   async findByPatient(patientId: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      patientId,
-    })
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        patientId,
+      })
       .sort(sort as any)
       .populate(population)
       .select(projection as any);
@@ -230,10 +360,11 @@ export class AppointmentsService {
 
   async findByDoctor(doctorId: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      doctorId,
-    })
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        doctorId,
+      })
       .sort(sort as any)
       .populate(population)
       .select(projection as any);
@@ -244,14 +375,17 @@ export class AppointmentsService {
   async findUpcomingByDoctor(doctorId: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
     const currentDate = new Date();
-    
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      doctorId,
-      appointmentDate: { $gte: currentDate },
-      status: { $in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] }
-    })
-      .sort(sort as any || { appointmentDate: 1, startTime: 1 })
+
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        doctorId,
+        appointmentDate: { $gte: currentDate },
+        status: {
+          $in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+        },
+      })
+      .sort((sort as any) || { appointmentDate: 1, startTime: 1 })
       .populate(population)
       .select(projection as any);
 
@@ -261,14 +395,17 @@ export class AppointmentsService {
   async findUpcomingByPatient(patientId: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
     const currentDate = new Date();
-    
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      patientId,
-      appointmentDate: { $gte: currentDate },
-      status: { $in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] }
-    })
-      .sort(sort as any || { appointmentDate: 1, startTime: 1 })
+
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        patientId,
+        appointmentDate: { $gte: currentDate },
+        status: {
+          $in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+        },
+      })
+      .sort((sort as any) || { appointmentDate: 1, startTime: 1 })
       .populate(population)
       .select(projection as any);
 
@@ -278,16 +415,21 @@ export class AppointmentsService {
   async findHistoryByDoctor(doctorId: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
     const currentDate = new Date();
-    
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      doctorId,
-      $or: [
-        { appointmentDate: { $lt: currentDate } },
-        { status: { $in: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED] } }
-      ]
-    })
-      .sort(sort as any || { appointmentDate: -1, startTime: -1 })
+
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        doctorId,
+        $or: [
+          { appointmentDate: { $lt: currentDate } },
+          {
+            status: {
+              $in: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED],
+            },
+          },
+        ],
+      })
+      .sort((sort as any) || { appointmentDate: -1, startTime: -1 })
       .populate(population)
       .select(projection as any);
 
@@ -297,16 +439,21 @@ export class AppointmentsService {
   async findHistoryByPatient(patientId: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
     const currentDate = new Date();
-    
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      patientId,
-      $or: [
-        { appointmentDate: { $lt: currentDate } },
-        { status: { $in: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED] } }
-      ]
-    })
-      .sort(sort as any || { appointmentDate: -1, startTime: -1 })
+
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        patientId,
+        $or: [
+          { appointmentDate: { $lt: currentDate } },
+          {
+            status: {
+              $in: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED],
+            },
+          },
+        ],
+      })
+      .sort((sort as any) || { appointmentDate: -1, startTime: -1 })
       .populate(population)
       .select(projection as any);
 
@@ -338,33 +485,52 @@ export class AppointmentsService {
     }
 
     // Validate and normalize appointmentDate and time
-    const apptDateRaw = appointmentDate instanceof Date ? appointmentDate : new Date(appointmentDate as any);
+    const apptDateRaw =
+      appointmentDate instanceof Date
+        ? appointmentDate
+        : new Date(appointmentDate as any);
     if (!apptDateRaw || isNaN(apptDateRaw.getTime())) {
       throw new BadRequestException('appointmentDate không hợp lệ');
     }
-    const normalizedDate = new Date(Date.UTC(apptDateRaw.getUTCFullYear(), apptDateRaw.getUTCMonth(), apptDateRaw.getUTCDate(), 0, 0, 0, 0));
+    const normalizedDate = new Date(
+      Date.UTC(
+        apptDateRaw.getUTCFullYear(),
+        apptDateRaw.getUTCMonth(),
+        apptDateRaw.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
 
     if (!appointmentTime || !this.isValidTimeString(appointmentTime)) {
-      throw new BadRequestException('appointmentTime không hợp lệ (định dạng HH:MM)');
+      throw new BadRequestException(
+        'appointmentTime không hợp lệ (định dạng HH:MM)',
+      );
     }
-    
+
     // Kiểm tra xem bác sĩ có lịch hẹn chính xác vào khung giờ này không
     const hasExactTimeOverlap = await this.hasExactTimeOverlap(
       appointment.doctorId.toString(),
       normalizedDate,
-      appointmentTime
+      appointmentTime,
     );
-    
+
     if (hasExactTimeOverlap) {
       throw new BadRequestException('Bác sĩ đã có lịch hẹn vào khung giờ này');
     }
-    
+
     appointment.appointmentDate = normalizedDate;
     appointment.startTime = appointmentTime;
-  // keep legacy field in sync to avoid inserting null appointmentTime
-  (appointment as any).appointmentTime = (appointment as any).appointmentTime || appointmentTime;
+    // keep legacy field in sync to avoid inserting null appointmentTime
+    (appointment as any).appointmentTime =
+      (appointment as any).appointmentTime || appointmentTime;
     // update endTime
-    appointment.endTime = this.calculateEndTime(appointmentTime, appointment.duration || 30);
+    appointment.endTime = this.calculateEndTime(
+      appointmentTime,
+      appointment.duration || 30,
+    );
     appointment.status = AppointmentStatus.PENDING;
 
     await appointment.save();
@@ -379,11 +545,40 @@ export class AppointmentsService {
 
   async cancel(id: string, reason: string) {
     // For patient-initiated cancellations, remove the appointment document entirely.
-    const appointment = await this.appointmentModel.findByIdAndDelete(id);
+    const appointment = await this.appointmentModel.findById(id).populate([
+      { path: 'doctorId', select: 'fullName email' },
+      { path: 'patientId', select: 'fullName email' },
+    ]);
+
     if (!appointment) {
       throw new NotFoundException('Không tìm thấy lịch hẹn');
     }
+
+    // Get IDs before deletion
+    const docId = (appointment.doctorId as any)._id.toString();
+    const patId = (appointment.patientId as any)._id.toString();
+    const appointmentData = appointment.toObject();
+
+    // Delete appointment
+    await this.appointmentModel.findByIdAndDelete(id);
     await this.syncFollowUpRecord(appointment as any, { cancelled: true });
+
+    // Send notifications to doctor (patient cancelled)
+    this.notificationGateway.notifyAppointmentCancelled(
+      docId,
+      appointmentData,
+      'patient',
+    );
+
+    // Send email to doctor
+    void this.emailService.sendCancellationEmail(
+      appointmentData,
+      appointment.doctorId as any,
+      appointment.patientId as any,
+      'patient',
+      reason,
+    );
+
     return { message: 'Đã xóa lịch hẹn' };
   }
 
@@ -397,15 +592,36 @@ export class AppointmentsService {
 
   async findByDate(date: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
-  const sd = new Date(date);
-  const startDate = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), 0, 0, 0, 0));
-  const endDate = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), 23, 59, 59, 999));
-    
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      appointmentDate: { $gte: startDate, $lte: endDate }
-    })
-      .sort(sort as any || { startTime: 1 })
+    const sd = new Date(date);
+    const startDate = new Date(
+      Date.UTC(
+        sd.getUTCFullYear(),
+        sd.getUTCMonth(),
+        sd.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+    const endDate = new Date(
+      Date.UTC(
+        sd.getUTCFullYear(),
+        sd.getUTCMonth(),
+        sd.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        appointmentDate: { $gte: startDate, $lte: endDate },
+      })
+      .sort((sort as any) || { startTime: 1 })
       .populate(population)
       .select(projection as any);
 
@@ -414,16 +630,29 @@ export class AppointmentsService {
 
   async findByDateRange(startDate: string, endDate: string, query: string) {
     const { filter, sort, population, projection } = aqp(query);
-  const s = new Date(startDate);
-  const start = new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate(), 0, 0, 0, 0));
-  const e = new Date(endDate);
-  const end = new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth(), e.getUTCDate(), 23, 59, 59, 999));
-    
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      appointmentDate: { $gte: start, $lte: end }
-    })
-      .sort(sort as any || { appointmentDate: 1, startTime: 1 })
+    const s = new Date(startDate);
+    const start = new Date(
+      Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate(), 0, 0, 0, 0),
+    );
+    const e = new Date(endDate);
+    const end = new Date(
+      Date.UTC(
+        e.getUTCFullYear(),
+        e.getUTCMonth(),
+        e.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        appointmentDate: { $gte: start, $lte: end },
+      })
+      .sort((sort as any) || { appointmentDate: 1, startTime: 1 })
       .populate(population)
       .select(projection as any);
 
@@ -432,17 +661,20 @@ export class AppointmentsService {
 
   async findByMonth(year: number, month: number, query: string) {
     const { filter, sort, population, projection } = aqp(query);
-    
+
     // Tạo ngày đầu tháng và cuối tháng
-  const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-  const lastDay = new Date(Date.UTC(year, month, 0));
-  const endDate = new Date(Date.UTC(year, month - 1, lastDay.getUTCDate(), 23, 59, 59, 999));
-    
-    const appointments = await this.appointmentModel.find({
-      ...filter,
-      appointmentDate: { $gte: startDate, $lte: endDate }
-    })
-      .sort(sort as any || { appointmentDate: 1, startTime: 1 })
+    const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const lastDay = new Date(Date.UTC(year, month, 0));
+    const endDate = new Date(
+      Date.UTC(year, month - 1, lastDay.getUTCDate(), 23, 59, 59, 999),
+    );
+
+    const appointments = await this.appointmentModel
+      .find({
+        ...filter,
+        appointmentDate: { $gte: startDate, $lte: endDate },
+      })
+      .sort((sort as any) || { appointmentDate: 1, startTime: 1 })
       .populate(population)
       .select(projection as any);
 
@@ -495,9 +727,13 @@ export class AppointmentsService {
       throw new NotFoundException('Không tìm thấy lịch hẹn');
     }
 
-    if (appointment.status !== AppointmentStatus.CONFIRMED &&
-      appointment.status !== AppointmentStatus.IN_PROGRESS) {
-      throw new BadRequestException('Chỉ có thể hoàn thành lịch hẹn đã xác nhận hoặc đang tiến hành');
+    if (
+      appointment.status !== AppointmentStatus.CONFIRMED &&
+      appointment.status !== AppointmentStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException(
+        'Chỉ có thể hoàn thành lịch hẹn đã xác nhận hoặc đang tiến hành',
+      );
     }
 
     appointment.status = AppointmentStatus.COMPLETED;
@@ -525,7 +761,10 @@ export class AppointmentsService {
     return appointment;
   }
 
-  async rescheduleAppointment(id: string, updateAppointmentDto: UpdateAppointmentDto) {
+  async rescheduleAppointment(
+    id: string,
+    updateAppointmentDto: UpdateAppointmentDto,
+  ) {
     const appointment = await this.appointmentModel.findById(id);
 
     if (!appointment) {
@@ -550,29 +789,49 @@ export class AppointmentsService {
 
     // Determine appointmentDate and times for overlap check
     // normalize and validate new appointment date/time
-    const newApptDate = newData.appointmentDate instanceof Date ? newData.appointmentDate : new Date(newData.appointmentDate);
+    const newApptDate =
+      newData.appointmentDate instanceof Date
+        ? newData.appointmentDate
+        : new Date(newData.appointmentDate);
     if (!newApptDate || isNaN(newApptDate.getTime())) {
-      throw new BadRequestException('appointmentDate không hợp lệ cho lịch mới');
+      throw new BadRequestException(
+        'appointmentDate không hợp lệ cho lịch mới',
+      );
     }
-    newData.appointmentDate = new Date(Date.UTC(newApptDate.getUTCFullYear(), newApptDate.getUTCMonth(), newApptDate.getUTCDate(), 0, 0, 0, 0));
+    newData.appointmentDate = new Date(
+      Date.UTC(
+        newApptDate.getUTCFullYear(),
+        newApptDate.getUTCMonth(),
+        newApptDate.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
 
     const newStart = newData.startTime || appointment.startTime;
     if (!newStart || !this.isValidTimeString(newStart)) {
       throw new BadRequestException('startTime không hợp lệ cho lịch mới');
     }
     newData.startTime = newStart;
-    newData.endTime = newData.endTime || this.calculateEndTime(newStart, Number(newData.duration) || appointment.duration || 30);
-  // ensure legacy appointmentTime is present on new data
-  newData.appointmentTime = newData.appointmentTime || newData.startTime;
+    newData.endTime =
+      newData.endTime ||
+      this.calculateEndTime(
+        newStart,
+        Number(newData.duration) || appointment.duration || 30,
+      );
+    // ensure legacy appointmentTime is present on new data
+    newData.appointmentTime = newData.appointmentTime || newData.startTime;
 
     // Kiểm tra xem bác sĩ có lịch hẹn chính xác vào khung giờ này không
     // Chỉ kiểm tra trùng khớp chính xác khung giờ, không chặn các khung giờ liền kề
     const hasExactTimeOverlap = await this.hasExactTimeOverlap(
       appointment.doctorId.toString(),
       newData.appointmentDate,
-      newData.startTime
+      newData.startTime,
     );
-    
+
     if (hasExactTimeOverlap) {
       throw new BadRequestException('Bác sĩ đã có lịch hẹn vào khung giờ này');
     }
@@ -604,17 +863,40 @@ export class AppointmentsService {
     }
 
     // Tạo đối tượng Date từ chuỗi ngày
-  const sd = new Date(date);
-  const selectedDate = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), 0, 0, 0, 0));
-  // Tạo ngày kết thúc (cuối ngày)
-  const endDate = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), 23, 59, 59, 999));
+    const sd = new Date(date);
+    const selectedDate = new Date(
+      Date.UTC(
+        sd.getUTCFullYear(),
+        sd.getUTCMonth(),
+        sd.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+    // Tạo ngày kết thúc (cuối ngày)
+    const endDate = new Date(
+      Date.UTC(
+        sd.getUTCFullYear(),
+        sd.getUTCMonth(),
+        sd.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
 
     // Lấy danh sách các lịch hẹn của bác sĩ trong ngày đã chọn (theo appointmentDate)
-    const appointments = await this.appointmentModel.find({
-      doctorId,
-      appointmentDate: { $gte: selectedDate, $lte: endDate },
-      status: { $nin: [AppointmentStatus.CANCELLED] },
-    }).sort({ startTime: 1 }).lean();
+    const appointments = await this.appointmentModel
+      .find({
+        doctorId,
+        appointmentDate: { $gte: selectedDate, $lte: endDate },
+        status: { $nin: [AppointmentStatus.CANCELLED] },
+      })
+      .sort({ startTime: 1 })
+      .lean();
 
     // Danh sách các khung giờ làm việc (8:00 - 17:00, mỗi khung 30 phút)
     const workingHours = [];
@@ -639,10 +921,10 @@ export class AppointmentsService {
         // skip malformed legacy entries without a proper start time
         continue;
       }
-      
+
       // Chỉ đánh dấu chính xác khung giờ bắt đầu của lịch hẹn
       // Tìm khung giờ làm việc tương ứng với thời gian bắt đầu của lịch hẹn
-      const matchingSlot = workingHours.find(slot => slot === apptStart);
+      const matchingSlot = workingHours.find((slot) => slot === apptStart);
       if (matchingSlot) {
         unavailableSet.add(matchingSlot);
       }
@@ -651,7 +933,9 @@ export class AppointmentsService {
     const unavailableSlots = Array.from(unavailableSet).sort();
 
     // Danh sách các khung giờ còn trống
-    const availableSlots = workingHours.filter(time => !unavailableSlots.includes(time));
+    const availableSlots = workingHours.filter(
+      (time) => !unavailableSlots.includes(time),
+    );
 
     return {
       availableSlots,
@@ -663,9 +947,9 @@ export class AppointmentsService {
   async getPatientAppointmentHistory(patientId: string, query: any) {
     try {
       const { current = 1, pageSize = 10, status } = query;
-      
+
       let filter: any = { patientId };
-      
+
       if (status && status !== 'all') {
         filter.status = status;
       }
@@ -691,15 +975,15 @@ export class AppointmentsService {
             current: +current,
             pageSize: +pageSize,
             totalItems,
-            totalPages
-          }
+            totalPages,
+          },
         },
-        message: 'Lấy lịch sử lịch hẹn thành công'
+        message: 'Lấy lịch sử lịch hẹn thành công',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy lịch sử lịch hẹn'
+        message: error.message || 'Có lỗi xảy ra khi lấy lịch sử lịch hẹn',
       };
     }
   }
@@ -713,7 +997,7 @@ export class AppointmentsService {
         .find({
           patientId,
           appointmentDate: { $gte: today },
-          status: { $nin: ['cancelled', 'completed'] }
+          status: { $nin: ['cancelled', 'completed'] },
         })
         .populate('doctorId', 'fullName specialty')
         .populate('patientId', 'fullName phone email')
@@ -723,12 +1007,12 @@ export class AppointmentsService {
       return {
         success: true,
         data: upcomingAppointments,
-        message: 'Lấy lịch hẹn sắp tới thành công'
+        message: 'Lấy lịch hẹn sắp tới thành công',
       };
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy lịch hẹn sắp tới'
+        message: error.message || 'Có lỗi xảy ra khi lấy lịch hẹn sắp tới',
       };
     }
   }
@@ -738,10 +1022,11 @@ export class AppointmentsService {
     if (!doctorId) throw new BadRequestException('Thiếu doctorId');
 
     // Find completed appointments for this doctor and sort by date desc
-    const appointments = await this.appointmentModel.find({
-      doctorId,
-      status: AppointmentStatus.COMPLETED,
-    })
+    const appointments = await this.appointmentModel
+      .find({
+        doctorId,
+        status: AppointmentStatus.COMPLETED,
+      })
       .sort({ appointmentDate: -1 })
       .populate('patientId', 'fullName phone email')
       .lean();
@@ -749,7 +1034,10 @@ export class AppointmentsService {
     // Map latest completed appointment per patient
     const latestByPatient = new Map<string, any>();
     for (const appt of appointments) {
-      const pid = (appt.patientId && (appt.patientId as any)._id) ? String((appt.patientId as any)._id) : String(appt.patientId);
+      const pid =
+        appt.patientId && (appt.patientId as any)._id
+          ? String((appt.patientId as any)._id)
+          : String(appt.patientId);
       if (!latestByPatient.has(pid)) {
         latestByPatient.set(pid, appt);
       }
@@ -758,7 +1046,9 @@ export class AppointmentsService {
     const results: any[] = [];
     for (const [pid, appt] of latestByPatient.entries()) {
       const patient = (appt as any).patientId || { _id: pid };
-      const lastDate = appt.appointmentDate ? new Date(appt.appointmentDate) : null;
+      const lastDate = appt.appointmentDate
+        ? new Date(appt.appointmentDate)
+        : null;
       if (!lastDate) continue;
 
       const m1 = new Date(lastDate);
@@ -791,17 +1081,21 @@ export class AppointmentsService {
   async getFollowUpByPatient(patientId: string) {
     if (!patientId) throw new BadRequestException('Thiếu patientId');
 
-    const appointments = await this.appointmentModel.find({
-      patientId,
-      status: AppointmentStatus.COMPLETED,
-    })
+    const appointments = await this.appointmentModel
+      .find({
+        patientId,
+        status: AppointmentStatus.COMPLETED,
+      })
       .sort({ appointmentDate: -1 })
       .populate('doctorId', 'fullName specialty')
       .lean();
 
     const latestByDoctor = new Map<string, any>();
     for (const appt of appointments) {
-      const did = (appt.doctorId && (appt.doctorId as any)._id) ? String((appt.doctorId as any)._id) : String(appt.doctorId);
+      const did =
+        appt.doctorId && (appt.doctorId as any)._id
+          ? String((appt.doctorId as any)._id)
+          : String(appt.doctorId);
       if (!latestByDoctor.has(did)) {
         latestByDoctor.set(did, appt);
       }
@@ -810,7 +1104,9 @@ export class AppointmentsService {
     const results: any[] = [];
     for (const [did, appt] of latestByDoctor.entries()) {
       const doctor = (appt as any).doctorId || { _id: did };
-      const lastDate = appt.appointmentDate ? new Date(appt.appointmentDate) : null;
+      const lastDate = appt.appointmentDate
+        ? new Date(appt.appointmentDate)
+        : null;
       if (!lastDate) continue;
 
       const m1 = new Date(lastDate);
@@ -840,9 +1136,15 @@ export class AppointmentsService {
 
   private async syncFollowUpRecord(
     appointment: Appointment & { _id: any; medicalRecordId?: any },
-    options: { cancelled?: boolean; updatedDate?: Date; updatedTime?: string } = {},
+    options: {
+      cancelled?: boolean;
+      updatedDate?: Date;
+      updatedTime?: string;
+    } = {},
   ): Promise<void> {
-    const appointmentId = appointment?._id ? appointment._id.toString() : undefined;
+    const appointmentId = appointment?._id
+      ? appointment._id.toString()
+      : undefined;
     if (!appointmentId) return;
 
     const medicalRecordId = (appointment as any).medicalRecordId;
@@ -852,7 +1154,9 @@ export class AppointmentsService {
       : null;
 
     if (!record) {
-      record = await this.medicalRecordModel.findOne({ followUpAppointmentId: appointmentId }).exec();
+      record = await this.medicalRecordModel
+        .findOne({ followUpAppointmentId: appointmentId })
+        .exec();
     }
 
     if (!record) return;
@@ -869,8 +1173,8 @@ export class AppointmentsService {
     const dateSource = options.updatedDate
       ? new Date(options.updatedDate)
       : appointment.appointmentDate instanceof Date
-      ? new Date(appointment.appointmentDate)
-      : new Date(appointment.appointmentDate as any);
+        ? new Date(appointment.appointmentDate)
+        : new Date(appointment.appointmentDate as any);
 
     if (Number.isNaN(dateSource.getTime())) return;
 
@@ -886,9 +1190,10 @@ export class AppointmentsService {
     dateSource.setHours(hours, minutes, 0, 0);
 
     record.followUpDate = dateSource;
-    (record as any).followUpTime = `${hours.toString().padStart(2, '0')}:${minutes
-      .toString()
-      .padStart(2, '0')}`;
+    (record as any).followUpTime =
+      `${hours.toString().padStart(2, '0')}:${minutes
+        .toString()
+        .padStart(2, '0')}`;
     (record as any).followUpAppointmentId = appointment._id;
     record.isFollowUpRequired = true;
     await record.save();

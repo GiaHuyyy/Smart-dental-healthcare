@@ -1,4 +1,12 @@
-import { IsDate, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsDate,
+  IsEnum,
+  IsMongoId,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { AppointmentStatus } from '../schemas/appointment.schemas';
 
@@ -31,6 +39,10 @@ export class CreateAppointmentDto {
   @IsNotEmpty()
   @IsString()
   appointmentType: string;
+
+  @IsOptional()
+  @IsNumber()
+  consultationFee: number;
 
   @IsOptional()
   @IsString()

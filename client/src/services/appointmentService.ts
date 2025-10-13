@@ -95,6 +95,9 @@ const appointmentService = {
       if (query?.page) queryParams.append("page", query.page.toString());
       if (query?.limit) queryParams.append("limit", query.limit.toString());
 
+      // Add populate for doctor and patient info
+      queryParams.append("populate", "doctorId,patientId");
+
       const url = `${API_URL}/api/v1/appointments/patient/${patientId}${
         queryParams.toString() ? `?${queryParams.toString()}` : ""
       }`;
@@ -119,9 +122,20 @@ const appointmentService = {
       // Server may return data directly or wrapped in data property
       const appointmentsData = data.data || data;
 
+      // Map doctorId -> doctor and patientId -> patient for consistency
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedAppointments = (Array.isArray(appointmentsData) ? appointmentsData : [appointmentsData]).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (apt: any) => ({
+          ...apt,
+          doctor: apt.doctorId || apt.doctor,
+          patient: apt.patientId || apt.patient,
+        })
+      );
+
       return {
         success: true,
-        data: Array.isArray(appointmentsData) ? appointmentsData : [appointmentsData],
+        data: mappedAppointments,
         total: data.total,
         page: data.page,
         limit: data.limit,

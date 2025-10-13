@@ -148,6 +148,7 @@ export default function PatientAppointmentsPage() {
         startTime: formData.startTime,
         endTime: endTime,
         duration: duration,
+        consultationFee: selectedDoctor?.consultationFee || 0,
         appointmentType:
           formData.consultType === ConsultType.TELEVISIT
             ? "Tư vấn từ xa"
@@ -159,9 +160,13 @@ export default function PatientAppointmentsPage() {
 
       console.log("Booking payload:", payload); // Debug log
 
-      // Call API to create appointment
-      const accessToken = (session as { accessToken?: string })?.accessToken;
-      console.log("Access token:", accessToken ? "Available" : "Missing");
+      // Call API to create appointment - get token from session
+      interface SessionWithToken {
+        access_token?: string;
+        accessToken?: string;
+      }
+      const accessToken = session?.access_token || (session as SessionWithToken)?.accessToken;
+      console.log("Access token:", accessToken ? "✅ Available" : "❌ Missing");
 
       const result = await appointmentService.createAppointment(payload, accessToken);
       console.log("API result:", result);
