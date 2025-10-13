@@ -10,12 +10,25 @@ interface SearchDoctorsProps {
   onSearch: () => void;
 }
 
+const specialtyOptions = [
+  "Nha khoa tổng quát",
+  "Chỉnh nha",
+  "Răng - Hàm - Mặt",
+  "Nhổ răng khôn",
+  "Điều trị tủy",
+  "Thẩm mỹ răng",
+  "Nha chu",
+  "Cấy ghép Implant",
+  "Nha khoa trẻ em",
+  "Phục hình răng",
+];
+
 const inputClassName =
   "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent transition";
 const inputStyle = { "--tw-ring-color": "var(--color-primary)" } as React.CSSProperties;
 
 export default function SearchDoctors({ filters, onFiltersChange, onSearch }: SearchDoctorsProps) {
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
 
   const handleInputChange = (field: keyof SearchFilters, value: unknown) => {
     onFiltersChange({ ...filters, [field]: value });
@@ -56,6 +69,22 @@ export default function SearchDoctors({ filters, onFiltersChange, onSearch }: Se
             style={inputStyle}
           />
         </div>
+        <div className="w-full md:w-60">
+          <select
+            value={filters.specialty || ""}
+            onChange={(e) => handleInputChange("specialty", e.target.value)}
+            className={`${inputClassName} h-full min-h-[50px]`}
+            style={inputStyle}
+          >
+            <option value="">Tất cả chuyên khoa</option>
+            {specialtyOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <button
           onClick={onSearch}
           className="px-6 py-3 text-white rounded-lg hover:brightness-95 transition font-medium whitespace-nowrap"

@@ -3,7 +3,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AppointmentsService } from './appointments.service';
 import { AppointmentsController } from './appointments.controller';
 import { Appointment, AppointmentSchema } from './schemas/appointment.schemas';
-import { MedicalRecord, MedicalRecordSchema } from '../medical-records/schemas/medical-record.schemas';
+import {
+  MedicalRecord,
+  MedicalRecordSchema,
+} from '../medical-records/schemas/medical-record.schemas';
+import { AppointmentNotificationGateway } from './appointment-notification.gateway';
+import { AppointmentEmailService } from './appointment-email.service';
 
 @Module({
   imports: [
@@ -13,7 +18,15 @@ import { MedicalRecord, MedicalRecordSchema } from '../medical-records/schemas/m
     ]),
   ],
   controllers: [AppointmentsController],
-  providers: [AppointmentsService],
-  exports: [AppointmentsService],
+  providers: [
+    AppointmentsService,
+    AppointmentNotificationGateway,
+    AppointmentEmailService,
+  ],
+  exports: [
+    AppointmentsService,
+    AppointmentNotificationGateway,
+    AppointmentEmailService,
+  ],
 })
 export class AppointmentsModule {}

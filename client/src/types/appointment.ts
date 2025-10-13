@@ -14,6 +14,7 @@ export interface Doctor {
   reviewCount?: number;
   consultationFee?: number;
   clinicName?: string;
+  clinicAddress?: string;
   address?: string;
   clinicCity?: string;
   clinicState?: string;
@@ -45,8 +46,8 @@ export interface DaySchedule {
 export interface Appointment {
   _id?: string;
   id?: string;
-  doctorId: string;
-  patientId: string;
+  doctorId: string | Doctor;
+  patientId: string | Patient;
   doctor?: Doctor;
   patient?: Patient;
   appointmentDate: string; // YYYY-MM-DD
@@ -57,6 +58,10 @@ export interface Appointment {
   chiefComplaint?: string;
   notes?: string;
   bookingId?: string;
+  cancellationReason?: string; // Reason for cancellation
+  duration?: number; // Duration in minutes
+  appointmentType?: string; // Type description
+  consultationFee?: number; // Fee for consultation
   createdAt?: string;
   updatedAt?: string;
 }

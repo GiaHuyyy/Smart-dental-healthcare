@@ -26,7 +26,10 @@ export default function ShellLayout({ navigation, children }: { navigation: NavI
 
           <ul className="space-y-2">
             {navigation.map((item) => {
-              const isActive = pathname === item.href;
+              // Exact match for root routes, startsWith for sub-routes
+              const isExactMatch = pathname === item.href;
+              const isSubRoute = item.href !== "/patient" && pathname?.startsWith(item.href + "/");
+              const isActive = isExactMatch || isSubRoute;
 
               const linkClasses = `flex flex-col items-center justify-center py-2 text-sm rounded-md transition-colors ${
                 isActive ? "bg-primary-100 text-primary" : "text-gray-600 hover:bg-gray-100"

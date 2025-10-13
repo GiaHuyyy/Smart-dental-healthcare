@@ -36,6 +36,9 @@ export class Appointment {
   appointmentType: string; // e.g., 'Khám định kỳ', 'Nhổ răng', 'Tẩy trắng răng'
 
   @Prop()
+  consultationFee: number; // Phí khám bệnh
+
+  @Prop()
   notes: string;
 
   @Prop({ default: AppointmentStatus.PENDING })
@@ -58,7 +61,10 @@ export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
 
 // Xóa index cũ nếu có
 // Tạo index mới cho các trường cần thiết (unique on doctorId + appointmentDate + startTime)
-AppointmentSchema.index({ doctorId: 1, appointmentDate: 1, startTime: 1 }, { unique: true });
+AppointmentSchema.index(
+  { doctorId: 1, appointmentDate: 1, startTime: 1 },
+  { unique: true },
+);
 // NOTE: ensure the DB does not have a legacy unique index on appointmentTime.
 // If a legacy index exists in the database (doctorId_1_appointmentDate_1_appointmentTime_1),
 // drop it manually. The schema only uses startTime going forward.
