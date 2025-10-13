@@ -25,10 +25,11 @@ interface BookingFlowModalProps {
   bookingData: Partial<BookingFormData>;
   confirmation?: AppointmentConfirmation | null;
   onClose: () => void;
-  onSelectSlot: (date: string, time: string, consultType: ConsultType) => void;
+  onSelectSlot: (date: string, time: string, consultType: ConsultType, endTime: string) => void;
   onSubmitDetails: (data: BookingFormData) => void;
   onBackToTimeSlot: () => void;
   onReschedule?: () => void;
+  onContinue?: () => void;
 }
 
 const stepsDefinition: Array<{
@@ -59,6 +60,7 @@ export default function BookingFlowModal({
   onSubmitDetails,
   onBackToTimeSlot,
   onReschedule,
+  onContinue,
 }: BookingFlowModalProps) {
   const currentIndex = useMemo(() => stepsDefinition.findIndex((item) => item.id === step), [step]);
 
@@ -175,7 +177,9 @@ export default function BookingFlowModal({
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
-            {step === "time-slot" && <TimeSlotPicker doctor={doctor} onSelectSlot={onSelectSlot} />}
+            {step === "time-slot" && (
+              <TimeSlotPicker doctor={doctor} onSelectSlot={onSelectSlot} onContinue={onContinue} />
+            )}
 
             {step === "details" && (
               <div className="space-y-6">

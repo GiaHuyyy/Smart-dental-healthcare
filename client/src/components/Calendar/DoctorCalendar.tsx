@@ -82,8 +82,8 @@ export default function DoctorCalendar({
     // Color based on status - Increased opacity to 25% for better visibility
     switch (status) {
       case "confirmed":
-        backgroundColor = "rgba(0, 166, 244, 0.25)"; // Primary color with 25% opacity
-        borderColor = "#00a6f4";
+        backgroundColor = "rgba(34, 197, 94, 0.25)"; // Green with 25% opacity
+        borderColor = "#22c55e";
         className = "event-confirmed";
         break;
       case "pending":
@@ -92,8 +92,8 @@ export default function DoctorCalendar({
         className = "event-pending";
         break;
       case "completed":
-        backgroundColor = "rgba(99, 102, 241, 0.25)"; // Indigo with 25% opacity
-        borderColor = "#6366f1";
+        backgroundColor = "rgba(0, 166, 244, 0.25)"; // Primary color with 25% opacity
+        borderColor = "#00a6f4";
         className = "event-completed";
         break;
       case "cancelled":

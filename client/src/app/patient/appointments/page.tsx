@@ -95,7 +95,7 @@ export default function PatientAppointmentsPage() {
     setIsBookingModalOpen(true);
   };
 
-  const handleTimeSlotSelect = (date: string, time: string, consultType: ConsultType) => {
+  const handleTimeSlotSelect = (date: string, time: string, consultType: ConsultType, endTime: string) => {
     if (!selectedDoctor) return;
 
     setBookingData((prev) => ({
@@ -103,8 +103,14 @@ export default function PatientAppointmentsPage() {
       doctorId: selectedDoctor._id || selectedDoctor.id || "",
       appointmentDate: date,
       startTime: time,
+      endTime: endTime,
       consultType,
     }));
+    // Don't auto-navigate to next step, wait for Continue button
+  };
+
+  const handleContinue = () => {
+    // Navigate to next step when Continue button is clicked
     setBookingStep("details");
   };
 
@@ -130,15 +136,23 @@ export default function PatientAppointmentsPage() {
         return;
       }
 
-      // Calculate duration (default 30 minutes)
-      const duration = 30;
+      // Use endTime from formData if available, otherwise calculate
+      let endTime = formData.endTime;
+      let duration = 30; // default
 
-      // Calculate end time properly
-      const [hours, minutes] = formData.startTime.split(":").map(Number);
-      const totalMinutes = hours * 60 + minutes + duration;
-      const endHours = Math.floor(totalMinutes / 60) % 24;
-      const endMinutes = totalMinutes % 60;
-      const endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
+      if (!endTime) {
+        // Calculate end time (fallback)
+        const [hours, minutes] = formData.startTime.split(":").map(Number);
+        const totalMinutes = hours * 60 + minutes + duration;
+        const endHours = Math.floor(totalMinutes / 60) % 24;
+        const endMinutes = totalMinutes % 60;
+        endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
+      } else {
+        // Calculate duration from start and end times
+        const [startHours, startMinutes] = formData.startTime.split(":").map(Number);
+        const [endHours, endMinutes] = endTime.split(":").map(Number);
+        duration = endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
+      }
 
       // Prepare payload
       const payload = {
@@ -226,8 +240,12 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleCloseConfirmation = () => {
+    // Only redirect if we're on confirmation step (successful booking)
+    const shouldRedirect = bookingStep === "confirmation";
     resetBookingFlow();
-    router.push("/patient/appointments/my-appointments");
+    if (shouldRedirect) {
+      router.push("/patient/appointments/my-appointments");
+    }
   };
 
   const resetBookingFlow = () => {
@@ -338,6 +356,7 @@ export default function PatientAppointmentsPage() {
           onSubmitDetails={handleBookingSubmit}
           onBackToTimeSlot={() => setBookingStep("time-slot")}
           onReschedule={handleReschedule}
+          onContinue={handleContinue}
         />
       )}
     </div>

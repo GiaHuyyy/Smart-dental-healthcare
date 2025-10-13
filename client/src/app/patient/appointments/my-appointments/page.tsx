@@ -22,12 +22,12 @@ import {
 import { toast } from "sonner";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
-import { AppointmentSocketProvider, useAppointmentSocket } from "@/contexts/AppointmentSocketContext";
+import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { isConnected, socket } = useAppointmentSocket();
+  const { isConnected, registerAppointmentCallback, unregisterAppointmentCallback } = useGlobalSocket();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | AppointmentStatus>("all");
@@ -43,28 +43,24 @@ function MyAppointmentsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  // Listen for socket events and refresh appointments
+  // Register this page's refresh callback with global socket
   useEffect(() => {
-    if (!socket) return;
-
-    const handleRefresh = () => {
-      console.log("Refreshing appointments due to socket event");
-      fetchAppointments();
-    };
-
-    socket.on("appointment:new", handleRefresh); // When appointment created
-    socket.on("appointment:confirmed", handleRefresh);
-    socket.on("appointment:cancelled", handleRefresh);
-    socket.on("appointment:rescheduled", handleRefresh);
+    registerAppointmentCallback(fetchAppointments);
+    console.log("✅ Patient my-appointments registered with global socket");
 
     return () => {
-      socket.off("appointment:new", handleRefresh);
-      socket.off("appointment:confirmed", handleRefresh);
-      socket.off("appointment:cancelled", handleRefresh);
-      socket.off("appointment:rescheduled", handleRefresh);
+      unregisterAppointmentCallback();
+      console.log("🔇 Patient my-appointments unregistered from global socket");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket]);
+  }, [registerAppointmentCallback, unregisterAppointmentCallback]);
+
+  // Socket connection status indicator (optional)
+  useEffect(() => {
+    if (isConnected) {
+      console.log("✅ Patient my-appointments connected to global socket");
+    }
+  }, [isConnected]);
 
   const fetchAppointments = async () => {
     setLoading(true);
@@ -84,9 +80,7 @@ function MyAppointmentsContent() {
         throw new Error(result.error || "Không thể tải danh sách lịch hẹn");
       }
 
-      console.log("Appointments data from API:", result.data);
       setAppointments(result.data || []);
-      toast.success("Đã tải danh sách lịch hẹn");
     } catch (error) {
       console.error("Error fetching appointments:", error);
       toast.error("Không thể tải danh sách lịch hẹn");
@@ -104,7 +98,12 @@ function MyAppointmentsContent() {
     setActionLoading(true);
     try {
       const accessToken = (session as { accessToken?: string })?.accessToken;
-      const result = await appointmentService.cancelAppointment(selectedAppointment._id!, cancelReason, accessToken);
+      const result = await appointmentService.cancelAppointment(
+        selectedAppointment._id!,
+        cancelReason,
+        accessToken,
+        "patient" // Specify that patient is cancelling
+      );
 
       if (!result.success) {
         throw new Error(result.error || "Không thể hủy lịch hẹn");
@@ -236,13 +235,6 @@ function MyAppointmentsContent() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => router.push("/patient/appointments")}
-            className="flex items-center gap-2 text-gray-600 hover:text-primary mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Quay lại đặt lịch hẹn</span>
-          </button>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Lịch hẹn của tôi</h1>
           <p className="text-gray-600">Quản lý và theo dõi các lịch hẹn khám bệnh của bạn</p>
         </div>
@@ -250,7 +242,7 @@ function MyAppointmentsContent() {
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => router.push("/patient/appointments")}
-            className="flex items-center gap-2 text-gray-600 hover:text-primary transition-colors"
+            className="flex cursor-pointer items-center gap-2 text-gray-600 hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="font-medium">Quay lại</span>
@@ -751,9 +743,5 @@ function MyAppointmentsContent() {
 }
 
 export default function MyAppointmentsPage() {
-  return (
-    <AppointmentSocketProvider>
-      <MyAppointmentsContent />
-    </AppointmentSocketProvider>
-  );
+  return <MyAppointmentsContent />;
 }

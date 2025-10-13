@@ -87,8 +87,8 @@
 
 /* Event status colors with left border */
 .rbc-event.event-confirmed {
-  border-left: 4px solid #00a6f4 !important;
-  background-color: rgba(0, 166, 244, 0.25) !important;
+  border-left: 4px solid #22c55e !important;
+  background-color: rgba(34, 197, 94, 0.25) !important;
 }
 
 .rbc-event.event-pending {
@@ -97,8 +97,8 @@
 }
 
 .rbc-event.event-completed {
-  border-left: 4px solid #6366f1 !important;
-  background-color: rgba(99, 102, 241, 0.25) !important;
+  border-left: 4px solid #00a6f4 !important;
+  background-color: rgba(0, 166, 244, 0.25) !important;
 }
 
 .rbc-event.event-cancelled {

@@ -272,7 +272,12 @@ const appointmentService = {
   /**
    * Cancel appointment
    */
-  async cancelAppointment(appointmentId: string, reason: string, token?: string): Promise<AppointmentResponse> {
+  async cancelAppointment(
+    appointmentId: string,
+    reason: string,
+    token?: string,
+    cancelledBy?: "doctor" | "patient"
+  ): Promise<AppointmentResponse> {
     try {
       const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/cancel`, {
         method: "DELETE",
@@ -280,7 +285,7 @@ const appointmentService = {
           "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({ reason, cancelledBy }),
       });
 
       const data = await response.json();

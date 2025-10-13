@@ -116,6 +116,7 @@ export interface BookingFormData {
   doctorId: string;
   appointmentDate: string;
   startTime: string;
+  endTime?: string;
   consultType: ConsultType;
   bookForSelf: boolean;
   patientFirstName?: string;

@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Public, ResponseMessage } from 'src/decorator/customize';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -22,6 +31,22 @@ export class AppointmentsController {
     return this.appointmentsService.findAll(query);
   }
 
+  @Get('doctor/:doctorId/available-slots')
+  @Public()
+  @ResponseMessage('Lấy danh sách khung giờ trống của bác sĩ thành công')
+  getAvailableSlots(
+    @Param('doctorId') doctorId: string,
+    @Query('date') date: string,
+    @Query('duration') duration?: string,
+  ) {
+    const durationMinutes = duration ? parseInt(duration) : 30;
+    return this.appointmentsService.getAvailableSlots(
+      doctorId,
+      date,
+      durationMinutes,
+    );
+  }
+
   @Get(':id')
   @Public()
   @ResponseMessage('Lấy thông tin lịch hẹn thành công')
@@ -32,7 +57,10 @@ export class AppointmentsController {
   @Patch(':id')
   @Public()
   @ResponseMessage('Cập nhật lịch hẹn thành công')
-  update(@Param('id') id: string, @Body() updateAppointmentDto: UpdateAppointmentDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateAppointmentDto: UpdateAppointmentDto,
+  ) {
     return this.appointmentsService.update(id, updateAppointmentDto);
   }
 
@@ -67,15 +95,27 @@ export class AppointmentsController {
   @Patch(':id/reschedule')
   @Public()
   @ResponseMessage('Đổi lịch hẹn thành công')
-  reschedule(@Param('id') id: string, @Body('appointmentDate') appointmentDate: Date, @Body('appointmentTime') appointmentTime: string) {
-    return this.appointmentsService.reschedule(id, appointmentDate, appointmentTime);
+  reschedule(
+    @Param('id') id: string,
+    @Body('appointmentDate') appointmentDate: Date,
+    @Body('appointmentTime') appointmentTime: string,
+  ) {
+    return this.appointmentsService.reschedule(
+      id,
+      appointmentDate,
+      appointmentTime,
+    );
   }
 
   @Delete(':id/cancel')
   @Public()
   @ResponseMessage('Hủy lịch hẹn thành công')
-  cancel(@Param('id') id: string, @Body('reason') reason: string) {
-    return this.appointmentsService.cancel(id, reason);
+  cancel(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Body('cancelledBy') cancelledBy?: 'doctor' | 'patient',
+  ) {
+    return this.appointmentsService.cancel(id, reason, cancelledBy);
   }
 
   @Post(':id/confirm')
@@ -102,8 +142,14 @@ export class AppointmentsController {
   @Get('patient/:patientId/history')
   @Public()
   @ResponseMessage('Lấy lịch sử lịch hẹn của bệnh nhân thành công')
-  getPatientAppointmentHistory(@Param('patientId') patientId: string, @Query() query: any) {
-    return this.appointmentsService.getPatientAppointmentHistory(patientId, query);
+  getPatientAppointmentHistory(
+    @Param('patientId') patientId: string,
+    @Query() query: any,
+  ) {
+    return this.appointmentsService.getPatientAppointmentHistory(
+      patientId,
+      query,
+    );
   }
 
   @Get('patient/:patientId/upcoming')
@@ -116,37 +162,61 @@ export class AppointmentsController {
   @Get('week/:startDate/:endDate')
   @Public()
   @ResponseMessage('Lấy danh sách lịch hẹn theo tuần thành công')
-  findByWeek(@Param('startDate') startDate: string, @Param('endDate') endDate: string, @Query() query: any) {
+  findByWeek(
+    @Param('startDate') startDate: string,
+    @Param('endDate') endDate: string,
+    @Query() query: any,
+  ) {
     return this.appointmentsService.findByDateRange(startDate, endDate, query);
   }
 
   @Get('month/:year/:month')
   @ResponseMessage('Lấy danh sách lịch hẹn theo tháng thành công')
-  findByMonth(@Param('year') year: string, @Param('month') month: string, @Query() query: any) {
-    return this.appointmentsService.findByMonth(parseInt(year), parseInt(month), query);
+  findByMonth(
+    @Param('year') year: string,
+    @Param('month') month: string,
+    @Query() query: any,
+  ) {
+    return this.appointmentsService.findByMonth(
+      parseInt(year),
+      parseInt(month),
+      query,
+    );
   }
 
   @Get('upcoming/doctor/:doctorId')
   @ResponseMessage('Lấy danh sách lịch hẹn sắp tới của bác sĩ thành công')
-  findUpcomingByDoctor(@Param('doctorId') doctorId: string, @Query() query: any) {
+  findUpcomingByDoctor(
+    @Param('doctorId') doctorId: string,
+    @Query() query: any,
+  ) {
     return this.appointmentsService.findUpcomingByDoctor(doctorId, query);
   }
 
   @Get('upcoming/patient/:patientId')
   @ResponseMessage('Lấy danh sách lịch hẹn sắp tới của bệnh nhân thành công')
-  findUpcomingByPatient(@Param('patientId') patientId: string, @Query() query: any) {
+  findUpcomingByPatient(
+    @Param('patientId') patientId: string,
+    @Query() query: any,
+  ) {
     return this.appointmentsService.findUpcomingByPatient(patientId, query);
   }
 
   @Get('history/doctor/:doctorId')
   @ResponseMessage('Lấy lịch sử lịch hẹn của bác sĩ thành công')
-  findHistoryByDoctor(@Param('doctorId') doctorId: string, @Query() query: any) {
+  findHistoryByDoctor(
+    @Param('doctorId') doctorId: string,
+    @Query() query: any,
+  ) {
     return this.appointmentsService.findHistoryByDoctor(doctorId, query);
   }
 
   @Get('history/patient/:patientId')
   @ResponseMessage('Lấy lịch sử lịch hẹn của bệnh nhân thành công')
-  findHistoryByPatient(@Param('patientId') patientId: string, @Query() query: any) {
+  findHistoryByPatient(
+    @Param('patientId') patientId: string,
+    @Query() query: any,
+  ) {
     return this.appointmentsService.findHistoryByPatient(patientId, query);
   }
 
