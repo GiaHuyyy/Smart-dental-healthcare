@@ -26,9 +26,9 @@ interface BookingFlowModalProps {
   confirmation?: AppointmentConfirmation | null;
   onClose: () => void;
   onSelectSlot: (date: string, time: string, consultType: ConsultType, endTime: string) => void;
-  onSubmitDetails: (data: BookingFormData) => void;
+  onDetailsSubmit: (data: BookingFormData) => void; // Step 2: Save form data and go to step 3
+  onConfirmBooking: () => void; // Step 3: Actually create the appointment
   onBackToTimeSlot: () => void;
-  onReschedule?: () => void;
   onContinue?: () => void;
 }
 
@@ -57,9 +57,9 @@ export default function BookingFlowModal({
   confirmation,
   onClose,
   onSelectSlot,
-  onSubmitDetails,
+  onDetailsSubmit,
+  onConfirmBooking,
   onBackToTimeSlot,
-  onReschedule,
   onContinue,
 }: BookingFlowModalProps) {
   const currentIndex = useMemo(() => stepsDefinition.findIndex((item) => item.id === step), [step]);
@@ -115,40 +115,125 @@ export default function BookingFlowModal({
                         {/* Show appointment details under first step when selected */}
                         {item.id === "time-slot" && status === "completed" && bookingData.appointmentDate && (
                           <div className="space-y-2 text-xs text-gray-600 mt-3">
-                            {bookingData.consultType && (
-                              <div className="flex items-start gap-2">
-                                {bookingData.consultType === ConsultType.TELEVISIT && (
-                                  <Video className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                )}
-                                {bookingData.consultType === ConsultType.ON_SITE && (
-                                  <Building2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                )}
-                                {bookingData.consultType === ConsultType.HOME_VISIT && (
-                                  <Home className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                )}
-                                <span className="leading-relaxed">
-                                  {bookingData.consultType === ConsultType.TELEVISIT && "Tư vấn từ xa"}
-                                  {bookingData.consultType === ConsultType.ON_SITE && "Khám tại phòng khám"}
-                                  {bookingData.consultType === ConsultType.HOME_VISIT && "Khám tại nhà"}
-                                </span>
-                              </div>
+                            {/* Step 1: Show only time + price */}
+                            {step === "time-slot" && (
+                              <>
+                                <div className="flex items-start gap-2">
+                                  <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                  <span className="leading-relaxed">
+                                    {new Date(bookingData.appointmentDate).toLocaleDateString("vi-VN", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}{" "}
+                                    lúc {bookingData.startTime}
+                                  </span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <span className="text-gray-400 mt-0.5">₫</span>
+                                  <span className="leading-relaxed font-medium">
+                                    {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                                  </span>
+                                </div>
+                              </>
                             )}
-                            <div className="flex items-start gap-2">
-                              <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                              <span className="leading-relaxed">
-                                {new Date(bookingData.appointmentDate).toLocaleDateString("vi-VN", {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                })}{" "}
-                                lúc {bookingData.startTime}
-                              </span>
-                            </div>
-                            {bookingData.chiefComplaint && (
-                              <div className="flex items-start gap-2">
-                                <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                                <span className="leading-relaxed line-clamp-2">{bookingData.chiefComplaint}</span>
-                              </div>
+
+                            {/* Step 2: Show full step 1 details + consultation type */}
+                            {step === "details" && (
+                              <>
+                                {bookingData.consultType && (
+                                  <div className="flex items-start gap-2">
+                                    {bookingData.consultType === ConsultType.TELEVISIT && (
+                                      <Video className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    {bookingData.consultType === ConsultType.ON_SITE && (
+                                      <Building2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    {bookingData.consultType === ConsultType.HOME_VISIT && (
+                                      <Home className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    <span className="leading-relaxed">
+                                      {bookingData.consultType === ConsultType.TELEVISIT && "Tư vấn từ xa"}
+                                      {bookingData.consultType === ConsultType.ON_SITE && "Khám tại phòng khám"}
+                                      {bookingData.consultType === ConsultType.HOME_VISIT && "Khám tại nhà"}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex items-start gap-2">
+                                  <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                  <span className="leading-relaxed">
+                                    {new Date(bookingData.appointmentDate).toLocaleDateString("vi-VN", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}{" "}
+                                    lúc {bookingData.startTime}
+                                  </span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <span className="text-gray-400 mt-0.5">₫</span>
+                                  <span className="leading-relaxed font-medium">
+                                    {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                                  </span>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Step 3: Show everything including form details */}
+                            {step === "confirmation" && (
+                              <>
+                                {bookingData.consultType && (
+                                  <div className="flex items-start gap-2">
+                                    {bookingData.consultType === ConsultType.TELEVISIT && (
+                                      <Video className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    {bookingData.consultType === ConsultType.ON_SITE && (
+                                      <Building2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    {bookingData.consultType === ConsultType.HOME_VISIT && (
+                                      <Home className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    )}
+                                    <span className="leading-relaxed">
+                                      {bookingData.consultType === ConsultType.TELEVISIT && "Tư vấn từ xa"}
+                                      {bookingData.consultType === ConsultType.ON_SITE && "Khám tại phòng khám"}
+                                      {bookingData.consultType === ConsultType.HOME_VISIT && "Khám tại nhà"}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex items-start gap-2">
+                                  <CalendarIcon className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                  <span className="leading-relaxed">
+                                    {new Date(bookingData.appointmentDate).toLocaleDateString("vi-VN", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}{" "}
+                                    lúc {bookingData.startTime}
+                                  </span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <span className="text-gray-400 mt-0.5">₫</span>
+                                  <span className="leading-relaxed font-medium">
+                                    {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                                  </span>
+                                </div>
+                                {(bookingData.patientFirstName || bookingData.patientLastName) && (
+                                  <div className="flex items-start gap-2">
+                                    <UserCircle2 className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    <span className="leading-relaxed">
+                                      {[bookingData.patientFirstName, bookingData.patientLastName]
+                                        .filter(Boolean)
+                                        .join(" ")}
+                                    </span>
+                                  </div>
+                                )}
+                                {bookingData.chiefComplaint && (
+                                  <div className="flex items-start gap-2">
+                                    <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    <span className="leading-relaxed line-clamp-2">{bookingData.chiefComplaint}</span>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         )}
@@ -177,20 +262,64 @@ export default function BookingFlowModal({
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
-            {step === "time-slot" && (
-              <TimeSlotPicker doctor={doctor} onSelectSlot={onSelectSlot} onContinue={onContinue} />
-            )}
+            {step === "time-slot" && <TimeSlotPicker doctor={doctor} onSelectSlot={onSelectSlot} />}
 
             {step === "details" && (
               <div className="space-y-6">
                 {/* <BookingOverviewCard bookingData={bookingData} /> */}
-                <BookingForm bookingData={bookingData} onSubmit={onSubmitDetails} />
+                <BookingForm bookingData={bookingData} onSubmit={onDetailsSubmit} />
               </div>
             )}
 
-            {step === "confirmation" && confirmation && (
+            {step === "confirmation" && (
               <div className="space-y-6">
-                <AppointmentConfirmationContent confirmation={confirmation} />
+                {confirmation ? (
+                  <AppointmentConfirmationContent confirmation={confirmation} />
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Xác nhận thông tin đặt lịch</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Bác sĩ:</span>
+                        <span className="font-medium">{doctor.fullName}</span>
+                      </div>
+                      {bookingData.appointmentDate && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Ngày khám:</span>
+                          <span className="font-medium">
+                            {new Date(bookingData.appointmentDate).toLocaleDateString("vi-VN", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+                      )}
+                      {bookingData.startTime && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Giờ khám:</span>
+                          <span className="font-medium">{bookingData.startTime}</span>
+                        </div>
+                      )}
+                      {bookingData.consultType && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Hình thức:</span>
+                          <span className="font-medium">
+                            {bookingData.consultType === ConsultType.TELEVISIT && "Tư vấn từ xa"}
+                            {bookingData.consultType === ConsultType.ON_SITE && "Khám tại phòng khám"}
+                            {bookingData.consultType === ConsultType.HOME_VISIT && "Khám tại nhà"}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-3 border-t border-blue-200">
+                        <span className="text-gray-600">Phí khám:</span>
+                        <span className="font-semibold text-primary">
+                          {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -205,16 +334,25 @@ export default function BookingFlowModal({
                 >
                   Hủy
                 </button>
-                <button
-                  onClick={() => {
-                    const contentArea = document.querySelector(".overflow-y-auto");
-                    contentArea?.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                  className="px-6 py-3 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors font-medium flex items-center gap-2"
-                >
-                  <CalendarIcon className="w-5 h-5" />
-                  Chọn ngày và giờ khám bệnh
-                </button>
+                {bookingData.startTime ? (
+                  <button
+                    onClick={onContinue}
+                    className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center gap-2"
+                  >
+                    Tiếp tục
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const contentArea = document.querySelector(".overflow-y-auto");
+                      contentArea?.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="px-6 py-3 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors font-medium flex items-center gap-2"
+                  >
+                    <CalendarIcon className="w-5 h-5" />
+                    Chọn ngày và giờ khám bệnh
+                  </button>
+                )}
               </div>
             )}
 
@@ -231,27 +369,37 @@ export default function BookingFlowModal({
                   form="booking-form"
                   className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
                 >
-                  Xác nhận đặt lịch
+                  Tiếp tục
                 </button>
               </div>
             )}
 
             {step === "confirmation" && (
               <div className="flex items-center justify-between gap-4">
-                {onReschedule && (
+                {!confirmation ? (
+                  <>
+                    <button
+                      onClick={onBackToTimeSlot}
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    >
+                      Quay lại
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onConfirmBooking}
+                      className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                    >
+                      Xác nhận đặt lịch
+                    </button>
+                  </>
+                ) : (
                   <button
-                    onClick={onReschedule}
-                    className="px-6 py-3 border-2 border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                    onClick={onClose}
+                    className="ml-auto px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
                   >
-                    Đổi lịch hẹn
+                    Hoàn tất
                   </button>
                 )}
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
-                >
-                  Hoàn tất
-                </button>
               </div>
             )}
           </div>
@@ -390,7 +538,9 @@ function AppointmentConfirmationContent({ confirmation }: { confirmation: Appoin
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-gray-600 font-medium">Chi phí khám:</span>
-            <span className="text-2xl font-bold text-primary">${consultationFee}</span>
+            <span className="text-2xl font-bold text-primary">
+              {(consultationFee * 10000).toLocaleString("vi-VN")}₫
+            </span>
           </div>
         </div>
       </div>

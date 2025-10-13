@@ -1131,11 +1131,20 @@ export class AppointmentsService {
           $nin: [AppointmentStatus.CANCELLED], // Chỉ exclude CANCELLED, giữ COMPLETED để check overlap
         },
       })
-      .select('startTime endTime')
+      .select('startTime endTime status')
       .lean();
+
+    console.log('🔍 Query params:', {
+      doctorId,
+      targetDate,
+      endDate,
+      bookedAppointmentsCount: bookedAppointments.length,
+    });
+    console.log('📋 Booked appointments:', bookedAppointments);
 
     // Extract booked time slots
     const bookedSlots = bookedAppointments.map((appt) => appt.startTime);
+    console.log('🚫 Booked slots array:', bookedSlots);
 
     // Generate all possible time slots based on duration
     const allSlots = this.generateTimeSlots(durationMinutes);

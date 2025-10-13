@@ -114,7 +114,33 @@ export default function PatientAppointmentsPage() {
     setBookingStep("details");
   };
 
-  const handleBookingSubmit = async (formData: BookingFormData) => {
+  const handleBackToTimeSlot = () => {
+    // Reset to step 1 and clear form data to force re-fetch of available slots
+    setBookingStep("time-slot");
+    setBookingData((prev) => ({
+      doctorId: prev.doctorId, // Keep doctor ID
+      // Clear all other data to force TimeSlotPicker to re-fetch
+    }));
+  };
+
+  const handleDetailsSubmit = (formData: BookingFormData) => {
+    // Step 2: Save form data to state and navigate to confirmation step
+    setBookingData((prev) => ({
+      ...prev,
+      ...formData,
+    }));
+    setBookingStep("confirmation");
+  };
+
+  const handleConfirmBooking = async () => {
+    // Step 3: Actually create the appointment using saved booking data
+    await handleBookingSubmit();
+  };
+
+  const handleBookingSubmit = async (formData?: BookingFormData) => {
+    // If no formData provided (called from confirmation button), use existing bookingData
+    const dataToSubmit = formData || (bookingData as BookingFormData);
+
     const userId = (session?.user as { _id?: string })._id;
     if (!userId) {
       toast.error("Vui lòng đăng nhập để đặt lịch");
@@ -124,32 +150,32 @@ export default function PatientAppointmentsPage() {
 
     try {
       // Validate required fields
-      if (!formData.startTime || !formData.appointmentDate || !formData.doctorId) {
+      if (!dataToSubmit.startTime || !dataToSubmit.appointmentDate || !dataToSubmit.doctorId) {
         toast.error("Vui lòng điền đầy đủ thông tin");
         return;
       }
 
       // Validate time format HH:MM
       const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
-      if (!timeRegex.test(formData.startTime)) {
+      if (!timeRegex.test(dataToSubmit.startTime)) {
         toast.error("Giờ khám không hợp lệ. Vui lòng chọn lại");
         return;
       }
 
-      // Use endTime from formData if available, otherwise calculate
-      let endTime = formData.endTime;
+      // Use endTime from dataToSubmit if available, otherwise calculate
+      let endTime = dataToSubmit.endTime;
       let duration = 30; // default
 
       if (!endTime) {
         // Calculate end time (fallback)
-        const [hours, minutes] = formData.startTime.split(":").map(Number);
+        const [hours, minutes] = dataToSubmit.startTime.split(":").map(Number);
         const totalMinutes = hours * 60 + minutes + duration;
         const endHours = Math.floor(totalMinutes / 60) % 24;
         const endMinutes = totalMinutes % 60;
         endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
       } else {
         // Calculate duration from start and end times
-        const [startHours, startMinutes] = formData.startTime.split(":").map(Number);
+        const [startHours, startMinutes] = dataToSubmit.startTime.split(":").map(Number);
         const [endHours, endMinutes] = endTime.split(":").map(Number);
         duration = endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
       }
@@ -157,19 +183,19 @@ export default function PatientAppointmentsPage() {
       // Prepare payload
       const payload = {
         patientId: userId,
-        doctorId: formData.doctorId,
-        appointmentDate: formData.appointmentDate,
-        startTime: formData.startTime,
+        doctorId: dataToSubmit.doctorId,
+        appointmentDate: dataToSubmit.appointmentDate,
+        startTime: dataToSubmit.startTime,
         endTime: endTime,
         duration: duration,
         consultationFee: selectedDoctor?.consultationFee || 0,
         appointmentType:
-          formData.consultType === ConsultType.TELEVISIT
+          dataToSubmit.consultType === ConsultType.TELEVISIT
             ? "Tư vấn từ xa"
-            : formData.consultType === ConsultType.HOME_VISIT
+            : dataToSubmit.consultType === ConsultType.HOME_VISIT
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
-        notes: formData.chiefComplaint || "",
+        notes: dataToSubmit.chiefComplaint || "",
       };
 
       console.log("Booking payload:", payload); // Debug log
@@ -217,7 +243,7 @@ export default function PatientAppointmentsPage() {
 
       setBookingData((prev) => ({
         ...prev,
-        ...formData,
+        ...dataToSubmit,
       }));
       setConfirmation(confirmationData);
       setBookingStep("confirmation");
@@ -229,23 +255,10 @@ export default function PatientAppointmentsPage() {
     }
   };
 
-  const handleReschedule = () => {
-    setConfirmation(null);
-    setBookingData((prev) => ({
-      ...prev,
-      appointmentDate: undefined,
-      startTime: undefined,
-    }));
-    setBookingStep("time-slot");
-  };
-
   const handleCloseConfirmation = () => {
-    // Only redirect if we're on confirmation step (successful booking)
-    const shouldRedirect = bookingStep === "confirmation";
+    // Only reset booking flow, don't redirect
+    // User requested to stay on the page after successful booking
     resetBookingFlow();
-    if (shouldRedirect) {
-      router.push("/patient/appointments/my-appointments");
-    }
   };
 
   const resetBookingFlow = () => {
@@ -353,9 +366,9 @@ export default function PatientAppointmentsPage() {
           confirmation={confirmation}
           onClose={handleModalClose}
           onSelectSlot={handleTimeSlotSelect}
-          onSubmitDetails={handleBookingSubmit}
-          onBackToTimeSlot={() => setBookingStep("time-slot")}
-          onReschedule={handleReschedule}
+          onDetailsSubmit={handleDetailsSubmit}
+          onConfirmBooking={handleConfirmBooking}
+          onBackToTimeSlot={handleBackToTimeSlot}
           onContinue={handleContinue}
         />
       )}

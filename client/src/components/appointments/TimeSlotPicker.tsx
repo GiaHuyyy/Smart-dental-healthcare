@@ -8,10 +8,9 @@ import { toast } from "sonner";
 interface TimeSlotPickerProps {
   doctor: Doctor;
   onSelectSlot: (date: string, time: string, consultType: ConsultType, endTime: string) => void;
-  onContinue?: () => void;
 }
 
-export default function TimeSlotPicker({ doctor, onSelectSlot, onContinue }: TimeSlotPickerProps) {
+export default function TimeSlotPicker({ doctor, onSelectSlot }: TimeSlotPickerProps) {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedEndTime, setSelectedEndTime] = useState<string>("");
@@ -52,9 +51,12 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onContinue }: Tim
         }
 
         const data = await response.json();
-        if (data.success && data.data) {
-          setBookedSlots(data.data.bookedSlots || []);
-        }
+        console.log("📅 Available Slots API Response:", data);
+
+        // API returns data directly without wrapping in success/data
+        const bookedSlotsArray = data.bookedSlots || [];
+        console.log("🚫 Booked Slots to set:", bookedSlotsArray);
+        setBookedSlots(bookedSlotsArray);
       } catch (error) {
         console.error("Error fetching available slots:", error);
         toast.error("Không thể tải lịch trống của bác sĩ");
@@ -132,6 +134,11 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onContinue }: Tim
         current.setMinutes(current.getMinutes() + intervalMinutes);
       }
 
+      console.log(
+        `📋 Generated slots (bookedSlots length: ${bookedSlots.length}):`,
+        slots.map((s) => `${s.time}: ${s.booked ? "🚫 BOOKED" : "✅ Available"}`)
+      );
+
       return slots;
     };
 
@@ -163,17 +170,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onContinue }: Tim
     setDuration(newDuration);
     setSelectedTime(""); // Reset time when duration changes
     setSelectedEndTime("");
-  };
-
-  const handleContinue = () => {
-    if (!selectedDate || !selectedTime) {
-      toast.error("Vui lòng chọn ngày và giờ khám");
-      return;
-    }
-
-    if (onContinue) {
-      onContinue();
-    }
   };
 
   const navigateWeek = (direction: "prev" | "next") => {
@@ -416,18 +412,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onContinue }: Tim
               </p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Continue Button */}
-      {selectedTime && onContinue && (
-        <div className="mt-6">
-          <button
-            onClick={handleContinue}
-            className="w-full bg-primary text-white py-3 px-6 rounded-lg font-medium hover:bg-primary-dark transition-colors"
-          >
-            Tiếp tục
-          </button>
         </div>
       )}
     </>
