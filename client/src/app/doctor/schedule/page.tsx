@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays } from "lucide-react";
-import { AppointmentSocketProvider, useAppointmentSocket } from "@/contexts/AppointmentSocketContext";
+import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays, CheckCircle } from "lucide-react";
+import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import DoctorCalendar from "@/components/Calendar/DoctorCalendar";
 import { View } from "react-big-calendar";
 import Image from "next/image";
@@ -42,7 +42,7 @@ interface ExtendedSession {
 
 function DoctorScheduleContent() {
   const { data: session } = useSession();
-  const { isConnected, socket } = useAppointmentSocket();
+  const { isConnected, registerAppointmentCallback, unregisterAppointmentCallback } = useGlobalSocket();
 
   const [view, setView] = useState<View>("week");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -51,7 +51,7 @@ function DoctorScheduleContent() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
-  const [selectedTab, setSelectedTab] = useState<"all" | "pending" | "confirmed" | "cancelled">("all");
+  const [selectedTab, setSelectedTab] = useState<"all" | "pending" | "confirmed" | "cancelled" | "completed">("all");
   const [actionLoading, setActionLoading] = useState(false);
 
   // Fetch appointments from API
@@ -106,46 +106,25 @@ function DoctorScheduleContent() {
     fetchAppointments();
   }, [fetchAppointments]);
 
-  // Socket event listeners for real-time updates
+  // Register this page's refresh callback with global socket
   useEffect(() => {
-    if (!socket || !isConnected) return;
-
-    console.log("🎧 Doctor schedule: Setting up socket listeners");
-
-    // When patient creates new appointment → Refresh list
-    socket.on("appointment:new", () => {
-      console.log("📅 New appointment received, refreshing list...");
-      fetchAppointments();
-    });
-
-    // When appointment is confirmed → Refresh list
-    socket.on("appointment:confirmed", () => {
-      console.log("✅ Appointment confirmed, refreshing list...");
-      fetchAppointments();
-    });
-
-    // When appointment is cancelled → Refresh list
-    socket.on("appointment:cancelled", () => {
-      console.log("❌ Appointment cancelled, refreshing list...");
-      fetchAppointments();
-    });
-
-    // When appointment is rescheduled → Refresh list
-    socket.on("appointment:rescheduled", () => {
-      console.log("🔄 Appointment rescheduled, refreshing list...");
-      fetchAppointments();
-    });
+    registerAppointmentCallback(fetchAppointments);
+    console.log("✅ Doctor schedule registered with global socket");
 
     return () => {
-      console.log("🔇 Doctor schedule: Cleaning up socket listeners");
-      socket.off("appointment:new");
-      socket.off("appointment:confirmed");
-      socket.off("appointment:cancelled");
-      socket.off("appointment:rescheduled");
+      unregisterAppointmentCallback();
+      console.log("🔇 Doctor schedule unregistered from global socket");
     };
-  }, [socket, isConnected, fetchAppointments]);
+  }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
 
-  // Filter appointments based on selected tab
+  // Socket connection status indicator (optional)
+  useEffect(() => {
+    if (isConnected) {
+      console.log("✅ Doctor schedule connected to global socket");
+    }
+  }, [isConnected]);
+
+  // Filter appointments based on selected tab (for LIST view - shows ALL including cancelled)
   const getFilteredAppointments = () => {
     if (selectedTab === "all") {
       return filterStatus === "all" ? appointments : appointments.filter((apt) => apt.status === filterStatus);
@@ -153,10 +132,26 @@ function DoctorScheduleContent() {
     return appointments.filter((apt) => apt.status === selectedTab);
   };
 
-  const filteredAppointments = getFilteredAppointments();
+  // Filter appointments for CALENDAR view
+  // Exclude cancelled ONLY when viewing "all" or other tabs (to avoid overlap)
+  // Include cancelled when specifically viewing "Đã hủy" tab
+  const getCalendarAppointments = () => {
+    const filtered = getFilteredAppointments();
+
+    // If user is viewing "Đã hủy" tab, show cancelled appointments on calendar
+    if (selectedTab === "cancelled") {
+      return filtered;
+    }
+
+    // For other tabs, exclude cancelled appointments to keep calendar clean
+    return filtered.filter((apt) => apt.status !== "cancelled");
+  };
+
+  const filteredAppointments = getFilteredAppointments(); // For list view
+  const calendarAppointments = getCalendarAppointments(); // For calendar view
 
   // Handle stat card click
-  const handleStatCardClick = (status: "all" | "pending" | "confirmed" | "cancelled") => {
+  const handleStatCardClick = (status: "all" | "pending" | "confirmed" | "cancelled" | "completed") => {
     setSelectedTab(status);
     setViewMode("list");
     if (status === "all") {
@@ -225,12 +220,17 @@ function DoctorScheduleContent() {
     try {
       setActionLoading(true);
       const accessToken = (session as ExtendedSession).accessToken;
-      const result = await appointmentService.cancelAppointment(appointmentId, reason, accessToken);
+      const result = await appointmentService.cancelAppointment(
+        appointmentId,
+        reason,
+        accessToken,
+        "doctor" // Specify that doctor is cancelling
+      );
 
       if (result.success) {
         toast.success("Đã hủy lịch hẹn");
-        // Remove from local state (since backend deletes the appointment)
-        setAppointments((prev) => prev.filter((apt) => apt.id !== appointmentId));
+        // Refresh appointments to reflect changes
+        await fetchAppointments();
         if (detailModalOpen && selectedAppointment?.id === appointmentId) {
           setDetailModalOpen(false);
           setSelectedAppointment(null);
@@ -333,7 +333,7 @@ function DoctorScheduleContent() {
       {/* Main content */}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <button
             onClick={() => handleStatCardClick("all")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
@@ -373,18 +373,37 @@ function DoctorScheduleContent() {
           <button
             onClick={() => handleStatCardClick("confirmed")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
-              selectedTab === "confirmed" ? "border-primary shadow-md" : "border-gray-200"
+              selectedTab === "confirmed" ? "border-green-500 shadow-md" : "border-gray-200"
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Đã xác nhận</p>
-                <p className="text-2xl font-bold text-primary">
+                <p className="text-2xl font-bold text-green-600">
                   {appointments.filter((a) => a.status === "confirmed").length}
                 </p>
               </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <User className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleStatCardClick("completed")}
+            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+              selectedTab === "completed" ? "border-primary shadow-md" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Đã hoàn thành</p>
+                <p className="text-2xl font-bold text-primary">
+                  {appointments.filter((a) => a.status === "completed").length}
+                </p>
+              </div>
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <User className="w-6 h-6 text-primary" />
+                <CheckCircle className="w-6 h-6 text-primary" />
               </div>
             </div>
           </button>
@@ -417,11 +436,11 @@ function DoctorScheduleContent() {
               {selectedTab === "pending" && "Chờ xác nhận"}
               {selectedTab === "confirmed" && "Đã xác nhận"}
               {selectedTab === "cancelled" && "Đã hủy"}
+              {selectedTab === "completed" && "Đã hoàn thành"}
             </h2>
             <button
               onClick={() => {
                 setViewMode("calendar");
-                setSelectedTab("all");
               }}
               className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 flex items-center gap-2"
             >
@@ -434,7 +453,7 @@ function DoctorScheduleContent() {
         {/* Calendar or List View */}
         {viewMode === "calendar" ? (
           <DoctorCalendar
-            appointments={filteredAppointments}
+            appointments={calendarAppointments}
             view={view}
             onViewChange={handleViewChange}
             onSelectEvent={handleSelectEvent}
@@ -569,6 +588,9 @@ function DoctorScheduleContent() {
                             </button>
                           </>
                         )}
+                        {apt.status === "completed" && (
+                          <span className="text-sm text-green-600 font-medium">Đã hoàn thành</span>
+                        )}
                         {apt.status === "cancelled" && <span className="text-sm text-red-600 font-medium">Đã hủy</span>}
                       </div>
                     </div>
@@ -670,7 +692,7 @@ function DoctorScheduleContent() {
                         ? "bg-yellow-500"
                         : selectedAppointment.status === "cancelled"
                         ? "bg-red-500"
-                        : "bg-indigo-500"
+                        : "bg-blue-500"
                     }`}
                   />
                   <div>
@@ -742,9 +764,5 @@ function DoctorScheduleContent() {
 }
 
 export default function DoctorSchedulePage() {
-  return (
-    <AppointmentSocketProvider>
-      <DoctorScheduleContent />
-    </AppointmentSocketProvider>
-  );
+  return <DoctorScheduleContent />;
 }

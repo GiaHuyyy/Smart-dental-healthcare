@@ -127,6 +127,19 @@ export class AppointmentNotificationGateway
   }
 
   /**
+   * Notify patient about appointment completion
+   */
+  notifyAppointmentCompleted(patientId: string, appointment: any) {
+    this.server.to(`user_${patientId}`).emit('appointment:completed', {
+      type: 'APPOINTMENT_COMPLETED',
+      appointment,
+      message: 'Lịch khám đã hoàn tất',
+      timestamp: new Date(),
+    });
+    this.logger.log(`Notified patient ${patientId} about completion`);
+  }
+
+  /**
    * Check if user is online
    */
   isUserOnline(userId: string): boolean {

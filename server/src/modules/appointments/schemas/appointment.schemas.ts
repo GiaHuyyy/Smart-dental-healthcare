@@ -60,10 +60,17 @@ export class Appointment {
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
 
 // Xóa index cũ nếu có
-// Tạo index mới cho các trường cần thiết (unique on doctorId + appointmentDate + startTime)
+// Tạo index mới cho các trường cần thiết với partial filter để loại trừ lịch đã hủy
+// Điều này cho phép đặt lịch trùng giờ với lịch đã bị hủy
 AppointmentSchema.index(
   { doctorId: 1, appointmentDate: 1, startTime: 1 },
-  { unique: true },
+  {
+    unique: true,
+    // Chỉ áp dụng unique cho lịch pending, confirmed, completed, in-progress (không bao gồm cancelled)
+    partialFilterExpression: {
+      status: { $in: ['pending', 'confirmed', 'completed', 'in-progress'] },
+    },
+  },
 );
 // NOTE: ensure the DB does not have a legacy unique index on appointmentTime.
 // If a legacy index exists in the database (doctorId_1_appointmentDate_1_appointmentTime_1),

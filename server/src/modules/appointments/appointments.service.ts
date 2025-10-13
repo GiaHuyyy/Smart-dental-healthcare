@@ -253,7 +253,7 @@ export class AppointmentsService {
           (createAppointmentDto as any).time,
       };
 
-      const appointment = await this.appointmentModel.create(payload as any);
+      const appointment = await this.appointmentModel.create(payload);
 
       // Populate doctor and patient info for notifications
       const populatedAppointment = await appointment.populate([
@@ -543,7 +543,7 @@ export class AppointmentsService {
     return appointment;
   }
 
-  async cancel(id: string, reason: string) {
+  async cancel(id: string, reason: string, cancelledBy?: 'doctor' | 'patient') {
     // For patient-initiated cancellations, remove the appointment document entirely.
     const appointment = await this.appointmentModel.findById(id).populate([
       { path: 'doctorId', select: 'fullName email' },
@@ -554,32 +554,59 @@ export class AppointmentsService {
       throw new NotFoundException('Không tìm thấy lịch hẹn');
     }
 
-    // Get IDs before deletion
+    // Get IDs before deletion/update
     const docId = (appointment.doctorId as any)._id.toString();
     const patId = (appointment.patientId as any)._id.toString();
     const appointmentData = appointment.toObject();
 
-    // Delete appointment
-    await this.appointmentModel.findByIdAndDelete(id);
-    await this.syncFollowUpRecord(appointment as any, { cancelled: true });
+    // Determine who cancelled
+    const actualCancelledBy = cancelledBy || 'patient'; // Default to patient for backward compatibility
 
-    // Send notifications to doctor (patient cancelled)
-    this.notificationGateway.notifyAppointmentCancelled(
-      docId,
-      appointmentData,
-      'patient',
-    );
+    if (actualCancelledBy === 'patient') {
+      // Patient cancel: Delete appointment
+      await this.appointmentModel.findByIdAndDelete(id);
+      await this.syncFollowUpRecord(appointment as any, { cancelled: true });
 
-    // Send email to doctor
-    void this.emailService.sendCancellationEmail(
-      appointmentData,
-      appointment.doctorId as any,
-      appointment.patientId as any,
-      'patient',
-      reason,
-    );
+      // Notify doctor
+      this.notificationGateway.notifyAppointmentCancelled(
+        docId,
+        appointmentData,
+        'patient',
+      );
 
-    return { message: 'Đã xóa lịch hẹn' };
+      // Send email to doctor
+      void this.emailService.sendCancellationEmail(
+        appointmentData,
+        appointment.doctorId as any,
+        appointment.patientId as any,
+        'patient',
+        reason,
+      );
+    } else {
+      // Doctor cancel: Update status to cancelled (keep record)
+      appointment.status = AppointmentStatus.CANCELLED;
+      appointment.cancellationReason = reason;
+      await appointment.save();
+      await this.syncFollowUpRecord(appointment as any, { cancelled: true });
+
+      // Notify patient
+      this.notificationGateway.notifyAppointmentCancelled(
+        patId,
+        appointmentData,
+        'doctor',
+      );
+
+      // Send email to patient
+      void this.emailService.sendCancellationEmail(
+        appointmentData,
+        appointment.doctorId as any,
+        appointment.patientId as any,
+        'doctor',
+        reason,
+      );
+    }
+
+    return { message: 'Đã hủy lịch hẹn' };
   }
 
   async confirm(id: string) {
@@ -620,6 +647,7 @@ export class AppointmentsService {
       .find({
         ...filter,
         appointmentDate: { $gte: startDate, $lte: endDate },
+        status: { $ne: AppointmentStatus.CANCELLED }, // Exclude cancelled appointments from calendar
       })
       .sort((sort as any) || { startTime: 1 })
       .populate(population)
@@ -651,6 +679,7 @@ export class AppointmentsService {
       .find({
         ...filter,
         appointmentDate: { $gte: start, $lte: end },
+        status: { $ne: AppointmentStatus.CANCELLED }, // Exclude cancelled appointments from calendar
       })
       .sort((sort as any) || { appointmentDate: 1, startTime: 1 })
       .populate(population)
@@ -673,6 +702,7 @@ export class AppointmentsService {
       .find({
         ...filter,
         appointmentDate: { $gte: startDate, $lte: endDate },
+        status: { $ne: AppointmentStatus.CANCELLED }, // Exclude cancelled appointments from calendar
       })
       .sort((sort as any) || { appointmentDate: 1, startTime: 1 })
       .populate(population)
@@ -703,7 +733,10 @@ export class AppointmentsService {
   }
 
   async confirmAppointment(id: string) {
-    const appointment = await this.appointmentModel.findById(id);
+    const appointment = await this.appointmentModel.findById(id).populate([
+      { path: 'doctorId', select: 'fullName email' },
+      { path: 'patientId', select: 'fullName email' },
+    ]);
 
     if (!appointment) {
       throw new NotFoundException('Không tìm thấy lịch hẹn');
@@ -714,14 +747,25 @@ export class AppointmentsService {
     }
 
     appointment.status = AppointmentStatus.CONFIRMED;
-
     await appointment.save();
+
+    // Notify patient about confirmation
+    const patId = (appointment.patientId as any)._id.toString();
+    const appointmentData = appointment.toObject();
+
+    this.notificationGateway.notifyPatientAppointmentConfirmed(
+      patId,
+      appointmentData,
+    );
 
     return appointment;
   }
 
   async completeAppointment(id: string) {
-    const appointment = await this.appointmentModel.findById(id);
+    const appointment = await this.appointmentModel.findById(id).populate([
+      { path: 'doctorId', select: 'fullName email' },
+      { path: 'patientId', select: 'fullName email' },
+    ]);
 
     if (!appointment) {
       throw new NotFoundException('Không tìm thấy lịch hẹn');
@@ -737,8 +781,13 @@ export class AppointmentsService {
     }
 
     appointment.status = AppointmentStatus.COMPLETED;
-
     await appointment.save();
+
+    // Notify patient about completion
+    const patId = (appointment.patientId as any)._id.toString();
+    const appointmentData = appointment.toObject();
+
+    this.notificationGateway.notifyAppointmentCompleted(patId, appointmentData);
 
     return appointment;
   }
@@ -856,99 +905,11 @@ export class AppointmentsService {
     return newAppointment;
   }
 
-  async getAvailableSlots(doctorId: string, date: string) {
-    // Kiểm tra tham số đầu vào
-    if (!doctorId || !date) {
-      throw new BadRequestException('Thiếu thông tin bác sĩ hoặc ngày');
-    }
-
-    // Tạo đối tượng Date từ chuỗi ngày
-    const sd = new Date(date);
-    const selectedDate = new Date(
-      Date.UTC(
-        sd.getUTCFullYear(),
-        sd.getUTCMonth(),
-        sd.getUTCDate(),
-        0,
-        0,
-        0,
-        0,
-      ),
-    );
-    // Tạo ngày kết thúc (cuối ngày)
-    const endDate = new Date(
-      Date.UTC(
-        sd.getUTCFullYear(),
-        sd.getUTCMonth(),
-        sd.getUTCDate(),
-        23,
-        59,
-        59,
-        999,
-      ),
-    );
-
-    // Lấy danh sách các lịch hẹn của bác sĩ trong ngày đã chọn (theo appointmentDate)
-    const appointments = await this.appointmentModel
-      .find({
-        doctorId,
-        appointmentDate: { $gte: selectedDate, $lte: endDate },
-        status: { $nin: [AppointmentStatus.CANCELLED] },
-      })
-      .sort({ startTime: 1 })
-      .lean();
-
-    // Danh sách các khung giờ làm việc (8:00 - 17:00, mỗi khung 30 phút)
-    const workingHours = [];
-    const startHour = 8;
-    const endHour = 17;
-    const slotDuration = 30; // 30 phút
-
-    for (let hour = startHour; hour < endHour; hour++) {
-      for (let minute = 0; minute < 60; minute += slotDuration) {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        workingHours.push(timeString as never);
-      }
-    }
-
-    // Danh sách các khung giờ đã có lịch hẹn
-    // Chỉ đánh dấu chính xác khung giờ đã đặt, không ảnh hưởng đến các khung giờ liền kề
-    const unavailableSet = new Set<string>();
-    for (const appt of appointments) {
-      const ap = appt as any;
-      const apptStart = ap.startTime || ap.appointmentTime || ap.time; // 'HH:MM'
-      if (!apptStart || !this.isValidTimeString(apptStart)) {
-        // skip malformed legacy entries without a proper start time
-        continue;
-      }
-
-      // Chỉ đánh dấu chính xác khung giờ bắt đầu của lịch hẹn
-      // Tìm khung giờ làm việc tương ứng với thời gian bắt đầu của lịch hẹn
-      const matchingSlot = workingHours.find((slot) => slot === apptStart);
-      if (matchingSlot) {
-        unavailableSet.add(matchingSlot);
-      }
-    }
-
-    const unavailableSlots = Array.from(unavailableSet).sort();
-
-    // Danh sách các khung giờ còn trống
-    const availableSlots = workingHours.filter(
-      (time) => !unavailableSlots.includes(time),
-    );
-
-    return {
-      availableSlots,
-      unavailableSlots,
-      date: selectedDate.toISOString().split('T')[0],
-    };
-  }
-
   async getPatientAppointmentHistory(patientId: string, query: any) {
     try {
       const { current = 1, pageSize = 10, status } = query;
 
-      let filter: any = { patientId };
+      const filter: any = { patientId };
 
       if (status && status !== 'all') {
         filter.status = status;
@@ -1045,7 +1006,7 @@ export class AppointmentsService {
 
     const results: any[] = [];
     for (const [pid, appt] of latestByPatient.entries()) {
-      const patient = (appt as any).patientId || { _id: pid };
+      const patient = appt.patientId || { _id: pid };
       const lastDate = appt.appointmentDate
         ? new Date(appt.appointmentDate)
         : null;
@@ -1103,7 +1064,7 @@ export class AppointmentsService {
 
     const results: any[] = [];
     for (const [did, appt] of latestByDoctor.entries()) {
-      const doctor = (appt as any).doctorId || { _id: did };
+      const doctor = appt.doctorId || { _id: did };
       const lastDate = appt.appointmentDate
         ? new Date(appt.appointmentDate)
         : null;
@@ -1132,6 +1093,100 @@ export class AppointmentsService {
     }
 
     return results;
+  }
+
+  // Get available time slots for a doctor on a specific date
+  async getAvailableSlots(
+    doctorId: string,
+    date: string,
+    durationMinutes: number = 30,
+  ) {
+    if (!doctorId || !date) {
+      throw new BadRequestException('Thiếu doctorId hoặc date');
+    }
+
+    // Parse date string (YYYY-MM-DD) to Date object
+    const targetDate = new Date(date);
+    if (isNaN(targetDate.getTime())) {
+      throw new BadRequestException('Định dạng ngày không hợp lệ');
+    }
+
+    // Set to start of day
+    targetDate.setHours(0, 0, 0, 0);
+
+    // End of day
+    const endDate = new Date(targetDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Fetch all booked appointments for this doctor on this date
+    // KHÔNG exclude CANCELLED - cho phép đặt trùng giờ với lịch đã hủy
+    const bookedAppointments = await this.appointmentModel
+      .find({
+        doctorId,
+        appointmentDate: {
+          $gte: targetDate,
+          $lte: endDate,
+        },
+        status: {
+          $nin: [AppointmentStatus.CANCELLED], // Chỉ exclude CANCELLED, giữ COMPLETED để check overlap
+        },
+      })
+      .select('startTime endTime status')
+      .lean();
+
+    console.log('🔍 Query params:', {
+      doctorId,
+      targetDate,
+      endDate,
+      bookedAppointmentsCount: bookedAppointments.length,
+    });
+    console.log('📋 Booked appointments:', bookedAppointments);
+
+    // Extract booked time slots
+    const bookedSlots = bookedAppointments.map((appt) => appt.startTime);
+    console.log('🚫 Booked slots array:', bookedSlots);
+
+    // Generate all possible time slots based on duration
+    const allSlots = this.generateTimeSlots(durationMinutes);
+
+    // Filter out booked slots
+    const availableSlots = allSlots.filter(
+      (slot) => !bookedSlots.includes(slot),
+    );
+
+    return {
+      date,
+      duration: durationMinutes,
+      bookedSlots,
+      availableSlots,
+      totalSlots: allSlots.length,
+      availableCount: availableSlots.length,
+    };
+  }
+
+  // Helper: Generate time slots from 8:00 to 17:00
+  private generateTimeSlots(durationMinutes: number): string[] {
+    const slots: string[] = [];
+    const startHour = 8; // 8:00 AM
+    const endHour = 17; // 5:00 PM
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute = 0; minute < 60; minute += durationMinutes) {
+        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+        // Calculate end time to check if it exceeds working hours
+        const totalMinutes = hour * 60 + minute + durationMinutes;
+        const endHour = Math.floor(totalMinutes / 60);
+        const endMinute = totalMinutes % 60;
+
+        // Don't add slot if end time exceeds 17:00
+        if (endHour > 17 || (endHour === 17 && endMinute > 0)) continue;
+
+        slots.push(timeString);
+      }
+    }
+
+    return slots;
   }
 
   private async syncFollowUpRecord(
