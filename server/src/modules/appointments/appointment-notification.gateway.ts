@@ -140,6 +140,18 @@ export class AppointmentNotificationGateway
   }
 
   /**
+   * Send appointment reminder (30 minutes before)
+   */
+  sendAppointmentReminder(userId: string, reminderData: any) {
+    this.server.to(`user_${userId}`).emit('appointment:reminder', {
+      type: 'APPOINTMENT_REMINDER',
+      ...reminderData,
+      timestamp: new Date(),
+    });
+    this.logger.log(`Sent reminder to user ${userId}`);
+  }
+
+  /**
    * Check if user is online
    */
   isUserOnline(userId: string): boolean {

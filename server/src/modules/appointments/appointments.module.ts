@@ -9,6 +9,7 @@ import {
 } from '../medical-records/schemas/medical-record.schemas';
 import { AppointmentNotificationGateway } from './appointment-notification.gateway';
 import { AppointmentEmailService } from './appointment-email.service';
+import { AppointmentReminderService } from './appointment-reminder.service';
 
 @Module({
   imports: [
@@ -22,11 +23,13 @@ import { AppointmentEmailService } from './appointment-email.service';
     AppointmentsService,
     AppointmentNotificationGateway,
     AppointmentEmailService,
+    AppointmentReminderService,
   ],
   exports: [
     AppointmentsService,
     AppointmentNotificationGateway,
     AppointmentEmailService,
+    AppointmentReminderService,
   ],
 })
 export class AppointmentsModule {}

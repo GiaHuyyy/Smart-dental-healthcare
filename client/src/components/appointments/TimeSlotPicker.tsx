@@ -51,11 +51,9 @@ export default function TimeSlotPicker({ doctor, onSelectSlot }: TimeSlotPickerP
         }
 
         const data = await response.json();
-        console.log("📅 Available Slots API Response:", data);
 
         // API returns data directly without wrapping in success/data
         const bookedSlotsArray = data.bookedSlots || [];
-        console.log("🚫 Booked Slots to set:", bookedSlotsArray);
         setBookedSlots(bookedSlotsArray);
       } catch (error) {
         console.error("Error fetching available slots:", error);
@@ -133,11 +131,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot }: TimeSlotPickerP
 
         current.setMinutes(current.getMinutes() + intervalMinutes);
       }
-
-      console.log(
-        `📋 Generated slots (bookedSlots length: ${bookedSlots.length}):`,
-        slots.map((s) => `${s.time}: ${s.booked ? "🚫 BOOKED" : "✅ Available"}`)
-      );
 
       return slots;
     };

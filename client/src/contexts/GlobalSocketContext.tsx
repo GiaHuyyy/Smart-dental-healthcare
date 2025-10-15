@@ -244,6 +244,39 @@ export function GlobalSocketProvider({ children }: { children: React.ReactNode }
       triggerAppointmentRefresh();
     });
 
+    // Appointment reminder (30 minutes before - for both doctors and patients)
+    newSocket.on("appointment:reminder", (data: AppointmentNotification) => {
+      const notification: AppointmentNotification = {
+        ...data,
+        timestamp: new Date(),
+      };
+      setNotifications((prev) => [...prev, notification]);
+
+      console.log("⏰ Appointment reminder received:", data);
+
+      // Determine target route based on user role
+      const targetRoute = userRole === "doctor" ? "/doctor/schedule" : "/patient/appointments/my-appointments";
+
+      // Show reminder toast with alarm icon and longer duration
+      toast.info("⏰ Nhắc nhở lịch hẹn", {
+        description: data.message || "Lịch hẹn của bạn sắp bắt đầu trong 30 phút",
+        duration: 10000, // 10 seconds for important reminder
+        action: {
+          label: "Xem chi tiết",
+          onClick: () => router.push(targetRoute),
+        },
+      });
+
+      // Optional: Play notification sound
+      // if (typeof Audio !== "undefined") {
+      //   const audio = new Audio("/notification-sound.mp3");
+      //   audio.play().catch((error) => console.log("Could not play sound:", error));
+      // }
+
+      // Trigger refresh callback
+      triggerAppointmentRefresh();
+    });
+
     // ==========================================
     // CHAT EVENTS (existing chat functionality)
     // ==========================================
@@ -265,6 +298,7 @@ export function GlobalSocketProvider({ children }: { children: React.ReactNode }
         socketRef.current.off("appointment:cancelled");
         socketRef.current.off("appointment:rescheduled");
         socketRef.current.off("appointment:completed");
+        socketRef.current.off("appointment:reminder");
         socketRef.current.disconnect();
         socketRef.current = null;
       }

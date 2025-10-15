@@ -12,10 +12,14 @@ import { Public, ResponseMessage } from 'src/decorator/customize';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { AppointmentReminderService } from './appointment-reminder.service';
 
 @Controller('appointments')
 export class AppointmentsController {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(
+    private readonly appointmentsService: AppointmentsService,
+    private readonly reminderService: AppointmentReminderService,
+  ) {}
 
   @Post()
   @Public()
@@ -232,5 +236,12 @@ export class AppointmentsController {
   @ResponseMessage('Lấy lộ trình tái khám của bệnh nhân thành công')
   getFollowUpByPatient(@Param('patientId') patientId: string) {
     return this.appointmentsService.getFollowUpByPatient(patientId);
+  }
+
+  @Post(':id/test-reminder')
+  @Public()
+  @ResponseMessage('Gửi reminder thử nghiệm thành công')
+  testReminder(@Param('id') appointmentId: string) {
+    return this.reminderService.testReminder(appointmentId);
   }
 }

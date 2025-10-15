@@ -2,6 +2,7 @@
 
 import { Calendar, momentLocalizer, View } from "react-big-calendar";
 import moment from "moment";
+import { useState } from "react";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "./DoctorCalendar.css";
 
@@ -64,6 +65,8 @@ export default function DoctorCalendar({
   view = "week",
   onViewChange,
 }: Props) {
+  const [date, setDate] = useState(new Date());
+
   const events: CalendarEvent[] = appointments.map((apt) => ({
     id: apt.id,
     title: apt.patientName,
@@ -144,6 +147,8 @@ export default function DoctorCalendar({
         startAccessor="start"
         endAccessor="end"
         style={{ height: "calc(100vh - 250px)", minHeight: "600px" }}
+        date={date}
+        onNavigate={(newDate) => setDate(newDate)}
         defaultView={view}
         view={view}
         onView={onViewChange}

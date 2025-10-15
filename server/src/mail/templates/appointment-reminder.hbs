@@ -1,9 +1,9 @@
-<!-- filepath: c:\Users\tovug\Desktop\TTDN_KLTN\Smart-dental-healthcare\server\src\mail\templates\appointment-cancelled.hbs -->
+<!-- filepath: c:\Users\tovug\Desktop\TTDN_KLTN\Smart-dental-healthcare\server\src\mail\templates\appointment-reminder.hbs -->
 
 <html>
 
   <head>
-    <title>Lịch hẹn đã bị hủy - Smart Dental Healthcare</title>
+    <title>Nhắc nhở lịch hẹn - Smart Dental Healthcare</title>
     <meta http-equiv='Content-Type' content='text/html; charset=UTF-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
   </head>
@@ -18,49 +18,49 @@
 
       <!-- Header -->
       <div
-        style='background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 32px 24px; text-align: center;'
+        style='background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 24px; text-align: center;'
       >
         <div
           style='display: inline-block; width: 60px; height: 60px; background-color: #ffffff; border-radius: 12px; margin-bottom: 16px; line-height: 60px; font-size: 30px;'
         >
-          ❌
+          ⏰
         </div>
         <h1
           style='font-size: 28px; font-weight: 700; line-height: 1.2; margin: 0; color: #ffffff;'
         >
-          Lịch Hẹn Đã Bị Hủy
+          Nhắc Nhở Lịch Hẹn
         </h1>
-        <p style='font-size: 16px; margin: 8px 0 0 0; color: #fecaca;'>
-          Thông báo hủy lịch hẹn
+        <p style='font-size: 16px; margin: 8px 0 0 0; color: #fde68a;'>
+          Lịch khám sắp bắt đầu
         </p>
       </div>
 
       <!-- Nội dung chính -->
       <div style='padding: 32px 24px;'>
-        <!-- Thông báo quan trọng -->
-        <div
-          style='background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 16px; margin: 0 0 24px 0; border-radius: 4px;'
-        >
-          <p
-            style='margin: 0; color: #991b1b; font-size: 15px; font-weight: 600;'
-          >
-            ⚠️ Thông báo quan trọng
-          </p>
-          <p style='margin: 8px 0 0 0; color: #7f1d1d; font-size: 14px;'>
-            Lịch hẹn của bạn đã bị hủy bởi
-            <strong>{{cancellerName}}</strong>.
-          </p>
-        </div>
-
         <h2
-          style='font-size: 24px; font-weight: 600; color: #374151; margin: 0 0 16px 0;'
+          style='font-size: 24px; font-weight: 600; color: #d97706; margin: 0 0 16px 0;'
         >
           Xin chào
           {{recipientName}}! 👋
         </h2>
 
+        <!-- Thông báo quan trọng -->
+        <div
+          style='background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 0 0 24px 0; border-radius: 4px;'
+        >
+          <p
+            style='margin: 0; color: #92400e; font-size: 15px; font-weight: 600;'
+          >
+            ⏰ Nhắc nhở quan trọng
+          </p>
+          <p style='margin: 8px 0 0 0; color: #78350f; font-size: 14px;'>
+            Lịch hẹn của bạn sẽ bắt đầu trong
+            <strong>{{timeUntil}}</strong>. Vui lòng chuẩn bị sẵn sàng!
+          </p>
+        </div>
+
         <p style='margin: 0 0 20px 0; color: #4b5563;'>
-          Chúng tôi xin thông báo lịch hẹn sau đây đã bị hủy:
+          Đây là thông báo nhắc nhở về lịch hẹn đã được xác nhận của bạn:
         </p>
 
         <!-- Thông tin người liên quan -->
@@ -74,7 +74,7 @@
           </h3>
           <div style='background: white; border-radius: 8px; padding: 16px;'>
             <div
-              style='display: flex; justify-content: space-between; align-items: center;'
+              style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'
             >
               <span style='color: #6b7280; font-size: 14px;'>{{#if
                   isDoctor
@@ -83,17 +83,27 @@
                 style='color: #1f2937; font-size: 16px;'
               >{{otherPartyName}}</strong>
             </div>
+            {{#if otherPartyPhone}}
+              <div
+                style='display: flex; justify-content: space-between; align-items: center;'
+              >
+                <span style='color: #6b7280; font-size: 14px;'>Liên hệ:</span>
+                <strong
+                  style='color: #0ea5e9; font-size: 16px;'
+                >{{otherPartyPhone}}</strong>
+              </div>
+            {{/if}}
           </div>
         </div>
 
-        <!-- Thông tin lịch hẹn đã hủy -->
+        <!-- Thông tin lịch hẹn -->
         <div
           style='background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;'
         >
           <h4
             style='margin: 0 0 12px 0; color: #374151; font-size: 16px; font-weight: 600;'
           >
-            📅 Chi tiết lịch hẹn đã hủy
+            📅 Chi tiết lịch hẹn
           </h4>
 
           <div
@@ -111,50 +121,62 @@
             <span
               style='color: #6b7280; font-size: 14px; display: inline-block; width: 120px;'
             >Giờ khám:</span>
-            <strong style='color: #1f2937;'>{{startTime}} - {{endTime}}</strong>
+            <strong style='color: #f59e0b; font-size: 18px;'>{{startTime}}
+              -
+              {{endTime}}</strong>
           </div>
 
-          {{#if consultationFee}}
-            <div
-              style='margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;'
-            >
-              <span
-                style='color: #6b7280; font-size: 14px; display: inline-block; width: 120px;'
-              >Chi phí:</span>
-              <strong
-                style='color: #6b7280; text-decoration: line-through;'
-              >{{consultationFee}} VNĐ</strong>
-            </div>
-          {{/if}}
+          <div
+            style='margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;'
+          >
+            <span
+              style='color: #6b7280; font-size: 14px; display: inline-block; width: 120px;'
+            >Hình thức:</span>
+            <strong style='color: #1f2937;'>{{appointmentType}}</strong>
+          </div>
 
-          {{#if reason}}
+          {{#if clinicAddress}}
             <div>
               <span
                 style='color: #6b7280; font-size: 14px; display: block; margin-bottom: 4px;'
-              >Lý do hủy:</span>
+              >Địa điểm:</span>
               <p
-                style='margin: 0; color: #991b1b; background: #fee2e2; padding: 12px; border-radius: 6px; font-weight: 500;'
+                style='margin: 0; color: #1f2937; background: white; padding: 12px; border-radius: 6px;'
               >
-                {{reason}}
+                📍
+                {{clinicAddress}}
               </p>
             </div>
           {{/if}}
         </div>
 
-        <!-- Gợi ý hành động -->
+        <!-- Checklist chuẩn bị -->
         <div
           style='background-color: #f0f9ff; border-radius: 8px; padding: 20px; margin: 24px 0;'
         >
           <h4 style='margin: 0 0 12px 0; color: #0369a1; font-size: 16px;'>
-            💡 Bạn có thể:
+            ✅
+            {{#if isDoctor}}Chuẩn bị trước khi khám{{else}}Lưu ý trước khi đến
+              khám{{/if}}
           </h4>
           <ul style='margin: 0; padding-left: 20px; color: #4b5563;'>
-            <li style='margin-bottom: 8px;'>Đặt lịch hẹn mới với thời gian phù
-              hợp hơn</li>
-            <li style='margin-bottom: 8px;'>Liên hệ trực tiếp qua hotline để
-              được hỗ trợ</li>
-            <li style='margin-bottom: 0;'>Kiểm tra lịch trình và chọn khung giờ
-              khác</li>
+            {{#if isDoctor}}
+              <li style='margin-bottom: 8px;'>Xem lại hồ sơ bệnh nhân trước khi
+                khám</li>
+              <li style='margin-bottom: 8px;'>Chuẩn bị dụng cụ và thiết bị cần
+                thiết</li>
+              <li style='margin-bottom: 8px;'>Kiểm tra phòng khám đã sẵn sàng</li>
+              <li style='margin-bottom: 0;'>Xác nhận thời gian với trợ lý nếu
+                cần</li>
+            {{else}}
+              <li style='margin-bottom: 8px;'>Đến phòng khám trước giờ hẹn 10-15
+                phút</li>
+              <li style='margin-bottom: 8px;'>Mang theo CMND/CCCD và sổ khám
+                bệnh</li>
+              <li style='margin-bottom: 8px;'>Chuẩn bị các câu hỏi muốn hỏi bác
+                sĩ</li>
+              <li style='margin-bottom: 0;'>Liên hệ ngay nếu có sự cố đột xuất</li>
+            {{/if}}
           </ul>
         </div>
 
@@ -164,15 +186,26 @@
             href='{{viewUrl}}'
             style='display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.3);'
           >
-            Xem Danh Sách Lịch Hẹn →
+            Xem Chi Tiết Lịch Hẹn →
           </a>
+        </div>
+
+        <div
+          style='background-color: #fee2e2; border-left: 4px solid #ef4444; padding: 16px; margin: 24px 0; border-radius: 4px;'
+        >
+          <p style='margin: 0; color: #991b1b; font-size: 14px;'>
+            ⚠️
+            <strong>Lưu ý:</strong>
+            Nếu bạn không thể đến được, vui lòng hủy lịch hẹn sớm nhất có thể để
+            {{#if isDoctor}}bệnh nhân{{else}}bác sĩ{{/if}}
+            có thể sắp xếp lại thời gian.
+          </p>
         </div>
 
         <p
           style='margin: 24px 0 0 0; color: #6b7280; font-size: 14px; text-align: center;'
         >
-          Chúng tôi xin lỗi vì sự bất tiện này và hy vọng có thể phục vụ bạn
-          trong thời gian sớm nhất.
+          Chúc bạn có buổi khám suôn sẻ! 💙
         </p>
       </div>
 

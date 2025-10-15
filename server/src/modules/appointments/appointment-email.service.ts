@@ -104,4 +104,64 @@ export class AppointmentEmailService {
       this.logger.error('Failed to send cancellation email:', error);
     }
   }
+
+  /**
+   * Send reminder email to both doctor and patient (30 minutes before appointment)
+   */
+  async sendReminderEmail(
+    appointment: any,
+    doctor: any,
+    patient: any,
+    recipientType: 'doctor' | 'patient',
+  ) {
+    try {
+      const appointmentDate = new Date(
+        appointment.appointmentDate,
+      ).toLocaleDateString('vi-VN', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+
+      const recipient = recipientType === 'doctor' ? doctor : patient;
+      const otherParty = recipientType === 'doctor' ? patient : doctor;
+      const otherPartyName =
+        recipientType === 'doctor'
+          ? patient.fullName
+          : `BS. ${doctor.fullName}`;
+      const viewUrl =
+        recipientType === 'doctor'
+          ? `${process.env.CLIENT_URL || 'http://localhost:3000'}/doctor/schedule`
+          : `${process.env.CLIENT_URL || 'http://localhost:3000'}/patient/appointments/my-appointments`;
+
+      await this.mailerService.sendMail({
+        to: recipient.email,
+        subject: '⏰ Nhắc nhở: Lịch hẹn sắp bắt đầu',
+        template: 'appointment-reminder',
+        context: {
+          recipientName: recipient.fullName,
+          otherPartyName,
+          otherPartyPhone: otherParty.phone || '',
+          appointmentDate,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          appointmentType: appointment.appointmentType,
+          clinicAddress: doctor.address || doctor.clinicAddress || '',
+          timeUntil: '30 phút',
+          isDoctor: recipientType === 'doctor',
+          viewUrl,
+        },
+      });
+
+      this.logger.log(
+        `Sent reminder email to ${recipientType} ${recipient.email}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send reminder email to ${recipientType}:`,
+        error,
+      );
+    }
+  }
 }
