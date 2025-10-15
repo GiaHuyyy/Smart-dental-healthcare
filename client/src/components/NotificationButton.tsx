@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { Bell, Check, CheckCheck, X, Calendar, Pill, FileText, CreditCard, MessageCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -9,6 +10,7 @@ import { vi } from "date-fns/locale";
 
 export function NotificationButton() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -122,7 +124,7 @@ export function NotificationButton() {
                     key={notification._id}
                     onClick={() => handleNotificationClick(notification)}
                     className={`p-4 cursor-pointer transition-colors ${
-                      notification.isRead ? "bg-white hover:bg-gray-50" : "bg-blue-50 hover:bg-blue-100"
+                      notification.isRead ? "bg-white hover:bg-gray-50" : "bg-primary/5 hover:bg-primary/10"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -134,7 +136,7 @@ export function NotificationButton() {
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-gray-900 line-clamp-1">{notification.title}</p>
                           {!notification.isRead && (
-                            <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-1" />
+                            <div className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-1" />
                           )}
                         </div>
 
@@ -155,7 +157,7 @@ export function NotificationButton() {
                                   e.stopPropagation();
                                   markAsRead(notification._id);
                                 }}
-                                className="p-1 text-gray-400 hover:text-blue-600 rounded"
+                                className="p-1 text-gray-400 hover:text-primary rounded"
                                 title="Đánh dấu đã đọc"
                               >
                                 <Check className="w-4 h-4" />
@@ -183,7 +185,9 @@ export function NotificationButton() {
             <div className="p-3 border-t border-gray-200 text-center">
               <button
                 onClick={() => {
-                  router.push("/notifications");
+                  const role = session?.user?.role || "patient";
+                  const path = role === "doctor" ? "/doctor/notifications" : "/patient/notifications";
+                  router.push(path);
                   setIsOpen(false);
                 }}
                 className="text-sm text-primary hover:text-primary-dark font-medium"

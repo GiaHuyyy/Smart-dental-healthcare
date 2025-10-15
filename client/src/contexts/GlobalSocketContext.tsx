@@ -29,14 +29,11 @@ export function GlobalSocketProvider({ children }: { children: React.ReactNode }
 
     // Prevent double connection in StrictMode
     if (socketRef.current) {
-      console.log("⚠️ Socket already exists, skipping connection");
       return;
     }
 
     const userId = session.user._id;
     const userRole = session.user.role;
-
-    console.log("🔌 Connecting global socket for user:", userId, "role:", userRole);
 
     // Create single socket connection to /appointments namespace
     // This namespace handles all appointment-related and notification events
@@ -57,17 +54,15 @@ export function GlobalSocketProvider({ children }: { children: React.ReactNode }
 
     // Connection events
     newSocket.on("connect", () => {
-      console.log("✅ Global socket connected:", newSocket.id);
       setIsConnected(true);
     });
 
-    newSocket.on("disconnect", (reason) => {
-      console.log("❌ Global socket disconnected:", reason);
+    newSocket.on("disconnect", () => {
       setIsConnected(false);
     });
 
     newSocket.on("connect_error", (error) => {
-      console.error("🔴 Global socket connection error:", error.message);
+      console.error("Socket connection error:", error.message);
       setIsConnected(false);
     });
 
@@ -75,8 +70,6 @@ export function GlobalSocketProvider({ children }: { children: React.ReactNode }
 
     // Cleanup on unmount or session change
     return () => {
-      console.log("🧹 Cleaning up global socket");
-
       if (socketRef.current) {
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");

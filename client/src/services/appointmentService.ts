@@ -41,9 +41,6 @@ const appointmentService = {
    */
   async createAppointment(payload: CreateAppointmentPayload, token?: string): Promise<AppointmentResponse> {
     try {
-      console.log("Creating appointment with payload:", payload);
-      console.log("Using token:", token ? "Yes" : "No");
-
       const response = await fetch(`${API_URL}/api/v1/appointments`, {
         method: "POST",
         headers: {

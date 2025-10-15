@@ -9,12 +9,15 @@ import aqp from 'api-query-params';
 @Injectable()
 export class NotificationsService {
   constructor(
-    @InjectModel(Notification.name) private notificationModel: Model<Notification>,
+    @InjectModel(Notification.name)
+    private notificationModel: Model<Notification>,
   ) {}
 
   async create(createNotificationDto: CreateNotificationDto) {
     try {
-      const notification = await this.notificationModel.create(createNotificationDto);
+      const notification = await this.notificationModel.create(
+        createNotificationDto,
+      );
       return {
         success: true,
         data: notification,
@@ -83,7 +86,9 @@ export class NotificationsService {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy danh sách thông báo của người dùng',
+        message:
+          error.message ||
+          'Có lỗi xảy ra khi lấy danh sách thông báo của người dùng',
       };
     }
   }
@@ -187,22 +192,31 @@ export class NotificationsService {
     } catch (error) {
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi đánh dấu tất cả thông báo đã đọc',
+        message:
+          error.message || 'Có lỗi xảy ra khi đánh dấu tất cả thông báo đã đọc',
       };
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, userId?: string) {
     try {
       if (!mongoose.isValidObjectId(id)) {
         throw new BadRequestException('ID thông báo không hợp lệ');
       }
 
-      const notification = await this.notificationModel.findByIdAndDelete(id).exec();
+      // Find notification first to check ownership
+      const notification = await this.notificationModel.findById(id).exec();
 
       if (!notification) {
         throw new BadRequestException('Không tìm thấy thông báo');
       }
+
+      // Check if user owns this notification
+      if (userId && notification.userId.toString() !== userId) {
+        throw new BadRequestException('Bạn không có quyền xóa thông báo này');
+      }
+
+      await this.notificationModel.findByIdAndDelete(id).exec();
 
       return {
         success: true,
