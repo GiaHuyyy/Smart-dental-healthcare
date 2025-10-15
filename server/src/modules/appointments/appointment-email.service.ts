@@ -94,7 +94,7 @@ export class AppointmentEmailService {
           endTime: appointment.endTime,
           consultationFee: appointment.consultationFee || 0,
           reason,
-          isDoctor: cancelledBy === 'patient',
+          isDoctor: cancelledBy === 'doctor', // Nếu doctor hủy → recipient là patient → isDoctor = false (FIXED!)
           viewUrl,
         },
       });

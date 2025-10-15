@@ -1,29 +1,22 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { HydratedDocument } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
-export type NotificationDocument = HydratedDocument<Notification>;
+export type NotificationDocument = Notification & Document;
 
 @Schema({ timestamps: true })
 export class Notification {
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  userId: Types.ObjectId;
+
   @Prop({ required: true })
   title: string;
 
   @Prop({ required: true })
   message: string;
 
-  @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: 'User' })
-  userId: mongoose.Schema.Types.ObjectId;
-
-  @Prop({ default: false })
-  isRead: boolean;
-
   @Prop({
     required: true,
     enum: [
-      'appointment',
-      'medical-record',
-      'payment',
-      'system',
       'APPOINTMENT_NEW',
       'APPOINTMENT_CONFIRMED',
       'APPOINTMENT_CANCELLED',
@@ -39,20 +32,17 @@ export class Notification {
   })
   type: string;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, refPath: 'refModel' })
-  refId: mongoose.Schema.Types.ObjectId;
-
-  @Prop({ type: String, enum: ['Appointment', 'MedicalRecord', 'Payment'] })
-  refModel: string;
-
   @Prop({ type: Object })
-  data?: any;
+  data?: any; // Extra data (appointmentId, prescriptionId, etc.)
+
+  @Prop({ default: false })
+  isRead: boolean;
 
   @Prop()
-  linkTo?: string;
+  linkTo?: string; // URL to navigate when clicked
 
   @Prop()
-  icon?: string;
+  icon?: string; // Icon type for UI
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

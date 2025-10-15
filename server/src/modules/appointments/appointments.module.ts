@@ -10,6 +10,7 @@ import {
 import { AppointmentNotificationGateway } from './appointment-notification.gateway';
 import { AppointmentEmailService } from './appointment-email.service';
 import { AppointmentReminderService } from './appointment-reminder.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AppointmentReminderService } from './appointment-reminder.service';
       { name: Appointment.name, schema: AppointmentSchema },
       { name: MedicalRecord.name, schema: MedicalRecordSchema },
     ]),
+    NotificationsModule,
   ],
   controllers: [AppointmentsController],
   providers: [

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays, CheckCircle } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
+import { useAppointment } from "@/contexts/AppointmentContext";
 import DoctorCalendar from "@/components/Calendar/DoctorCalendar";
 import { View } from "react-big-calendar";
 import Image from "next/image";
@@ -42,7 +43,8 @@ interface ExtendedSession {
 
 function DoctorScheduleContent() {
   const { data: session } = useSession();
-  const { isConnected, registerAppointmentCallback, unregisterAppointmentCallback } = useGlobalSocket();
+  const { isConnected } = useGlobalSocket();
+  const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
 
   const [view, setView] = useState<View>("week");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
