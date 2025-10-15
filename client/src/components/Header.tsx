@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LogoutButton from "./auth/LogoutButton";
-import { User, Smile, Settings, Activity, Calendar, Home } from "lucide-react";
+import { User, Settings, Activity, Calendar, Home } from "lucide-react";
 import Image from "next/image";
 import { NotificationButton } from "./NotificationButton";
 
@@ -13,7 +13,6 @@ export default function Header() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const isHomePage = pathname === "/";
-  const isPatientOrDoctor = pathname?.startsWith("/patient") || pathname?.startsWith("/doctor");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

@@ -52,7 +52,6 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
   // Trigger appointment refresh callback
   const triggerAppointmentRefresh = useCallback(() => {
     if (appointmentCallbackRef.current) {
-      console.log("🔄 Triggering appointment refresh callback");
       appointmentCallbackRef.current();
     }
   }, []);
@@ -61,18 +60,12 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!socket || status !== "authenticated" || !session?.user) return;
 
-    const userId = session.user._id;
-    const userRole = session.user.role;
-
-    console.log("📅 Setting up appointment listeners for user:", userId, "role:", userRole);
-
     // ==========================================
     // APPOINTMENT EVENTS (for all users)
     // ==========================================
 
     // Handle new appointment (mainly for doctors)
     const handleAppointmentNew = (data: AppointmentNotification) => {
-      console.log("📅 New appointment notification:", data);
       const notification: AppointmentNotification = {
         ...data,
         timestamp: new Date(),
@@ -83,7 +76,6 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
 
     // Handle appointment confirmed (mainly for patients)
     const handleAppointmentConfirmed = (data: AppointmentNotification) => {
-      console.log("✅ Appointment confirmed:", data);
       const notification: AppointmentNotification = {
         ...data,
         timestamp: new Date(),
@@ -94,7 +86,6 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
 
     // Handle appointment cancelled (for both doctors and patients)
     const handleAppointmentCancelled = (data: AppointmentNotification) => {
-      console.log("❌ Appointment cancelled:", data);
       const notification: AppointmentNotification = {
         ...data,
         timestamp: new Date(),
@@ -105,7 +96,6 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
 
     // Handle appointment rescheduled (for both doctors and patients)
     const handleAppointmentRescheduled = (data: AppointmentNotification) => {
-      console.log("🔄 Appointment rescheduled:", data);
       const notification: AppointmentNotification = {
         ...data,
         timestamp: new Date(),
@@ -116,7 +106,6 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
 
     // Handle appointment completed (mainly for patients)
     const handleAppointmentCompleted = (data: AppointmentNotification) => {
-      console.log("✅ Appointment completed:", data);
       const notification: AppointmentNotification = {
         ...data,
         timestamp: new Date(),
@@ -127,7 +116,6 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
 
     // Handle appointment reminder (30 minutes before - for both doctors and patients)
     const handleAppointmentReminder = (data: AppointmentNotification) => {
-      console.log("⏰ Appointment reminder:", data);
       const notification: AppointmentNotification = {
         ...data,
         timestamp: new Date(),
@@ -146,7 +134,6 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
 
     // Cleanup
     return () => {
-      console.log("🧹 Cleaning up appointment listeners");
       socket.off("appointment:new", handleAppointmentNew);
       socket.off("appointment:confirmed", handleAppointmentConfirmed);
       socket.off("appointment:cancelled", handleAppointmentCancelled);

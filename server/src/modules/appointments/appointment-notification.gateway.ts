@@ -80,14 +80,19 @@ export class AppointmentNotificationGateway
     });
 
     // Create persistent notification (without socket emit)
-    const savedNotification = await this.notificationGateway.sendNotificationToUser(doctorId, {
-      title: '📅 Lịch hẹn mới',
-      message: `Bạn có lịch hẹn mới từ bệnh nhân ${appointment.patientName || 'N/A'}`,
-      type: 'APPOINTMENT_NEW',
-      data: { appointmentId: appointment._id },
-      linkTo: '/doctor/schedule',
-      icon: '📅',
-    }, false); // ✅ Pass false to skip socket emit
+    const savedNotification =
+      await this.notificationGateway.sendNotificationToUser(
+        doctorId,
+        {
+          title: '📅 Lịch hẹn mới',
+          message: `Bạn có lịch hẹn mới từ bệnh nhân ${appointment.patientName || 'N/A'}`,
+          type: 'APPOINTMENT_NEW',
+          data: { appointmentId: appointment._id },
+          linkTo: '/doctor/schedule',
+          icon: '📅',
+        },
+        false,
+      ); // ✅ Pass false to skip socket emit
 
     // Emit notification:new via this gateway (same socket connection)
     this.server.to(`user_${doctorId}`).emit('notification:new', {
@@ -111,14 +116,19 @@ export class AppointmentNotificationGateway
     });
 
     // Create persistent notification (without socket emit)
-    const savedNotification = await this.notificationGateway.sendNotificationToUser(patientId, {
-      title: '✅ Lịch hẹn đã xác nhận',
-      message: `Bác sĩ ${appointment.doctorName || 'N/A'} đã xác nhận lịch hẹn của bạn`,
-      type: 'APPOINTMENT_CONFIRMED',
-      data: { appointmentId: appointment._id },
-      linkTo: '/patient/appointments/my-appointments',
-      icon: '✅',
-    }, false);
+    const savedNotification =
+      await this.notificationGateway.sendNotificationToUser(
+        patientId,
+        {
+          title: '✅ Lịch hẹn đã xác nhận',
+          message: `Bác sĩ ${appointment.doctorName || 'N/A'} đã xác nhận lịch hẹn của bạn`,
+          type: 'APPOINTMENT_CONFIRMED',
+          data: { appointmentId: appointment._id },
+          linkTo: '/patient/appointments/my-appointments',
+          icon: '✅',
+        },
+        false,
+      );
 
     // Emit notification:new via this gateway
     this.server.to(`user_${patientId}`).emit('notification:new', {
@@ -152,17 +162,22 @@ export class AppointmentNotificationGateway
     });
 
     // Create persistent notification (without socket emit)
-    const savedNotification = await this.notificationGateway.sendNotificationToUser(userId, {
-      title: '❌ Lịch hẹn đã bị hủy',
-      message,
-      type: 'APPOINTMENT_CANCELLED',
-      data: { appointmentId: appointment._id, cancelledBy },
-      linkTo:
-        cancelledBy === 'doctor'
-          ? '/patient/appointments/my-appointments'
-          : '/doctor/schedule',
-      icon: '❌',
-    }, false);
+    const savedNotification =
+      await this.notificationGateway.sendNotificationToUser(
+        userId,
+        {
+          title: '❌ Lịch hẹn đã bị hủy',
+          message,
+          type: 'APPOINTMENT_CANCELLED',
+          data: { appointmentId: appointment._id, cancelledBy },
+          linkTo:
+            cancelledBy === 'doctor'
+              ? '/patient/appointments/my-appointments'
+              : '/doctor/schedule',
+          icon: '❌',
+        },
+        false,
+      );
 
     // Emit notification:new via this gateway
     this.server.to(`user_${userId}`).emit('notification:new', {
@@ -176,7 +191,11 @@ export class AppointmentNotificationGateway
   /**
    * Notify about appointment reschedule
    */
-  async notifyAppointmentRescheduled(userId: string, appointment: any) {
+  async notifyAppointmentRescheduled(
+    userId: string,
+    appointment: any,
+    userRole: 'doctor' | 'patient' = 'patient',
+  ) {
     // Send real-time socket notification
     this.server.to(`user_${userId}`).emit('appointment:rescheduled', {
       type: 'APPOINTMENT_RESCHEDULED',
@@ -186,14 +205,22 @@ export class AppointmentNotificationGateway
     });
 
     // Create persistent notification (without socket emit)
-    const savedNotification = await this.notificationGateway.sendNotificationToUser(userId, {
-      title: '🔄 Lịch hẹn đã được dời',
-      message: 'Lịch hẹn đã được dời sang thời gian khác',
-      type: 'APPOINTMENT_RESCHEDULED',
-      data: { appointmentId: appointment._id },
-      linkTo: '/patient/appointments/my-appointments',
-      icon: '🔄',
-    }, false);
+    const savedNotification =
+      await this.notificationGateway.sendNotificationToUser(
+        userId,
+        {
+          title: '🔄 Lịch hẹn đã được dời',
+          message: 'Lịch hẹn đã được dời sang thời gian khác',
+          type: 'APPOINTMENT_RESCHEDULED',
+          data: { appointmentId: appointment._id },
+          linkTo:
+            userRole === 'doctor'
+              ? '/doctor/schedule'
+              : '/patient/appointments/my-appointments',
+          icon: '🔄',
+        },
+        false,
+      );
 
     // Emit notification:new via this gateway
     this.server.to(`user_${userId}`).emit('notification:new', {
@@ -217,14 +244,19 @@ export class AppointmentNotificationGateway
     });
 
     // Create persistent notification (without socket emit)
-    const savedNotification = await this.notificationGateway.sendNotificationToUser(patientId, {
-      title: '✅ Lịch khám hoàn tất',
-      message: 'Lịch khám đã hoàn tất. Bạn có thể xem hồ sơ bệnh án.',
-      type: 'APPOINTMENT_COMPLETED',
-      data: { appointmentId: appointment._id },
-      linkTo: '/patient/medical-records',
-      icon: '✅',
-    }, false);
+    const savedNotification =
+      await this.notificationGateway.sendNotificationToUser(
+        patientId,
+        {
+          title: '✅ Lịch khám hoàn tất',
+          message: 'Lịch khám đã hoàn tất. Bạn có thể xem hồ sơ bệnh án.',
+          type: 'APPOINTMENT_COMPLETED',
+          data: { appointmentId: appointment._id },
+          linkTo: '/patient/medical-records',
+          icon: '✅',
+        },
+        false,
+      );
 
     // Emit notification:new via this gateway
     this.server.to(`user_${patientId}`).emit('notification:new', {
@@ -247,15 +279,21 @@ export class AppointmentNotificationGateway
     });
 
     // Create persistent notification (without socket emit)
-    const savedNotification = await this.notificationGateway.sendNotificationToUser(userId, {
-      title: '⏰ Nhắc nhở lịch hẹn',
-      message:
-        reminderData.message || 'Lịch hẹn của bạn sắp bắt đầu trong 30 phút',
-      type: 'APPOINTMENT_REMINDER',
-      data: { appointmentId: reminderData.appointmentId },
-      linkTo: reminderData.linkTo,
-      icon: '⏰',
-    }, false);
+    const savedNotification =
+      await this.notificationGateway.sendNotificationToUser(
+        userId,
+        {
+          title: '⏰ Nhắc nhở lịch hẹn',
+          message:
+            reminderData.message ||
+            'Lịch hẹn của bạn sắp bắt đầu trong 30 phút',
+          type: 'APPOINTMENT_REMINDER',
+          data: { appointmentId: reminderData.appointmentId },
+          linkTo: reminderData.linkTo,
+          icon: '⏰',
+        },
+        false,
+      );
 
     // Emit notification:new via this gateway
     this.server.to(`user_${userId}`).emit('notification:new', {
@@ -264,7 +302,7 @@ export class AppointmentNotificationGateway
     });
 
     this.logger.log(`Sent reminder to user ${userId}`);
-  } 
+  }
 
   /**
    * Check if user is online

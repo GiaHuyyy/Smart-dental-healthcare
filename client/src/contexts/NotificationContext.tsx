@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useGlobalSocket } from "./GlobalSocketContext";
 
@@ -42,29 +43,37 @@ const NotificationContext = createContext<NotificationContextType>({
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const { socket, isConnected } = useGlobalSocket(); // ✅ Sử dụng socket từ GlobalSocketContext
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Fetch notifications from API
   const fetchNotifications = useCallback(async () => {
-    if (status !== "authenticated" || !session?.access_token) return;
+    if (status !== "authenticated" || !session?.access_token) {
+      return;
+    }
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/notifications?current=1&pageSize=50`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
+      const url = `${
+        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
+      }/api/v1/notifications?current=1&pageSize=50`;
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.data?.result) {
-          setNotifications(data.data.result);
-          setUnreadCount(data.data.result.filter((n: Notification) => !n.isRead).length);
+
+        if (data.success && data.data?.results) {
+          setNotifications(data.data.results);
+          setUnreadCount(data.data.results.filter((n: Notification) => !n.isRead).length);
         }
+      } else {
+        const errorText = await response.text();
+        console.error("Failed to fetch notifications:", response.status, errorText);
       }
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
@@ -78,20 +87,22 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/notifications/${notificationId}`,
+          `${
+            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
+          }/api/v1/notifications/${notificationId}/read`,
           {
             method: "PATCH",
             headers: {
-              "Content-Type": "application/json",
               Authorization: `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({ isRead: true }),
           }
         );
 
         if (response.ok) {
           setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, isRead: true } : n)));
           setUnreadCount((prev) => Math.max(0, prev - 1));
+        } else {
+          console.error("Failed to mark as read:", response.status);
         }
       } catch (error) {
         console.error("Failed to mark as read:", error);
@@ -106,7 +117,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/notifications/mark-all-read/${
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/notifications/mark-all-read/${
           session.user._id
         }`,
         {
@@ -134,7 +145,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/notifications/${notificationId}`,
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/notifications/${notificationId}`,
           {
             method: "DELETE",
             headers: {
@@ -159,25 +170,29 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     [session]
   );
 
-  // Setup socket listeners for notification events
+  // Setup socket listeners for notification events (KHÔNG fetch ở đây)
   useEffect(() => {
     if (!socket || status !== "authenticated" || !session?.user) return;
 
-    console.log("🔔 Setting up notification listeners on global socket");
-
     // Listen for new notifications
     const handleNewNotification = (notification: Notification) => {
-      console.log("🔔 New notification received:", notification);
-
       // Add to list
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
 
-      // Show toast
+      // Show toast with action button using router.push
       toast.info(notification.title, {
         description: notification.message,
         duration: 5000,
         icon: notification.icon || "🔔",
+        action: notification.linkTo
+          ? {
+              label: "Xem",
+              onClick: () => {
+                router.push(notification.linkTo);
+              },
+            }
+          : undefined,
       });
     };
 
@@ -198,17 +213,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     socket.on("notification:read", handleNotificationRead);
     socket.on("notification:allRead", handleAllNotificationsRead);
 
-    // Initial fetch
-    fetchNotifications();
-
     // Cleanup
     return () => {
-      console.log("🧹 Cleaning up notification listeners");
       socket.off("notification:new", handleNewNotification);
       socket.off("notification:read", handleNotificationRead);
       socket.off("notification:allRead", handleAllNotificationsRead);
     };
-  }, [socket, session, status, fetchNotifications]);
+  }, [socket, session?.user, status, router]);
+
+  // ✅ Separate effect: Fetch notifications when access_token is available
+  useEffect(() => {
+    if (status === "authenticated" && session?.access_token) {
+      fetchNotifications();
+    } else if (status === "authenticated" && session?.user && !session?.access_token) {
+      toast.error("Session không hợp lệ", {
+        description: "Vui lòng đăng xuất và đăng nhập lại",
+        duration: 10000,
+      });
+    }
+  }, [status, session?.access_token, session?.user, fetchNotifications]);
 
   const value: NotificationContextType = {
     notifications,

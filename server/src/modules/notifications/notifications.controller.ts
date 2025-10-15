@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Query,
+  Request,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
@@ -60,15 +61,16 @@ export class NotificationsController {
     return this.notificationsService.markAsRead(id);
   }
 
-  @Patch('user/:userId/read-all')
+  @Patch('mark-all-read/:userId')
   @Public()
   markAllAsRead(@Param('userId') userId: string) {
     return this.notificationsService.markAllAsRead(userId);
   }
 
   @Delete(':id')
-  @Public()
-  remove(@Param('id') id: string) {
-    return this.notificationsService.remove(id);
+  remove(@Param('id') id: string, @Request() req: any) {
+    // Get userId from JWT token if authenticated
+    const userId = req.user?._id;
+    return this.notificationsService.remove(id, userId);
   }
 }

@@ -24,8 +24,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             role: credentials?.role,
           },
         });
-        // Normalize and inspect response to support multiple backend shapes
-        console.log("User response:", res);
 
         // If backend returned wrapped data { data: { user, access_token } }
         const wrappedUser = (res as any)?.data?.user;
@@ -69,19 +67,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   pages: {
     signIn: "/auth/login",
-    // error: "/auth/login"
   },
-  //  By default, the `id` property does not exist on `token` or `session`. See the [TypeScript](https://authjs.dev/getting-started/typescript) on how to add it.
+  session: {
+    strategy: "jwt",
+    maxAge: 5 * 60 * 60, // 5 hours (match backend JWT_ACCESS_TOKEN_EXPIRED)
+    updateAge: 5 * 60, // Update session cookie every 5 minutes if user active
+  },
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        // User is available during sign-in
         token.user = user as IUser;
+        token.access_token = (user as any).access_token;
+        token.access_expire = Date.now() + 5 * 60 * 60 * 1000; // 5 hours from now
       }
+
+      // Check if token expired
+      if (token.access_expire && Date.now() > (token.access_expire as number)) {
+        return null; // This will trigger sign-out
+      }
+
       return token;
     },
     session({ session, token }) {
       (session.user as IUser) = token.user;
+      (session as any).access_token = token.access_token;
+      (session as any).access_expire = token.access_expire;
       return session;
     },
     authorized: async ({ auth }) => {

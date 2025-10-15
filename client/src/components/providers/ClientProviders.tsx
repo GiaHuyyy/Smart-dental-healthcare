@@ -16,7 +16,7 @@ import VideoCallInterface from "@/components/call/VideoCallInterface";
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
-      <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
+      <SessionProvider refetchInterval={5 * 60} refetchOnWindowFocus={true}>
         {/* Global Socket Provider - Single connection for all features */}
         <GlobalSocketProvider>
           {/* Appointment Context - Handles appointment-related events */}
