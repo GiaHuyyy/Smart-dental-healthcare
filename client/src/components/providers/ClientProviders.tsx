@@ -5,6 +5,8 @@ import { SessionProvider } from "next-auth/react";
 import { Provider } from "react-redux";
 import { Toaster } from "sonner";
 import { GlobalSocketProvider } from "@/contexts/GlobalSocketContext";
+import { AppointmentProvider } from "@/contexts/AppointmentContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import { RealtimeChatProvider } from "@/contexts/RealtimeChatContext";
 import { WebRTCProvider } from "@/contexts/WebRTCContext";
 import { CallProvider } from "@/contexts/CallProvider";
@@ -17,18 +19,25 @@ export default function ClientProviders({ children }: { children: React.ReactNod
       <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
         {/* Global Socket Provider - Single connection for all features */}
         <GlobalSocketProvider>
-          <RealtimeChatProvider>
-            <WebRTCProvider>
-              <CallProvider>
-                {children}
-                <Toaster expand={false} position="top-right" richColors closeButton />
+          {/* Appointment Context - Handles appointment-related events */}
+          <AppointmentProvider>
+            {/* Notification Context - Handles persistent notifications */}
+            <NotificationProvider>
+              {/* Chat Context - Reuses socket for chat (except private chat rooms) */}
+              <RealtimeChatProvider>
+                <WebRTCProvider>
+                  <CallProvider>
+                    {children}
+                    <Toaster expand={false} position="top-right" richColors closeButton />
 
-                {/* Global Call Components */}
-                <IncomingCallModal />
-                <VideoCallInterface />
-              </CallProvider>
-            </WebRTCProvider>
-          </RealtimeChatProvider>
+                    {/* Global Call Components */}
+                    <IncomingCallModal />
+                    <VideoCallInterface />
+                  </CallProvider>
+                </WebRTCProvider>
+              </RealtimeChatProvider>
+            </NotificationProvider>
+          </AppointmentProvider>
         </GlobalSocketProvider>
       </SessionProvider>
     </Provider>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays, CheckCircle } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
+import { useAppointment } from "@/contexts/AppointmentContext";
 import DoctorCalendar from "@/components/Calendar/DoctorCalendar";
 import { View } from "react-big-calendar";
 import Image from "next/image";
@@ -42,17 +43,20 @@ interface ExtendedSession {
 
 function DoctorScheduleContent() {
   const { data: session } = useSession();
-  const { isConnected, registerAppointmentCallback, unregisterAppointmentCallback } = useGlobalSocket();
+  const { isConnected } = useGlobalSocket();
+  const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
 
   const [view, setView] = useState<View>("week");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState("all");
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [selectedTab, setSelectedTab] = useState<"all" | "pending" | "confirmed" | "cancelled" | "completed">("all");
   const [actionLoading, setActionLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
@@ -125,9 +129,10 @@ function DoctorScheduleContent() {
   }, [isConnected]);
 
   // Filter appointments based on selected tab (for LIST view - shows ALL including cancelled)
+  // Filter appointments for LIST view - shows all including cancelled
   const getFilteredAppointments = () => {
     if (selectedTab === "all") {
-      return filterStatus === "all" ? appointments : appointments.filter((apt) => apt.status === filterStatus);
+      return appointments;
     }
     return appointments.filter((apt) => apt.status === selectedTab);
   };
@@ -154,11 +159,6 @@ function DoctorScheduleContent() {
   const handleStatCardClick = (status: "all" | "pending" | "confirmed" | "cancelled" | "completed") => {
     setSelectedTab(status);
     setViewMode("list");
-    if (status === "all") {
-      setFilterStatus("all");
-    } else {
-      setFilterStatus(status);
-    }
   };
 
   // Handle confirm appointment
@@ -235,14 +235,129 @@ function DoctorScheduleContent() {
           setDetailModalOpen(false);
           setSelectedAppointment(null);
         }
+        // Close cancel dialog
+        setCancelDialogOpen(false);
+        setAppointmentToCancel(null);
+        setCancelReason("");
       } else {
         toast.error(result.error || "Không thể hủy lịch hẹn");
       }
     } catch (error) {
       console.error("Cancel appointment error:", error);
-      toast.error("Lỗi khi hủy lịch hẹn");
+      toast.error("Có lỗi xảy ra khi hủy lịch hẹn");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Open cancel dialog
+  const openCancelDialog = (appointmentId: string) => {
+    const appointment = appointments.find((apt) => apt.id === appointmentId || apt._id === appointmentId);
+    setAppointmentToCancel(appointment || null);
+    setCancelReason("");
+    setCancelDialogOpen(true);
+  };
+
+  // Confirm cancel with reason
+  const confirmCancel = () => {
+    if (!appointmentToCancel) return;
+    if (!cancelReason.trim()) {
+      toast.error("Vui lòng nhập lý do hủy");
+      return;
+    }
+    handleCancelAppointment(appointmentToCancel._id || appointmentToCancel.id, cancelReason);
+  };
+
+  // Export to Excel
+  const handleExportExcel = async () => {
+    try {
+      // Get filtered appointments
+      const dataToExport = getFilteredAppointments();
+
+      if (dataToExport.length === 0) {
+        toast.error("Không có dữ liệu để xuất");
+        return;
+      }
+
+      // Create CSV content
+      const headers = [
+        "Mã lịch",
+        "Bệnh nhân",
+        "Ngày",
+        "Giờ bắt đầu",
+        "Giờ kết thúc",
+        "Trạng thái",
+        "Loại khám",
+        "Lý do",
+      ];
+      const rows = dataToExport.map((apt) => [
+        apt.id,
+        apt.patientName,
+        apt.date,
+        apt.startTime,
+        apt.endTime,
+        apt.status === "pending"
+          ? "Chờ xác nhận"
+          : apt.status === "confirmed"
+          ? "Đã xác nhận"
+          : apt.status === "completed"
+          ? "Hoàn thành"
+          : apt.status === "cancelled"
+          ? "Đã hủy"
+          : apt.status,
+        apt.visitType || "",
+        apt.reason || "",
+      ]);
+
+      const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
+
+      // Add BOM for UTF-8 support in Excel
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+
+      // Check if File System Access API is available
+      if ("showSaveFilePicker" in window) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: `lich-hen-${new Date().toISOString().split("T")[0]}.csv`,
+            types: [
+              {
+                description: "CSV Files",
+                accept: { "text/csv": [".csv"] },
+              },
+            ],
+          });
+
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+
+          toast.success("Đã xuất file Excel thành công");
+        } catch (err) {
+          // User cancelled or error occurred
+          if (err instanceof Error && err.name !== "AbortError") {
+            console.error("Save file error:", err);
+            toast.error("Có lỗi xảy ra khi lưu file");
+          }
+        }
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `lich-hen-${new Date().toISOString().split("T")[0]}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast.success("Đã xuất file Excel thành công");
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Có lỗi xảy ra khi xuất file");
     }
   };
 
@@ -302,21 +417,11 @@ function DoctorScheduleContent() {
                 <span className="text-sm text-gray-600">{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
               </div>
 
-              {/* Filters */}
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">Tất cả</option>
-                <option value="pending">Chờ xác nhận</option>
-                <option value="confirmed">Đã xác nhận</option>
-                <option value="completed">Hoàn thành</option>
-                <option value="cancelled">Đã hủy</option>
-              </select>
-
               {/* Action buttons */}
-              <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+              <button
+                onClick={handleExportExcel}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
                 <Download className="w-4 h-4" />
                 Xuất Excel
               </button>
@@ -555,7 +660,7 @@ function DoctorScheduleContent() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleCancelAppointment(apt._id || apt.id);
+                                openCancelDialog(apt._id || apt.id);
                               }}
                               disabled={actionLoading}
                               className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -579,7 +684,7 @@ function DoctorScheduleContent() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleCancelAppointment(apt._id || apt.id);
+                                openCancelDialog(apt._id || apt.id);
                               }}
                               disabled={actionLoading}
                               className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -745,7 +850,7 @@ function DoctorScheduleContent() {
                 {(selectedAppointment.status === "pending" || selectedAppointment.status === "confirmed") && (
                   <button
                     onClick={() => {
-                      handleCancelAppointment(selectedAppointment._id || selectedAppointment.id);
+                      openCancelDialog(selectedAppointment._id || selectedAppointment.id);
                       setDetailModalOpen(false);
                     }}
                     disabled={actionLoading}
@@ -755,6 +860,69 @@ function DoctorScheduleContent() {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Appointment Dialog */}
+      {cancelDialogOpen && appointmentToCancel && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Xác nhận hủy lịch</h3>
+              <button
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  setAppointmentToCancel(null);
+                  setCancelReason("");
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                Bạn có chắc chắn muốn hủy lịch hẹn với <strong>{appointmentToCancel.patientName}</strong> vào{" "}
+                <strong>
+                  {new Date(appointmentToCancel.date).toLocaleDateString("vi-VN")} lúc {appointmentToCancel.startTime}
+                </strong>
+                ?
+              </p>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lý do hủy <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Vui lòng cho biết lý do bạn muốn hủy lịch hẹn này..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  setAppointmentToCancel(null);
+                  setCancelReason("");
+                }}
+                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                disabled={actionLoading}
+              >
+                Đóng
+              </button>
+              <button
+                onClick={confirmCancel}
+                disabled={!cancelReason.trim() || actionLoading}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? "Đang hủy..." : "Xác nhận hủy"}
+              </button>
             </div>
           </div>
         </div>

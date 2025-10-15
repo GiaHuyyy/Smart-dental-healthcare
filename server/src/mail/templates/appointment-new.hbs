@@ -1,120 +1,206 @@
+<!-- filepath: c:\Users\tovug\Desktop\TTDN_KLTN\Smart-dental-healthcare\server\src\mail\templates\appointment-new.hbs -->
+
 <html>
+
   <head>
-    <meta charset='utf-8' />
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        line-height: 1.6;
-        color: #333;
-      }
-      .container {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 20px;
-      }
-      .header {
-        background-color: #00a6f4;
-        color: white;
-        padding: 20px;
-        text-align: center;
-        border-radius: 8px 8px 0 0;
-      }
-      .content {
-        background-color: #f9f9f9;
-        padding: 30px;
-        border: 1px solid #ddd;
-      }
-      .info-row {
-        margin: 15px 0;
-        padding: 10px;
-        background: white;
-        border-radius: 4px;
-      }
-      .label {
-        font-weight: bold;
-        color: #555;
-      }
-      .value {
-        color: #333;
-        margin-left: 10px;
-      }
-      .button {
-        display: inline-block;
-        padding: 12px 30px;
-        background-color: #00a6f4;
-        color: white;
-        text-decoration: none;
-        border-radius: 6px;
-        margin: 20px 0;
-      }
-      .footer {
-        text-align: center;
-        margin-top: 20px;
-        color: #777;
-        font-size: 12px;
-      }
-    </style>
+    <title>Lịch hẹn mới - Smart Dental Healthcare</title>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
   </head>
-  <body>
-    <div class='container'>
-      <div class='header'>
-        <h1>🦷 Lịch Hẹn Mới</h1>
-      </div>
-      <div class='content'>
-        <p>Xin chào <strong>BS. {{doctorName}}</strong>,</p>
-        <p>Bạn có một lịch hẹn mới từ bệnh nhân:</p>
 
-        <div class='info-row'>
-          <span class='label'>👤 Bệnh nhân:</span>
-          <span class='value'>{{patientName}}</span>
+  <body
+    style="margin: 0; padding: 0; min-width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; line-height: 1.6; background-color: #f0f9ff; color: #1f2937;"
+  >
+
+    <div
+      style='max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);'
+    >
+
+      <!-- Header -->
+      <div
+        style='background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); padding: 32px 24px; text-align: center;'
+      >
+        <div
+          style='display: inline-block; width: 60px; height: 60px; background-color: #ffffff; border-radius: 12px; margin-bottom: 16px; line-height: 60px; font-size: 30px;'
+        >
+          🦷
         </div>
-
-        <div class='info-row'>
-          <span class='label'>📅 Ngày khám:</span>
-          <span class='value'>{{appointmentDate}}</span>
-        </div>
-
-        <div class='info-row'>
-          <span class='label'>⏰ Giờ khám:</span>
-          <span class='value'>{{startTime}} - {{endTime}}</span>
-        </div>
-
-        <div class='info-row'>
-          <span class='label'>🏥 Hình thức:</span>
-          <span class='value'>{{appointmentType}}</span>
-        </div>
-
-        {{#if consultationFee}}
-          <div class='info-row'>
-            <span class='label'>💰 Phí khám:</span>
-            <span class='value'>{{consultationFee}} VNĐ</span>
-          </div>
-        {{/if}}
-
-        {{#if notes}}
-          <div class='info-row'>
-            <span class='label'>📝 Ghi chú:</span>
-            <span class='value'>{{notes}}</span>
-          </div>
-        {{/if}}
-
-        <div class='info-row'>
-          <span class='label'>📞 Liên hệ:</span>
-          <span class='value'>{{patientPhone}}</span>
-        </div>
-
-        <center>
-          <a href='{{viewUrl}}' class='button'>Xem Chi Tiết Lịch Hẹn</a>
-        </center>
-
-        <p style='margin-top: 20px; color: #777; font-size: 14px;'>
-          Vui lòng xác nhận hoặc từ chối lịch hẹn này trong vòng 24 giờ.
+        <h1
+          style='font-size: 28px; font-weight: 700; line-height: 1.2; margin: 0; color: #ffffff;'
+        >
+          Smart Dental Healthcare
+        </h1>
+        <p style='font-size: 16px; margin: 8px 0 0 0; color: #bfdbfe;'>
+          Thông báo lịch hẹn mới
         </p>
       </div>
-      <div class='footer'>
-        <p>Smart Dental Healthcare System</p>
-        <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+
+      <!-- Nội dung chính -->
+      <div style='padding: 32px 24px;'>
+        <h2
+          style='font-size: 24px; font-weight: 600; color: #0ea5e9; margin: 0 0 16px 0;'
+        >
+          Xin chào BS.
+          {{doctorName}}! 👋
+        </h2>
+
+        <p style='margin: 0 0 20px 0; color: #4b5563;'>
+          Bạn có một
+          <strong>lịch hẹn mới</strong>
+          từ bệnh nhân. Vui lòng kiểm tra và xác nhận lịch hẹn trong thời gian
+          sớm nhất.
+        </p>
+
+        <!-- Thông tin bệnh nhân -->
+        <div
+          style='background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #0ea5e9; border-radius: 12px; padding: 24px; margin: 24px 0;'
+        >
+          <h3
+            style='margin: 0 0 16px 0; color: #0369a1; font-size: 18px; font-weight: 600;'
+          >
+            👤 Thông tin bệnh nhân
+          </h3>
+          <div
+            style='background: white; border-radius: 8px; padding: 16px; margin-bottom: 12px;'
+          >
+            <div
+              style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'
+            >
+              <span style='color: #6b7280; font-size: 14px;'>Họ và tên:</span>
+              <strong
+                style='color: #1f2937; font-size: 16px;'
+              >{{patientName}}</strong>
+            </div>
+            {{#if patientPhone}}
+              <div
+                style='display: flex; justify-content: space-between; align-items: center;'
+              >
+                <span style='color: #6b7280; font-size: 14px;'>Số điện thoại:</span>
+                <strong
+                  style='color: #0ea5e9; font-size: 16px;'
+                >{{patientPhone}}</strong>
+              </div>
+            {{/if}}
+          </div>
+        </div>
+
+        <!-- Thông tin lịch hẹn -->
+        <div
+          style='background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 24px 0;'
+        >
+          <h4
+            style='margin: 0 0 12px 0; color: #374151; font-size: 16px; font-weight: 600;'
+          >
+            📅 Chi tiết lịch hẹn
+          </h4>
+
+          <div
+            style='margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;'
+          >
+            <span
+              style='color: #6b7280; font-size: 14px; display: inline-block; width: 120px;'
+            >Ngày khám:</span>
+            <strong style='color: #1f2937;'>{{appointmentDate}}</strong>
+          </div>
+
+          <div
+            style='margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;'
+          >
+            <span
+              style='color: #6b7280; font-size: 14px; display: inline-block; width: 120px;'
+            >Giờ khám:</span>
+            <strong style='color: #1f2937;'>{{startTime}} - {{endTime}}</strong>
+          </div>
+
+          <div
+            style='margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;'
+          >
+            <span
+              style='color: #6b7280; font-size: 14px; display: inline-block; width: 120px;'
+            >Hình thức:</span>
+            <strong style='color: #1f2937;'>{{appointmentType}}</strong>
+          </div>
+
+          {{#if consultationFee}}
+            <div
+              style='margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb;'
+            >
+              <span
+                style='color: #6b7280; font-size: 14px; display: inline-block; width: 120px;'
+              >Chi phí:</span>
+              <strong style='color: #16a34a;'>{{consultationFee}} VNĐ</strong>
+            </div>
+          {{/if}}
+
+          {{#if notes}}
+            <div>
+              <span
+                style='color: #6b7280; font-size: 14px; display: block; margin-bottom: 4px;'
+              >Ghi chú từ bệnh nhân:</span>
+              <p
+                style='margin: 0; color: #1f2937; background: white; padding: 12px; border-radius: 6px; font-style: italic;'
+              >
+                "{{notes}}"
+              </p>
+            </div>
+          {{/if}}
+        </div>
+
+        <!-- Call to action -->
+        <div style='text-align: center; margin: 32px 0;'>
+          <a
+            href='{{viewUrl}}'
+            style='display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.3);'
+          >
+            Xem Chi Tiết Lịch Hẹn →
+          </a>
+        </div>
+
+        <div
+          style='background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 4px;'
+        >
+          <p style='margin: 0; color: #92400e; font-size: 14px;'>
+            ⏰
+            <strong>Lưu ý:</strong>
+            Vui lòng xác nhận hoặc từ chối lịch hẹn này trong vòng
+            <strong>24 giờ</strong>
+            để bệnh nhân có thể sắp xếp thời gian hợp lý.
+          </p>
+        </div>
       </div>
+
+      <!-- Footer -->
+      <div
+        style='background-color: #f8fafc; padding: 24px; border-top: 1px solid #e5e7eb;'
+      >
+        <div style='text-align: center; margin-bottom: 16px;'>
+          <h4 style='margin: 0 0 8px 0; color: #374151; font-size: 16px;'>
+            Cần hỗ trợ? 📞
+          </h4>
+          <p style='margin: 0; color: #6b7280; font-size: 14px;'>
+            Hotline:
+            <strong style='color: #0ea5e9;'>1900 1234</strong>
+            | Email:
+            <a
+              href='mailto:support@smartdental.vn'
+              style='color: #0ea5e9; text-decoration: none;'
+            >support@smartdental.vn</a>
+          </p>
+        </div>
+
+        <div
+          style='text-align: center; padding-top: 16px; border-top: 1px solid #e5e7eb;'
+        >
+          <p style='margin: 0; color: #9ca3af; font-size: 12px;'>
+            © 2024 Smart Dental Healthcare. Bảo lưu mọi quyền.
+          </p>
+          <p style='margin: 4px 0 0 0; color: #9ca3af; font-size: 12px;'>
+            Email này được gửi tự động, vui lòng không trả lời trực tiếp.
+          </p>
+        </div>
+      </div>
+
     </div>
   </body>
+
 </html>

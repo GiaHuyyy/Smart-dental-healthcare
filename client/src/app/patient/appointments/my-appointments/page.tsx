@@ -23,11 +23,13 @@ import { toast } from "sonner";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
+import { useAppointment } from "@/contexts/AppointmentContext";
 
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { isConnected, registerAppointmentCallback, unregisterAppointmentCallback } = useGlobalSocket();
+  const { isConnected } = useGlobalSocket();
+  const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | AppointmentStatus>("all");

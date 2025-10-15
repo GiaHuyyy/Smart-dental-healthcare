@@ -28,7 +28,9 @@ export default function ShellLayout({ navigation, children }: { navigation: NavI
             {navigation.map((item) => {
               // Exact match for root routes, startsWith for sub-routes
               const isExactMatch = pathname === item.href;
-              const isSubRoute = item.href !== "/patient" && pathname?.startsWith(item.href + "/");
+              // Only consider sub-route if href is not a root route (e.g., not "/doctor" or "/patient")
+              const isRootRoute = item.href === "/doctor" || item.href === "/patient";
+              const isSubRoute = !isRootRoute && pathname?.startsWith(item.href + "/");
               const isActive = isExactMatch || isSubRoute;
 
               const linkClasses = `flex flex-col items-center justify-center py-2 text-sm rounded-md transition-colors ${
