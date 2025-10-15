@@ -229,6 +229,12 @@ export class AppointmentNotificationGateway
     // Emit notification:new via this gateway
     this.server.to(`user_${patientId}`).emit('notification:new', {
       ...savedNotification.toObject(),
+      timestamp: new Date(),
+    });
+
+    this.logger.log(`Notified patient ${patientId} about completion`);
+  }
+
   /**
    * Send appointment reminder (30 minutes before)
    */
@@ -258,13 +264,7 @@ export class AppointmentNotificationGateway
     });
 
     this.logger.log(`Sent reminder to user ${userId}`);
-  }   data: { appointmentId: reminderData.appointmentId },
-      linkTo: reminderData.linkTo,
-      icon: '⏰',
-    });
-
-    this.logger.log(`Sent reminder to user ${userId}`);
-  }
+  } 
 
   /**
    * Check if user is online
