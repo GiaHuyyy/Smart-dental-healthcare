@@ -1,38 +1,67 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
-import { sendRequest } from "@/utils/api";
+import paymentService from "@/services/paymentService";
 import {
-  Search,
-  CreditCard,
-  Calendar,
-  User,
-  FileText,
-  CheckCircle,
-  AlertCircle,
-  Clock,
-  DollarSign,
+    AlertCircle,
+    ArrowRight,
+    Building2,
+    Calendar,
+    CheckCircle,
+    Clock,
+    CreditCard,
+    DollarSign,
+    FileText,
+    Filter,
+    RefreshCw,
+    Search,
+    TrendingUp,
+    User,
+    Wallet,
+    XCircle
 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+
+// Backend Payment Response Types
+interface Doctor {
+  _id: string;
+  fullName: string;
+  email?: string;
+  specialty?: string;
+  specialization?: string;
+}
+
+interface Appointment {
+  _id: string;
+  appointmentType: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  consultationFee?: number;
+  status: string;
+  paymentStatus?: "unpaid" | "paid" | "refunded";
+  doctorId?: Doctor;
+}
 
 interface PaymentRecord {
   _id: string;
-  appointment: {
+  patientId: {
     _id: string;
-    appointmentType: string;
-    appointmentDate: string;
-    doctor: {
-      fullName: string;
-      specialization: string;
-    };
+    fullName: string;
+    email: string;
   };
+  doctorId: Doctor | string;
+  refId: Appointment | string;
   amount: number;
-  paymentMethod: "cash" | "card" | "transfer" | "insurance";
-  status: "pending" | "paid" | "cancelled" | "refunded";
-  paymentDate: string;
-  description: string;
-  invoiceNumber: string;
+  status: "pending" | "completed" | "failed" | "refunded";
+  type: "appointment" | "treatment" | "medicine" | "other";
+  paymentMethod?: string;
+  paymentDate?: string;
+  transactionId?: string;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function PatientPayments() {
@@ -42,92 +71,57 @@ export default function PatientPayments() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const fetchPayments = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      
+      const userId = (session as any)?.user?._id;
+      if (!userId) {
+        console.error("❌ User ID not found in session");
+        setLoading(false);
+        return;
+      }
+
+      console.log("🔄 Fetching payments for user:", userId);
+      const response = await paymentService.getPaymentsByPatient(
+        userId,
+        (session as any)?.access_token
+      );
+
+      if (response.success && response.data) {
+        console.log("✅ Payments loaded:", response.data.length, "records");
+        setPayments(response.data);
+      } else {
+        console.error("❌ Failed to fetch payments:", response.message);
+        setPayments([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching payments:", error);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
   useEffect(() => {
     if (session) {
       fetchPayments();
     }
-  }, [session]);
+  }, [session, fetchPayments]);
 
-  const fetchPayments = async () => {
-    try {
-      const response = await sendRequest<any>({
-        url: "/api/payments/patient",
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${(session as any)?.access_token}`,
-        },
-      });
-
-      if (response && response.data) {
-        setPayments(response.data);
-      } else {
-        // Demo data for UI showcase
-        setPayments([
-          {
-            _id: "1",
-            appointment: {
-              _id: "app1",
-              appointmentType: "Khám tổng quát",
-              appointmentDate: "2024-01-15",
-              doctor: {
-                fullName: "Nguyễn Văn Nam",
-                specialization: "Nha khoa tổng quát",
-              },
-            },
-            amount: 500000,
-            paymentMethod: "card",
-            status: "paid",
-            paymentDate: "2024-01-15T10:30:00Z",
-            description: "Phí khám tổng quát và vệ sinh răng miệng",
-            invoiceNumber: "INV-2024-001",
-          },
-          {
-            _id: "2",
-            appointment: {
-              _id: "app2",
-              appointmentType: "Điều trị sâu răng",
-              appointmentDate: "2024-01-10",
-              doctor: {
-                fullName: "Trần Thị Hoa",
-                specialization: "Nha khoa bảo tồn",
-              },
-            },
-            amount: 800000,
-            paymentMethod: "transfer",
-            status: "pending",
-            paymentDate: "2024-01-10T14:00:00Z",
-            description: "Điều trị sâu răng và trám răng",
-            invoiceNumber: "INV-2024-002",
-          },
-        ]);
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && session) {
+        console.log("🔄 Page became visible, refreshing payments...");
+        fetchPayments();
       }
-    } catch (error) {
-      console.error("Error fetching payments:", error);
-      // Demo data fallback
-      setPayments([
-        {
-          _id: "1",
-          appointment: {
-            _id: "app1",
-            appointmentType: "Khám tổng quát",
-            appointmentDate: "2024-01-15",
-            doctor: {
-              fullName: "Nguyễn Văn Nam",
-              specialization: "Nha khoa tổng quát",
-            },
-          },
-          amount: 500000,
-          paymentMethod: "card",
-          status: "paid",
-          paymentDate: "2024-01-15T10:30:00Z",
-          description: "Phí khám tổng quát và vệ sinh răng miệng",
-          invoiceNumber: "INV-2024-001",
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session, fetchPayments]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -135,6 +129,17 @@ export default function PatientPayments() {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+    });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -148,270 +153,479 @@ export default function PatientPayments() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "paid":
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+      case "completed":
+        return <CheckCircle className="w-5 h-5" />;
       case "pending":
-        return <Clock className="w-4 h-4 text-yellow-500" />;
-      case "cancelled":
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
+        return <Clock className="w-5 h-5" />;
+      case "failed":
+        return <XCircle className="w-5 h-5" />;
       case "refunded":
-        return <AlertCircle className="w-4 h-4 text-blue-500" />;
+        return <RefreshCw className="w-5 h-5" />;
       default:
-        return <Clock className="w-4 h-4 text-gray-500" />;
+        return <AlertCircle className="w-5 h-5" />;
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "paid":
+      case "completed":
         return "Đã thanh toán";
       case "pending":
         return "Chờ thanh toán";
-      case "cancelled":
-        return "Đã hủy";
+      case "failed":
+        return "Thất bại";
       case "refunded":
         return "Đã hoàn tiền";
       default:
-        return "Không xác định";
+        return status;
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case "paid":
-        return "bg-green-50 text-green-700 border border-green-200";
+      case "completed":
+        return "text-green-600 bg-green-50";
       case "pending":
-        return "bg-yellow-50 text-yellow-700 border border-yellow-200";
-      case "cancelled":
-        return "bg-red-50 text-red-700 border border-red-200";
+        return "text-yellow-600 bg-yellow-50";
+      case "failed":
+        return "text-red-600 bg-red-50";
       case "refunded":
-        return "bg-blue-50 text-blue-700 border border-blue-200";
+        return "text-blue-600 bg-blue-50";
       default:
-        return "bg-gray-50 text-gray-700 border border-gray-200";
+        return "text-gray-600 bg-gray-50";
     }
   };
 
-  const getPaymentMethodText = (method: string) => {
-    switch (method) {
-      case "cash":
-        return "Tiền mặt";
-      case "card":
-        return "Thẻ tín dụng";
-      case "transfer":
-        return "Chuyển khoản";
-      case "insurance":
-        return "Bảo hiểm";
-      default:
-        return "Khác";
+  const handlePayNow = async (payment: PaymentRecord) => {
+    console.log("💳 ========== PAYMENT INITIATED ==========");
+    console.log("Payment details:", {
+      paymentId: payment._id,
+      amount: payment.amount,
+      appointmentId: payment.refId?._id,
+    });
+
+    if (!session) {
+      toast.error("Vui lòng đăng nhập", {
+        description: "Bạn cần đăng nhập để thực hiện thanh toán",
+      });
+      return;
+    }
+
+    const appointmentId = payment.refId?._id || (typeof payment.refId === 'string' ? payment.refId : null);
+    const doctorId = payment.doctorId?._id || (typeof payment.doctorId === 'string' ? payment.doctorId : null);
+
+    if (!appointmentId || !doctorId) {
+      toast.error("Thiếu thông tin thanh toán", {
+        description: "Không thể tìm thấy thông tin lịch hẹn hoặc bác sĩ",
+      });
+      return;
+    }
+
+    const appointmentType = payment.refId?.appointmentType || "lịch khám";
+    
+    const loadingToast = toast.loading("Đang tạo yêu cầu thanh toán...", {
+      description: `Thanh toán ${formatCurrency(payment.amount)} qua MoMo`,
+    });
+
+    try {
+      const sessionUser = (session as any)?.user;
+      const patientId = sessionUser?._id || sessionUser?.id;
+      const accessToken = (session as any)?.access_token || (session as any)?.accessToken;
+
+      if (!patientId || !accessToken) {
+        toast.error("Phiên đăng nhập không hợp lệ", {
+          description: "Vui lòng đăng xuất và đăng nhập lại",
+        });
+        return;
+      }
+
+      const payload = {
+        appointmentId,
+        patientId,
+        doctorId,
+        amount: payment.amount,
+        orderInfo: `Thanh toán ${appointmentType}`,
+      };
+
+      const response = await paymentService.createMoMoPayment(payload, accessToken);
+
+      if (response.success && response.data?.payUrl) {
+        toast.success("Chuyển đến cổng thanh toán", {
+          description: "Bạn sẽ được chuyển đến trang thanh toán MoMo...",
+          duration: 2000,
+        });
+        
+        setTimeout(() => {
+          window.location.href = response.data.payUrl;
+        }, 1000);
+      } else {
+        toast.error("Không thể tạo thanh toán", {
+          description: response.message || "Vui lòng thử lại sau",
+        });
+      }
+    } catch (error) {
+      console.error("❌ Payment error:", error);
+      toast.error("Có lỗi xảy ra", {
+        description: "Không thể tạo yêu cầu thanh toán. Vui lòng thử lại",
+      });
+    } finally {
+      toast.dismiss(loadingToast);
     }
   };
 
   const filteredPayments = payments.filter((payment) => {
+    if (!payment.refId || !payment.doctorId) return false;
+
+    const appointment = typeof payment.refId === 'object' ? payment.refId : null;
+    const doctor = typeof payment.doctorId === 'object' ? payment.doctorId : null;
+
+    const doctorName = appointment?.doctorId?.fullName || doctor?.fullName || "";
+    const appointmentType = appointment?.appointmentType || "";
+    const transactionId = payment.transactionId || "";
+    const notes = payment.notes || "";
+
     const matchesSearch =
-      payment.appointment.doctor.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.appointment.appointmentType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.description.toLowerCase().includes(searchTerm.toLowerCase());
+      doctorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      appointmentType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      notes.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || payment.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
-  const totalAmount = payments.reduce((sum, payment) => {
-    return payment.status === "paid" ? sum + payment.amount : sum;
-  }, 0);
-
-  const pendingAmount = payments.reduce((sum, payment) => {
-    return payment.status === "pending" ? sum + payment.amount : sum;
-  }, 0);
+  const stats = {
+    total: payments.length,
+    completed: payments.filter(p => p.status === "completed").length,
+    pending: payments.filter(p => p.status === "pending").length,
+    totalAmount: payments.filter(p => p.status === "completed").reduce((sum, p) => sum + p.amount, 0),
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 flex items-center justify-center">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderColor: "var(--color-primary)" }}
-        ></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Đang tải lịch sử thanh toán...</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="healthcare-card-elevated p-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
-                style={{
-                  backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
-                }}
-              >
-                <CreditCard className="w-8 h-8 text-white" />
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
+                <Wallet className="w-8 h-8 text-white" />
               </div>
+              Lịch sử thanh toán
+            </h1>
+            <p className="text-gray-600 mt-2">Quản lý và theo dõi các giao dịch của bạn</p>
+          </div>
+          <button
+            onClick={() => fetchPayments(false)}
+            disabled={loading}
+            className="px-6 py-3 bg-white border-2 border-blue-200 text-blue-600 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm hover:shadow-md"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            Làm mới
+          </button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-shadow border border-gray-100">
+            <div className="flex items-center justify-between">
               <div>
-                <h1 className="healthcare-heading text-2xl">Thanh toán & Hóa đơn</h1>
-                <p className="healthcare-body mt-1">Theo dõi lịch sử thanh toán và hóa đơn khám chữa bệnh</p>
+                <p className="text-sm text-gray-600 font-medium">Tổng giao dịch</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
+              </div>
+              <div className="p-4 bg-blue-50 rounded-2xl">
+                <CreditCard className="w-8 h-8 text-blue-600" />
               </div>
             </div>
-            <div className="flex flex-col gap-2 text-right">
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                <span className="healthcare-body text-sm">
-                  Đã thanh toán: <span className="font-semibold text-green-600">{formatCurrency(totalAmount)}</span>
-                </span>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-shadow border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Đã thanh toán</p>
+                <p className="text-3xl font-bold text-green-600 mt-2">{stats.completed}</p>
               </div>
-              {pendingAmount > 0 && (
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-yellow-600" />
-                  <span className="healthcare-body text-sm">
-                    Chờ thanh toán:{" "}
-                    <span className="font-semibold text-yellow-600">{formatCurrency(pendingAmount)}</span>
-                  </span>
-                </div>
-              )}
+              <div className="p-4 bg-green-50 rounded-2xl">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-shadow border border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Chờ thanh toán</p>
+                <p className="text-3xl font-bold text-yellow-600 mt-2">{stats.pending}</p>
+              </div>
+              <div className="p-4 bg-yellow-50 rounded-2xl">
+                <Clock className="w-8 h-8 text-yellow-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 shadow-md hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-blue-100 font-medium">Tổng chi tiêu</p>
+                <p className="text-2xl font-bold text-white mt-2">{formatCurrency(stats.totalAmount)}</p>
+              </div>
+              <div className="p-4 bg-white/20 rounded-2xl">
+                <TrendingUp className="w-8 h-8 text-white" />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Search and Filter */}
-        <div className="healthcare-card p-6">
-          <div className="flex flex-col md:flex-row gap-4">
+        {/* Filters */}
+        <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-100">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo bác sĩ, dịch vụ, số hóa đơn..."
+                placeholder="Tìm kiếm theo bác sĩ, loại khám, mã giao dịch..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 transition-colors"
               />
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="paid">Đã thanh toán</option>
-              <option value="pending">Chờ thanh toán</option>
-              <option value="cancelled">Đã hủy</option>
-              <option value="refunded">Đã hoàn tiền</option>
-            </select>
+
+            {/* Status Filter */}
+            <div className="relative">
+              <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="pl-12 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 transition-colors appearance-none bg-white font-medium min-w-[200px]"
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="pending">Chờ thanh toán</option>
+                <option value="completed">Đã thanh toán</option>
+                <option value="failed">Thất bại</option>
+                <option value="refunded">Đã hoàn tiền</option>
+              </select>
+            </div>
           </div>
         </div>
 
+        {/* Pending Payments Alert */}
+        {stats.pending > 0 && (
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 shadow-md">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-yellow-100 rounded-xl">
+                <AlertCircle className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-yellow-900 text-lg mb-1">
+                  Bạn có {stats.pending} thanh toán chờ xử lý
+                </h3>
+                <p className="text-yellow-800">
+                  Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút <strong>"Thanh toán ngay"</strong> bên dưới để thanh toán qua MoMo.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Payments List */}
-        <div className="space-y-4">
-          {filteredPayments.length === 0 ? (
-            <div className="healthcare-card p-12 text-center">
-              <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="healthcare-heading text-xl mb-2">Chưa có giao dịch nào</h3>
-              <p className="healthcare-body">
+        {filteredPayments.length === 0 ? (
+          <div className="bg-white rounded-2xl p-12 text-center shadow-md border border-gray-100">
+            <div className="max-w-md mx-auto">
+              <div className="p-6 bg-gray-50 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                <CreditCard className="w-12 h-12 text-gray-300" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Chưa có giao dịch nào</h3>
+              <p className="text-gray-600">
                 {searchTerm || statusFilter !== "all"
                   ? "Không tìm thấy giao dịch phù hợp với tiêu chí tìm kiếm"
                   : "Bạn chưa có giao dịch thanh toán nào"}
               </p>
             </div>
-          ) : (
-            filteredPayments.map((payment) => (
-              <div key={payment._id} className="healthcare-card p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                  {/* Payment Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="healthcare-heading text-xl">{payment.appointment.appointmentType}</h3>
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${getStatusBadgeClass(
-                              payment.status
-                            )}`}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredPayments.map((payment) => {
+              const appointment = typeof payment.refId === 'object' ? payment.refId : null;
+              const doctor = typeof payment.doctorId === 'object' ? payment.doctorId : null;
+              const appointmentDoctor = appointment?.doctorId;
+              const displayDoctor = appointmentDoctor || doctor;
+
+              return (
+                <div 
+                  key={payment._id} 
+                  className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all border border-gray-100 overflow-hidden group"
+                >
+                  <div className="p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+                      {/* Left: Payment Info */}
+                      <div className="flex-1 space-y-4">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 bg-blue-50 rounded-xl">
+                              <FileText className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900">
+                                {appointment?.appointmentType || "Thanh toán"}
+                              </h3>
+                              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg mt-1 ${getStatusColor(payment.status)}`}>
+                                {getStatusIcon(payment.status)}
+                                <span className="text-sm font-semibold">{getStatusText(payment.status)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <User className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Bác sĩ</p>
+                              <p className="font-medium">BS. {displayDoctor?.fullName || "Đang tải..."}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <Building2 className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Chuyên khoa</p>
+                              <p className="font-medium">{displayDoctor?.specialization || displayDoctor?.specialty || "Nha khoa"}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-gray-700">
+                            <Calendar className="w-5 h-5 text-gray-400" />
+                            <div>
+                              <p className="text-xs text-gray-500">Ngày khám</p>
+                              <p className="font-medium">
+                                {appointment?.appointmentDate ? formatDate(appointment.appointmentDate) : formatDate(payment.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {appointment?.startTime && (
+                            <div className="flex items-center gap-3 text-gray-700">
+                              <Clock className="w-5 h-5 text-gray-400" />
+                              <div>
+                                <p className="text-xs text-gray-500">Giờ khám</p>
+                                <p className="font-medium">{appointment.startTime}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {payment.transactionId && (
+                            <div className="flex items-center gap-3 text-gray-700 md:col-span-2">
+                              <CreditCard className="w-5 h-5 text-gray-400" />
+                              <div>
+                                <p className="text-xs text-gray-500">Mã giao dịch</p>
+                                <p className="font-mono text-sm font-medium">{payment.transactionId}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {payment.paymentDate && (
+                            <div className="flex items-center gap-3 text-gray-700 md:col-span-2">
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                              <div>
+                                <p className="text-xs text-gray-500">Thời gian thanh toán</p>
+                                <p className="font-medium">{formatDateTime(payment.paymentDate)}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Amount & Action */}
+                      <div className="lg:w-72 flex flex-col items-center justify-center gap-4 p-6 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border-2 border-gray-100">
+                        <div className="text-center">
+                          <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
+                          <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                            {formatCurrency(payment.amount)}
+                          </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        {payment.status === "pending" && (
+                          <button
+                            onClick={() => handlePayNow(payment)}
+                            className="w-full px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group"
                           >
-                            {getStatusIcon(payment.status)}
-                            {getStatusText(payment.status)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                          <div className="flex items-center gap-1">
-                            <User className="w-4 h-4" />
-                            <span>BS. {payment.appointment.doctor.fullName}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>{formatDate(payment.paymentDate)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <FileText className="w-4 h-4" />
-                            <span>{payment.invoiceNumber}</span>
-                          </div>
-                        </div>
-                        <p className="healthcare-body text-sm">
-                          Chuyên khoa: {payment.appointment.doctor.specialization}
-                        </p>
-                      </div>
-                    </div>
+                            <Wallet className="w-5 h-5" />
+                            Thanh toán ngay
+                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                          </button>
+                        )}
 
-                    {/* Payment Details */}
-                    <div className="bg-blue-50/50 rounded-lg p-4 border border-blue-100">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 mb-1">Dịch vụ</p>
-                          <p className="text-gray-900">{payment.description}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 mb-1">Phương thức thanh toán</p>
-                          <p className="text-gray-900">{getPaymentMethodText(payment.paymentMethod)}</p>
-                        </div>
-                      </div>
+                        {payment.status === "failed" && (
+                          <button
+                            onClick={() => handlePayNow(payment)}
+                            className="w-full px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                          >
+                            <RefreshCw className="w-5 h-5" />
+                            Thử lại thanh toán
+                          </button>
+                        )}
 
-                      {payment.notes && (
-                        <div className="mt-3 pt-3 border-t border-blue-200">
-                          <p className="text-sm font-medium text-gray-700 mb-1">Ghi chú</p>
-                          <p className="text-sm text-gray-600">{payment.notes}</p>
-                        </div>
-                      )}
+                        {payment.status === "completed" && (
+                          <div className="w-full text-center">
+                            <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-50 rounded-xl border-2 border-green-200">
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                              <span className="font-semibold text-green-700">Đã hoàn tất</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {payment.status === "refunded" && (
+                          <div className="w-full text-center">
+                            <div className="inline-flex items-center gap-2 px-6 py-3 bg-blue-50 rounded-xl border-2 border-blue-200">
+                              <RefreshCw className="w-5 h-5 text-blue-600" />
+                              <span className="font-semibold text-blue-700">Đã hoàn tiền</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Amount */}
-                  <div className="lg:text-right">
-                    <div className="healthcare-card-elevated p-4 lg:min-w-[200px]">
-                      <p className="text-sm text-gray-600 mb-1">Số tiền</p>
-                      <p
-                        className="healthcare-heading text-2xl"
-                        style={{
-                          color:
-                            payment.status === "paid"
-                              ? "#10B981"
-                              : payment.status === "pending"
-                              ? "#F59E0B"
-                              : "#6B7280",
-                        }}
-                      >
-                        {formatCurrency(payment.amount)}
-                      </p>
-                      {payment.status === "pending" && (
-                        <button
-                          className="btn-healthcare-primary mt-3 w-full text-sm py-2"
-                          onClick={() => {
-                            // Handle payment action
-                            console.log("Payment initiated for:", payment._id);
-                          }}
-                        >
-                          Thanh toán ngay
-                        </button>
-                      )}
+                  {/* Footer - Payment Method */}
+                  {payment.paymentMethod && (
+                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <DollarSign className="w-4 h-4" />
+                        <span>Phương thức: </span>
+                        <span className="font-medium text-gray-900">
+                          {payment.paymentMethod === "momo" ? "Ví MoMo" : 
+                           payment.paymentMethod === "cash" ? "Tiền mặt" :
+                           payment.paymentMethod === "card" ? "Thẻ tín dụng" :
+                           payment.paymentMethod}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
