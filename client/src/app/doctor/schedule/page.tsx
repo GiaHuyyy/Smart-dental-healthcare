@@ -10,11 +10,13 @@ import { View } from "react-big-calendar";
 import Image from "next/image";
 import { toast } from "sonner";
 import appointmentService from "@/services/appointmentService";
+import TreatmentModal from "@/components/appointments/TreatmentModal";
 
 // Appointment type
 interface Appointment {
   _id?: string;
   id: string;
+  patientId?: string | { _id: string }; // Can be string or populated object
   patientName: string;
   patientAvatar: string;
   date: string;
@@ -57,6 +59,11 @@ function DoctorScheduleContent() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+
+  // Treatment modal states
+  const [treatmentModalOpen, setTreatmentModalOpen] = useState(false);
+  const [currentTreatmentAppointment, setCurrentTreatmentAppointment] = useState<Appointment | null>(null);
+  const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
 
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
@@ -266,6 +273,174 @@ function DoctorScheduleContent() {
       return;
     }
     handleCancelAppointment(appointmentToCancel._id || appointmentToCancel.id, cancelReason);
+  };
+
+  // Treatment modal handlers
+  const startTreatment = async (appointment: Appointment) => {
+    try {
+      // Fetch full appointment details to get patientId
+      const accessToken = (session as ExtendedSession).accessToken;
+      const appointmentId = appointment._id || appointment.id;
+
+      const fullAppointment = await appointmentService.getAppointmentById(appointmentId, accessToken);
+
+      if (fullAppointment.success && fullAppointment.data) {
+        // Store the full appointment data with patientId
+        const extendedAppointment: Appointment = {
+          ...appointment,
+          patientId: fullAppointment.data.patientId,
+        };
+        setCurrentTreatmentAppointment(extendedAppointment);
+        setTreatmentModalOpen(true);
+      } else {
+        toast.error("Không thể tải thông tin bệnh nhân");
+      }
+    } catch (error) {
+      console.error("Error fetching appointment details:", error);
+      toast.error("Có lỗi xảy ra khi tải thông tin bệnh nhân");
+    }
+  };
+
+  const closeTreatmentModal = () => {
+    setTreatmentModalOpen(false);
+    setCurrentTreatmentAppointment(null);
+  };
+
+  const handleTreatmentSubmit = async (formData: {
+    chiefComplaints: string[];
+    presentIllness: string;
+    physicalExamination: string;
+    diagnosisGroups: Array<{
+      diagnosis: string;
+      treatmentPlans: string[];
+    }>;
+    medications: Array<{
+      name: string;
+      dosage: string;
+      frequency: string;
+      duration: string;
+      instructions: string;
+    }>;
+    notes: string;
+  }) => {
+    if (!currentTreatmentAppointment || !session) return;
+
+    try {
+      setIsSubmittingTreatment(true);
+      const accessToken = (session as ExtendedSession).accessToken;
+      const userId = (session?.user as { _id?: string })?._id;
+
+      // 1. Create medical record
+      // Extract patientId - it can be a string or an object with _id
+      let patientId: string;
+      const rawPatientId = currentTreatmentAppointment.patientId;
+
+      console.log("🔍 Raw Patient ID:", rawPatientId);
+
+      if (typeof rawPatientId === "object" && rawPatientId?._id) {
+        patientId = rawPatientId._id;
+      } else if (typeof rawPatientId === "string") {
+        patientId = rawPatientId;
+      } else {
+        throw new Error("Không tìm thấy thông tin bệnh nhân");
+      }
+
+      const medicalRecordPayload = {
+        patientId: patientId,
+        doctorId: userId,
+        recordDate: new Date().toISOString(),
+        appointmentId: currentTreatmentAppointment._id || currentTreatmentAppointment.id,
+        chiefComplaints: formData.chiefComplaints,
+        presentIllness: formData.presentIllness,
+        physicalExamination: formData.physicalExamination,
+        diagnosisGroups: formData.diagnosisGroups,
+        detailedMedications: formData.medications,
+        notes: formData.notes,
+        status: "active",
+      };
+
+      const medicalRecordResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/medical-records`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(medicalRecordPayload),
+        }
+      );
+
+      if (!medicalRecordResponse.ok) {
+        const errorData = await medicalRecordResponse.json();
+        console.error("❌ Medical Record Error:", errorData);
+        throw new Error("Failed to create medical record");
+      }
+
+      const medicalRecord = await medicalRecordResponse.json();
+
+      // 2. Create prescription if there are medications
+      if (formData.medications.length > 0) {
+        // Transform medications to include required fields
+        const prescriptionMedications = formData.medications.map((med) => ({
+          name: med.name,
+          dosage: med.dosage || "Chưa xác định",
+          frequency: med.frequency || "Theo chỉ định",
+          duration: med.duration || "Theo chỉ định",
+          instructions: med.instructions || "Theo hướng dẫn bác sĩ",
+          quantity: 1, // Default quantity
+          unit: "hộp", // Default unit
+        }));
+
+        const prescriptionPayload = {
+          patientId: patientId, // Use extracted patientId, not appointmentId
+          doctorId: userId,
+          medicalRecordId: medicalRecord._id || medicalRecord.id,
+          prescriptionDate: new Date().toISOString(),
+          diagnosis:
+            formData.diagnosisGroups
+              .filter((g) => g.diagnosis.trim())
+              .map((g) => g.diagnosis)
+              .join(", ") || "Chưa có chẩn đoán",
+          medications: prescriptionMedications,
+          notes: formData.notes,
+        };
+
+        console.log("📝 Prescription Payload:", JSON.stringify(prescriptionPayload, null, 2));
+
+        const prescriptionResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/prescriptions`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify(prescriptionPayload),
+          }
+        );
+
+        if (!prescriptionResponse.ok) {
+          const errorData = await prescriptionResponse.json();
+          console.error("❌ Prescription Error:", errorData);
+          throw new Error("Failed to create prescription");
+        }
+      }
+
+      // 3. Complete appointment
+      await handleCompleteAppointment(currentTreatmentAppointment._id || currentTreatmentAppointment.id);
+
+      toast.success("Đã lưu hồ sơ khám bệnh và hoàn thành lịch hẹn");
+      closeTreatmentModal();
+
+      // Refresh appointments
+      await fetchAppointments();
+    } catch (error) {
+      console.error("Treatment submission error:", error);
+      toast.error("Có lỗi xảy ra khi lưu hồ sơ khám bệnh");
+    } finally {
+      setIsSubmittingTreatment(false);
+    }
   };
 
   // Export to Excel
@@ -674,12 +849,12 @@ function DoctorScheduleContent() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleCompleteAppointment(apt._id || apt.id);
+                                startTreatment(apt);
                               }}
                               disabled={actionLoading}
-                              className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              {actionLoading ? "..." : "Hoàn thành"}
+                              {actionLoading ? "..." : "Điều Trị"}
                             </button>
                             <button
                               onClick={(e) => {
@@ -838,13 +1013,13 @@ function DoctorScheduleContent() {
                 {selectedAppointment.status === "confirmed" && (
                   <button
                     onClick={() => {
-                      handleCompleteAppointment(selectedAppointment._id || selectedAppointment.id);
+                      startTreatment(selectedAppointment);
                       setDetailModalOpen(false);
                     }}
                     disabled={actionLoading}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {actionLoading ? "Đang xử lý..." : "Hoàn Thành"}
+                    {actionLoading ? "Đang xử lý..." : "Điều Trị"}
                   </button>
                 )}
                 {(selectedAppointment.status === "pending" || selectedAppointment.status === "confirmed") && (
@@ -927,6 +1102,16 @@ function DoctorScheduleContent() {
           </div>
         </div>
       )}
+
+      {/* Treatment Modal */}
+      <TreatmentModal
+        isOpen={treatmentModalOpen}
+        onClose={closeTreatmentModal}
+        appointment={currentTreatmentAppointment}
+        onSubmit={handleTreatmentSubmit}
+        isSubmitting={isSubmittingTreatment}
+        accessToken={(session as ExtendedSession)?.accessToken}
+      />
     </div>
   );
 }
