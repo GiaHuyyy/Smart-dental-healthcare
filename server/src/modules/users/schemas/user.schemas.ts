@@ -62,6 +62,18 @@ export class User {
   @Prop()
   licenseNumber: string;
 
+  @Prop()
+  experienceYears: number;
+
+  @Prop()
+  rating: number;
+
+  @Prop()
+  consultationFee: number;
+
+  @Prop()
+  specialization: string;
+
   @Prop({ default: true })
   agreeTerms: boolean;
 }

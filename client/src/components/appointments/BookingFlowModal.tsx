@@ -2,6 +2,7 @@
 
 import paymentService from "@/services/paymentService";
 import { AppointmentConfirmation, BookingFormData, ConsultType, Doctor } from "@/types/appointment";
+import { calculateConsultationFee, formatFee } from "@/utils/consultationFees";
 import {
     Building2,
     Calendar as CalendarIcon,
@@ -80,7 +81,7 @@ export default function BookingFlowModal({
       const appointment = confirmation.appointment;
       
       // Get consultation fee from doctor or appointment
-      const amount = appointment.consultationFee || doctor.consultationFee || 50000;
+      const amount = appointment.consultationFee || doctor.consultationFee || 200000;
       
       const payload = {
         appointmentId: appointment._id || appointment.id || "",
@@ -188,7 +189,7 @@ export default function BookingFlowModal({
                                 <div className="flex items-start gap-2">
                                   <span className="text-gray-400 mt-0.5">₫</span>
                                   <span className="leading-relaxed font-medium">
-                                    {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                                    {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
                                   </span>
                                 </div>
                               </>
@@ -229,7 +230,7 @@ export default function BookingFlowModal({
                                 <div className="flex items-start gap-2">
                                   <span className="text-gray-400 mt-0.5">₫</span>
                                   <span className="leading-relaxed font-medium">
-                                    {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                                    {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
                                   </span>
                                 </div>
                               </>
@@ -270,7 +271,7 @@ export default function BookingFlowModal({
                                 <div className="flex items-start gap-2">
                                   <span className="text-gray-400 mt-0.5">₫</span>
                                   <span className="leading-relaxed font-medium">
-                                    {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                                    {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
                                   </span>
                                 </div>
                                 {(bookingData.patientFirstName || bookingData.patientLastName) && (
@@ -313,12 +314,26 @@ export default function BookingFlowModal({
             >
               <X className="w-5 h-5" />
             </button>
-            <DoctorHeader doctor={doctor} />
+            <DoctorHeader doctor={doctor} selectedConsultType={bookingData.consultType} />
           </div>
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
-            {step === "time-slot" && <TimeSlotPicker doctor={doctor} onSelectSlot={onSelectSlot} />}
+            {step === "time-slot" && (
+              <TimeSlotPicker 
+                doctor={doctor} 
+                onSelectSlot={onSelectSlot}
+                onConsultTypeChange={(consultType) => {
+                  // Update consultType immediately when user clicks
+                  onSelectSlot(
+                    bookingData.appointmentDate || "", 
+                    bookingData.startTime || "", 
+                    consultType, 
+                    bookingData.endTime || ""
+                  );
+                }}
+              />
+            )}
 
             {step === "details" && (
               <div className="space-y-6">
@@ -337,7 +352,11 @@ export default function BookingFlowModal({
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Thanh toán phí khám</h3>
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-600">Phí khám: <span className="font-semibold text-pink-600">50,000₫</span></p>
+                          <p className="text-sm text-gray-600">
+                            Phí khám: <span className="font-semibold text-pink-600">
+                              {formatFee(confirmation.appointment.consultationFee || calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
+                            </span>
+                          </p>
                           <p className="text-xs text-gray-500 mt-1">Thanh toán qua MoMo để hoàn tất đặt lịch</p>
                         </div>
                         <button
@@ -387,10 +406,10 @@ export default function BookingFlowModal({
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between pt-3 border-t border-blue-200">
+                        <div className="flex justify-between pt-3 border-t border-blue-200">
                         <span className="text-gray-600">Phí khám:</span>
                         <span className="font-semibold text-primary">
-                          {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
+                          {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
                         </span>
                       </div>
                       
@@ -436,7 +455,7 @@ export default function BookingFlowModal({
                             </svg>
                             <div className="text-xs text-pink-800">
                               <p className="font-medium mb-1">Thanh toán MoMo:</p>
-                              <p>Bạn sẽ được chuyển đến trang MoMo để thanh toán <strong>{(bookingData.paymentAmount || 50000).toLocaleString("vi-VN")} đ</strong></p>
+                              <p>Bạn sẽ được chuyển đến trang MoMo để thanh toán <strong>{formatFee(bookingData.paymentAmount || calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}</strong></p>
                             </div>
                           </div>
                         </div>
@@ -546,11 +565,12 @@ export default function BookingFlowModal({
   );
 }
 
-function DoctorHeader({ doctor }: { doctor: Doctor }) {
+function DoctorHeader({ doctor, selectedConsultType }: { doctor: Doctor; selectedConsultType?: ConsultType }) {
   // Fallback values if not provided
   const experienceYears = doctor.experienceYears || 5;
   const rating = doctor.rating || 4.5;
-  const consultationFee = doctor.consultationFee || 30;
+  // Calculate fee based on selected consult type
+  const consultationFee = calculateConsultationFee(selectedConsultType || ConsultType.ON_SITE, doctor.consultationFee);
 
   return (
     <div className="flex items-center gap-3">
@@ -582,9 +602,9 @@ function DoctorHeader({ doctor }: { doctor: Doctor }) {
             {rating.toFixed(1)}
           </span>
           <span className="text-gray-400">•</span>
-          <span className="inline-flex items-center gap-1">
-            <span className="text-gray-500">$</span>
-            {consultationFee}
+          <span className="inline-flex items-center gap-1 font-semibold text-primary">
+            <span>₫</span>
+            {consultationFee.toLocaleString("vi-VN")}
           </span>
         </div>
         {doctor.address && (
@@ -601,8 +621,8 @@ function DoctorHeader({ doctor }: { doctor: Doctor }) {
 function AppointmentConfirmationContent({ confirmation }: { confirmation: AppointmentConfirmation }) {
   const { appointment, doctor, bookingId, confirmationMessage, instructions, calendarLinks } = confirmation;
 
-  // Fallback for consultation fee
-  const consultationFee = doctor?.consultationFee || 30;
+  // Fallback for consultation fee (in VND)
+  const consultationFee = doctor?.consultationFee || 200000;
 
   const handleAddToGoogleCalendar = () => {
     if (calendarLinks?.google) {
@@ -676,7 +696,7 @@ function AppointmentConfirmationContent({ confirmation }: { confirmation: Appoin
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-gray-600 font-medium">Chi phí khám:</span>
             <span className="text-2xl font-bold text-primary">
-              {(consultationFee * 10000).toLocaleString("vi-VN")}₫
+              {(consultationFee || 200000).toLocaleString("vi-VN")}₫
             </span>
           </div>
         </div>

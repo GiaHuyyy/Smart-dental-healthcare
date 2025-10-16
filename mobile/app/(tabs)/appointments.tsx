@@ -3,28 +3,28 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-    AlertTriangle,
-    Calendar,
-    CheckCircle,
-    Clock,
-    MapPin,
-    MessageSquare,
-    Phone,
-    Users,
-    Video,
+  AlertTriangle,
+  Calendar,
+  CheckCircle,
+  Clock,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Users,
+  Video,
 } from 'lucide-react-native';
 import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
