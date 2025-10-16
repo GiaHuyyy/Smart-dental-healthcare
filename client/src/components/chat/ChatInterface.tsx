@@ -265,7 +265,7 @@ export default function ChatInterface({
       return {
         role: finalRole,
         content: msg.content || "",
-        timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+        timestamp: new Date(msg.createdAt ?? Date.now()),
         messageType: msg.messageType || (msg.fileUrl ? "file" : "text"),
         fileUrl: msg.fileUrl,
         fileName: msg.fileName,
@@ -355,7 +355,7 @@ export default function ChatInterface({
     const transformed: ChatMessage[] = slice.map((msg) => ({
       role: msg.role as "user" | "assistant",
       content: msg.content,
-      timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+      timestamp: new Date(msg.createdAt ?? Date.now()),
       analysisData: msg.analysisData as import("@/types/chat").AnalysisData | undefined,
       isAnalysisResult: msg.messageType === "image_analysis" && !!msg.analysisData,
       actionButtons: msg.actionButtons,
@@ -1823,7 +1823,7 @@ export default function ChatInterface({
                   const transformed = slice.map((msg) => ({
                     role: (msg.senderId?._id || msg.senderId)?.toString() === currentUserId ? "user" : msg.senderRole,
                     content: msg.content || "",
-                    timestamp: new Date(msg.createdAt || msg.timestamp || Date.now()),
+                    timestamp: new Date(msg.createdAt ?? Date.now()),
                     messageType: msg.messageType || (msg.fileUrl ? "file" : "text"),
                     fileUrl: msg.fileUrl,
                     fileName: msg.fileName,

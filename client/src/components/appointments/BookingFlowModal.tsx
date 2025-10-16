@@ -81,7 +81,7 @@ export default function BookingFlowModal({
       const appointment = confirmation.appointment;
       
       // Get consultation fee from doctor or appointment
-      const amount = appointment.consultationFee || doctor.consultationFee || 200000;
+      const amount = appointment.consultationFee || doctor.consultationFee || 50000;
       
       const payload = {
         appointmentId: appointment._id || appointment.id || "",

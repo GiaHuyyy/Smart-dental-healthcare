@@ -185,14 +185,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         description: notification.message,
         duration: 5000,
         icon: notification.icon || "🔔",
-        action: notification.linkTo
-          ? {
-              label: "Xem",
-              onClick: () => {
-                router.push(notification.linkTo);
-              },
-            }
-          : undefined,
+        action:
+          notification.linkTo && typeof notification.linkTo === "string"
+            ? {
+                label: "Xem",
+                onClick: () => {
+                  // Guard: only push when linkTo is a defined string
+                  if (notification.linkTo) router.push(notification.linkTo);
+                },
+              }
+            : undefined,
       });
     };
 
