@@ -25,8 +25,227 @@ export class AiChatController {
   }
 
   @Public()
+  @Get('suggestions')
+  async getTreatmentSuggestions() {
+    // Return structured suggestions for treatment modal
+    return {
+      chiefComplaints: [
+        'Đau răng',
+        'Chảy máu chân răng',
+        'Viêm nướu',
+        'Sâu răng',
+        'Ê buốt răng',
+        'Răng lung lay',
+        'Hôi miệng',
+        'Mòn men răng',
+        'Răng khôn mọc lệch',
+        'Tụt lợi',
+      ],
+      diagnoses: [
+        'Viêm nướu',
+        'Viêm tủy răng',
+        'Sâu răng',
+        'Viêm quanh răng',
+        'Áp xe răng',
+        'Tổn thương tủy',
+        'Mất men răng',
+        'Răng khôn mọc ngầm',
+        'Viêm quanh cuống răng',
+        'Tụt lợi',
+      ],
+      treatmentPlans: [
+        'Lấy cao răng',
+        'Hàn răng',
+        'Nhổ răng',
+        'Điều trị tủy',
+        'Bọc răng sứ',
+        'Cạo vôi răng',
+        'Phẫu thuật nha chu',
+        'Điều trị nội nha',
+        'Hướng dẫn vệ sinh răng miệng',
+        'Tái khám định kỳ',
+      ],
+      medications: [
+        'Metronidazole 250mg',
+        'Amoxicillin 500mg',
+        'Ibuprofen 400mg',
+        'Paracetamol 500mg',
+        'Nước súc miệng Chlorhexidine',
+        'Gel bôi nướu',
+        'Vitamin C',
+        'Kháng sinh Cefixime',
+      ],
+      diagnosisTreatmentMap: {
+        'Viêm nướu': [
+          'Lấy cao răng',
+          'Cạo vôi răng',
+          'Hướng dẫn vệ sinh răng miệng',
+        ],
+        'Viêm tủy răng': ['Điều trị tủy', 'Hàn răng', 'Bọc răng sứ'],
+        'Sâu răng': ['Hàn răng', 'Điều trị tủy', 'Nhổ răng'],
+        'Viêm quanh răng': [
+          'Lấy cao răng',
+          'Phẫu thuật nha chu',
+          'Hướng dẫn vệ sinh răng miệng',
+        ],
+        'Áp xe răng': ['Dẫn lưu', 'Điều trị tủy', 'Nhổ răng'],
+        'Răng khôn mọc ngầm': ['Nhổ răng khôn', 'Phẫu thuật nhổ răng'],
+      },
+      diagnosisMedicationMap: {
+        'Viêm nướu': [
+          {
+            name: 'Metronidazole 250mg',
+            dosage: '250mg',
+            frequency: '3 lần/ngày',
+            duration: '7 ngày',
+            instructions: 'Uống sau ăn',
+          },
+          {
+            name: 'Nước súc miệng Chlorhexidine',
+            dosage: '10ml',
+            frequency: '2 lần/ngày',
+            duration: '14 ngày',
+            instructions: 'Súc miệng sau đánh răng',
+          },
+        ],
+        'Viêm tủy răng': [
+          {
+            name: 'Amoxicillin 500mg',
+            dosage: '500mg',
+            frequency: '3 lần/ngày',
+            duration: '7 ngày',
+            instructions: 'Uống sau ăn',
+          },
+          {
+            name: 'Ibuprofen 400mg',
+            dosage: '400mg',
+            frequency: 'Khi đau',
+            duration: '5 ngày',
+            instructions: 'Uống khi đau',
+          },
+        ],
+        'Sâu răng': [
+          {
+            name: 'Paracetamol 500mg',
+            dosage: '500mg',
+            frequency: 'Khi đau',
+            duration: '3 ngày',
+            instructions: 'Uống khi đau',
+          },
+        ],
+        'Viêm quanh răng': [
+          {
+            name: 'Metronidazole 250mg',
+            dosage: '250mg',
+            frequency: '3 lần/ngày',
+            duration: '7 ngày',
+            instructions: 'Uống sau ăn',
+          },
+          {
+            name: 'Nước súc miệng Chlorhexidine',
+            dosage: '10ml',
+            frequency: '2 lần/ngày',
+            duration: '14 ngày',
+            instructions: 'Súc miệng sau đánh răng',
+          },
+          {
+            name: 'Vitamin C',
+            dosage: '500mg',
+            frequency: '1 lần/ngày',
+            duration: '30 ngày',
+            instructions: 'Uống sau ăn sáng',
+          },
+        ],
+        'Áp xe răng': [
+          {
+            name: 'Amoxicillin 500mg',
+            dosage: '500mg',
+            frequency: '3 lần/ngày',
+            duration: '7 ngày',
+            instructions: 'Uống sau ăn',
+          },
+          {
+            name: 'Ibuprofen 400mg',
+            dosage: '400mg',
+            frequency: '3 lần/ngày',
+            duration: '5 ngày',
+            instructions: 'Uống sau ăn',
+          },
+        ],
+      },
+      treatmentMedicationMap: {
+        'Lấy cao răng': [
+          {
+            name: 'Nước súc miệng Chlorhexidine',
+            dosage: '10ml',
+            frequency: '2 lần/ngày',
+            duration: '7 ngày',
+            instructions: 'Súc miệng sau đánh răng',
+          },
+        ],
+        'Nhổ răng': [
+          {
+            name: 'Amoxicillin 500mg',
+            dosage: '500mg',
+            frequency: '3 lần/ngày',
+            duration: '5 ngày',
+            instructions: 'Uống sau ăn',
+          },
+          {
+            name: 'Ibuprofen 400mg',
+            dosage: '400mg',
+            frequency: 'Khi đau',
+            duration: '3 ngày',
+            instructions: 'Uống khi đau',
+          },
+        ],
+        'Điều trị tủy': [
+          {
+            name: 'Amoxicillin 500mg',
+            dosage: '500mg',
+            frequency: '3 lần/ngày',
+            duration: '7 ngày',
+            instructions: 'Uống sau ăn',
+          },
+          {
+            name: 'Ibuprofen 400mg',
+            dosage: '400mg',
+            frequency: 'Khi đau',
+            duration: '5 ngày',
+            instructions: 'Uống khi đau',
+          },
+        ],
+        'Cạo vôi răng': [
+          {
+            name: 'Nước súc miệng Chlorhexidine',
+            dosage: '10ml',
+            frequency: '2 lần/ngày',
+            duration: '14 ngày',
+            instructions: 'Súc miệng sau đánh răng',
+          },
+          {
+            name: 'Gel bôi nướu',
+            dosage: 'Bôi mỏng',
+            frequency: '2 lần/ngày',
+            duration: '7 ngày',
+            instructions: 'Bôi lên nướu sau khi đánh răng',
+          },
+        ],
+      },
+    };
+  }
+
+  @Public()
   @Post('suggest-doctor')
-  async suggestDoctor(@Body() body: { diagnosis?: string; keywords?: string[]; symptom?: string; limit?: number }) {
+  async suggestDoctor(
+    @Body()
+    body: {
+      diagnosis?: string;
+      keywords?: string[];
+      symptom?: string;
+      limit?: number;
+    },
+  ) {
     return await this.aiChatService.suggestDoctors(body);
   }
 
@@ -73,11 +292,11 @@ export class AiChatController {
   @Public()
   @Get('health-check')
   async healthCheck() {
-    return { 
-      status: 'healthy', 
+    return {
+      status: 'healthy',
       timestamp: new Date(),
       service: 'AI Chat Service',
-      version: '2.0.0'
+      version: '2.0.0',
     };
   }
 }
