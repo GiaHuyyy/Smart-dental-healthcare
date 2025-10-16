@@ -1,25 +1,23 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Calendar, 
-  User, 
-  Stethoscope, 
-  FileText, 
-  Clock, 
+import React from "react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Calendar,
+  User,
+  Stethoscope,
+  FileText,
+  Clock,
   AlertCircle,
   CheckCircle,
   XCircle,
   Edit,
   Download,
-  Activity
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
+  Activity,
+  X,
+} from "lucide-react";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 
 interface MedicalRecord {
   _id: string;
@@ -78,16 +76,16 @@ export default function MedicalRecordDetailModal({
   onClose,
   record,
   onEdit,
-  isPatientView = false
+  isPatientView = false,
 }: MedicalRecordDetailModalProps) {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      active: { label: 'Đang điều trị', variant: 'default' as const, icon: Clock },
-      completed: { label: 'Hoàn thành', variant: 'secondary' as const, icon: CheckCircle },
-      pending: { label: 'Chờ xử lý', variant: 'outline' as const, icon: Clock },
-      cancelled: { label: 'Đã hủy', variant: 'destructive' as const, icon: XCircle }
+      active: { label: "Đang điều trị", variant: "default" as const, icon: Clock },
+      completed: { label: "Hoàn thành", variant: "secondary" as const, icon: CheckCircle },
+      pending: { label: "Chờ xử lý", variant: "outline" as const, icon: Clock },
+      cancelled: { label: "Đã hủy", variant: "destructive" as const, icon: XCircle },
     };
-    
+
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active;
     const Icon = config.icon;
     return (
@@ -99,39 +97,48 @@ export default function MedicalRecordDetailModal({
   };
 
   const getProcedureStatusBadge = (status: string) => {
-    if (status === 'completed') {
+    if (status === "completed") {
       return <Badge variant="secondary">Hoàn thành</Badge>;
     }
     return <Badge variant="outline">Đang thực hiện</Badge>;
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl z-10">
           <div className="flex justify-between items-start">
             <div>
-              <DialogTitle>Chi tiết hồ sơ điều trị</DialogTitle>
+              <h2 className="text-xl font-bold text-gray-900">Chi tiết hồ sơ điều trị</h2>
               <p className="text-sm text-gray-600 mt-1">
-                {format(new Date(record.recordDate), 'EEEE, dd/MM/yyyy', { locale: vi })}
+                {format(new Date(record.recordDate), "EEEE, dd/MM/yyyy", { locale: vi })}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               {onEdit && !isPatientView && (
-                <Button variant="outline" size="sm" onClick={onEdit}>
-                  <Edit className="h-4 w-4 mr-2" />
+                <button
+                  onClick={onEdit}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
                   Chỉnh sửa
-                </Button>
+                </button>
               )}
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
+              <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                <Download className="h-4 w-4" />
                 Xuất PDF
-              </Button>
+              </button>
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
           </div>
-        </DialogHeader>
-
-        <div className="space-y-6">
+        </div>
+        {/* Content */}
+        <div className="p-6 space-y-6">
           {/* Header Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
             <div className="space-y-2">
@@ -150,7 +157,7 @@ export default function MedicalRecordDetailModal({
               <div className="flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4 text-gray-500" />
                 <span className="font-medium">Ngày khám:</span>
-                <span>{format(new Date(record.recordDate), 'dd/MM/yyyy', { locale: vi })}</span>
+                <span>{format(new Date(record.recordDate), "dd/MM/yyyy", { locale: vi })}</span>
               </div>
               <div className="flex items-center gap-2">
                 {getStatusBadge(record.status)}
@@ -225,7 +232,9 @@ export default function MedicalRecordDetailModal({
               <h3 className="text-lg font-semibold">Thuốc được kê</h3>
               <div className="flex flex-wrap gap-2">
                 {record.medications.map((medication, index) => (
-                  <Badge key={index} variant="secondary">{medication}</Badge>
+                  <Badge key={index} variant="secondary">
+                    {medication}
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -244,8 +253,8 @@ export default function MedicalRecordDetailModal({
                     </div>
                     <p className="text-gray-600 text-sm mb-2">{procedure.description}</p>
                     <div className="flex justify-between items-center text-sm text-gray-500">
-                      <span>Ngày: {format(new Date(procedure.date), 'dd/MM/yyyy', { locale: vi })}</span>
-                      <span>Chi phí: {procedure.cost.toLocaleString('vi-VN')} VNĐ</span>
+                      <span>Ngày: {format(new Date(procedure.date), "dd/MM/yyyy", { locale: vi })}</span>
+                      <span>Chi phí: {procedure.cost.toLocaleString("vi-VN")} VNĐ</span>
                     </div>
                   </div>
                 ))}
@@ -271,9 +280,7 @@ export default function MedicalRecordDetailModal({
                         <span className="font-medium">Điều trị:</span> {tooth.treatment}
                       </p>
                     )}
-                    {tooth.notes && (
-                      <p className="text-xs text-gray-500">{tooth.notes}</p>
-                    )}
+                    {tooth.notes && <p className="text-xs text-gray-500">{tooth.notes}</p>}
                   </div>
                 ))}
               </div>
@@ -289,7 +296,7 @@ export default function MedicalRecordDetailModal({
               </h3>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <p className="font-medium">
-                  Ngày tái khám: {format(new Date(record.followUpDate), 'EEEE, dd/MM/yyyy', { locale: vi })}
+                  Ngày tái khám: {format(new Date(record.followUpDate), "EEEE, dd/MM/yyyy", { locale: vi })}
                 </p>
               </div>
             </div>
@@ -318,8 +325,7 @@ export default function MedicalRecordDetailModal({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
-

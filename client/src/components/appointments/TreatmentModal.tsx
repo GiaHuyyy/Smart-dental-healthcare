@@ -25,6 +25,7 @@ interface TreatmentFormData {
   diagnosisGroups: DiagnosisGroup[];
   notes: string;
   medications: MedicationForm[];
+  status?: string; // Add status field for update mode
 }
 
 interface Suggestions {
@@ -56,6 +57,8 @@ interface TreatmentModalProps {
   onSubmit: (formData: TreatmentFormData) => Promise<void>;
   isSubmitting: boolean;
   accessToken?: string;
+  mode?: "create" | "update"; // Add mode prop
+  initialData?: Partial<TreatmentFormData>; // Add initial data for edit mode
 }
 
 export default function TreatmentModal({
@@ -65,14 +68,17 @@ export default function TreatmentModal({
   onSubmit,
   isSubmitting,
   accessToken,
+  mode = "create", // Default to create mode
+  initialData, // Initial data for update mode
 }: TreatmentModalProps) {
   const [treatmentForm, setTreatmentForm] = useState<TreatmentFormData>({
-    chiefComplaints: [],
-    presentIllness: "",
-    physicalExamination: "",
-    diagnosisGroups: [{ diagnosis: "", treatmentPlans: [""] }],
-    notes: "",
-    medications: [],
+    chiefComplaints: initialData?.chiefComplaints || [],
+    presentIllness: initialData?.presentIllness || "",
+    physicalExamination: initialData?.physicalExamination || "",
+    diagnosisGroups: initialData?.diagnosisGroups || [{ diagnosis: "", treatmentPlans: [""] }],
+    notes: initialData?.notes || "",
+    medications: initialData?.medications || [],
+    status: initialData?.status || "active", // Default to active
   });
 
   const [chiefComplaintInput, setChiefComplaintInput] = useState("");
@@ -105,9 +111,7 @@ export default function TreatmentModal({
   const fetchSuggestions = useCallback(async () => {
     try {
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
-        }/api/v1/ai-chat/suggestions`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/ai-chat/suggestions`,
         {
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         }
@@ -124,8 +128,20 @@ export default function TreatmentModal({
   useEffect(() => {
     if (isOpen) {
       fetchSuggestions();
+      // Load initial data if in update mode
+      if (mode === "update" && initialData) {
+        setTreatmentForm({
+          chiefComplaints: initialData.chiefComplaints || [],
+          presentIllness: initialData.presentIllness || "",
+          physicalExamination: initialData.physicalExamination || "",
+          diagnosisGroups: initialData.diagnosisGroups || [{ diagnosis: "", treatmentPlans: [""] }],
+          notes: initialData.notes || "",
+          medications: initialData.medications || [],
+          status: initialData.status || "active", // Load status
+        });
+      }
     }
-  }, [isOpen, fetchSuggestions]);
+  }, [isOpen, fetchSuggestions, mode, initialData]);
 
   // Chief complaints management
   const addChiefComplaint = (complaint: string) => {
@@ -938,6 +954,24 @@ export default function TreatmentModal({
             )}
           </div>
 
+          {/* Status - Only show in update mode */}
+          {mode === "update" && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Trạng thái</label>
+              <select
+                value={treatmentForm.status || "active"}
+                onChange={(e) => setTreatmentForm({ ...treatmentForm, status: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
+                disabled={isSubmitting}
+              >
+                <option value="active">Đang điều trị</option>
+                <option value="completed">Hoàn thành</option>
+                <option value="pending">Chờ xử lý</option>
+                <option value="cancelled">Đã hủy</option>
+              </select>
+            </div>
+          )}
+
           {/* Notes */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Ghi chú</label>
@@ -973,6 +1007,8 @@ export default function TreatmentModal({
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Đang xử lý...
               </>
+            ) : mode === "update" ? (
+              "Cập nhật"
             ) : (
               "Hoàn thành"
             )}
