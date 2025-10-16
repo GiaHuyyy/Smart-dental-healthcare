@@ -129,6 +129,8 @@ export interface BookingFormData {
   guardianEmail?: string;
   chiefComplaint?: string;
   notes?: string;
+  paymentMethod?: "momo" | "cash" | "later";
+  paymentAmount?: number;
 }
 
 export interface AppointmentConfirmation {

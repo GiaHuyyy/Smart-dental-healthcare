@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { User, Calendar, Phone, Mail, AlertCircle, Video, Building2, Home } from "lucide-react";
 import { BookingFormData, ConsultType } from "@/types/appointment";
+import { AlertCircle, Building2, Calendar, Clock, CreditCard, Home, Mail, Phone, User, Video, Wallet } from "lucide-react";
+import React, { useState } from "react";
 
 interface BookingFormProps {
   bookingData: Partial<BookingFormData>;
@@ -16,6 +16,8 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     startTime: bookingData?.startTime || "",
     consultType: bookingData?.consultType || ConsultType.ON_SITE,
     bookForSelf: true,
+    paymentMethod: "later",
+    paymentAmount: 50000,
     ...bookingData,
   });
 
@@ -375,6 +377,131 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
           </div>
         </div>
       )}
+
+      {/* Payment Method Selection */}
+      <div className="healthcare-card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Wallet className="w-5 h-5 text-primary" />
+          Phương thức thanh toán
+        </h3>
+        <div className="space-y-3">
+          {/* MoMo Payment */}
+          <label className="relative cursor-pointer block">
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="momo"
+              checked={formData.paymentMethod === "momo"}
+              onChange={(e) => handleInputChange("paymentMethod", e.target.value)}
+              className="peer sr-only"
+            />
+            <div className="p-4 border-2 border-gray-300 rounded-lg peer-checked:border-pink-500 peer-checked:bg-pink-50 transition-all hover:border-pink-300">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shrink-0">
+                  M
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900">Thanh toán MoMo</div>
+                  <div className="text-sm text-gray-600">Thanh toán trực tuyến qua ví MoMo</div>
+                  <div className="text-sm font-medium text-pink-600 mt-1">
+                    {formData.paymentAmount?.toLocaleString("vi-VN")} đ
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  {formData.paymentMethod === "momo" && (
+                    <div className="w-6 h-6 bg-pink-600 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </label>
+
+          {/* Cash Payment */}
+          <label className="relative cursor-pointer block">
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="cash"
+              checked={formData.paymentMethod === "cash"}
+              onChange={(e) => handleInputChange("paymentMethod", e.target.value)}
+              className="peer sr-only"
+            />
+            <div className="p-4 border-2 border-gray-300 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all hover:border-blue-300">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                  <CreditCard className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900">Thanh toán tại phòng khám</div>
+                  <div className="text-sm text-gray-600">Thanh toán trực tiếp khi đến khám</div>
+                </div>
+                <div className="shrink-0">
+                  {formData.paymentMethod === "cash" && (
+                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </label>
+
+          {/* Later Payment */}
+          <label className="relative cursor-pointer block">
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="later"
+              checked={formData.paymentMethod === "later"}
+              onChange={(e) => handleInputChange("paymentMethod", e.target.value)}
+              className="peer sr-only"
+            />
+            <div className="p-4 border-2 border-gray-300 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 transition-all hover:border-green-300">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center shrink-0">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900">Thanh toán sau</div>
+                  <div className="text-sm text-gray-600">Đặt lịch trước, thanh toán sau khi khám xong</div>
+                </div>
+                <div className="shrink-0">
+                  {formData.paymentMethod === "later" && (
+                    <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </label>
+
+          {/* MoMo Info */}
+          {formData.paymentMethod === "momo" && (
+            <div className="p-4 bg-pink-50 border border-pink-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-pink-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-pink-800">
+                  <p className="font-medium mb-1">Lưu ý về thanh toán MoMo:</p>
+                  <ul className="list-disc list-inside space-y-1 text-pink-700">
+                    <li>Bạn sẽ được chuyển đến trang thanh toán MoMo</li>
+                    <li>Lịch hẹn sẽ được tạo sau khi thanh toán thành công</li>
+                    <li>Nếu thanh toán thất bại, lịch hẹn sẽ không được tạo</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="healthcare-card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin bổ sung</h3>
