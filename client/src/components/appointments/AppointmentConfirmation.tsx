@@ -5,6 +5,7 @@ import Image from "next/image";
 import { CheckCircle, MapPin, Phone, Mail, Calendar, Clock, Download, X } from "lucide-react";
 import { AppointmentConfirmation } from "@/types/appointment";
 import { getDoctorPlaceholder } from "@/utils/placeholder";
+import MoMoPaymentButton from "./MoMoPaymentButton";
 
 interface AppointmentConfirmationProps {
   confirmation: AppointmentConfirmation;
@@ -13,6 +14,11 @@ interface AppointmentConfirmationProps {
   onDownloadReceipt?: () => void;
   variant?: "overlay" | "embedded";
   showCloseButton?: boolean;
+  // Payment options
+  enablePayment?: boolean;
+  paymentAmount?: number;
+  patientId?: string;
+  accessToken?: string;
 }
 
 export default function AppointmentConfirmationComponent({
@@ -22,6 +28,10 @@ export default function AppointmentConfirmationComponent({
   onDownloadReceipt,
   variant = "overlay",
   showCloseButton = true,
+  enablePayment = false,
+  paymentAmount = 50000,
+  patientId,
+  accessToken,
 }: AppointmentConfirmationProps) {
   const { appointment, doctor, bookingId, confirmationMessage, instructions, calendarLinks } = confirmation;
   const isEmbedded = variant === "embedded";
@@ -201,6 +211,30 @@ export default function AppointmentConfirmationComponent({
           <Download className="w-5 h-5" />
           Tải xuống biên lai
         </button>
+      )}
+
+      {/* MoMo Payment Button */}
+      {enablePayment && patientId && appointment._id && doctor._id && (
+        <div className="pt-4 border-t border-gray-200">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Thanh toán trực tuyến</h4>
+          <MoMoPaymentButton
+            appointmentId={appointment._id}
+            patientId={patientId}
+            doctorId={doctor._id}
+            amount={paymentAmount}
+            orderInfo={`Thanh toán lịch khám với ${doctor.fullName}`}
+            accessToken={accessToken}
+            onSuccess={() => {
+              console.log("Payment initiated successfully");
+            }}
+            onError={(error) => {
+              console.error("Payment error:", error);
+            }}
+          />
+          <p className="mt-2 text-xs text-gray-500 text-center">
+            Hoặc bạn có thể thanh toán trực tiếp tại phòng khám
+          </p>
+        </div>
       )}
     </div>
   );

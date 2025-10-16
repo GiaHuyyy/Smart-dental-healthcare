@@ -7,11 +7,14 @@ import {
   Param,
   Delete,
   Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Public } from 'src/decorator/customize';
+import { MoMoCallbackData } from './services/momo.service';
 
 @Controller('payments')
 export class PaymentsController {
@@ -21,6 +24,47 @@ export class PaymentsController {
   @Public()
   create(@Body() createPaymentDto: CreatePaymentDto) {
     return this.paymentsService.create(createPaymentDto);
+  }
+
+  /**
+   * Tạo thanh toán MoMo cho appointment
+   * POST /api/v1/payments/momo/create
+   */
+  @Post('momo/create')
+  @Public()
+  createMomoPayment(
+    @Body() body: {
+      appointmentId: string;
+      patientId: string;
+      doctorId: string;
+      amount: number;
+      orderInfo?: string;
+    }
+  ) {
+    return this.paymentsService.createMomoPayment(body);
+  }
+
+  /**
+   * Callback từ MoMo (IPN - Instant Payment Notification)
+   * POST /api/v1/payments/momo/callback
+   */
+  @Post('momo/callback')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  async handleMomoCallback(@Body() callbackData: MoMoCallbackData) {
+    const result = await this.paymentsService.handleMomoCallback(callbackData);
+    // MoMo expects 204 No Content for successful callback
+    return result;
+  }
+
+  /**
+   * Query payment status từ MoMo
+   * GET /api/v1/payments/momo/query/:orderId
+   */
+  @Get('momo/query/:orderId')
+  @Public()
+  queryMomoPayment(@Param('orderId') orderId: string) {
+    return this.paymentsService.queryMomoPayment(orderId);
   }
 
   @Get()

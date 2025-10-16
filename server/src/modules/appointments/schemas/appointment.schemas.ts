@@ -6,6 +6,7 @@ export type AppointmentDocument = HydratedDocument<Appointment>;
 
 export enum AppointmentStatus {
   PENDING = 'pending',
+  PENDING_PAYMENT = 'pending_payment', // Chờ thanh toán MoMo
   CONFIRMED = 'confirmed',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
@@ -55,6 +56,12 @@ export class Appointment {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'MedicalRecord' })
   medicalRecordId?: MongooseSchema.Types.ObjectId;
+
+  @Prop({ enum: ['unpaid', 'paid', 'refunded'], default: 'unpaid' })
+  paymentStatus?: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Payment' })
+  paymentId?: MongooseSchema.Types.ObjectId;
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
@@ -66,9 +73,9 @@ AppointmentSchema.index(
   { doctorId: 1, appointmentDate: 1, startTime: 1 },
   {
     unique: true,
-    // Chỉ áp dụng unique cho lịch pending, confirmed, completed, in-progress (không bao gồm cancelled)
+    // Chỉ áp dụng unique cho lịch pending, pending_payment, confirmed, completed, in-progress (không bao gồm cancelled)
     partialFilterExpression: {
-      status: { $in: ['pending', 'confirmed', 'completed', 'in-progress'] },
+      status: { $in: ['pending', 'pending_payment', 'confirmed', 'completed', 'in-progress'] },
     },
   },
 );

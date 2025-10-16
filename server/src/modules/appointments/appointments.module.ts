@@ -11,6 +11,7 @@ import { AppointmentNotificationGateway } from './appointment-notification.gatew
 import { AppointmentEmailService } from './appointment-email.service';
 import { AppointmentReminderService } from './appointment-reminder.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       { name: MedicalRecord.name, schema: MedicalRecordSchema },
     ]),
     NotificationsModule,
+    PaymentsModule,
   ],
   controllers: [AppointmentsController],
   providers: [

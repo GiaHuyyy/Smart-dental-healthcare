@@ -1,21 +1,23 @@
 "use client";
 
-import React, { useMemo } from "react";
-import {
-  X,
-  Check,
-  Calendar as CalendarIcon,
-  Clock,
-  MapPin,
-  UserCircle2,
-  Video,
-  Home,
-  Building2,
-  FileText,
-} from "lucide-react";
-import TimeSlotPicker from "./TimeSlotPicker";
-import BookingForm from "./BookingForm";
+import paymentService from "@/services/paymentService";
 import { AppointmentConfirmation, BookingFormData, ConsultType, Doctor } from "@/types/appointment";
+import {
+    Building2,
+    Calendar as CalendarIcon,
+    Check,
+    Clock,
+    FileText,
+    Home,
+    MapPin,
+    UserCircle2,
+    Video,
+    X,
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useMemo } from "react";
+import BookingForm from "./BookingForm";
+import TimeSlotPicker from "./TimeSlotPicker";
 
 export type BookingFlowStep = "time-slot" | "details" | "confirmation";
 
@@ -62,7 +64,50 @@ export default function BookingFlowModal({
   onBackToTimeSlot,
   onContinue,
 }: BookingFlowModalProps) {
+  const { data: session } = useSession();
   const currentIndex = useMemo(() => stepsDefinition.findIndex((item) => item.id === step), [step]);
+
+  const handlePayWithMomo = async () => {
+    if (!confirmation?.appointment || !doctor) {
+      alert("Thông tin đặt lịch chưa đầy đủ");
+      return;
+    }
+    
+    try {
+      console.log("Starting MoMo payment...", { confirmation, doctor });
+      
+      const token = (session as any)?.access_token || (session as any)?.accessToken;
+      const appointment = confirmation.appointment;
+      
+      const payload = {
+        appointmentId: appointment._id || appointment.id || "",
+        patientId: (appointment.patientId as any)?._id || (appointment.patientId as any) || "",
+        doctorId: doctor._id || (doctor as any).id || "",
+      };
+      
+      console.log("MoMo payload:", payload);
+      
+      if (!payload.appointmentId || !payload.patientId || !payload.doctorId) {
+        alert("Thiếu thông tin cần thiết để thanh toán");
+        return;
+      }
+      
+      const result = await paymentService.createMomoPayment(payload, token);
+      console.log("MoMo response:", result);
+      
+      const payUrl = result?.momo?.payUrl || result?.momo?.deeplink || result?.momo?.deeplinkMiniApp;
+      if (payUrl) {
+        console.log("Redirecting to MoMo:", payUrl);
+        window.location.href = payUrl;
+      } else {
+        console.error("No payUrl in MoMo response:", result);
+        alert("Không nhận được đường dẫn thanh toán từ MoMo");
+      }
+    } catch (e: any) {
+      console.error("MoMo payment error:", e);
+      alert(e?.message || "Tạo thanh toán MoMo thất bại");
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
@@ -274,7 +319,27 @@ export default function BookingFlowModal({
             {step === "confirmation" && (
               <div className="space-y-6">
                 {confirmation ? (
-                  <AppointmentConfirmationContent confirmation={confirmation} />
+                  <div className="space-y-6">
+                    <AppointmentConfirmationContent confirmation={confirmation} />
+                    {/* MoMo Payment Button - Show after successful booking */}
+                    <div className="bg-pink-50 border border-pink-200 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Thanh toán phí khám</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600">Phí khám: <span className="font-semibold text-pink-600">50,000₫</span></p>
+                          <p className="text-xs text-gray-500 mt-1">Thanh toán qua MoMo để hoàn tất đặt lịch</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handlePayWithMomo}
+                          className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors font-medium flex items-center gap-2"
+                        >
+                          <span>💳</span>
+                          Thanh toán MoMo
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Xác nhận thông tin đặt lịch</h3>
@@ -317,6 +382,54 @@ export default function BookingFlowModal({
                           {((doctor.consultationFee || 0) * 10000).toLocaleString("vi-VN")}₫
                         </span>
                       </div>
+                      
+                      {/* Payment Method Info */}
+                      {bookingData.paymentMethod && (
+                        <div className="flex justify-between pt-3 border-t border-blue-200">
+                          <span className="text-gray-600">Thanh toán:</span>
+                          <div className="flex items-center gap-2">
+                            {bookingData.paymentMethod === "momo" && (
+                              <>
+                                <div className="w-6 h-6 bg-pink-600 rounded flex items-center justify-center text-white text-xs font-bold">
+                                  M
+                                </div>
+                                <span className="font-medium text-pink-600">MoMo</span>
+                              </>
+                            )}
+                            {bookingData.paymentMethod === "cash" && (
+                              <>
+                                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                                <span className="font-medium text-blue-600">Tại phòng khám</span>
+                              </>
+                            )}
+                            {bookingData.paymentMethod === "later" && (
+                              <>
+                                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="font-medium text-green-600">Thanh toán sau</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* MoMo Warning */}
+                      {bookingData.paymentMethod === "momo" && (
+                        <div className="mt-4 p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-pink-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="text-xs text-pink-800">
+                              <p className="font-medium mb-1">Thanh toán MoMo:</p>
+                              <p>Bạn sẽ được chuyển đến trang MoMo để thanh toán <strong>{(bookingData.paymentAmount || 50000).toLocaleString("vi-VN")} đ</strong></p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -384,13 +497,26 @@ export default function BookingFlowModal({
                     >
                       Quay lại
                     </button>
-                    <button
-                      type="button"
-                      onClick={onConfirmBooking}
-                      className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
-                    >
-                      Xác nhận đặt lịch
-                    </button>
+                    {bookingData.paymentMethod === "momo" ? (
+                      <button
+                        type="button"
+                        onClick={onConfirmBooking}
+                        className="px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors font-medium flex items-center gap-2"
+                      >
+                        <div className="w-5 h-5 bg-white rounded flex items-center justify-center text-pink-600 text-xs font-bold">
+                          M
+                        </div>
+                        Thanh toán với MoMo
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onConfirmBooking}
+                        className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium"
+                      >
+                        Xác nhận đặt lịch
+                      </button>
+                    )}
                   </>
                 ) : (
                   <button
