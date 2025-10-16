@@ -10,6 +10,7 @@ export interface CreateAppointmentPayload {
   endTime: string;
   duration: number;
   appointmentType: string;
+  consultationFee?: number;
   notes?: string;
   status?: AppointmentStatus;
   cancellationReason?: string;

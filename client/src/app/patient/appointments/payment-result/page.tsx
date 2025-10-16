@@ -3,12 +3,11 @@
 import paymentService from "@/services/paymentService";
 import { ArrowRight, CheckCircle, Loader2, XCircle } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function PaymentResultPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -19,14 +18,27 @@ export default function PaymentResultPage() {
     momoStatus?: unknown;
   } | null>(null);
 
-  // MoMo callback parameters
-  const orderId = searchParams.get("orderId");
-  const amount = searchParams.get("amount");
-  const orderInfo = searchParams.get("orderInfo");
-  const resultCode = searchParams.get("resultCode");
-  const message = searchParams.get("message");
-  const transId = searchParams.get("transId");
-  const extraData = searchParams.get("extraData");
+  // MoMo callback parameters (read from URL on mount)
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [amount, setAmount] = useState<string | null>(null);
+  const [orderInfo, setOrderInfo] = useState<string | null>(null);
+  const [resultCode, setResultCode] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [transId, setTransId] = useState<string | null>(null);
+  const [extraData, setExtraData] = useState<string | null>(null);
+
+  // Read query params client-side on mount to avoid useSearchParams prerender bailout
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setOrderId(params.get("orderId"));
+    setAmount(params.get("amount"));
+    setOrderInfo(params.get("orderInfo"));
+    setResultCode(params.get("resultCode"));
+    setMessage(params.get("message"));
+    setTransId(params.get("transId"));
+    setExtraData(params.get("extraData"));
+  }, []);
 
   useEffect(() => {
     if (!resultCode || !orderId) {
@@ -61,7 +73,7 @@ export default function PaymentResultPage() {
 
       // Clear localStorage for pending payment
       try {
-        localStorage.removeItem('pending_payment_appointment');
+        localStorage.removeItem("pending_payment_appointment");
       } catch (e) {
         console.error("Failed to clear localStorage:", e);
       }
@@ -75,26 +87,26 @@ export default function PaymentResultPage() {
       if (orderId) {
         const sessionAny = session as unknown as { access_token?: string; accessToken?: string };
         const accessToken = sessionAny?.access_token || sessionAny?.accessToken;
-        
+
         console.log("🔄 Querying payment status from backend...");
         try {
           // Wait a bit for callback to process
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
           const result = await paymentService.queryMoMoPayment(orderId, accessToken);
           console.log("📊 Backend query result:", result);
-          
+
           if (result.success && result.data) {
             setPaymentInfo(result.data);
-            
+
             // Update status based on backend data
             const backendPayment = result.data.payment;
             if (backendPayment) {
               console.log("💾 Backend payment status:", backendPayment.status);
-              if (backendPayment.status === 'completed') {
-                setPaymentStatus('success');
-              } else if (backendPayment.status === 'failed') {
-                setPaymentStatus('failed');
+              if (backendPayment.status === "completed") {
+                setPaymentStatus("success");
+              } else if (backendPayment.status === "failed") {
+                setPaymentStatus("failed");
               }
             }
           }
@@ -202,11 +214,7 @@ export default function PaymentResultPage() {
 
               <div className="flex justify-between">
                 <dt className="text-gray-600">Trạng thái:</dt>
-                <dd
-                  className={`font-medium ${
-                    paymentStatus === "success" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
+                <dd className={`font-medium ${paymentStatus === "success" ? "text-green-600" : "text-red-600"}`}>
                   {paymentStatus === "success" ? "Thành công" : "Thất bại"}
                 </dd>
               </div>
@@ -267,5 +275,3 @@ export default function PaymentResultPage() {
     </div>
   );
 }
-
-
