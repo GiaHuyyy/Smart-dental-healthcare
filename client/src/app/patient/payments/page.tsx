@@ -2,22 +2,22 @@
 
 import paymentService from "@/services/paymentService";
 import {
-    AlertCircle,
-    ArrowRight,
-    Building2,
-    Calendar,
-    CheckCircle,
-    Clock,
-    CreditCard,
-    DollarSign,
-    FileText,
-    Filter,
-    RefreshCw,
-    Search,
-    TrendingUp,
-    User,
-    Wallet,
-    XCircle
+  AlertCircle,
+  ArrowRight,
+  Building2,
+  Calendar,
+  CheckCircle,
+  Clock,
+  CreditCard,
+  DollarSign,
+  FileText,
+  Filter,
+  RefreshCw,
+  Search,
+  TrendingUp,
+  User,
+  Wallet,
+  XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
@@ -71,37 +71,67 @@ export default function PatientPayments() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const fetchPayments = useCallback(async (showLoading = true) => {
-    try {
-      if (showLoading) setLoading(true);
-      
-      const userId = (session as any)?.user?._id;
-      if (!userId) {
-        console.error("❌ User ID not found in session");
-        setLoading(false);
-        return;
-      }
+  const fetchPayments = useCallback(
+    async (showLoading = true) => {
+      try {
+        if (showLoading) setLoading(true);
 
-      console.log("🔄 Fetching payments for user:", userId);
-      const response = await paymentService.getPaymentsByPatient(
-        userId,
-        (session as any)?.access_token
-      );
+        const userId = (session as any)?.user?._id;
+        if (!userId) {
+          console.error("❌ User ID not found in session");
+          setLoading(false);
+          return;
+        }
 
-      if (response.success && response.data) {
-        console.log("✅ Payments loaded:", response.data.length, "records");
-        setPayments(response.data);
-      } else {
-        console.error("❌ Failed to fetch payments:", response.message);
+        console.log("🔄 Fetching payments for user:", userId);
+        const response = await paymentService.getPaymentsByPatient(userId, (session as any)?.access_token);
+
+        if (response.success && response.data) {
+          console.log("✅ Payments loaded:", response.data.length, "records");
+          // Normalize backend payment objects to PaymentRecord[] expected by this UI
+          const normalized: PaymentRecord[] = (response.data as any[]).map((p) => {
+            const sessionUser = (session as any)?.user;
+
+            const patientObj =
+              typeof p.patientId === "string"
+                ? {
+                    _id: p.patientId,
+                    fullName: sessionUser?.fullName || sessionUser?.name || "",
+                    email: sessionUser?.email || "",
+                  }
+                : p.patientId || { _id: "", fullName: "", email: "" };
+
+            return {
+              _id: p._id,
+              patientId: patientObj,
+              doctorId: p.doctorId,
+              refId: p.refId,
+              amount: p.amount,
+              status: p.status,
+              type: p.type,
+              paymentMethod: p.paymentMethod,
+              paymentDate: p.paymentDate,
+              transactionId: p.transactionId,
+              notes: p.notes,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+            } as PaymentRecord;
+          });
+
+          setPayments(normalized);
+        } else {
+          console.error("❌ Failed to fetch payments:", response.message);
+          setPayments([]);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching payments:", error);
         setPayments([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("❌ Error fetching payments:", error);
-      setPayments([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [session]);
+    },
+    [session]
+  );
 
   useEffect(() => {
     if (session) {
@@ -111,15 +141,15 @@ export default function PatientPayments() {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && session) {
+      if (document.visibilityState === "visible" && session) {
         console.log("🔄 Page became visible, refreshing payments...");
         fetchPayments();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [session, fetchPayments]);
 
@@ -197,12 +227,23 @@ export default function PatientPayments() {
   };
 
   const handlePayNow = async (payment: PaymentRecord) => {
+    // Compute appointmentId and doctorId safely (refId/doctorId may be string or object)
+    let appointmentId: string | null = null;
+    if (typeof payment.refId === "object" && payment.refId !== null) {
+      appointmentId = (payment.refId as Appointment)._id;
+    } else if (typeof payment.refId === "string") {
+      appointmentId = payment.refId;
+    }
+
+    let doctorId: string | null = null;
+    if (typeof payment.doctorId === "object" && payment.doctorId !== null) {
+      doctorId = (payment.doctorId as Doctor)._id;
+    } else if (typeof payment.doctorId === "string") {
+      doctorId = payment.doctorId;
+    }
+
     console.log("💳 ========== PAYMENT INITIATED ==========");
-    console.log("Payment details:", {
-      paymentId: payment._id,
-      amount: payment.amount,
-      appointmentId: payment.refId?._id,
-    });
+    console.log("Payment details:", { paymentId: payment._id, amount: payment.amount, appointmentId });
 
     if (!session) {
       toast.error("Vui lòng đăng nhập", {
@@ -211,8 +252,9 @@ export default function PatientPayments() {
       return;
     }
 
-    const appointmentId = payment.refId?._id || (typeof payment.refId === 'string' ? payment.refId : null);
-    const doctorId = payment.doctorId?._id || (typeof payment.doctorId === 'string' ? payment.doctorId : null);
+    // appointmentId and doctorId already computed above
+    // (reassign from local variables to avoid shadowing)
+    // appointmentId and doctorId variables are already available here
 
     if (!appointmentId || !doctorId) {
       toast.error("Thiếu thông tin thanh toán", {
@@ -221,8 +263,11 @@ export default function PatientPayments() {
       return;
     }
 
-    const appointmentType = payment.refId?.appointmentType || "lịch khám";
-    
+    const appointmentType =
+      typeof payment.refId === "object" && payment.refId !== null
+        ? (payment.refId as Appointment).appointmentType || "lịch khám"
+        : "lịch khám";
+
     const loadingToast = toast.loading("Đang tạo yêu cầu thanh toán...", {
       description: `Thanh toán ${formatCurrency(payment.amount)} qua MoMo`,
     });
@@ -254,9 +299,10 @@ export default function PatientPayments() {
           description: "Bạn sẽ được chuyển đến trang thanh toán MoMo...",
           duration: 2000,
         });
-        
+
+        const payUrl = response.data!.payUrl;
         setTimeout(() => {
-          window.location.href = response.data.payUrl;
+          window.location.href = payUrl;
         }, 1000);
       } else {
         toast.error("Không thể tạo thanh toán", {
@@ -276,8 +322,8 @@ export default function PatientPayments() {
   const filteredPayments = payments.filter((payment) => {
     if (!payment.refId || !payment.doctorId) return false;
 
-    const appointment = typeof payment.refId === 'object' ? payment.refId : null;
-    const doctor = typeof payment.doctorId === 'object' ? payment.doctorId : null;
+    const appointment = typeof payment.refId === "object" ? payment.refId : null;
+    const doctor = typeof payment.doctorId === "object" ? payment.doctorId : null;
 
     const doctorName = appointment?.doctorId?.fullName || doctor?.fullName || "";
     const appointmentType = appointment?.appointmentType || "";
@@ -297,9 +343,9 @@ export default function PatientPayments() {
 
   const stats = {
     total: payments.length,
-    completed: payments.filter(p => p.status === "completed").length,
-    pending: payments.filter(p => p.status === "pending").length,
-    totalAmount: payments.filter(p => p.status === "completed").reduce((sum, p) => sum + p.amount, 0),
+    completed: payments.filter((p) => p.status === "completed").length,
+    pending: payments.filter((p) => p.status === "pending").length,
+    totalAmount: payments.filter((p) => p.status === "completed").reduce((sum, p) => sum + p.amount, 0),
   };
 
   if (loading) {
@@ -336,7 +382,7 @@ export default function PatientPayments() {
             disabled={loading}
             className="px-6 py-3 bg-white border-2 border-blue-200 text-blue-600 rounded-xl hover:bg-blue-50 hover:border-blue-300 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm hover:shadow-md"
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
             Làm mới
           </button>
         </div>
@@ -433,11 +479,10 @@ export default function PatientPayments() {
                 <AlertCircle className="w-6 h-6 text-yellow-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-yellow-900 text-lg mb-1">
-                  Bạn có {stats.pending} thanh toán chờ xử lý
-                </h3>
+                <h3 className="font-bold text-yellow-900 text-lg mb-1">Bạn có {stats.pending} thanh toán chờ xử lý</h3>
                 <p className="text-yellow-800">
-                  Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút <strong>"Thanh toán ngay"</strong> bên dưới để thanh toán qua MoMo.
+                  Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút <strong>"Thanh toán ngay"</strong>{" "}
+                  bên dưới để thanh toán qua MoMo.
                 </p>
               </div>
             </div>
@@ -462,14 +507,14 @@ export default function PatientPayments() {
         ) : (
           <div className="space-y-4">
             {filteredPayments.map((payment) => {
-              const appointment = typeof payment.refId === 'object' ? payment.refId : null;
-              const doctor = typeof payment.doctorId === 'object' ? payment.doctorId : null;
+              const appointment = typeof payment.refId === "object" ? payment.refId : null;
+              const doctor = typeof payment.doctorId === "object" ? payment.doctorId : null;
               const appointmentDoctor = appointment?.doctorId;
               const displayDoctor = appointmentDoctor || doctor;
 
               return (
-                <div 
-                  key={payment._id} 
+                <div
+                  key={payment._id}
                   className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all border border-gray-100 overflow-hidden group"
                 >
                   <div className="p-6">
@@ -486,7 +531,11 @@ export default function PatientPayments() {
                               <h3 className="text-xl font-bold text-gray-900">
                                 {appointment?.appointmentType || "Thanh toán"}
                               </h3>
-                              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg mt-1 ${getStatusColor(payment.status)}`}>
+                              <div
+                                className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg mt-1 ${getStatusColor(
+                                  payment.status
+                                )}`}
+                              >
                                 {getStatusIcon(payment.status)}
                                 <span className="text-sm font-semibold">{getStatusText(payment.status)}</span>
                               </div>
@@ -508,7 +557,9 @@ export default function PatientPayments() {
                             <Building2 className="w-5 h-5 text-gray-400" />
                             <div>
                               <p className="text-xs text-gray-500">Chuyên khoa</p>
-                              <p className="font-medium">{displayDoctor?.specialization || displayDoctor?.specialty || "Nha khoa"}</p>
+                              <p className="font-medium">
+                                {displayDoctor?.specialization || displayDoctor?.specialty || "Nha khoa"}
+                              </p>
                             </div>
                           </div>
 
@@ -517,7 +568,9 @@ export default function PatientPayments() {
                             <div>
                               <p className="text-xs text-gray-500">Ngày khám</p>
                               <p className="font-medium">
-                                {appointment?.appointmentDate ? formatDate(appointment.appointmentDate) : formatDate(payment.createdAt)}
+                                {appointment?.appointmentDate
+                                  ? formatDate(appointment.appointmentDate)
+                                  : formatDate(payment.createdAt)}
                               </p>
                             </div>
                           </div>
@@ -613,10 +666,13 @@ export default function PatientPayments() {
                         <DollarSign className="w-4 h-4" />
                         <span>Phương thức: </span>
                         <span className="font-medium text-gray-900">
-                          {payment.paymentMethod === "momo" ? "Ví MoMo" : 
-                           payment.paymentMethod === "cash" ? "Tiền mặt" :
-                           payment.paymentMethod === "card" ? "Thẻ tín dụng" :
-                           payment.paymentMethod}
+                          {payment.paymentMethod === "momo"
+                            ? "Ví MoMo"
+                            : payment.paymentMethod === "cash"
+                            ? "Tiền mặt"
+                            : payment.paymentMethod === "card"
+                            ? "Thẻ tín dụng"
+                            : payment.paymentMethod}
                         </span>
                       </div>
                     </div>

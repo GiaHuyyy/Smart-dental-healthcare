@@ -62,6 +62,8 @@ export interface Appointment {
   duration?: number; // Duration in minutes
   appointmentType?: string; // Type description
   consultationFee?: number; // Fee for consultation
+  // Payment status (paid, refunded, unpaid, pending, etc.)
+  paymentStatus?: "paid" | "refunded" | "unpaid" | "pending" | string;
   createdAt?: string;
   updatedAt?: string;
 }

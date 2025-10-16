@@ -5,29 +5,49 @@ import DoctorList from "@/components/appointments/DoctorList";
 import SearchDoctors from "@/components/appointments/SearchDoctors";
 import appointmentService from "@/services/appointmentService";
 import paymentService from "@/services/paymentService";
-import { AppointmentConfirmation, BookingFormData, ConsultType, Doctor, SearchFilters } from "@/types/appointment";
+import {
+  AppointmentConfirmation,
+  AppointmentStatus,
+  BookingFormData,
+  ConsultType,
+  Doctor,
+  SearchFilters,
+} from "@/types/appointment";
 import { Calendar, List, Map } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function PatientAppointmentsPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // State
   const [viewMode, setViewMode] = useState<"list" | "map">("map");
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({
-    searchQuery: searchParams.get("q") || "",
-    specialty: searchParams.get("specialty") || "",
+    searchQuery: "",
+    specialty: "",
     gender: "all",
     consultType: "all",
     availability: "all",
   });
+
+  // Read URL query params on mount (client-side) to avoid useSearchParams prerender bailout
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get("q") || "";
+      const specialty = params.get("specialty") || "";
+      setFilters((prev) => ({ ...prev, searchQuery: q, specialty }));
+    } catch (e) {
+      // ignore
+    }
+    // run only once on mount
+  }, []);
 
   // Booking flow state
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -136,7 +156,7 @@ export default function PatientAppointmentsPage() {
   const handleConfirmBooking = async () => {
     // Step 3: Check payment method and handle accordingly
     const paymentMethod = bookingData.paymentMethod;
-    
+
     if (paymentMethod === "momo") {
       // MoMo Flow: Create payment first, appointment will be created after payment success
       await handleMoMoPayment();
@@ -157,7 +177,7 @@ export default function PatientAppointmentsPage() {
 
     try {
       const dataToSubmit = bookingData as BookingFormData;
-      
+
       // Validate required fields
       if (!dataToSubmit.startTime || !dataToSubmit.appointmentDate || !dataToSubmit.doctorId) {
         toast.dismiss(loadingToast);
@@ -181,10 +201,10 @@ export default function PatientAppointmentsPage() {
 
       // Step 1: Create appointment with pending_payment status
       toast.loading("Đang tạo lịch hẹn...", { id: loadingToast });
-      
+
       let endTime = dataToSubmit.endTime;
-      let duration = 30;
-      
+      const duration = 30;
+
       if (!endTime) {
         const [hours, minutes] = dataToSubmit.startTime.split(":").map(Number);
         const totalMinutes = hours * 60 + minutes + duration;
@@ -208,11 +228,11 @@ export default function PatientAppointmentsPage() {
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
-        status: "pending_payment",
+        status: AppointmentStatus.PENDING,
       };
 
       const appointmentResult = await appointmentService.createAppointment(appointmentPayload, accessToken);
-      
+
       if (!appointmentResult.success || !appointmentResult.data) {
         toast.dismiss(loadingToast);
         toast.error(appointmentResult.error || "Không thể tạo lịch hẹn. Vui lòng thử lại.");
@@ -226,59 +246,78 @@ export default function PatientAppointmentsPage() {
 
       const amount = dataToSubmit.paymentAmount || selectedDoctor.consultationFee || 50000;
 
+      // Ensure we have required string IDs before creating payment
+      const appointmentId = appointment._id ?? appointment.id;
+      if (!appointmentId) {
+        toast.dismiss(loadingToast);
+        toast.error("Không tìm thấy appointment id để tạo thanh toán. Vui lòng thử lại.");
+        return;
+      }
+
+      const doctorId =
+        selectedDoctor?._id ??
+        selectedDoctor?.id ??
+        (appointment.doctor?._id as string | undefined) ??
+        (appointment.doctor?.id as string | undefined);
+      if (!doctorId) {
+        toast.dismiss(loadingToast);
+        toast.error("Không tìm thấy bác sĩ liên quan đến lịch hẹn. Vui lòng thử lại.");
+        return;
+      }
+
       const paymentPayload = {
-        appointmentId: appointment._id || appointment.id,
+        appointmentId: appointmentId,
         patientId: userId,
-        doctorId: selectedDoctor._id || selectedDoctor.id,
+        doctorId: doctorId,
         amount: amount,
-        orderInfo: `Thanh toán lịch khám với ${selectedDoctor.fullName}`,
+        orderInfo: `Thanh toán lịch khám với ${selectedDoctor?.fullName || appointment.doctor?.fullName || "bác sĩ"}`,
       };
 
       const paymentResult = await paymentService.createMoMoPayment(paymentPayload, accessToken);
-      
+
       if (!paymentResult.success || !paymentResult.data?.payUrl) {
         toast.dismiss(loadingToast);
         toast.error(paymentResult.message || "Không thể tạo thanh toán MoMo. Vui lòng thử lại.");
-        
+
         // Cancel the appointment since payment creation failed
         try {
-          await appointmentService.cancelAppointment(
-            appointment._id || appointment.id, 
-            "Không thể tạo thanh toán",
-            accessToken
-          );
+          await appointmentService.cancelAppointment(appointmentId, "Không thể tạo thanh toán", accessToken);
         } catch (e) {
           console.error("Failed to cancel appointment:", e);
         }
-        
+
         return;
       }
 
       // Step 3: Redirect to MoMo
-      toast.success("Đang chuyển đến trang thanh toán MoMo...", { 
+      toast.success("Đang chuyển đến trang thanh toán MoMo...", {
         id: loadingToast,
-        duration: 2000 
+        duration: 2000,
       });
-      
-      // Save appointment ID to localStorage for recovery
-      localStorage.setItem('pending_payment_appointment', JSON.stringify({
-        appointmentId: appointment._id || appointment.id,
-        timestamp: Date.now()
-      }));
-      
-      // Redirect after a short delay
-      setTimeout(() => {
-        window.location.href = paymentResult.data.payUrl;
-      }, 1500);
 
-    } catch (error: any) {
+      // Save appointment ID to localStorage for recovery
+      localStorage.setItem(
+        "pending_payment_appointment",
+        JSON.stringify({
+          appointmentId: appointment._id || appointment.id,
+          timestamp: Date.now(),
+        })
+      );
+
+      // Extract payUrl (we validated data presence above) and redirect after a short delay
+      const payUrl = paymentResult.data!.payUrl;
+
+      setTimeout(() => {
+        window.location.href = payUrl;
+      }, 1500);
+    } catch (err: unknown) {
       toast.dismiss(loadingToast);
-      console.error("MoMo payment error:", error);
-      
-      const errorMessage = error.response?.data?.message 
-        || error.message 
-        || "Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.";
-      
+      console.error("MoMo payment error:", err);
+
+      const errorMessage =
+        (err as any)?.response?.data?.message ||
+        (err instanceof Error ? err.message : "Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.");
+
       toast.error(errorMessage);
     }
   };

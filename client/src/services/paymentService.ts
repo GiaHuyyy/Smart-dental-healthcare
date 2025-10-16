@@ -19,6 +19,12 @@ export interface MoMoPaymentResponse {
     deeplink?: string;
     qrCodeUrl?: string;
   };
+  // Some API variants return a `momo` object with alternative fields
+  momo?: {
+    payUrl?: string;
+    deeplink?: string;
+    deeplinkMiniApp?: string;
+  };
   message: string;
 }
 
@@ -43,10 +49,7 @@ const paymentService = {
   /**
    * Tạo thanh toán MoMo cho appointment
    */
-  async createMoMoPayment(
-    request: CreateMoMoPaymentRequest,
-    accessToken?: string
-  ): Promise<MoMoPaymentResponse> {
+  async createMoMoPayment(request: CreateMoMoPaymentRequest, accessToken?: string): Promise<MoMoPaymentResponse> {
     try {
       const response = await sendRequest<MoMoPaymentResponse>({
         url: `${BACKEND_URL}/api/v1/payments/momo/create`,
@@ -70,10 +73,7 @@ const paymentService = {
   /**
    * Query payment status
    */
-  async queryMoMoPayment(
-    orderId: string,
-    accessToken?: string
-  ): Promise<any> {
+  async queryMoMoPayment(orderId: string, accessToken?: string): Promise<any> {
     try {
       const response = await sendRequest({
         url: `${BACKEND_URL}/api/v1/payments/momo/query/${orderId}`,
@@ -173,5 +173,3 @@ const paymentService = {
 };
 
 export default paymentService;
-
-
