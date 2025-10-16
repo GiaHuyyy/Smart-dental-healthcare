@@ -17,7 +17,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     consultType: bookingData?.consultType || ConsultType.ON_SITE,
     bookForSelf: true,
     paymentMethod: "later",
-    paymentAmount: 50000,
+    paymentAmount: 200000,
     ...bookingData,
   });
 

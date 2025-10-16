@@ -1,10 +1,9 @@
 "use client";
 
-import React from "react";
-import Image from "next/image";
-import { CheckCircle, MapPin, Phone, Mail, Calendar, Clock, Download, X } from "lucide-react";
 import { AppointmentConfirmation } from "@/types/appointment";
 import { getDoctorPlaceholder } from "@/utils/placeholder";
+import { Calendar, CheckCircle, Clock, Download, Mail, MapPin, Phone, X } from "lucide-react";
+import Image from "next/image";
 import MoMoPaymentButton from "./MoMoPaymentButton";
 
 interface AppointmentConfirmationProps {
@@ -29,7 +28,7 @@ export default function AppointmentConfirmationComponent({
   variant = "overlay",
   showCloseButton = true,
   enablePayment = false,
-  paymentAmount = 50000,
+  paymentAmount = 200000,
   patientId,
   accessToken,
 }: AppointmentConfirmationProps) {
@@ -285,3 +284,4 @@ export default function AppointmentConfirmationComponent({
 
 // Placeholder import for Building2 icon
 import { Building2 } from "lucide-react";
+

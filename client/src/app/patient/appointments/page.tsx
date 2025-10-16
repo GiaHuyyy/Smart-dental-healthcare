@@ -119,6 +119,9 @@ export default function PatientAppointmentsPage() {
   const handleTimeSlotSelect = (date: string, time: string, consultType: ConsultType, endTime: string) => {
     if (!selectedDoctor) return;
 
+    // Calculate consultation fee based on consult type
+    const consultationFee = calculateConsultationFee(consultType, selectedDoctor.consultationFee);
+
     setBookingData((prev) => ({
       ...prev,
       doctorId: selectedDoctor._id || selectedDoctor.id || "",
@@ -126,6 +129,7 @@ export default function PatientAppointmentsPage() {
       startTime: time,
       endTime: endTime,
       consultType,
+      paymentAmount: consultationFee, // Set payment amount based on consult type
     }));
     // Don't auto-navigate to next step, wait for Continue button
   };
@@ -220,7 +224,7 @@ export default function PatientAppointmentsPage() {
         startTime: dataToSubmit.startTime,
         endTime: endTime,
         duration: duration,
-        consultationFee: selectedDoctor?.consultationFee || 0,
+        consultationFee: dataToSubmit.paymentAmount || calculateConsultationFee(dataToSubmit.consultType, selectedDoctor?.consultationFee),
         appointmentType:
           dataToSubmit.consultType === ConsultType.TELEVISIT
             ? "Tư vấn từ xa"
@@ -244,7 +248,7 @@ export default function PatientAppointmentsPage() {
       // Step 2: Create MoMo payment
       toast.loading("Đang tạo thanh toán MoMo...", { id: loadingToast });
 
-      const amount = dataToSubmit.paymentAmount || selectedDoctor.consultationFee || 50000;
+      const amount = dataToSubmit.paymentAmount || selectedDoctor.consultationFee || 200000;
 
       // Ensure we have required string IDs before creating payment
       const appointmentId = appointment._id ?? appointment.id;
@@ -373,7 +377,7 @@ export default function PatientAppointmentsPage() {
         startTime: dataToSubmit.startTime,
         endTime: endTime,
         duration: duration,
-        consultationFee: selectedDoctor?.consultationFee || 0,
+        consultationFee: dataToSubmit.paymentAmount || calculateConsultationFee(dataToSubmit.consultType, selectedDoctor?.consultationFee),
         appointmentType:
           dataToSubmit.consultType === ConsultType.TELEVISIT
             ? "Tư vấn từ xa"
