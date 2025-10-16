@@ -1,29 +1,31 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Video,
-  Building2,
-  Home,
-  User,
-  FileText,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  MoreVertical,
-  ArrowLeft,
-  X,
-} from "lucide-react";
-import { toast } from "sonner";
+import { useAppointment } from "@/contexts/AppointmentContext";
+import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
-import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
-import { useAppointment } from "@/contexts/AppointmentContext";
+import {
+    AlertCircle,
+    ArrowLeft,
+    Building2,
+    Calendar,
+    CheckCircle,
+    Clock,
+    CreditCard,
+    DollarSign,
+    FileText,
+    Home,
+    MapPin,
+    MoreVertical,
+    User,
+    Video,
+    X,
+    XCircle,
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 function MyAppointmentsContent() {
   const { data: session } = useSession();
@@ -74,6 +76,7 @@ function MyAppointmentsContent() {
         return;
       }
 
+      console.log("🔄 Fetching appointments for user:", userId);
       // Call API to get patient appointments
       const accessToken = (session as { accessToken?: string })?.accessToken;
       const result = await appointmentService.getPatientAppointments(userId, {}, accessToken);
@@ -82,9 +85,19 @@ function MyAppointmentsContent() {
         throw new Error(result.error || "Không thể tải danh sách lịch hẹn");
       }
 
+      console.log("✅ Appointments loaded:", result.data?.length || 0, "records");
+      console.table((result.data || []).map((apt: any) => ({
+        id: apt._id?.slice(-6) || 'N/A',
+        type: apt.appointmentType || 'N/A',
+        date: apt.appointmentDate || 'N/A',
+        status: apt.status || 'N/A',
+        paymentStatus: apt.paymentStatus || 'unpaid',
+        fee: apt.consultationFee || 0
+      })));
+      
       setAppointments(result.data || []);
     } catch (error) {
-      console.error("Error fetching appointments:", error);
+      console.error("❌ Error fetching appointments:", error);
       toast.error("Không thể tải danh sách lịch hẹn");
     } finally {
       setLoading(false);
@@ -390,6 +403,42 @@ function MyAppointmentsContent() {
                           <div className="flex items-start gap-2 text-sm text-gray-600 mb-3">
                             <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                             <span className="line-clamp-2">{appointment.chiefComplaint}</span>
+                          </div>
+                        )}
+
+                        {/* Payment Status */}
+                        {appointment.consultationFee && (
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-2 text-sm">
+                                <DollarSign className="w-4 h-4 text-gray-400" />
+                                <span className="font-medium text-gray-700">
+                                  {new Intl.NumberFormat("vi-VN", {
+                                    style: "currency",
+                                    currency: "VND",
+                                    minimumFractionDigits: 0,
+                                  }).format(appointment.consultationFee)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <CreditCard className="w-4 h-4 text-gray-400" />
+                                <span
+                                  className={`text-xs font-medium px-2 py-1 rounded ${
+                                    appointment.paymentStatus === "paid"
+                                      ? "bg-green-100 text-green-700"
+                                      : appointment.paymentStatus === "refunded"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-yellow-100 text-yellow-700"
+                                  }`}
+                                >
+                                  {appointment.paymentStatus === "paid"
+                                    ? "Đã thanh toán"
+                                    : appointment.paymentStatus === "refunded"
+                                    ? "Đã hoàn tiền"
+                                    : "Chưa thanh toán"}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>

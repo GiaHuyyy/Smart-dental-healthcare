@@ -74,37 +74,48 @@ export default function BookingFlowModal({
     }
     
     try {
-      console.log("Starting MoMo payment...", { confirmation, doctor });
+      console.log("🔄 Starting MoMo payment...", { confirmation, doctor });
       
       const token = (session as any)?.access_token || (session as any)?.accessToken;
       const appointment = confirmation.appointment;
+      
+      // Get consultation fee from doctor or appointment
+      const amount = appointment.consultationFee || doctor.consultationFee || 50000;
       
       const payload = {
         appointmentId: appointment._id || appointment.id || "",
         patientId: (appointment.patientId as any)?._id || (appointment.patientId as any) || "",
         doctorId: doctor._id || (doctor as any).id || "",
+        amount: amount,
+        orderInfo: `Thanh toán lịch khám với ${doctor.fullName}`,
       };
       
-      console.log("MoMo payload:", payload);
+      console.log("💳 MoMo payload:", payload);
       
-      if (!payload.appointmentId || !payload.patientId || !payload.doctorId) {
+      if (!payload.appointmentId || !payload.patientId || !payload.doctorId || !payload.amount) {
         alert("Thiếu thông tin cần thiết để thanh toán");
+        console.error("Missing required fields:", payload);
         return;
       }
       
-      const result = await paymentService.createMomoPayment(payload, token);
-      console.log("MoMo response:", result);
+      const result = await paymentService.createMoMoPayment(payload, token);
+      console.log("✅ MoMo response:", result);
       
-      const payUrl = result?.momo?.payUrl || result?.momo?.deeplink || result?.momo?.deeplinkMiniApp;
+      // Handle both old and new response formats
+      const payUrl = result?.data?.payUrl 
+        || result?.momo?.payUrl 
+        || result?.momo?.deeplink 
+        || result?.momo?.deeplinkMiniApp;
+        
       if (payUrl) {
-        console.log("Redirecting to MoMo:", payUrl);
+        console.log("🚀 Redirecting to MoMo:", payUrl);
         window.location.href = payUrl;
       } else {
-        console.error("No payUrl in MoMo response:", result);
-        alert("Không nhận được đường dẫn thanh toán từ MoMo");
+        console.error("❌ No payUrl in MoMo response:", result);
+        alert(result?.message || "Không nhận được đường dẫn thanh toán từ MoMo");
       }
     } catch (e: any) {
-      console.error("MoMo payment error:", e);
+      console.error("❌ MoMo payment error:", e);
       alert(e?.message || "Tạo thanh toán MoMo thất bại");
     }
   };

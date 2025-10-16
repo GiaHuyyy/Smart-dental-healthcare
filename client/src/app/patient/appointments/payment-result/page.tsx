@@ -14,12 +14,13 @@ export default function PaymentResultPage() {
 
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<"success" | "failed" | "pending">("pending");
-  const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const [paymentInfo, setPaymentInfo] = useState<{
+    payment?: unknown;
+    momoStatus?: unknown;
+  } | null>(null);
 
   // MoMo callback parameters
-  const partnerCode = searchParams.get("partnerCode");
   const orderId = searchParams.get("orderId");
-  const requestId = searchParams.get("requestId");
   const amount = searchParams.get("amount");
   const orderInfo = searchParams.get("orderInfo");
   const resultCode = searchParams.get("resultCode");
@@ -41,6 +42,7 @@ export default function PaymentResultPage() {
   const checkPaymentStatus = async () => {
     try {
       setLoading(true);
+      console.log("🔍 Checking payment status...", { resultCode, orderId });
 
       // Parse extraData to get paymentId
       let paymentId: string | undefined;
@@ -51,8 +53,9 @@ export default function PaymentResultPage() {
           const parsed = JSON.parse(decodeURIComponent(extraData));
           paymentId = parsed.paymentId;
           appointmentId = parsed.appointmentId;
+          console.log("📦 Parsed extraData:", { paymentId, appointmentId });
         } catch (error) {
-          console.error("Failed to parse extraData:", error);
+          console.error("❌ Failed to parse extraData:", error);
         }
       }
 
@@ -65,20 +68,38 @@ export default function PaymentResultPage() {
 
       // resultCode = 0: Success, otherwise: Failed
       const status = resultCode === "0" ? "success" : "failed";
+      console.log(`${status === "success" ? "✅" : "❌"} Payment status:`, status);
       setPaymentStatus(status);
 
-      // Query payment info from backend
+      // 🔥 CRITICAL: Query payment info from backend to get latest status
       if (orderId) {
-        const accessToken = session?.access_token || (session as any)?.accessToken;
+        const sessionAny = session as unknown as { access_token?: string; accessToken?: string };
+        const accessToken = sessionAny?.access_token || sessionAny?.accessToken;
         
+        console.log("🔄 Querying payment status from backend...");
         try {
-          const result = await paymentService.queryMoMoPayment(orderId, accessToken);
+          // Wait a bit for callback to process
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
-          if (result.success) {
+          const result = await paymentService.queryMoMoPayment(orderId, accessToken);
+          console.log("📊 Backend query result:", result);
+          
+          if (result.success && result.data) {
             setPaymentInfo(result.data);
+            
+            // Update status based on backend data
+            const backendPayment = result.data.payment;
+            if (backendPayment) {
+              console.log("💾 Backend payment status:", backendPayment.status);
+              if (backendPayment.status === 'completed') {
+                setPaymentStatus('success');
+              } else if (backendPayment.status === 'failed') {
+                setPaymentStatus('failed');
+              }
+            }
           }
         } catch (error) {
-          console.error("Failed to query payment:", error);
+          console.error("❌ Failed to query payment:", error);
           // Don't fail the whole process if query fails
         }
       }
@@ -97,7 +118,7 @@ export default function PaymentResultPage() {
         });
       }
     } catch (error) {
-      console.error("Check payment status error:", error);
+      console.error("❌ Check payment status error:", error);
       setPaymentStatus("failed");
       toast.error("Không thể kiểm tra trạng thái thanh toán", {
         description: "Vui lòng liên hệ hỗ trợ nếu bạn đã thanh toán thành công.",
