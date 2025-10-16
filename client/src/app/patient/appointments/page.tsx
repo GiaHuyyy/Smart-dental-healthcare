@@ -13,6 +13,7 @@ import {
   Doctor,
   SearchFilters,
 } from "@/types/appointment";
+import { calculateConsultationFee } from "@/utils/consultationFees";
 import { Calendar, List, Map } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
