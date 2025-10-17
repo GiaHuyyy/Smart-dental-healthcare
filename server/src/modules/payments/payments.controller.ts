@@ -33,15 +33,26 @@ export class PaymentsController {
   @Post('momo/create')
   @Public()
   createMomoPayment(
-    @Body() body: {
+    @Body()
+    body: {
       appointmentId: string;
       patientId: string;
       doctorId: string;
       amount: number;
       orderInfo?: string;
-    }
+    },
   ) {
     return this.paymentsService.createMomoPayment(body);
+  }
+
+  /**
+   * Tạo thanh toán MoMo từ payment đã tồn tại (dùng cho trang payments)
+   * POST /api/v1/payments/momo/create-from-payment/:paymentId
+   */
+  @Post('momo/create-from-payment/:paymentId')
+  @Public()
+  createMomoPaymentFromExisting(@Param('paymentId') paymentId: string) {
+    return this.paymentsService.createMomoPaymentFromExisting(paymentId);
   }
 
   /**
