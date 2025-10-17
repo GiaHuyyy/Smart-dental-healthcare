@@ -316,8 +316,12 @@ const appointmentService = {
    */
   async rescheduleAppointment(
     appointmentId: string,
-    newDate: string,
-    newTime: string,
+    updateData: {
+      appointmentDate: string;
+      startTime: string;
+      endTime?: string;
+      duration?: number;
+    },
     token?: string
   ): Promise<AppointmentResponse> {
     try {
@@ -327,10 +331,7 @@ const appointmentService = {
           "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-        body: JSON.stringify({
-          appointmentDate: newDate,
-          appointmentTime: newTime,
-        }),
+        body: JSON.stringify(updateData),
       });
 
       const data = await response.json();
