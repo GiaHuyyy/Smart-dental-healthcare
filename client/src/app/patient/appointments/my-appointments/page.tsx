@@ -5,27 +5,28 @@ import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
 import {
-    AlertCircle,
-    ArrowLeft,
-    Building2,
-    Calendar,
-    CheckCircle,
-    Clock,
-    CreditCard,
-    DollarSign,
-    FileText,
-    Home,
-    MapPin,
-    MoreVertical,
-    User,
-    Video,
-    X,
-    XCircle,
+  AlertCircle,
+  ArrowLeft,
+  Building2,
+  Calendar,
+  CheckCircle,
+  Clock,
+  CreditCard,
+  DollarSign,
+  FileText,
+  Home,
+  MapPin,
+  MoreVertical,
+  User,
+  Video,
+  X,
+  XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import RescheduleModal from "@/components/appointments/RescheduleModal";
 
 function MyAppointmentsContent() {
   const { data: session } = useSession();
@@ -40,6 +41,92 @@ function MyAppointmentsContent() {
   const [cancelReason, setCancelReason] = useState("");
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
+
+  // Helper function to check if appointment can be cancelled (at least 30 minutes before start time)
+  const canCancelAppointment = (appointment: Appointment): boolean => {
+    try {
+      const now = new Date();
+
+      // Normalize appointmentDate - could be Date object or string
+      let appointmentDate: Date;
+      const rawDate = appointment.appointmentDate;
+
+      // Type guard: check if it's a Date object
+      if (typeof rawDate === "object" && rawDate !== null && "getTime" in rawDate) {
+        appointmentDate = rawDate as Date;
+      } else if (typeof rawDate === "string") {
+        // If it's just a date string (YYYY-MM-DD), don't add time to avoid timezone issues
+        if (rawDate.length === 10) {
+          appointmentDate = new Date(rawDate + "T00:00:00");
+        } else {
+          appointmentDate = new Date(rawDate);
+        }
+      } else {
+        console.error("Invalid appointmentDate format:", rawDate);
+        return false;
+      }
+
+      // Parse startTime (HH:MM format)
+      const [hours, minutes] = (appointment.startTime || "00:00").split(":").map(Number);
+
+      // Combine date and time
+      const appointmentDateTime = new Date(appointmentDate);
+      appointmentDateTime.setHours(hours, minutes, 0, 0);
+
+      const timeDifferenceMs = appointmentDateTime.getTime() - now.getTime();
+      const timeDifferenceMinutes = timeDifferenceMs / (1000 * 60);
+
+      // Can cancel only if appointment is at least 30 minutes away
+      return timeDifferenceMinutes >= 30;
+    } catch (error) {
+      console.error("Error checking cancel eligibility:", error);
+      return false;
+    }
+  };
+
+  // Helper function to check if appointment can be rescheduled
+  const canRescheduleAppointment = (appointment: Appointment): boolean => {
+    try {
+      const now = new Date();
+
+      // Normalize appointmentDate - could be Date object or string
+      let appointmentDate: Date;
+      const rawDate = appointment.appointmentDate;
+
+      // Type guard: check if it's a Date object
+      if (typeof rawDate === "object" && rawDate !== null && "getTime" in rawDate) {
+        appointmentDate = rawDate as Date;
+      } else if (typeof rawDate === "string") {
+        // If it's just a date string (YYYY-MM-DD), don't add time to avoid timezone issues
+        if (rawDate.length === 10) {
+          appointmentDate = new Date(rawDate + "T00:00:00");
+        } else {
+          appointmentDate = new Date(rawDate);
+        }
+      } else {
+        console.error("Invalid appointmentDate format:", rawDate);
+        return false;
+      }
+
+      // Parse startTime (HH:MM format)
+      const [hours, minutes] = (appointment.startTime || "00:00").split(":").map(Number);
+
+      // Combine date and time
+      const appointmentDateTime = new Date(appointmentDate);
+      appointmentDateTime.setHours(hours, minutes, 0, 0);
+
+      const timeDifferenceMs = appointmentDateTime.getTime() - now.getTime();
+      const timeDifferenceMinutes = timeDifferenceMs / (1000 * 60);
+
+      // Can reschedule only if appointment is at least 30 minutes away
+      return timeDifferenceMinutes >= 30;
+    } catch (error) {
+      console.error("Error checking reschedule eligibility:", error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     if (!session?.user) return;
@@ -86,15 +173,29 @@ function MyAppointmentsContent() {
       }
 
       console.log("✅ Appointments loaded:", result.data?.length || 0, "records");
-      console.table((result.data || []).map((apt: any) => ({
-        id: apt._id?.slice(-6) || 'N/A',
-        type: apt.appointmentType || 'N/A',
-        date: apt.appointmentDate || 'N/A',
-        status: apt.status || 'N/A',
-        paymentStatus: apt.paymentStatus || 'unpaid',
-        fee: apt.consultationFee || 0
-      })));
-      
+
+      // Log raw appointment data for debugging
+      if (result.data && result.data.length > 0) {
+        console.log("📋 First appointment raw data:", {
+          appointmentDate: result.data[0].appointmentDate,
+          startTime: result.data[0].startTime,
+          dateType: typeof result.data[0].appointmentDate,
+          timeType: typeof result.data[0].startTime,
+        });
+      }
+
+      console.table(
+        (result.data || []).map((apt: Appointment) => ({
+          id: apt._id?.slice(-6) || "N/A",
+          type: apt.appointmentType || "N/A",
+          date: apt.appointmentDate || "N/A",
+          startTime: apt.startTime || "N/A",
+          status: apt.status || "N/A",
+          paymentStatus: apt.paymentStatus || "unpaid",
+          fee: apt.consultationFee || 0,
+        }))
+      );
+
       setAppointments(result.data || []);
     } catch (error) {
       console.error("❌ Error fetching appointments:", error);
@@ -145,6 +246,50 @@ function MyAppointmentsContent() {
   const handleOpenCancelDialog = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setCancelDialogOpen(true);
+  };
+
+  const handleOpenRescheduleDialog = (appointment: Appointment) => {
+    setAppointmentToReschedule(appointment);
+    setRescheduleDialogOpen(true);
+  };
+
+  const handleRescheduleConfirm = async (newDate: string, newTime: string, newEndTime: string) => {
+    if (!appointmentToReschedule) return;
+
+    setActionLoading(true);
+    try {
+      const accessToken = (session as { accessToken?: string })?.accessToken;
+
+      // Calculate duration
+      const [startHour, startMin] = newTime.split(":").map(Number);
+      const [endHour, endMin] = newEndTime.split(":").map(Number);
+      const duration = endHour * 60 + endMin - (startHour * 60 + startMin);
+
+      const result = await appointmentService.rescheduleAppointment(
+        appointmentToReschedule._id!,
+        {
+          appointmentDate: newDate,
+          startTime: newTime,
+          endTime: newEndTime,
+          duration,
+        },
+        accessToken
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || "Không thể đổi lịch hẹn");
+      }
+
+      toast.success("Đã thay đổi lịch hẹn thành công");
+      setRescheduleDialogOpen(false);
+      setAppointmentToReschedule(null);
+      fetchAppointments(); // Refresh list
+    } catch (error) {
+      console.error("Reschedule appointment error:", error);
+      toast.error(error instanceof Error ? error.message : "Không thể đổi lịch hẹn");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const getStatusIcon = (status: AppointmentStatus) => {
@@ -463,22 +608,34 @@ function MyAppointmentsContent() {
                   {/* Action Buttons */}
                   <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
                     {appointment.status === AppointmentStatus.PENDING && (
-                      <button
-                        onClick={() => handleOpenCancelDialog(appointment)}
-                        className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
-                      >
-                        Hủy lịch
-                      </button>
+                      <>
+                        {canCancelAppointment(appointment) && (
+                          <button
+                            onClick={() => handleOpenCancelDialog(appointment)}
+                            className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                          >
+                            Hủy lịch
+                          </button>
+                        )}
+                        {!canCancelAppointment(appointment) && (
+                          <div className="px-4 py-2 text-xs text-gray-500 italic">
+                            Không thể hủy lịch (còn dưới 30 phút)
+                          </div>
+                        )}
+                        {canRescheduleAppointment(appointment) && (
+                          <button
+                            onClick={() => handleOpenRescheduleDialog(appointment)}
+                            className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                          >
+                            Đổi lịch
+                          </button>
+                        )}
+                      </>
                     )}
                     {appointment.status === AppointmentStatus.CONFIRMED && (
-                      <>
-                        <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
-                          Tham gia khám
-                        </button>
-                        <button className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                          Đổi lịch
-                        </button>
-                      </>
+                      <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
+                        Tham gia khám
+                      </button>
                     )}
                     {appointment.status === AppointmentStatus.COMPLETED && (
                       <button className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium">
@@ -788,6 +945,19 @@ function MyAppointmentsContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleDialogOpen && appointmentToReschedule && appointmentToReschedule.doctor && (
+        <RescheduleModal
+          appointment={appointmentToReschedule}
+          doctor={appointmentToReschedule.doctor}
+          onClose={() => {
+            setRescheduleDialogOpen(false);
+            setAppointmentToReschedule(null);
+          }}
+          onConfirm={handleRescheduleConfirm}
+        />
       )}
     </div>
   );

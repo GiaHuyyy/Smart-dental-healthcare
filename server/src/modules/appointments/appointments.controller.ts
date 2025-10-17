@@ -101,13 +101,11 @@ export class AppointmentsController {
   @ResponseMessage('Đổi lịch hẹn thành công')
   reschedule(
     @Param('id') id: string,
-    @Body('appointmentDate') appointmentDate: Date,
-    @Body('appointmentTime') appointmentTime: string,
+    @Body() updateAppointmentDto: UpdateAppointmentDto,
   ) {
-    return this.appointmentsService.reschedule(
+    return this.appointmentsService.rescheduleAppointment(
       id,
-      appointmentDate,
-      appointmentTime,
+      updateAppointmentDto,
     );
   }
 

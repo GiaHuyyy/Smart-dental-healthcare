@@ -90,6 +90,9 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
     const selectedDateObj = new Date(`${selectedDate}T00:00:00`);
     const isToday = formatDate(now) === selectedDate;
 
+    // Minimum booking lead time: 1 hour (60 minutes)
+    const MINIMUM_LEAD_TIME_MINUTES = 60;
+
     const generateSlots = (startHour: number, endHour: number) => {
       const intervalMinutes = duration;
       const slots: TimeSlot[] = [];
@@ -113,12 +116,18 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
           break;
         }
 
-        // Check if time is in the past
+        // Check if time is valid (not in the past + minimum lead time)
         let isPast = false;
         if (isToday) {
           const slotDateTime = new Date(selectedDateObj);
           slotDateTime.setHours(hours, minutes, 0, 0);
-          isPast = slotDateTime <= now;
+
+          // Calculate time difference in minutes
+          const timeDifferenceMs = slotDateTime.getTime() - now.getTime();
+          const timeDifferenceMinutes = timeDifferenceMs / (1000 * 60);
+
+          // Slot is invalid if it's in the past OR less than 1 hour from now
+          isPast = timeDifferenceMinutes < MINIMUM_LEAD_TIME_MINUTES;
         }
 
         // Check if slot is booked
@@ -212,38 +221,36 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
         <label className="block text-sm font-medium text-gray-700 mb-3">Hình thức khám</label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[ConsultType.TELEVISIT, ConsultType.ON_SITE, ConsultType.HOME_VISIT].map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => {
-                  setSelectedConsultType(type as ConsultType);
-                  onConsultTypeChange?.(type as ConsultType);
-                }}
-                className={`flex-1 px-4 py-4 rounded-xl border-2 transition-all ${
-                  selectedConsultType === type
-                    ? "border-primary bg-primary/10 text-primary-700 shadow-md"
-                    : "border-gray-200 text-gray-700 hover:border-gray-300 hover:shadow-sm"
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="font-semibold">
-                    {type === ConsultType.TELEVISIT && "Tư vấn từ xa"}
-                    {type === ConsultType.ON_SITE && "Khám tại phòng khám"}
-                    {type === ConsultType.HOME_VISIT && "Khám tại nhà"}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {type === ConsultType.TELEVISIT && "Video call online"}
-                    {type === ConsultType.ON_SITE && "Đến phòng khám"}
-                    {type === ConsultType.HOME_VISIT && "Bác sĩ đến tận nơi"}
-                  </div>
-                  <div className={`text-sm font-bold ${
-                    selectedConsultType === type ? "text-primary" : "text-gray-900"
-                  }`}>
-                    {formatFee(calculateConsultationFee(type as ConsultType, doctor.consultationFee))}
-                  </div>
+            <button
+              key={type}
+              type="button"
+              onClick={() => {
+                setSelectedConsultType(type as ConsultType);
+                onConsultTypeChange?.(type as ConsultType);
+              }}
+              className={`flex-1 px-4 py-4 rounded-xl border-2 transition-all ${
+                selectedConsultType === type
+                  ? "border-primary bg-primary/10 text-primary-700 shadow-md"
+                  : "border-gray-200 text-gray-700 hover:border-gray-300 hover:shadow-sm"
+              }`}
+            >
+              <div className="space-y-2">
+                <div className="font-semibold">
+                  {type === ConsultType.TELEVISIT && "Tư vấn từ xa"}
+                  {type === ConsultType.ON_SITE && "Khám tại phòng khám"}
+                  {type === ConsultType.HOME_VISIT && "Khám tại nhà"}
                 </div>
-              </button>
-            ))}
+                <div className="text-xs text-gray-500">
+                  {type === ConsultType.TELEVISIT && "Video call online"}
+                  {type === ConsultType.ON_SITE && "Đến phòng khám"}
+                  {type === ConsultType.HOME_VISIT && "Bác sĩ đến tận nơi"}
+                </div>
+                <div className={`text-sm font-bold ${selectedConsultType === type ? "text-primary" : "text-gray-900"}`}>
+                  {formatFee(calculateConsultationFee(type as ConsultType, doctor.consultationFee))}
+                </div>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 
