@@ -23,9 +23,9 @@ export class PaymentsService {
   /**
    * Tạo thanh toán MoMo cho appointment
    */
-  async createMomoPayment(payload: { 
-    appointmentId: string; 
-    patientId: string; 
+  async createMomoPayment(payload: {
+    appointmentId: string;
+    patientId: string;
     doctorId: string;
     amount: number;
     orderInfo?: string;
@@ -37,9 +37,13 @@ export class PaymentsService {
       const orderId = `APT_${appointmentId}_${Date.now()}`;
 
       // Get URLs from config
-      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-      const backendUrl = this.configService.get<string>('BACKEND_URL') || 'http://localhost:8081';
-      
+      const frontendUrl =
+        this.configService.get<string>('FRONTEND_URL') ||
+        'http://localhost:3000';
+      const backendUrl =
+        this.configService.get<string>('BACKEND_URL') ||
+        'http://localhost:8081';
+
       const returnUrl = `${frontendUrl}/patient/appointments/payment-result`;
       const notifyUrl = `${backendUrl}/api/v1/payments/momo/callback`;
 
@@ -64,13 +68,16 @@ export class PaymentsService {
         orderInfo: orderInfo || `Thanh toán lịch khám #${appointmentId}`,
         returnUrl,
         notifyUrl,
-        extraData: JSON.stringify({ 
+        extraData: JSON.stringify({
           paymentId: payment._id.toString(),
-          appointmentId 
+          appointmentId,
         }),
       });
 
-      this.logger.log('MoMo payment created:', { orderId, payUrl: momoResponse.payUrl });
+      this.logger.log('MoMo payment created:', {
+        orderId,
+        payUrl: momoResponse.payUrl,
+      });
 
       return {
         success: true,
@@ -93,15 +100,110 @@ export class PaymentsService {
   }
 
   /**
+   * Tạo thanh toán MoMo từ payment record đã tồn tại (dùng cho trang payments)
+   */
+  async createMomoPaymentFromExisting(paymentId: string) {
+    try {
+      this.logger.log(
+        '🔄 Creating MoMo payment from existing payment:',
+        paymentId,
+      );
+
+      // Get existing payment
+      const payment = await this.paymentModel
+        .findById(paymentId)
+        .populate('refId')
+        .populate('doctorId')
+        .populate('patientId');
+
+      if (!payment) {
+        throw new BadRequestException('Không tìm thấy thanh toán');
+      }
+
+      if (payment.status === 'completed') {
+        throw new BadRequestException('Thanh toán này đã hoàn tất');
+      }
+
+      // Generate new orderId for this payment attempt
+      const orderId = `PAY_${paymentId}_${Date.now()}`;
+
+      // Get URLs from config
+      const frontendUrl =
+        this.configService.get<string>('FRONTEND_URL') ||
+        'http://localhost:3000';
+      const backendUrl =
+        this.configService.get<string>('BACKEND_URL') ||
+        'http://localhost:8081';
+
+      const returnUrl = `${frontendUrl}/patient/appointments/payment-result`;
+      const notifyUrl = `${backendUrl}/api/v1/payments/momo/callback`;
+
+      // Extract appointment info
+      const appointmentId = payment.refId
+        ? typeof payment.refId === 'object'
+          ? (payment.refId as any)._id
+          : payment.refId
+        : null;
+
+      // Update payment with new transactionId
+      payment.transactionId = orderId;
+      payment.paymentMethod = 'momo';
+      payment.status = 'pending'; // Reset to pending for new payment attempt
+      await payment.save();
+
+      // Create MoMo payment request
+      const momoResponse = await this.momoService.createPayment({
+        orderId,
+        amount: payment.amount,
+        orderInfo: payment.notes || `Thanh toán #${paymentId}`,
+        returnUrl,
+        notifyUrl,
+        extraData: JSON.stringify({
+          paymentId: payment._id.toString(),
+          appointmentId: appointmentId?.toString(),
+        }),
+      });
+
+      this.logger.log('✅ MoMo payment URL created for existing payment:', {
+        paymentId,
+        orderId,
+        payUrl: momoResponse.payUrl,
+      });
+
+      return {
+        success: true,
+        data: {
+          paymentId: payment._id,
+          orderId,
+          payUrl: momoResponse.payUrl,
+          deeplink: momoResponse.deeplink,
+          qrCodeUrl: momoResponse.qrCodeUrl,
+        },
+        message: 'Khởi tạo thanh toán MoMo thành công',
+      };
+    } catch (error) {
+      this.logger.error('❌ Create MoMo payment from existing failed:', error);
+      return {
+        success: false,
+        message: error.message || 'Tạo thanh toán MoMo thất bại',
+      };
+    }
+  }
+
+  /**
    * Xử lý callback từ MoMo (IPN)
    */
   async handleMomoCallback(callbackData: MoMoCallbackData) {
     try {
       this.logger.log('🔔 ========== MOMO CALLBACK RECEIVED ==========');
-      this.logger.log('📦 Callback data:', JSON.stringify(callbackData, null, 2));
+      this.logger.log(
+        '📦 Callback data:',
+        JSON.stringify(callbackData, null, 2),
+      );
 
       // Verify signature
-      const isValidSignature = this.momoService.verifyCallbackSignature(callbackData);
+      const isValidSignature =
+        this.momoService.verifyCallbackSignature(callbackData);
       if (!isValidSignature) {
         this.logger.error('Invalid MoMo callback signature');
         return {
@@ -113,7 +215,7 @@ export class PaymentsService {
       // Parse extraData to get paymentId
       let paymentId: string | undefined;
       let appointmentId: string | undefined;
-      
+
       try {
         const extraData = JSON.parse(callbackData.extraData || '{}');
         paymentId = extraData.paymentId;
@@ -121,13 +223,17 @@ export class PaymentsService {
       } catch (error) {
         this.logger.error('Failed to parse extraData:', error);
         // Fallback: find payment by transactionId
-        const payment = await this.paymentModel.findOne({ 
-          transactionId: callbackData.orderId 
+        const payment = await this.paymentModel.findOne({
+          transactionId: callbackData.orderId,
         });
         if (payment) {
           paymentId = payment._id.toString();
           const refId = payment.refId as any;
-          appointmentId = refId?._id?.toString() || (typeof payment.refId === 'string' ? payment.refId : payment.refId?.toString());
+          appointmentId =
+            refId?._id?.toString() ||
+            (typeof payment.refId === 'string'
+              ? payment.refId
+              : payment.refId?.toString());
         }
       }
 
@@ -151,7 +257,7 @@ export class PaymentsService {
           transactionId: transId?.toString() || callbackData.orderId,
           notes: `${message} (resultCode: ${resultCode})`,
         },
-        { new: true }
+        { new: true },
       );
 
       if (!updatedPayment) {
@@ -163,19 +269,20 @@ export class PaymentsService {
       }
 
       this.logger.log('✅ ========== PAYMENT UPDATED ==========');
-      this.logger.log('💾 Payment details:', { 
-        paymentId, 
-        status, 
+      this.logger.log('💾 Payment details:', {
+        paymentId,
+        status,
         resultCode,
         appointmentId,
-        transactionId: transId
+        transactionId: transId,
       });
 
       // Update appointment status if payment successful
       if (status === 'completed' && appointmentId) {
         try {
-          const appointment = await this.appointmentModel.findById(appointmentId);
-          
+          const appointment =
+            await this.appointmentModel.findById(appointmentId);
+
           if (!appointment) {
             this.logger.error('Appointment not found:', appointmentId);
           } else {
@@ -186,21 +293,24 @@ export class PaymentsService {
                 paymentStatus: 'paid',
                 paymentId: updatedPayment._id,
               });
-              
+
               this.logger.log('✅ ========== APPOINTMENT CONFIRMED ==========');
               this.logger.log('📅 Appointment updated:', {
                 appointmentId,
                 previousStatus: appointment.status,
                 newStatus: 'confirmed',
-                paymentStatus: 'paid'
+                paymentStatus: 'paid',
               });
-              
+
               // TODO: Send notification to patient & doctor
             } else {
-              this.logger.warn('Appointment status not eligible for confirmation:', {
-                appointmentId,
-                currentStatus: appointment.status
-              });
+              this.logger.warn(
+                'Appointment status not eligible for confirmation:',
+                {
+                  appointmentId,
+                  currentStatus: appointment.status,
+                },
+              );
             }
           }
         } catch (error) {
@@ -210,19 +320,26 @@ export class PaymentsService {
       } else if (status === 'failed' && appointmentId) {
         // If payment failed, mark appointment as cancelled
         try {
-          const appointment = await this.appointmentModel.findById(appointmentId);
-          
+          const appointment =
+            await this.appointmentModel.findById(appointmentId);
+
           if (appointment && appointment.status === 'pending_payment') {
             await this.appointmentModel.findByIdAndUpdate(appointmentId, {
               status: 'cancelled',
               cancellationReason: 'Thanh toán thất bại hoặc bị hủy',
               paymentStatus: 'unpaid',
             });
-            
-            this.logger.log('Appointment cancelled due to failed payment:', appointmentId);
+
+            this.logger.log(
+              'Appointment cancelled due to failed payment:',
+              appointmentId,
+            );
           }
         } catch (error) {
-          this.logger.error('Failed to cancel appointment after failed payment:', error);
+          this.logger.error(
+            'Failed to cancel appointment after failed payment:',
+            error,
+          );
         }
       }
 
@@ -247,10 +364,12 @@ export class PaymentsService {
     try {
       this.logger.log('🔍 ========== QUERYING PAYMENT STATUS ==========');
       this.logger.log('📝 Order ID:', orderId);
-      
-      const payment = await this.paymentModel.findOne({ 
-        transactionId: orderId 
-      }).populate('refId');
+
+      const payment = await this.paymentModel
+        .findOne({
+          transactionId: orderId,
+        })
+        .populate('refId');
 
       if (!payment) {
         this.logger.error('❌ Payment not found:', orderId);
@@ -261,14 +380,17 @@ export class PaymentsService {
 
       // Query MoMo for latest status
       const requestId = `QUERY_${orderId}_${Date.now()}`;
-      const momoResponse = await this.momoService.queryTransaction(orderId, requestId);
-      
+      const momoResponse = await this.momoService.queryTransaction(
+        orderId,
+        requestId,
+      );
+
       this.logger.log('📊 MoMo response:', momoResponse);
 
       // Update payment if MoMo says it's completed but our DB says pending
       if (momoResponse.resultCode === 0 && payment.status === 'pending') {
         this.logger.log('🔄 Updating payment status to completed...');
-        
+
         payment.status = 'completed';
         payment.paymentDate = new Date();
         if (momoResponse.transId) {
@@ -284,7 +406,7 @@ export class PaymentsService {
             paymentStatus: 'paid',
             paymentId: payment._id,
           });
-          
+
           this.logger.log('✅ Appointment confirmed via query:', appointmentId);
         }
       }
@@ -381,7 +503,8 @@ export class PaymentsService {
         .populate({
           path: 'refId',
           model: 'Appointment',
-          select: 'appointmentType appointmentDate startTime endTime consultationFee status paymentStatus',
+          select:
+            'appointmentType appointmentDate startTime endTime consultationFee status paymentStatus',
           populate: {
             path: 'doctorId',
             select: 'fullName specialty specialization',
@@ -390,7 +513,7 @@ export class PaymentsService {
         .exec();
 
       this.logger.log(`✅ Found ${payments.length} payments`);
-      
+
       // Debug first payment to verify populate
       if (payments.length > 0) {
         this.logger.log('📦 Sample payment:', {
@@ -409,7 +532,9 @@ export class PaymentsService {
       this.logger.error('❌ findByPatient error:', error);
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy danh sách thanh toán của bệnh nhân',
+        message:
+          error.message ||
+          'Có lỗi xảy ra khi lấy danh sách thanh toán của bệnh nhân',
       };
     }
   }
@@ -419,7 +544,7 @@ export class PaymentsService {
       if (!mongoose.isValidObjectId(doctorId)) {
         throw new BadRequestException('ID bác sĩ không hợp lệ');
       }
-      
+
       this.logger.log('📋 Fetching payments for doctor:', doctorId);
 
       const payments = await this.paymentModel
@@ -430,7 +555,8 @@ export class PaymentsService {
         .populate({
           path: 'refId',
           model: 'Appointment',
-          select: 'appointmentType appointmentDate startTime endTime consultationFee status paymentStatus',
+          select:
+            'appointmentType appointmentDate startTime endTime consultationFee status paymentStatus',
           populate: {
             path: 'patientId',
             select: 'fullName email phone',
@@ -449,7 +575,9 @@ export class PaymentsService {
       this.logger.error('❌ findByDoctor error:', error);
       return {
         success: false,
-        message: error.message || 'Có lỗi xảy ra khi lấy danh sách thanh toán của bác sĩ',
+        message:
+          error.message ||
+          'Có lỗi xảy ra khi lấy danh sách thanh toán của bác sĩ',
       };
     }
   }

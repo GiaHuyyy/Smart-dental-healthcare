@@ -227,23 +227,12 @@ export default function PatientPayments() {
   };
 
   const handlePayNow = async (payment: PaymentRecord) => {
-    // Compute appointmentId and doctorId safely (refId/doctorId may be string or object)
-    let appointmentId: string | null = null;
-    if (typeof payment.refId === "object" && payment.refId !== null) {
-      appointmentId = (payment.refId as Appointment)._id;
-    } else if (typeof payment.refId === "string") {
-      appointmentId = payment.refId;
-    }
-
-    let doctorId: string | null = null;
-    if (typeof payment.doctorId === "object" && payment.doctorId !== null) {
-      doctorId = (payment.doctorId as Doctor)._id;
-    } else if (typeof payment.doctorId === "string") {
-      doctorId = payment.doctorId;
-    }
-
-    console.log("💳 ========== PAYMENT INITIATED ==========");
-    console.log("Payment details:", { paymentId: payment._id, amount: payment.amount, appointmentId });
+    console.log("💳 ========== PAYMENT INITIATED FROM PAYMENTS PAGE ==========");
+    console.log("Payment details:", {
+      paymentId: payment._id,
+      amount: payment.amount,
+      status: payment.status,
+    });
 
     if (!session) {
       toast.error("Vui lòng đăng nhập", {
@@ -252,47 +241,23 @@ export default function PatientPayments() {
       return;
     }
 
-    // appointmentId and doctorId already computed above
-    // (reassign from local variables to avoid shadowing)
-    // appointmentId and doctorId variables are already available here
+    const sessionUser = (session as any)?.user;
+    const accessToken = (session as any)?.access_token || (session as any)?.accessToken;
 
-    if (!appointmentId || !doctorId) {
-      toast.error("Thiếu thông tin thanh toán", {
-        description: "Không thể tìm thấy thông tin lịch hẹn hoặc bác sĩ",
+    if (!accessToken) {
+      toast.error("Phiên đăng nhập không hợp lệ", {
+        description: "Vui lòng đăng xuất và đăng nhập lại",
       });
       return;
     }
-
-    const appointmentType =
-      typeof payment.refId === "object" && payment.refId !== null
-        ? (payment.refId as Appointment).appointmentType || "lịch khám"
-        : "lịch khám";
 
     const loadingToast = toast.loading("Đang tạo yêu cầu thanh toán...", {
       description: `Thanh toán ${formatCurrency(payment.amount)} qua MoMo`,
     });
 
     try {
-      const sessionUser = (session as any)?.user;
-      const patientId = sessionUser?._id || sessionUser?.id;
-      const accessToken = (session as any)?.access_token || (session as any)?.accessToken;
-
-      if (!patientId || !accessToken) {
-        toast.error("Phiên đăng nhập không hợp lệ", {
-          description: "Vui lòng đăng xuất và đăng nhập lại",
-        });
-        return;
-      }
-
-      const payload = {
-        appointmentId,
-        patientId,
-        doctorId,
-        amount: payment.amount,
-        orderInfo: `Thanh toán ${appointmentType}`,
-      };
-
-      const response = await paymentService.createMoMoPayment(payload, accessToken);
+      // Sử dụng API mới để tạo MoMo payment từ payment đã tồn tại
+      const response = await paymentService.createMoMoPaymentFromExisting(payment._id, accessToken);
 
       if (response.success && response.data?.payUrl) {
         toast.success("Chuyển đến cổng thanh toán", {

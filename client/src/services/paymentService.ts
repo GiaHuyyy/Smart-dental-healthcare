@@ -71,6 +71,29 @@ const paymentService = {
   },
 
   /**
+   * Tạo thanh toán MoMo từ payment đã tồn tại (dùng cho trang payments)
+   */
+  async createMoMoPaymentFromExisting(paymentId: string, accessToken?: string): Promise<MoMoPaymentResponse> {
+    try {
+      const response = await sendRequest<MoMoPaymentResponse>({
+        url: `${BACKEND_URL}/api/v1/payments/momo/create-from-payment/${paymentId}`,
+        method: "POST",
+        headers: {
+          Authorization: accessToken ? `Bearer ${accessToken}` : undefined,
+        },
+      });
+
+      return response as MoMoPaymentResponse;
+    } catch (error: any) {
+      console.error("Create MoMo payment from existing error:", error);
+      return {
+        success: false,
+        message: error.message || "Không thể tạo thanh toán MoMo",
+      };
+    }
+  },
+
+  /**
    * Query payment status
    */
   async queryMoMoPayment(orderId: string, accessToken?: string): Promise<any> {
