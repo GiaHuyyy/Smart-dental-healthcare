@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays, CheckCircle } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
@@ -47,6 +48,7 @@ function DoctorScheduleContent() {
   const { data: session } = useSession();
   const { isConnected } = useGlobalSocket();
   const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
+  const searchParams = useSearchParams();
 
   const [view, setView] = useState<View>("week");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -134,6 +136,24 @@ function DoctorScheduleContent() {
       console.log("✅ Doctor schedule connected to global socket");
     }
   }, [isConnected]);
+
+  // Handle appointmentId from URL params (from dashboard click)
+  useEffect(() => {
+    const appointmentId = searchParams.get("appointmentId");
+
+    if (appointmentId && appointments.length > 0 && !detailModalOpen) {
+      // Find the appointment by ID
+      const appointment = appointments.find((apt) => apt._id === appointmentId || apt.id === appointmentId);
+
+      if (appointment) {
+        setSelectedAppointment(appointment);
+        setDetailModalOpen(true);
+
+        // Remove the appointmentId from URL to prevent reopening on refresh
+        window.history.replaceState({}, "", "/doctor/schedule");
+      }
+    }
+  }, [searchParams, appointments, detailModalOpen]);
 
   // Filter appointments based on selected tab (for LIST view - shows ALL including cancelled)
   // Filter appointments for LIST view - shows all including cancelled
