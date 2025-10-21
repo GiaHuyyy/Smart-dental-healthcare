@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Users, Calendar, DollarSign, FileText, TrendingUp, Loader2, AlertCircle, Check, Clock } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { DatePicker } from "@/components/ui/date-picker";
 import doctorDashboardService, {
   TodayAppointment,
   DashboardStats,
@@ -23,10 +24,9 @@ export default function DoctorDashboard() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
 
-  // Lấy tháng và năm hiện tại
+  // Thay đổi từ month/year sang date picker
   const currentDate = new Date();
-  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1); // 1-12
+  const [selectedDate, setSelectedDate] = useState<string>(currentDate.toISOString().split("T")[0]);
 
   // Cập nhật thời gian thực mỗi phút
   useEffect(() => {
@@ -78,30 +78,30 @@ export default function DoctorDashboard() {
     }
   }, [session, status]); // <-- SỬA: Bỏ selectedYear, selectedMonth khỏi dependency
 
-  // === SỬA: Load chart data (RIÊNG BIỆT) ===
+  // === SỬA: Load chart data (RIÊNG BIỆT) - Load data cho tháng của ngày được chọn ===
   useEffect(() => {
     const loadChartData = async () => {
-      if (session?.user?._id) {
+      if (session?.user?._id && selectedDate) {
         setChartLoading(true);
-        // Không set error chung, để tránh ảnh hưởng toàn trang
-        // setError(null);
 
         try {
-          const chartResult = await doctorDashboardService.getChartData(
-            session.user._id,
-            selectedYear,
-            selectedMonth === 0 ? undefined : selectedMonth
-          );
+          const date = new Date(selectedDate);
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1; // 1-12
+
+          const chartResult = await doctorDashboardService.getChartData(session.user._id, year, month);
 
           if (chartResult.success && chartResult.data) {
             setChartData(chartResult.data);
             console.log("✅ Chart data set:", chartResult.data.length, chartResult.data);
+
+            // Không tự động set selectedChartDataPoint nữa
+            // User phải click vào chart để xem thông tin
           } else {
-             // Có thể set lỗi riêng cho chart nếu muốn
-             console.error("Chart error:", chartResult.error);
+            console.error("Chart error:", chartResult.error);
           }
         } catch (err) {
-           console.error("Load chart data error:", err);
+          console.error("Load chart data error:", err);
         } finally {
           setChartLoading(false);
         }
@@ -109,10 +109,9 @@ export default function DoctorDashboard() {
     };
 
     if (status === "authenticated") {
-        loadChartData();
+      loadChartData();
     }
-    // <-- SỬA: Phụ thuộc vào month, year, session
-  }, [selectedYear, selectedMonth, session, status]);
+  }, [selectedDate, session, status]);
 
   // Tạo time slots từ 08:00 đến 24:00 (mỗi 30 phút)
   // length: 33 -> 0 đến 32. i=0 là 8:00, i=32 là 24:00
@@ -186,6 +185,26 @@ export default function DoctorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
+              <p className="text-sm text-gray-500 mt-1">Chào mừng trở lại, {session?.user?.username || "Bác sĩ"}</p>
+            </div>
+            <div className="text-sm text-gray-500">
+              {currentTime.toLocaleDateString("vi-VN", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Stats Cards - Horizontal Layout */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -332,36 +351,12 @@ export default function DoctorDashboard() {
                 <h3 className="text-lg font-semibold text-gray-900">Overview</h3>
               </div>
               <div className="flex items-center gap-2">
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                <DatePicker
+                  value={selectedDate}
+                  onChange={(value) => setSelectedDate(value)}
                   className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors cursor-pointer"
-                  style={{ minWidth: "120px" }}
-                >
-                  <option value={0}>Cả năm</option>
-                  <option value={1}>Tháng 1</option>
-                  <option value={2}>Tháng 2</option>
-                  <option value={3}>Tháng 3</option>
-                  <option value={4}>Tháng 4</option>
-                  <option value={5}>Tháng 5</option>
-                  <option value={6}>Tháng 6</option>
-                  <option value={7}>Tháng 7</option>
-                  <option value={8}>Tháng 8</option>
-                  <option value={9}>Tháng 9</option>
-                  <option value={10}>Tháng 10</option>
-                  <option value={11}>Tháng 11</option>
-                  <option value={12}>Tháng 12</option>
-                </select>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors cursor-pointer"
-                  style={{ minWidth: "100px" }}
-                >
-                  <option value={2023}>2023</option>
-                  <option value={2024}>2024</option>
-                  <option value={2025}>2025</option>
-                </select>
+                  placeholder="Chọn ngày"
+                />
               </div>
             </div>
 
@@ -384,10 +379,14 @@ export default function DoctorDashboard() {
             {/* === SỬA: Thêm relative và loading overlay === */}
             <div className="relative h-[280px]">
               {chartLoading && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg" style={{backgroundColor: "rgba(255, 255, 255, 0.7)"}}>
-                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--color-primary)" }} />
-                  </div>
+                <div
+                  className="absolute inset-0 z-10 flex items-center justify-center rounded-lg"
+                  style={{ backgroundColor: "rgba(255, 255, 255, 0.7)" }}
+                >
+                  <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--color-primary)" }} />
+                </div>
               )}
+
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
@@ -402,6 +401,7 @@ export default function DoctorDashboard() {
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
+                        const date = new Date(selectedDate);
                         const monthNames = [
                           "Tháng 1",
                           "Tháng 2",
@@ -417,16 +417,9 @@ export default function DoctorDashboard() {
                           "Tháng 12",
                         ];
 
-                        // Xác định label dựa trên period format
+                        // Label hiển thị ngày trong tháng
                         const period = data.period;
-                        let label = "";
-                        if (period.startsWith("T")) {
-                          // Format tháng: T1, T2, ...
-                          label = `${period} ${selectedYear}`;
-                        } else {
-                          // Format ngày: 1, 2, ...
-                          label = `${period} ${monthNames[selectedMonth - 1]} ${selectedYear}`;
-                        }
+                        const label = `${period} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
 
                         return (
                           <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg">
@@ -441,7 +434,7 @@ export default function DoctorDashboard() {
                                   <span className="text-xs text-gray-600">Hoàn thành</span>
                                 </div>
                                 <span className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
-                                  {payload[0].value}
+                                  {data.hoanthanh}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-4">
@@ -449,14 +442,14 @@ export default function DoctorDashboard() {
                                   <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                                   <span className="text-xs text-gray-600">Hủy</span>
                                 </div>
-                                <span className="text-sm font-semibold text-gray-600">{payload[1].value}</span>
+                                <span className="text-sm font-semibold text-gray-600">{data.huy}</span>
                               </div>
                               <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
                                   <div className="w-2 h-2 rounded-full bg-orange-400"></div>
                                   <span className="text-xs text-gray-600">Chờ xử lý</span>
                                 </div>
-                                <span className="text-sm font-semibold text-orange-600">{payload[2].value}</span>
+                                <span className="text-sm font-semibold text-orange-600">{data.choXuLy}</span>
                               </div>
                             </div>
                           </div>

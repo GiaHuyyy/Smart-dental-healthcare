@@ -18,45 +18,54 @@ import { Card, CardContent, CardHeader, CardTitle, KPICard, StatusIndicator, Pro
 
 export default function PatientDashboard() {
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Enhanced Header Section */}
-        <div className="healthcare-card-elevated p-6">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
+              <p className="text-sm text-gray-500 mt-1">Theo dõi sức khỏe răng miệng của bạn</p>
+            </div>
             <div className="flex items-center gap-4">
+              <button className="btn-healthcare-primary flex items-center gap-2 px-4 py-2">
+                <Calendar className="w-4 h-4" />
+                Đặt lịch hẹn
+              </button>
+              <button className="btn-healthcare-secondary flex items-center gap-2 px-4 py-2">
+                <MessageSquare className="w-4 h-4" />
+                Liên hệ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Quick Status Bar */}
+        <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{
-                  backgroundColor: "var(--color-primary)",
-                }}
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--color-primary)" }}
               >
-                <Heart className="w-8 h-8 text-white" />
+                <Heart className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="healthcare-heading text-3xl">Chào mừng trở lại, Nguyễn Văn A</h1>
-                <p className="healthcare-body mt-1">Theo dõi sức khỏe răng miệng và quản lý các cuộc hẹn của bạn</p>
-                <div className="flex items-center gap-4 mt-3">
-                  <StatusIndicator status="normal">Khỏe mạnh</StatusIndicator>
-                  <StatusIndicator status="attention">2 lời nhắc</StatusIndicator>
-                </div>
+                <div className="font-semibold text-gray-900">Nguyễn Văn A</div>
+                <div className="text-sm text-gray-500">Mã BN: BN001234</div>
               </div>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button className="btn-healthcare-primary flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Đặt lịch hẹn mới
-              </button>
-              <button className="btn-healthcare-secondary flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Liên hệ bác sĩ
-              </button>
+            <div className="flex items-center gap-4">
+              <StatusIndicator status="normal">Khỏe mạnh</StatusIndicator>
+              <StatusIndicator status="attention">2 lời nhắc</StatusIndicator>
             </div>
           </div>
         </div>
 
         {/* Enhanced KPI Dashboard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card variant="healthcare" className="kpi-card group hover:scale-[1.02] transition-transform duration-200">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-3 text-lg">
@@ -142,7 +151,7 @@ export default function PatientDashboard() {
         </div>
 
         {/* Enhanced Main Dashboard */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Activities & Records */}
           <div className="lg:col-span-2 space-y-6">
             {/* Recent Activities */}
@@ -342,7 +351,9 @@ export default function PatientDashboard() {
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm text-gray-600">Vệ sinh răng miệng</span>
-                      <span className="text-sm font-medium" style={{ color: "var(--color-primary)" }}>↗ +5%</span>
+                      <span className="text-sm font-medium" style={{ color: "var(--color-primary)" }}>
+                        ↗ +5%
+                      </span>
                     </div>
                     <ProgressBar value={85} variant="success" />
                   </div>
