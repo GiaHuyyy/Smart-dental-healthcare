@@ -1,8 +1,27 @@
 "use client";
 
 import { BookingFormData, ConsultType } from "@/types/appointment";
-import { AlertCircle, Building2, Calendar, Clock, CreditCard, Home, Mail, Phone, User, Video, Wallet } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  Calendar,
+  Clock,
+  CreditCard,
+  Home,
+  Mail,
+  Phone,
+  User,
+  Video,
+  Wallet,
+  Brain,
+  Sparkles,
+  RotateCcw,
+  Image as ImageIcon,
+} from "lucide-react";
 import React, { useState } from "react";
+import { useAppSelector } from "@/store/hooks";
+import Image from "next/image";
+import { toast } from "sonner";
 
 interface BookingFormProps {
   bookingData: Partial<BookingFormData>;
@@ -10,6 +29,9 @@ interface BookingFormProps {
 }
 
 export default function BookingForm({ bookingData, onSubmit }: BookingFormProps) {
+  // Get AI chat data from Redux
+  const appointmentDataFromAI = useAppSelector((state) => state.appointment.appointmentData);
+
   const [formData, setFormData] = useState<BookingFormData>({
     doctorId: bookingData?.doctorId || "",
     appointmentDate: bookingData?.appointmentDate || "",
@@ -28,6 +50,17 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  // Function to restore AI data to form
+  const handleRestoreAIData = () => {
+    if (appointmentDataFromAI?.symptoms) {
+      handleInputChange("chiefComplaint", appointmentDataFromAI.symptoms);
+      if (appointmentDataFromAI.notes) {
+        handleInputChange("notes", appointmentDataFromAI.notes);
+      }
+      toast.success("✅ Đã khôi phục thông tin từ AI!");
     }
   };
 
@@ -81,6 +114,90 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
 
   const formSections = (
     <>
+      {/* AI Data Summary - Show if coming from AI chat */}
+      {appointmentDataFromAI && appointmentDataFromAI.symptoms && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-600">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900">Thông tin từ tư vấn AI</h3>
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRestoreAIData}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Lấy lại thông tin
+                </button>
+              </div>
+
+              {appointmentDataFromAI.symptoms && (
+                <div className="mb-3">
+                  <p className="text-sm font-medium text-gray-700 mb-1">Triệu chứng:</p>
+                  <p className="text-sm text-gray-900 bg-white rounded-lg p-3 border border-blue-100">
+                    {appointmentDataFromAI.symptoms}
+                  </p>
+                </div>
+              )}
+
+              {appointmentDataFromAI.urgency && appointmentDataFromAI.urgency !== "low" && (
+                <div className="mb-3">
+                  <p className="text-sm font-medium text-gray-700 mb-1">Mức độ khẩn cấp:</p>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                      appointmentDataFromAI.urgency === "high"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {appointmentDataFromAI.urgency === "high" ? "⚠️ Cao" : "⚡ Trung bình"}
+                  </span>
+                </div>
+              )}
+
+              {/* Display uploaded images */}
+              {(appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl) && (
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ImageIcon className="w-4 h-4 text-gray-700" />
+                    <p className="text-sm font-medium text-gray-700">Hình ảnh X-quang:</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <div className="relative w-full max-w-md mx-auto">
+                      <Image
+                        src={appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl || ""}
+                        alt="X-ray đã tải lên"
+                        width={500}
+                        height={500}
+                        className="w-full h-auto rounded-lg shadow-md object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {appointmentDataFromAI.hasImageAnalysis && (
+                <div className="flex items-center gap-2 text-sm text-blue-700 font-medium">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Đã phân tích hình ảnh X-quang</span>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 mt-3 italic">
+                💡 Thông tin này được tổng hợp từ cuộc trò chuyện với AI tư vấn
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Consult Type Selection */}
       <div className="healthcare-card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Hình thức khám</h3>
@@ -411,7 +528,11 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                   {formData.paymentMethod === "momo" && (
                     <div className="w-6 h-6 bg-pink-600 rounded-full flex items-center justify-center">
                       <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                   )}
@@ -443,7 +564,11 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                   {formData.paymentMethod === "cash" && (
                     <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
                       <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                   )}
@@ -475,7 +600,11 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                   {formData.paymentMethod === "later" && (
                     <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center">
                       <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                   )}

@@ -19,10 +19,15 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useAppSelector } from "@/store/hooks";
 
 export default function PatientAppointmentsPage() {
   const { data: session } = useSession();
   const router = useRouter();
+
+  // Get AI chat data from Redux
+  const aiDoctor = useAppSelector((state) => state.appointment.selectedDoctor);
+  const appointmentData = useAppSelector((state) => state.appointment.appointmentData);
 
   // State
   const [viewMode, setViewMode] = useState<"list" | "map">("map");
@@ -63,6 +68,54 @@ export default function PatientAppointmentsPage() {
     fetchDoctors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // Auto-open modal when coming from AI chat
+  useEffect(() => {
+    if (typeof window === "undefined" || !session?.user) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const fromAI = params.get("fromAI");
+
+    console.log("🔍 AI Chat Auto-open Check:", {
+      fromAI,
+      hasAiDoctor: !!aiDoctor,
+      hasAppointmentData: !!appointmentData,
+      doctorsCount: doctors.length,
+      loading,
+    });
+
+    // Wait until doctors are loaded before trying to match
+    if (fromAI === "true" && aiDoctor && appointmentData && doctors.length > 0 && !loading) {
+      console.log("🎯 Searching for doctor:", aiDoctor.fullName, "ID:", aiDoctor._id);
+
+      // Find the matching doctor from the doctors list by ID or name
+      const matchingDoctor = doctors.find(
+        (doc) => doc._id === aiDoctor._id || doc.fullName.toLowerCase() === aiDoctor.fullName.toLowerCase()
+      );
+
+      console.log("✅ Doctor found:", matchingDoctor?.fullName);
+
+      if (matchingDoctor) {
+        setSelectedDoctor(matchingDoctor);
+        setBookingData({
+          doctorId: matchingDoctor._id,
+          consultType: ConsultType.ON_SITE,
+          // Pre-fill chief complaint with AI symptoms
+          chiefComplaint: appointmentData.symptoms || "",
+        });
+        setBookingStep("time-slot");
+        setIsBookingModalOpen(true);
+
+        // Clean up URL after successful modal open
+        window.history.replaceState(null, "", "/patient/appointments");
+      } else {
+        // If doctor not found in list after loading, show error
+        toast.error(`Không tìm thấy bác sĩ ${aiDoctor.fullName}`);
+        // Still clean up URL
+        window.history.replaceState(null, "", "/patient/appointments");
+      }
+    }
+  }, [session, aiDoctor, appointmentData, doctors, loading]);
 
   const fetchDoctors = async () => {
     setLoading(true);
@@ -225,7 +278,9 @@ export default function PatientAppointmentsPage() {
         startTime: dataToSubmit.startTime,
         endTime: endTime,
         duration: duration,
-        consultationFee: dataToSubmit.paymentAmount || calculateConsultationFee(dataToSubmit.consultType, selectedDoctor?.consultationFee),
+        consultationFee:
+          dataToSubmit.paymentAmount ||
+          calculateConsultationFee(dataToSubmit.consultType, selectedDoctor?.consultationFee),
         appointmentType:
           dataToSubmit.consultType === ConsultType.TELEVISIT
             ? "Tư vấn từ xa"
@@ -378,7 +433,9 @@ export default function PatientAppointmentsPage() {
         startTime: dataToSubmit.startTime,
         endTime: endTime,
         duration: duration,
-        consultationFee: dataToSubmit.paymentAmount || calculateConsultationFee(dataToSubmit.consultType, selectedDoctor?.consultationFee),
+        consultationFee:
+          dataToSubmit.paymentAmount ||
+          calculateConsultationFee(dataToSubmit.consultType, selectedDoctor?.consultationFee),
         appointmentType:
           dataToSubmit.consultType === ConsultType.TELEVISIT
             ? "Tư vấn từ xa"

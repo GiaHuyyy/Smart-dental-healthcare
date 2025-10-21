@@ -1035,6 +1035,10 @@ export default function ChatInterface({
     }
 
     // Store data in Redux
+    // Find Cloudinary URL from messages if available (prioritize over blob URL)
+    const imageMessage = messages.find((msg) => msg.imageUrl && !msg.imageUrl.startsWith("blob:"));
+    const cloudinaryUrl = imageMessage?.imageUrl || uploadedImage;
+
     const appointmentData = {
       doctorId: doctor?._id || "",
       doctorName: doctor?.fullName || "",
@@ -1044,14 +1048,19 @@ export default function ChatInterface({
       notes: comprehensiveNotes,
       hasImageAnalysis: !!analysisResult,
       // Thêm thông tin hình ảnh và phân tích
-      uploadedImage: uploadedImage || undefined,
+      uploadedImage: cloudinaryUrl || undefined,
       analysisResult: analysisResult || null,
-      imageUrl: uploadedImage || undefined,
+      imageUrl: cloudinaryUrl || undefined,
     };
 
     dispatch(setAppointmentData(appointmentData));
     dispatch(setSymptoms(symptoms || ""));
     dispatch(setNotes(comprehensiveNotes));
+
+    // Store selected doctor in Redux
+    if (doctor) {
+      dispatch(setSelectedDoctor(doctor));
+    }
 
     // Add chat messages to history
     const userMessages = messages.filter((msg) => msg.role === "user");
@@ -1059,8 +1068,8 @@ export default function ChatInterface({
       dispatch(addChatMessage(msg.content));
     });
 
-    // Navigate to appointments page
-    router.push("/patient/appointments");
+    // Navigate to appointments page with flag to auto-open modal
+    router.push("/patient/appointments?fromAI=true");
   };
 
   // Action handlers
