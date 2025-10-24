@@ -65,3 +65,7 @@ async function updateDoctorFees() {
 
 updateDoctorFees();
 
+
+
+
+

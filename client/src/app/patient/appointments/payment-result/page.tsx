@@ -48,8 +48,67 @@ export default function PaymentResultPage() {
     }
 
     checkPaymentStatus();
+    
+    // 🔥 CRITICAL: Poll payment status every 3 seconds for up to 30 seconds
+    // This ensures we catch the payment update even if callback is slow
+    let pollCount = 0;
+    const maxPolls = 10; // 10 times * 3 seconds = 30 seconds
+    
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      console.log(`🔄 Polling payment status... (${pollCount}/${maxPolls})`);
+      
+      if (pollCount >= maxPolls) {
+        clearInterval(pollInterval);
+        console.log('⏹️ Stopped polling after 30 seconds');
+        return;
+      }
+      
+      // Query payment status
+      if (orderId) {
+        try {
+          const sessionAny = session as unknown as { access_token?: string; accessToken?: string };
+          const accessToken = sessionAny?.access_token || sessionAny?.accessToken;
+          
+          const result = await paymentService.queryMoMoPayment(orderId, accessToken);
+          
+          if (result.success && result.data?.payment) {
+            const backendPayment = result.data.payment as any;
+            console.log(`📊 Poll ${pollCount}: Payment status =`, backendPayment.status);
+            
+            // If payment is completed or failed, stop polling
+            if (backendPayment.status === 'completed') {
+              setPaymentStatus('success');
+              setPaymentInfo(result.data);
+              clearInterval(pollInterval);
+              
+              toast.success("Thanh toán đã được xác nhận!", {
+                description: "Hệ thống đã ghi nhận thanh toán của bạn.",
+                duration: 3000,
+              });
+              
+              console.log('✅ Payment completed, stopped polling');
+            } else if (backendPayment.status === 'failed') {
+              setPaymentStatus('failed');
+              setPaymentInfo(result.data);
+              clearInterval(pollInterval);
+              console.log('❌ Payment failed, stopped polling');
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Poll ${pollCount} error:`, error);
+        }
+      }
+    }, 3000); // Poll every 3 seconds
+    
+    // Cleanup
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resultCode, orderId]);
+  }, [resultCode, orderId, session]);
 
   const checkPaymentStatus = async () => {
     try {
@@ -83,14 +142,53 @@ export default function PaymentResultPage() {
       console.log(`${status === "success" ? "✅" : "❌"} Payment status:`, status);
       setPaymentStatus(status);
 
-      // 🔥 CRITICAL: Query payment info from backend to get latest status
+      // 🔥 CRITICAL: Manually trigger callback processing if resultCode = 0
+      if (status === "success" && orderId) {
+        const sessionAny = session as unknown as { access_token?: string; accessToken?: string };
+        const accessToken = sessionAny?.access_token || sessionAny?.accessToken;
+        
+        console.log("🔔 Manually triggering payment processing...");
+        
+        try {
+          // DEVELOPMENT: Simulate callback since localhost can't receive MoMo callback
+          const simulateUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081'}/api/v1/payments/simulate-callback/${orderId}`;
+          
+          console.log("📞 Calling simulate-callback:", simulateUrl);
+          
+          const simulateResponse = await fetch(simulateUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ resultCode: 0 }),
+          });
+          
+          const simulateResult = await simulateResponse.json();
+          console.log("💰 Simulate callback result:", simulateResult);
+          
+          if (simulateResult.success) {
+            console.log("✅ Payment callback processed successfully");
+            toast.success("Thanh toán đã được xử lý", {
+              description: "Hệ thống đang cập nhật thông tin...",
+              duration: 2000,
+            });
+          } else {
+            console.warn("⚠️ Callback simulation unsuccessful:", simulateResult.message);
+          }
+        } catch (error) {
+          console.error("❌ Failed to simulate callback:", error);
+          // Don't fail the whole process
+        }
+      }
+
+      // 🔥 Query payment info from backend to get latest status
       if (orderId) {
         const sessionAny = session as unknown as { access_token?: string; accessToken?: string };
         const accessToken = sessionAny?.access_token || sessionAny?.accessToken;
 
         console.log("🔄 Querying payment status from backend...");
         try {
-          // Wait a bit for callback to process
+          // Wait a bit for processing
           await new Promise((resolve) => setTimeout(resolve, 2000));
 
           const result = await paymentService.queryMoMoPayment(orderId, accessToken);
@@ -100,7 +198,7 @@ export default function PaymentResultPage() {
             setPaymentInfo(result.data);
 
             // Update status based on backend data
-            const backendPayment = result.data.payment;
+            const backendPayment = result.data.payment as any;
             if (backendPayment) {
               console.log("💾 Backend payment status:", backendPayment.status);
               if (backendPayment.status === "completed") {
@@ -119,7 +217,7 @@ export default function PaymentResultPage() {
       // Show toast with better messages
       if (status === "success") {
         toast.success("Thanh toán thành công!", {
-          description: "Lịch hẹn của bạn đã được xác nhận. Vui lòng kiểm tra email hoặc thông báo.",
+          description: "Lịch hẹn của bạn đã được xác nhận. Doanh thu đã được ghi nhận.",
           duration: 5000,
         });
       } else {

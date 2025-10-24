@@ -149,7 +149,7 @@ export default function DoctorDashboard() {
         router.push("/doctor/schedule");
         break;
       case "income":
-        router.push("/doctor/finances");
+        router.push("/doctor/revenue");
         break;
       case "medical-records":
         router.push("/doctor/medical-records");
