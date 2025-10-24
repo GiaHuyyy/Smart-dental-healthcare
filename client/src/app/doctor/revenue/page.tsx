@@ -7,32 +7,36 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { useRevenueSocket } from "@/hooks/useRevenueSocket";
 import revenueService, { RevenueRecord } from "@/services/revenueService";
 import {
-  ArrowUpIcon,
-  CalendarIcon,
-  CreditCardIcon,
-  DollarSignIcon,
-  DownloadIcon,
-  FilterIcon,
-  Loader2Icon,
-  ReceiptIcon,
-  TrendingUpIcon,
-  WalletIcon
+    ArrowUpIcon,
+    CalendarIcon,
+    CreditCardIcon,
+    DollarSignIcon,
+    DownloadIcon,
+    FilterIcon,
+    Loader2Icon,
+    ReceiptIcon,
+    TrendingUpIcon,
+    WalletIcon,
+    WifiIcon,
+    WifiOffIcon,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
@@ -145,13 +149,18 @@ const translations = {
 
 export default function RevenuePage() {
   const { data: session } = useSession();
-  const [language, setLanguage] = useState<"vi" | "en">("vi");
+  const language = "vi"; // Fixed to Vietnamese
   const t = translations[language];
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [revenueData, setRevenueData] = useState<any>(null);
   const [selectedRevenue, setSelectedRevenue] = useState<RevenueRecord | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [revenueAnimation, setRevenueAnimation] = useState(false);
+
+  // WebSocket connection
+  const { socket, isConnected, onNewRevenue, onRevenueUpdated, onSummaryUpdated } = useRevenueSocket();
 
   // Filters
   const [period, setPeriod] = useState("month");
@@ -159,6 +168,44 @@ export default function RevenuePage() {
   const [typeFilter, setTypeFilter] = useState("all");
 
   const doctorId = session?.user?._id;
+
+  // WebSocket event handlers
+  useEffect(() => {
+    if (!isConnected) return;
+
+    console.log("🔔 Setting up revenue socket listeners...");
+
+    // Listen for new revenue
+    onNewRevenue((data) => {
+      console.log("💰 New revenue received via socket:", data);
+      
+      // Trigger animation
+      setRevenueAnimation(true);
+      setTimeout(() => setRevenueAnimation(false), 2000);
+
+      // Show notification
+      toast({
+        title: "💰 Doanh thu mới!",
+        description: `Nhận được ${formatCurrency(data.revenue?.netAmount || 0)} từ thanh toán`,
+        duration: 5000,
+      });
+
+      // Refresh data to get updated statistics
+      fetchRevenueData();
+    });
+
+    // Listen for revenue updates
+    onRevenueUpdated((data) => {
+      console.log("🔄 Revenue updated via socket:", data);
+      fetchRevenueData();
+    });
+
+    // Listen for summary updates
+    onSummaryUpdated((data) => {
+      console.log("📊 Summary updated via socket:", data);
+      fetchRevenueData();
+    });
+  }, [isConnected]);
 
   useEffect(() => {
     if (doctorId) {
@@ -277,57 +324,78 @@ export default function RevenuePage() {
   const netRevenue = summary.totalRevenue || 0; // Tổng thực nhận (đã trừ phí)
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <ReceiptIcon className="w-8 h-8 text-blue-500" />
-              {t.title}
-            </h1>
-            {/* Language Toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLanguage(language === "vi" ? "en" : "vi")}
-              className="ml-2"
-            >
-              {language === "vi" ? "🇬🇧 EN" : "🇻🇳 VI"}
-            </Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="p-6 max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
+                  <ReceiptIcon className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    {t.title}
+                  </h1>
+                  <p className="text-slate-600 mt-1">{t.description}</p>
+                </div>
+                {/* WebSocket Status Indicator */}
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-sm transition-all ${
+                  isConnected 
+                    ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' 
+                    : 'bg-gradient-to-r from-red-400 to-rose-500 text-white'
+                }`}>
+                  {isConnected ? (
+                    <>
+                      <WifiIcon className="w-4 h-4 animate-pulse" />
+                      <span>Realtime</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOffIcon className="w-4 h-4" />
+                      <span>Offline</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="gap-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-all">
+                <DownloadIcon className="w-4 h-4" />
+                {t.exportReport}
+              </Button>
+              <Button className="gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/30">
+                <WalletIcon className="w-4 h-4" />
+                {t.requestWithdraw}
+              </Button>
+            </div>
           </div>
-          <p className="text-muted-foreground mt-1">{t.description}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <DownloadIcon className="w-4 h-4" />
-            {t.exportReport}
-          </Button>
-          <Button className="gap-2">
-            <WalletIcon className="w-4 h-4" />
-            {t.requestWithdraw}
-          </Button>
-        </div>
-      </div>
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FilterIcon className="w-5 h-5" />
+      <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-lg">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="flex items-center gap-2 text-slate-700">
+            <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg">
+              <FilterIcon className="w-4 h-4 text-white" />
+            </div>
             {t.filters}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Period Filter */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">{t.period}</label>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-blue-500" />
+                {t.period}
+              </label>
               <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="all">{t.all}</SelectItem>
                   <SelectItem value="today">{t.today}</SelectItem>
                   <SelectItem value="week">{t.week}</SelectItem>
@@ -338,13 +406,13 @@ export default function RevenuePage() {
             </div>
 
             {/* Status Filter */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">{t.status}</label>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">{t.status}</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="all">{t.all}</SelectItem>
                   <SelectItem value="completed">{t.statusCompleted}</SelectItem>
                   <SelectItem value="pending">{t.statusPending}</SelectItem>
@@ -355,13 +423,13 @@ export default function RevenuePage() {
             </div>
 
             {/* Type Filter */}
-            <div>
-              <label className="text-sm font-medium mb-2 block">{t.revenueType}</label>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">{t.revenueType}</label>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="all">{t.all}</SelectItem>
                   <SelectItem value="appointment">{t.typeAppointment}</SelectItem>
                   <SelectItem value="treatment">{t.typeTreatment}</SelectItem>
@@ -375,67 +443,91 @@ export default function RevenuePage() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Revenue */}
-        <Card className="border-l-4 border-l-blue-500">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{/*Total Revenue */}
+        <Card className={`relative overflow-hidden transition-all duration-500 border-0 shadow-lg hover:shadow-xl ${
+          revenueAnimation ? 'scale-105 shadow-2xl ring-2 ring-blue-400' : ''
+        }`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 rounded-bl-full opacity-10"></div>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSignIcon className="w-4 h-4 text-blue-500" />
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <div className="bg-gradient-to-br from-blue-400 to-blue-600 p-2 rounded-lg shadow-md">
+                <DollarSignIcon className="w-4 h-4 text-white" />
+              </div>
               {t.totalRevenue}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalAmount)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              ⚡ {summary.totalAppointments} {t.transactions}
+            <div className={`text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent transition-all ${
+              revenueAnimation ? 'scale-110' : ''
+            }`}>
+              {formatCurrency(totalAmount)}
+            </div>
+            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+              {summary.totalAppointments} {t.transactions}
             </p>
           </CardContent>
         </Card>
 
         {/* Platform Fee */}
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400 to-red-500 rounded-bl-full opacity-10"></div>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <CreditCardIcon className="w-4 h-4 text-orange-500" />
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <div className="bg-gradient-to-br from-orange-400 to-red-500 p-2 rounded-lg shadow-md">
+                <CreditCardIcon className="w-4 h-4 text-white" />
+              </div>
               {t.platformFee}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
+            <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
               -{formatCurrency(platformFee)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{t.feeRate}</p>
+            <p className="text-xs text-slate-500 mt-2">{t.feeRate}</p>
           </CardContent>
         </Card>
 
         {/* Net Revenue */}
-        <Card className="border-l-4 border-l-green-500">
+        <Card className={`relative overflow-hidden transition-all duration-500 border-0 shadow-lg hover:shadow-xl ${
+          revenueAnimation ? 'scale-105 shadow-2xl ring-2 ring-emerald-400' : ''
+        }`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-400 to-green-600 rounded-bl-full opacity-10"></div>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <WalletIcon className="w-4 h-4 text-green-500" />
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <div className="bg-gradient-to-br from-emerald-400 to-green-600 p-2 rounded-lg shadow-md">
+                <WalletIcon className="w-4 h-4 text-white" />
+              </div>
               {t.netRevenue}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(netRevenue)}</div>
-            <p className="text-xs text-muted-foreground mt-1">{t.afterFees}</p>
+            <div className={`text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent transition-all ${
+              revenueAnimation ? 'scale-110' : ''
+            }`}>
+              {formatCurrency(netRevenue)}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">{t.afterFees}</p>
           </CardContent>
         </Card>
 
         {/* Growth */}
-        <Card className="border-l-4 border-l-purple-500">
+        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400 to-pink-500 rounded-bl-full opacity-10"></div>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUpIcon className="w-4 h-4 text-purple-500" />
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <div className="bg-gradient-to-br from-purple-400 to-pink-500 p-2 rounded-lg shadow-md">
+                <TrendingUpIcon className="w-4 h-4 text-white" />
+              </div>
               {t.growth}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold flex items-center gap-2">
+            <div className="text-3xl font-bold flex items-center gap-2 text-purple-600">
               +0.0%
-              <ArrowUpIcon className="w-5 h-5 text-green-500" />
+              <ArrowUpIcon className="w-6 h-6 text-emerald-500" />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{t.comparedToLastMonth}</p>
+            <p className="text-xs text-slate-500 mt-2">{t.comparedToLastMonth}</p>
           </CardContent>
         </Card>
       </div>
@@ -443,17 +535,23 @@ export default function RevenuePage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
-        <RevenueChart data={revenueData?.monthlyRevenue || []} />
+        <div className="transform transition-all hover:scale-[1.02]">
+          <RevenueChart data={revenueData?.monthlyRevenue || []} />
+        </div>
 
         {/* Revenue by Type */}
-        <RevenueByTypeChart revenues={revenueData?.results || []} />
+        <div className="transform transition-all hover:scale-[1.02]">
+          <RevenueByTypeChart revenues={revenueData?.results || []} />
+        </div>
       </div>
 
       {/* Recent Transactions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5" />
+      <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-lg">
+        <CardHeader className="border-b border-slate-100">
+          <CardTitle className="flex items-center gap-2 text-slate-700">
+            <div className="bg-gradient-to-br from-cyan-500 to-blue-500 p-2 rounded-lg">
+              <CalendarIcon className="w-4 h-4 text-white" />
+            </div>
             {t.recentTransactions}
           </CardTitle>
           <CardDescription>{t.latestPayments}</CardDescription>
@@ -539,6 +637,7 @@ export default function RevenuePage() {
         onClose={() => setIsDetailDialogOpen(false)}
         onUpdate={handleUpdateRevenue}
       />
+      </div>
     </div>
   );
 }
