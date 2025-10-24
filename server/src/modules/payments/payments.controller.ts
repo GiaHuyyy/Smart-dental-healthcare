@@ -1,19 +1,19 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  HttpCode,
-  HttpStatus,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Param,
+    Patch,
+    Post,
+    Query,
 } from '@nestjs/common';
-import { PaymentsService } from './payments.service';
+import { Public } from 'src/decorator/customize';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
-import { Public } from 'src/decorator/customize';
+import { PaymentsService } from './payments.service';
 import { MoMoCallbackData } from './services/momo.service';
 
 @Controller('payments')
@@ -66,6 +66,41 @@ export class PaymentsController {
     const result = await this.paymentsService.handleMomoCallback(callbackData);
     // MoMo expects 204 No Content for successful callback
     return result;
+  }
+
+  /**
+   * Test endpoint để tạo revenue thủ công (chỉ để debug)
+   * POST /api/v1/payments/test-revenue/:paymentId
+   */
+  @Post('test-revenue/:paymentId')
+  @HttpCode(HttpStatus.OK)
+  async testCreateRevenue(@Param('paymentId') paymentId: string) {
+    return await this.paymentsService.testCreateRevenue(paymentId);
+  }
+
+  /**
+   * Endpoint để kiểm tra và tạo revenue cho payment đã completed
+   * POST /api/v1/payments/ensure-revenue/:paymentId
+   */
+  @Post('ensure-revenue/:paymentId')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  async ensureRevenue(@Param('paymentId') paymentId: string) {
+    return await this.paymentsService.ensureRevenueForPayment(paymentId);
+  }
+
+  /**
+   * DEVELOPMENT ONLY: Simulate callback để test locally
+   * POST /api/v1/payments/simulate-callback/:orderId
+   */
+  @Post('simulate-callback/:orderId')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  async simulateCallback(
+    @Param('orderId') orderId: string,
+    @Body() body?: { resultCode?: number }
+  ) {
+    return await this.paymentsService.simulateMoMoCallback(orderId, body?.resultCode || 0);
   }
 
   /**

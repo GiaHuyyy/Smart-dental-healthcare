@@ -1,9 +1,11 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
 import mongoose, { Model } from 'mongoose';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
+import { NotificationGateway } from '../notifications/notification.gateway';
+import { RevenueService } from '../revenue/revenue.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Payment } from './schemas/payment.schemas';
@@ -18,6 +20,9 @@ export class PaymentsService {
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
     private readonly momoService: MoMoService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => RevenueService))
+    private readonly revenueService: RevenueService,
+    private readonly notificationGateway: NotificationGateway,
   ) {}
 
   /**
@@ -277,6 +282,93 @@ export class PaymentsService {
         transactionId: transId,
       });
 
+      // Tự động tạo revenue khi payment completed
+      if (status === 'completed') {
+        this.logger.log('💰 ========== STARTING REVENUE CREATION ==========');
+        this.logger.log('🔍 Payment details for revenue creation:', {
+          paymentId,
+          doctorId: updatedPayment.doctorId,
+          patientId: updatedPayment.patientId,
+          amount: updatedPayment.amount,
+          status: updatedPayment.status,
+          type: updatedPayment.type,
+        });
+        
+        try {
+          // CRITICAL: Đảm bảo revenue được tạo trước khi tiếp tục
+          const revenueResult = await this.revenueService.createRevenueFromPayment(paymentId);
+          
+          this.logger.log('💰 Revenue creation result:', {
+            success: revenueResult.success,
+            message: revenueResult.message,
+            revenueId: revenueResult.data?._id,
+          });
+
+          if (!revenueResult.success) {
+            this.logger.error('❌ CRITICAL: Revenue creation failed but payment is completed!');
+            this.logger.error('❌ This will cause data inconsistency!');
+            this.logger.error('❌ Error:', revenueResult.message);
+            
+            // TODO: Implement retry mechanism or queue for failed revenue creation
+            // For now, just log the error but don't fail the callback
+          }
+
+          // Gửi thông báo cho bác sĩ về doanh thu mới (chỉ khi revenue được tạo thành công)
+          if (revenueResult.success && revenueResult.data) {
+            this.logger.log('📤 Sending notification to doctor...');
+            
+            const doctorId = updatedPayment.doctorId.toString();
+            const revenue = revenueResult.data;
+
+            // Lấy thông tin patient để hiển thị trong thông báo
+            const populatedPayment = await this.paymentModel
+              .findById(paymentId)
+              .populate('patientId', 'fullName')
+              .populate('refId')
+              .exec();
+
+            const patientName = (populatedPayment?.patientId as any)?.fullName || 'Bệnh nhân';
+            const formattedAmount = new Intl.NumberFormat('vi-VN', {
+              style: 'currency',
+              currency: 'VND',
+            }).format(revenue.amount);
+
+            // Gửi thông báo realtime cho bác sĩ
+            await this.notificationGateway.sendNotificationToUser(
+              doctorId,
+              {
+                title: '💰 Doanh thu mới',
+                message: `Bạn đã nhận được ${formattedAmount} từ thanh toán của ${patientName}`,
+                type: 'revenue',
+                data: {
+                  revenueId: revenue._id,
+                  paymentId: paymentId,
+                  appointmentId: appointmentId,
+                  amount: revenue.amount,
+                  netAmount: revenue.netAmount,
+                  platformFee: revenue.platformFee,
+                },
+                linkTo: `/doctor/revenue`,
+                icon: 'wallet',
+              },
+              true, // emit socket event
+            );
+
+            this.logger.log('✅ Notification sent to doctor:', doctorId);
+            this.logger.log('✅ ========== REVENUE CREATION COMPLETED ==========');
+          }
+        } catch (error) {
+          this.logger.error('❌ ========== REVENUE CREATION FAILED ==========');
+          this.logger.error('❌ Error message:', error.message);
+          this.logger.error('❌ Error stack:', error.stack);
+          this.logger.error('❌ Payment ID:', paymentId);
+          this.logger.error('❌ Doctor ID:', updatedPayment.doctorId);
+          
+          // IMPORTANT: Don't fail the MoMo callback even if revenue creation fails
+          // The payment status is already updated, we can retry revenue creation later
+        }
+      }
+
       // Update appointment status if payment successful
       if (status === 'completed' && appointmentId) {
         try {
@@ -365,18 +457,74 @@ export class PaymentsService {
       this.logger.log('🔍 ========== QUERYING PAYMENT STATUS ==========');
       this.logger.log('📝 Order ID:', orderId);
 
-      const payment = await this.paymentModel
+      // Try to find payment by transactionId
+      let payment = await this.paymentModel
         .findOne({
           transactionId: orderId,
         })
         .populate('refId');
 
+      // If not found, try to extract appointmentId from orderId (format: APT_{appointmentId}_{timestamp})
+      if (!payment && orderId.startsWith('APT_')) {
+        this.logger.log('🔍 Trying to find by appointment ID from orderId...');
+        const parts = orderId.split('_');
+        if (parts.length >= 2) {
+          const appointmentId = parts[1]; // APT_68fa749e..._1761244318717 -> 68fa749e...
+          this.logger.log('🔍 Searching for appointment:', appointmentId);
+          
+          // Find payment by appointment reference
+          payment = await this.paymentModel
+            .findOne({
+              refId: appointmentId,
+              refModel: 'Appointment',
+            })
+            .populate('refId')
+            .sort({ createdAt: -1 }); // Get latest payment for this appointment
+          
+          if (payment) {
+            this.logger.log('✅ Found payment by appointment ID:', payment._id);
+          }
+        }
+      }
+
+      // If still not found, try searching by similar transactionId pattern
       if (!payment) {
-        this.logger.error('❌ Payment not found:', orderId);
+        this.logger.log('🔍 Trying to find by transaction ID pattern...');
+        
+        // Try to find payment with transactionId starting with PAY_ for the same reference
+        if (orderId.startsWith('APT_')) {
+          const parts = orderId.split('_');
+          if (parts.length >= 2) {
+            const appointmentId = parts[1];
+            
+            payment = await this.paymentModel
+              .findOne({
+                refId: appointmentId,
+                refModel: 'Appointment',
+                paymentMethod: 'momo',
+              })
+              .populate('refId')
+              .sort({ createdAt: -1 });
+            
+            if (payment) {
+              this.logger.log('✅ Found payment by appointment reference:', payment._id);
+            }
+          }
+        }
+      }
+
+      if (!payment) {
+        this.logger.error('❌ Payment not found for orderId:', orderId);
+        this.logger.error('   Tried: transactionId match, appointmentId extraction, pattern matching');
         throw new BadRequestException('Không tìm thấy thanh toán');
       }
 
-      this.logger.log('💾 Current payment status:', payment.status);
+      this.logger.log('💾 Found payment:', {
+        paymentId: payment._id,
+        transactionId: payment.transactionId,
+        status: payment.status,
+        amount: payment.amount,
+      });
 
       // Query MoMo for latest status
       const requestId = `QUERY_${orderId}_${Date.now()}`;
@@ -397,6 +545,68 @@ export class PaymentsService {
           payment.transactionId = momoResponse.transId.toString();
         }
         await payment.save();
+
+        this.logger.log('✅ Payment status updated to completed');
+
+        // 🔥 CRITICAL: Create revenue for the completed payment
+        this.logger.log('💰 Creating revenue for completed payment...');
+        try {
+          const revenueResult = await this.revenueService.createRevenueFromPayment(
+            payment._id.toString()
+          );
+          
+          this.logger.log('💰 Revenue creation result:', {
+            success: revenueResult.success,
+            message: revenueResult.message,
+            revenueId: revenueResult.data?._id,
+          });
+
+          if (!revenueResult.success) {
+            this.logger.error('❌ CRITICAL: Revenue creation failed!');
+            this.logger.error('❌ Error:', revenueResult.message);
+          }
+
+          // Send notification to doctor about new revenue
+          if (revenueResult.success && revenueResult.data) {
+            const doctorId = payment.doctorId.toString();
+            const revenue = revenueResult.data;
+
+            const populatedPayment = await this.paymentModel
+              .findById(payment._id)
+              .populate('patientId', 'fullName')
+              .exec();
+
+            const patientName = (populatedPayment?.patientId as any)?.fullName || 'Bệnh nhân';
+            const formattedAmount = new Intl.NumberFormat('vi-VN', {
+              style: 'currency',
+              currency: 'VND',
+            }).format(revenue.amount);
+
+            await this.notificationGateway.sendNotificationToUser(
+              doctorId,
+              {
+                title: '💰 Doanh thu mới',
+                message: `Bạn đã nhận được ${formattedAmount} từ thanh toán của ${patientName}`,
+                type: 'revenue',
+                data: {
+                  revenueId: revenue._id,
+                  paymentId: payment._id,
+                  amount: revenue.amount,
+                  netAmount: revenue.netAmount,
+                  platformFee: revenue.platformFee,
+                },
+                linkTo: `/doctor/revenue`,
+                icon: 'wallet',
+              },
+              true,
+            );
+
+            this.logger.log('✅ Notification sent to doctor:', doctorId);
+          }
+        } catch (error) {
+          this.logger.error('❌ Failed to create revenue in queryMomoPayment:', error);
+          // Don't fail the query if revenue creation fails
+        }
 
         // Also update appointment
         const appointmentId = (payment.refId as any)?._id || payment.refId;
@@ -634,6 +844,162 @@ export class PaymentsService {
       return {
         success: false,
         message: error.message || 'Có lỗi xảy ra khi cập nhật thanh toán',
+      };
+    }
+  }
+
+  /**
+   * Test method để tạo revenue thủ công (chỉ để debug)
+   */
+  async testCreateRevenue(paymentId: string) {
+    try {
+      this.logger.log('🧪 Testing revenue creation for payment:', paymentId);
+      
+      // Check if payment exists
+      const payment = await this.paymentModel.findById(paymentId).exec();
+      if (!payment) {
+        return {
+          success: false,
+          message: 'Payment not found',
+        };
+      }
+      
+      this.logger.log('📋 Payment details:', {
+        _id: payment._id,
+        status: payment.status,
+        amount: payment.amount,
+        doctorId: payment.doctorId,
+        patientId: payment.patientId,
+        type: payment.type
+      });
+      
+      // Try to create revenue
+      const result = await this.revenueService.createRevenueFromPayment(paymentId);
+      this.logger.log('💰 Revenue creation result:', result);
+      
+      return result;
+    } catch (error) {
+      this.logger.error('❌ Test revenue creation failed:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to create revenue',
+        error: error.stack
+      };
+    }
+  }
+
+  /**
+   * Đảm bảo revenue được tạo cho payment đã completed
+   */
+  async ensureRevenueForPayment(paymentId: string) {
+    try {
+      this.logger.log('🔍 Ensuring revenue for payment:', paymentId);
+      
+      // Check if payment exists and is completed
+      const payment = await this.paymentModel.findById(paymentId).exec();
+      if (!payment) {
+        return {
+          success: false,
+          message: 'Payment not found',
+        };
+      }
+      
+      if (payment.status !== 'completed') {
+        return {
+          success: false,
+          message: `Payment status is ${payment.status}, not completed`,
+        };
+      }
+      
+      // Check if revenue already exists
+      const existingRevenue = await this.revenueService.getRevenueByPaymentId(paymentId);
+      if (existingRevenue) {
+        return {
+          success: true,
+          message: 'Revenue already exists',
+          data: existingRevenue,
+        };
+      }
+      
+      // Create revenue
+      const result = await this.revenueService.createRevenueFromPayment(paymentId);
+      this.logger.log('✅ Revenue ensured for payment:', paymentId);
+      
+      return result;
+    } catch (error) {
+      this.logger.error('❌ Ensure revenue failed:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to ensure revenue',
+        error: error.stack
+      };
+    }
+  }
+
+  /**
+   * DEVELOPMENT ONLY: Simulate MoMo callback for testing locally
+   */
+  async simulateMoMoCallback(orderId: string, resultCode: number = 0) {
+    try {
+      this.logger.log('🧪 ========== SIMULATING MOMO CALLBACK ==========');
+      this.logger.log('📦 Order ID:', orderId);
+      this.logger.log('📊 Result Code:', resultCode);
+
+      // Find payment by transactionId (orderId)
+      const payment = await this.paymentModel.findOne({ transactionId: orderId }).exec();
+      
+      if (!payment) {
+        this.logger.error('❌ Payment not found for orderId:', orderId);
+        return {
+          success: false,
+          message: 'Payment not found',
+        };
+      }
+
+      this.logger.log('💳 Payment found:', {
+        paymentId: payment._id,
+        status: payment.status,
+        amount: payment.amount,
+      });
+
+      // Simulate callback data
+      const callbackData: MoMoCallbackData = {
+        partnerCode: this.configService.get<string>('MOMO_PARTNER_CODE') || 'MOMO',
+        orderId: orderId,
+        requestId: `SIM_REQ_${Date.now()}`,
+        amount: payment.amount,
+        orderInfo: payment.notes || 'Simulated payment',
+        orderType: 'momo_wallet',
+        transId: Date.now(),
+        resultCode: resultCode,
+        message: resultCode === 0 ? 'Successful.' : 'Failed.',
+        payType: 'qr',
+        responseTime: Date.now(),
+        extraData: JSON.stringify({
+          paymentId: payment._id.toString(),
+          appointmentId: payment.refId?.toString(),
+        }),
+        signature: 'simulated_signature',
+      };
+
+      this.logger.log('📤 Calling handleMomoCallback with simulated data...');
+      
+      // Call the actual callback handler
+      const result = await this.handleMomoCallback(callbackData);
+      
+      this.logger.log('✅ Simulation completed:', result);
+      
+      return {
+        success: true,
+        message: 'Callback simulated successfully',
+        data: result,
+      };
+    } catch (error) {
+      this.logger.error('❌ Simulate callback failed:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to simulate callback',
+        error: error.stack,
       };
     }
   }
