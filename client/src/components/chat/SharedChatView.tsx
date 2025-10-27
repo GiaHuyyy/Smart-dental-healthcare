@@ -1,13 +1,13 @@
 // File: src/components/chat/SharedChatView.tsx
 "use client";
 
-import { User, Menu, Stethoscope, Drone } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
-import ChatInterface from "@/components/chat/ChatInterface";
 import ChatHeader from "@/components/chat/ChatHeader";
-import { useSession } from "next-auth/react";
+import ChatInterface from "@/components/chat/ChatInterface";
 import realtimeChatService from "@/services/realtimeChatService";
 import { extractUserData } from "@/utils/sessionHelpers";
+import { Drone, Menu, Stethoscope, User } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 // Avoid useSearchParams in components that may be prerendered - read window.location in effect instead
 import { DoctorSuggestion } from "@/types/chat";
 
@@ -52,6 +52,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
   const [socketInitialized, setSocketInitialized] = useState(false);
 
   const previousSelectedChatRef = useRef<string | null>(null);
+  const newlyCreatedConvsRef = useRef<Set<string>>(new Set());
   const userData = extractUserData(session);
 
   const addOrUpdateConversation = useCallback(
@@ -219,6 +220,12 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
     (conversationId: string, forceReload = false) => {
       if (!socketInitialized) return;
 
+      // Skip loading for newly created conversations (already have empty messages)
+      if (newlyCreatedConvsRef.current.has(conversationId) && !forceReload) {
+        console.log('Skipping loadMessages for newly created conversation:', conversationId);
+        return;
+      }
+
       // ✅ THAY ĐỔI LOGIC KIỂM TRA Ở ĐÂY
       const isCurrentlyLoading = loadingMessages[conversationId];
       const hasLoadedBefore = conversationMessages.hasOwnProperty(conversationId);
@@ -229,13 +236,18 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
       }
       setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
       realtimeChatService.loadMessages(conversationId, 100);
+      
+      // Set timeout to stop loading if no response (for new conversations with no messages)
+      setTimeout(() => {
+        setLoadingMessages((prev) => ({ ...prev, [conversationId]: false }));
+      }, 2000);
     },
     [conversationMessages, socketInitialized, loadingMessages]
   );
 
   useEffect(() => {
-    // Only for patients and when in browser
-    if (userRole !== "patient" || !session?.user || typeof window === "undefined") return;
+    // For both patients and doctors when in browser
+    if (!session?.user || typeof window === "undefined" || !socketInitialized || conversationsLoading) return;
 
     try {
       const params = new URLSearchParams(window.location.search);
@@ -244,10 +256,11 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
         if (newConvDataRaw) {
           try {
             const conversationData = JSON.parse(newConvDataRaw);
+            console.log('Processing newConversation:', conversationData);
             const userData = extractUserData(session);
 
             // If conversationData already contains a conversation id or full conversation object,
-            // open it immediately. Otherwise, fall back to creating via socket using doctorId.
+            // open it immediately. Otherwise, fall back to creating via socket using peerId.
             const tryExtractId = (obj: unknown): string | null => {
               if (!obj) return null;
               if (typeof obj === "string") return obj;
@@ -263,23 +276,60 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
             const existingConvId = tryExtractId(conversationData) || tryExtractId(convObj?.conversation as unknown);
 
             if (existingConvId) {
+              console.log('Found existing conversation ID:', existingConvId);
               setSelectedChat(existingConvId);
               localStorage.removeItem("newConversation");
-              window.history.replaceState(null, "", "/patient/chat");
-            } else if (conversationData && (conversationData as unknown as Record<string, unknown>).doctorId) {
+              window.history.replaceState(null, "", userRole === "doctor" ? "/doctor/chat" : "/patient/chat");
+            } else if (conversationData && ((conversationData as unknown as Record<string, unknown>).doctorId || (conversationData as unknown as Record<string, unknown>).patientId)) {
+              // Check if conversation already exists in conversations list
+              const peerId = userRole === "doctor" 
+                ? (conversationData as unknown as Record<string, unknown>).patientId 
+                : (conversationData as unknown as Record<string, unknown>).doctorId;
+              
+              const existingConv = conversations.find((conv) => conv.peerId === String(peerId));
+              
+              if (existingConv) {
+                console.log('Found existing conversation in list:', existingConv.id);
+                setSelectedChat(existingConv.id);
+                localStorage.removeItem("newConversation");
+                window.history.replaceState(null, "", userRole === "doctor" ? "/doctor/chat" : "/patient/chat");
+                return;
+              }
+
+              // Create new conversation via socket
               const createConvViaSocket = async () => {
                 try {
-                  const resp = await realtimeChatService.createConversation(
-                    userData!.userId,
-                    conversationData.doctorId
-                  );
+                  // createConversation expects (patientId, doctorId)
+                  // For doctor: current userId is doctorId, peerId is patientId → createConversation(patientId, doctorId)
+                  // For patient: current userId is patientId, peerId is doctorId → createConversation(patientId, doctorId)
+                  const patientId = userRole === "doctor" ? String(peerId) : userData!.userId;
+                  const doctorId = userRole === "doctor" ? userData!.userId : String(peerId);
+                  
+                  console.log('Creating new conversation - patientId:', patientId, 'doctorId:', doctorId);
+                  const resp = await realtimeChatService.createConversation(patientId, doctorId);
+                  console.log('Create conversation response:', resp);
 
-                  // Normalize response to id
+                  // Normalize response to id and add name if needed
                   let convId: string | null = null;
+                  let respWithName: any = resp;
+                  
                   if (!resp) {
                     console.warn("createConversation returned empty response", resp);
                   } else if (typeof resp === "string") {
                     convId = resp;
+                    // For new conversation without full data, add name from conversationData
+                    const peerName = userRole === "doctor" 
+                      ? (conversationData as unknown as Record<string, unknown>).patientName
+                      : (conversationData as unknown as Record<string, unknown>).doctorName;
+                    respWithName = {
+                      id: resp,
+                      [userRole === "doctor" ? "patientId" : "doctorId"]: peerId,
+                      [userRole === "doctor" ? "patientName" : "doctorName"]: peerName,
+                      lastMessage: "",
+                      timestamp: new Date().toISOString(),
+                      unread: false,
+                      unreadCount: 0
+                    };
                   } else if (typeof resp === "object") {
                     const r = resp as Record<string, unknown>;
                     if (r.id) convId = String(r.id);
@@ -288,40 +338,69 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                       const inner = r.conversation as Record<string, unknown>;
                       if (inner.id) convId = String(inner.id);
                     }
+                    
+                    // Add name if missing
+                    if (resp) {
+                      const peerName = userRole === "doctor" 
+                        ? (conversationData as unknown as Record<string, unknown>).patientName
+                        : (conversationData as unknown as Record<string, unknown>).doctorName;
+                      if (peerName) {
+                        respWithName = { ...resp, [userRole === "doctor" ? "patientName" : "doctorName"]: peerName };
+                      }
+                    }
                   }
 
-                  if (convId) {
+                  console.log('Response with name:', respWithName);
+
+                  // Initialize empty messages for new conversation
+                  const finalConvId = convId || (typeof resp === "object" && resp && (resp as Record<string, unknown>)?.id ? String((resp as Record<string, unknown>).id) : null);
+                  
+                  if (finalConvId && typeof resp === "string") {
+                    console.log('Initializing new conversation with ID:', finalConvId);
+                    // Mark as newly created to skip auto-load messages
+                    newlyCreatedConvsRef.current.add(finalConvId);
+                    // Initialize messages array for new conversation
+                    setConversationMessages((prev) => ({ ...prev, [finalConvId]: [] }));
+                    setLoadingMessages((prev) => ({ ...prev, [finalConvId]: false }));
+                    addOrUpdateConversation(respWithName);
+                    setSelectedChat(finalConvId);
+                  } else if (convId) {
+                    newlyCreatedConvsRef.current.add(convId);
+                    addOrUpdateConversation(respWithName);
                     setSelectedChat(convId);
                   } else {
-                    addOrUpdateConversation(resp);
                     const tryId =
                       (resp && (resp as unknown as Record<string, unknown>)?.id) ||
                       (resp && (resp as unknown as Record<string, unknown>)?.databaseId);
-                    if (tryId) setSelectedChat(String(tryId));
+                    if (tryId) {
+                      newlyCreatedConvsRef.current.add(String(tryId));
+                      addOrUpdateConversation(respWithName);
+                      setSelectedChat(String(tryId));
+                    }
                   }
                 } catch (socketError) {
                   console.error("Lỗi socket khi tạo cuộc hội thoại:", socketError);
                 } finally {
                   localStorage.removeItem("newConversation");
-                  window.history.replaceState(null, "", "/patient/chat");
+                  window.history.replaceState(null, "", userRole === "doctor" ? "/doctor/chat" : "/patient/chat");
                 }
               };
 
               createConvViaSocket();
             } else {
-              console.warn("newConversation payload did not contain doctorId or conv id:", conversationData);
+              console.warn("newConversation payload did not contain doctorId/patientId or conv id:", conversationData);
               localStorage.removeItem("newConversation");
-              window.history.replaceState(null, "", "/patient/chat");
+              window.history.replaceState(null, "", userRole === "doctor" ? "/doctor/chat" : "/patient/chat");
             }
-          } catch {
-            // ignore JSON parse or processing errors
+          } catch (error) {
+            console.error("Error parsing newConversation:", error);
           }
         }
       }
-    } catch {
-      // ignore URL parse errors
+    } catch (error) {
+      console.error("Error parsing URL params:", error);
     }
-  }, [session, userRole, addOrUpdateConversation]);
+  }, [session, userRole, socketInitialized, conversationsLoading, conversations, addOrUpdateConversation]);
 
   useEffect(() => {
     if (selectedChat && selectedChat !== "ai" && socketInitialized) {
