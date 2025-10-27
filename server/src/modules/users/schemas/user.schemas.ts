@@ -76,6 +76,9 @@ export class User {
 
   @Prop({ default: true })
   agreeTerms: boolean;
+
+  @Prop({ default: 0 })
+  walletBalance: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
