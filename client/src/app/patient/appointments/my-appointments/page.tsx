@@ -23,7 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import RescheduleModal from "@/components/appointments/RescheduleModal";
@@ -31,7 +31,6 @@ import RescheduleModal from "@/components/appointments/RescheduleModal";
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { isConnected } = useGlobalSocket();
   const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -48,20 +47,27 @@ function MyAppointmentsContent() {
 
   // Auto-open detail modal from URL parameter (from dashboard click)
   useEffect(() => {
-    const filterParam = searchParams.get("filter");
-    if (filterParam === "follow-up") {
-      setFilter("follow-up" as AppointmentStatus);
-    }
-
-    // If there's a specific appointment to view
-    const appointmentId = searchParams.get("appointmentId");
-    if (appointmentId && appointments.length > 0) {
-      const apt = appointments.find((a) => a._id === appointmentId);
-      if (apt) {
-        handleViewDetail(apt);
+    try {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      const filterParam = params.get("filter");
+      if (filterParam === "follow-up") {
+        setFilter("follow-up" as AppointmentStatus);
       }
+
+      // If there's a specific appointment to view
+      const appointmentId = params.get("appointmentId");
+      if (appointmentId && appointments.length > 0) {
+        const apt = appointments.find((a) => a._id === appointmentId);
+        if (apt) {
+          handleViewDetail(apt);
+        }
+      }
+    } catch (_err) {
+      // ignore malformed URL or other errors
     }
-  }, [searchParams, appointments]);
+    // run when appointments update (so we can open detail when data is loaded)
+  }, [appointments]);
 
   // Helper function to check if appointment can be cancelled (at least 30 minutes before start time)
   const canCancelAppointment = (appointment: Appointment): boolean => {
