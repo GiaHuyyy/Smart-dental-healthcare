@@ -1386,7 +1386,7 @@ export default function DoctorPatients() {
                             <button
                               onClick={() => {
                                 closeModal();
-                                router.push(`/doctor/treatment?patientId=${selectedPatient._id}`);
+                                router.push(`/doctor/schedule?patientId=${selectedPatient._id}`);
                               }}
                               className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 flex items-center gap-2"
                             >
@@ -1487,7 +1487,7 @@ export default function DoctorPatients() {
                                 <button 
                                   onClick={() => {
                                     closeModal();
-                                    router.push(`/doctor/treatment?patientId=${selectedPatient._id}`);
+                                    router.push(`/doctor/schedule?patientId=${selectedPatient._id}`);
                                   }}
                                   className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 font-medium text-sm"
                                 >

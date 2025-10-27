@@ -1,9 +1,9 @@
 "use client";
 
+import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
 import PrescriptionList from "../../../../components/PrescriptionList";
 
 interface Patient {
@@ -528,7 +528,7 @@ export default function PatientDetail() {
             Tạo đơn thuốc
           </button>
           <button
-            onClick={() => router.push(`/doctor/treatment?patientId=${patientId}`)}
+            onClick={() => router.push(`/doctor/schedule?patientId=${patientId}`)}
             className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
           >
             Tạo hồ sơ
@@ -728,7 +728,7 @@ export default function PatientDetail() {
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-gray-900">Hồ sơ bệnh án</h3>
               <button
-                onClick={() => router.push(`/doctor/treatment?patientId=${patientId}`)}
+                onClick={() => router.push(`/doctor/schedule?patientId=${patientId}`)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
               >
                 + Tạo hồ sơ mới
