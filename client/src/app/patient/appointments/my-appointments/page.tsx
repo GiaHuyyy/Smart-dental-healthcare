@@ -23,7 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import RescheduleModal from "@/components/appointments/RescheduleModal";
@@ -31,12 +31,11 @@ import RescheduleModal from "@/components/appointments/RescheduleModal";
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { isConnected } = useGlobalSocket();
   const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "follow-up" | AppointmentStatus>("all");
+  const [filter, setFilter] = useState<"all" | AppointmentStatus>("all");
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -44,24 +43,6 @@ function MyAppointmentsContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
-  const [dateFilter, setDateFilter] = useState<Date | null>(null);
-
-  // Auto-open detail modal from URL parameter (from dashboard click)
-  useEffect(() => {
-    const filterParam = searchParams.get("filter");
-    if (filterParam === "follow-up") {
-      setFilter("follow-up" as AppointmentStatus);
-    }
-
-    // If there's a specific appointment to view
-    const appointmentId = searchParams.get("appointmentId");
-    if (appointmentId && appointments.length > 0) {
-      const apt = appointments.find((a) => a._id === appointmentId);
-      if (apt) {
-        handleViewDetail(apt);
-      }
-    }
-  }, [searchParams, appointments]);
 
   // Helper function to check if appointment can be cancelled (at least 30 minutes before start time)
   const canCancelAppointment = (appointment: Appointment): boolean => {
@@ -407,25 +388,7 @@ function MyAppointmentsContent() {
     }
   };
 
-  // Filter appointments by status and date
-  const filteredAppointments = appointments.filter((apt) => {
-    // Filter by status
-    const statusMatch = filter === "all" || apt.status === filter;
-
-    // Filter by date if dateFilter is set
-    if (dateFilter && statusMatch) {
-      const aptDate = new Date(apt.appointmentDate);
-      const filterDate = new Date(dateFilter);
-      // Compare only date parts (ignore time)
-      return (
-        aptDate.getFullYear() === filterDate.getFullYear() &&
-        aptDate.getMonth() === filterDate.getMonth() &&
-        aptDate.getDate() === filterDate.getDate()
-      );
-    }
-
-    return statusMatch;
-  });
+  const filteredAppointments = filter === "all" ? appointments : appointments.filter((apt) => apt.status === filter);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -457,87 +420,48 @@ function MyAppointmentsContent() {
           </div>
         </div>
 
-        {/* Filter Tabs and Calendar */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex flex-col gap-4">
-            {/* Calendar Filter */}
-            <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-gray-600" />
-              <input
-                type="date"
-                value={dateFilter ? dateFilter.toISOString().split("T")[0] : ""}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setDateFilter(new Date(e.target.value));
-                  } else {
-                    setDateFilter(null);
-                  }
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-              {dateFilter && (
-                <button
-                  onClick={() => setDateFilter(null)}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Xóa lọc
-                </button>
-              )}
-            </div>
-
-            {/* Status Tabs */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilter("all")}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === "all" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Tất cả
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.PENDING)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.PENDING ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Chờ xác nhận
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.CONFIRMED)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.CONFIRMED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Đã xác nhận
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.COMPLETED)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.COMPLETED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Hoàn thành
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.CANCELLED)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.CANCELLED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Đã hủy
-              </button>
-              <button
-                onClick={() => setFilter("follow-up" as AppointmentStatus)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                  filter === "follow-up" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                Lịch tái khám
-              </button>
-            </div>
-          </div>
+        {/* Filter Tabs */}
+        <div className="bg-white rounded-xl shadow-sm p-2 mb-6 flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              filter === "all" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            Tất cả
+          </button>
+          <button
+            onClick={() => setFilter(AppointmentStatus.PENDING)}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              filter === AppointmentStatus.PENDING ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            Chờ xác nhận
+          </button>
+          <button
+            onClick={() => setFilter(AppointmentStatus.CONFIRMED)}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              filter === AppointmentStatus.CONFIRMED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            Đã xác nhận
+          </button>
+          <button
+            onClick={() => setFilter(AppointmentStatus.COMPLETED)}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              filter === AppointmentStatus.COMPLETED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            Hoàn thành
+          </button>
+          <button
+            onClick={() => setFilter(AppointmentStatus.CANCELLED)}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              filter === AppointmentStatus.CANCELLED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            Đã hủy
+          </button>
         </div>
 
         {/* Appointments List */}

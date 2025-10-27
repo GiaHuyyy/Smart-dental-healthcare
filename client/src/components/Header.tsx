@@ -5,8 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LogoutButton from "./auth/LogoutButton";
-import { User, Settings, Activity, Calendar, Home } from "lucide-react";
+import { User, Settings, Activity, Calendar, Home, FileText } from "lucide-react";
 import Image from "next/image";
+import { PolicyModal } from "@/components/PolicyModal";
 import { NotificationButton } from "./NotificationButton";
 
 export default function Header() {
@@ -95,6 +96,17 @@ export default function Header() {
 
           {/* Navigation and User Menu */}
           <div className="flex items-center gap-4">
+            {/* Policy button (Header) - small, non-intrusive */}
+            <div className="hidden sm:block">
+              <PolicyModal
+                trigger={
+                  <button className="flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-[#00a6f4] transition-colors">
+                    <FileText className="w-4 h-4" />
+                    Chính sách Đặt lịch
+                  </button>
+                }
+              />
+            </div>
             {session?.user ? (
               <>
                 {/* Quick Actions for logged-in users */}
