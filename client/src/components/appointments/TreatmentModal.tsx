@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { X, Lightbulb } from "lucide-react";
+import { Lightbulb, X } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 // Types
@@ -170,6 +170,9 @@ export default function TreatmentModal({
       if (chiefComplaintInput.trim()) {
         addChiefComplaint(chiefComplaintInput);
       }
+    } else if (e.key === "Tab" && filteredSuggestions.chiefComplaints.length > 0 && chiefComplaintInput.trim()) {
+      e.preventDefault();
+      selectChiefComplaintSuggestion(filteredSuggestions.chiefComplaints[0]);
     } else if (e.key === "Backspace" && !chiefComplaintInput && treatmentForm.chiefComplaints.length > 0) {
       removeChiefComplaint(treatmentForm.chiefComplaints.length - 1);
     }
@@ -181,8 +184,11 @@ export default function TreatmentModal({
     if (value.length > 0) {
       const filtered = suggestions.chiefComplaints.filter((s) => s.toLowerCase().includes(value.toLowerCase()));
       setFilteredSuggestions((prev) => ({ ...prev, chiefComplaints: filtered }));
+      // Auto show suggestions when typing
+      setShowSuggestions((prev) => ({ ...prev, chiefComplaint: true }));
     } else {
       setFilteredSuggestions((prev) => ({ ...prev, chiefComplaints: suggestions.chiefComplaints }));
+      setShowSuggestions((prev) => ({ ...prev, chiefComplaint: false }));
     }
   };
 
@@ -235,10 +241,19 @@ export default function TreatmentModal({
         ...prev,
         diagnoses: { ...prev.diagnoses, [groupIndex]: filtered },
       }));
+      // Auto show suggestions when typing
+      setShowSuggestions((prev) => ({
+        ...prev,
+        diagnosis: { ...prev.diagnosis, [groupIndex]: true },
+      }));
     } else {
       setFilteredSuggestions((prev) => ({
         ...prev,
         diagnoses: { ...prev.diagnoses, [groupIndex]: suggestions.diagnoses },
+      }));
+      setShowSuggestions((prev) => ({
+        ...prev,
+        diagnosis: { ...prev.diagnosis, [groupIndex]: false },
       }));
     }
   };
@@ -272,6 +287,14 @@ export default function TreatmentModal({
       ...prev,
       diagnosis: { ...prev.diagnosis, [groupIndex]: false },
     }));
+  };
+
+  const handleDiagnosisKeyDown = (e: React.KeyboardEvent, groupIndex: number) => {
+    const currentDiagnosis = treatmentForm.diagnosisGroups[groupIndex]?.diagnosis || "";
+    if (e.key === "Tab" && filteredSuggestions.diagnoses[groupIndex] && filteredSuggestions.diagnoses[groupIndex].length > 0 && currentDiagnosis.trim()) {
+      e.preventDefault();
+      selectDiagnosisSuggestion(groupIndex, filteredSuggestions.diagnoses[groupIndex][0]);
+    }
   };
 
   // Treatment plan management
@@ -314,10 +337,21 @@ export default function TreatmentModal({
         ...prev,
         treatmentPlans: { ...prev.treatmentPlans, [`${groupIndex}-${planIndex}`]: filtered },
       }));
+      // Auto show suggestions when typing
+      const key = `${groupIndex}-${planIndex}`;
+      setShowSuggestions((prev) => ({
+        ...prev,
+        treatmentPlan: { ...prev.treatmentPlan, [key]: true },
+      }));
     } else {
       setFilteredSuggestions((prev) => ({
         ...prev,
         treatmentPlans: { ...prev.treatmentPlans, [`${groupIndex}-${planIndex}`]: availablePlans },
+      }));
+      const key = `${groupIndex}-${planIndex}`;
+      setShowSuggestions((prev) => ({
+        ...prev,
+        treatmentPlan: { ...prev.treatmentPlan, [key]: false },
       }));
     }
   };
@@ -365,6 +399,15 @@ export default function TreatmentModal({
       ...prev,
       treatmentPlan: { ...prev.treatmentPlan, [key]: false },
     }));
+  };
+
+  const handleTreatmentPlanKeyDown = (e: React.KeyboardEvent, groupIndex: number, planIndex: number) => {
+    const key = `${groupIndex}-${planIndex}`;
+    const currentPlan = treatmentForm.diagnosisGroups[groupIndex]?.treatmentPlans[planIndex] || "";
+    if (e.key === "Tab" && filteredSuggestions.treatmentPlans[key] && filteredSuggestions.treatmentPlans[key].length > 0 && currentPlan.trim()) {
+      e.preventDefault();
+      selectTreatmentPlanSuggestion(groupIndex, planIndex, filteredSuggestions.treatmentPlans[key][0]);
+    }
   };
 
   const getTreatmentPlansForDiagnosis = (diagnosis: string): string[] => {
@@ -697,6 +740,7 @@ export default function TreatmentModal({
                           type="text"
                           value={group.diagnosis}
                           onChange={(e) => updateDiagnosis(groupIndex, e.target.value)}
+                          onKeyDown={(e) => handleDiagnosisKeyDown(e, groupIndex)}
                           placeholder="Nhập chẩn đoán..."
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                           disabled={isSubmitting}
@@ -757,6 +801,7 @@ export default function TreatmentModal({
                                 type="text"
                                 value={plan}
                                 onChange={(e) => updateTreatmentPlan(groupIndex, planIndex, e.target.value)}
+                                onKeyDown={(e) => handleTreatmentPlanKeyDown(e, groupIndex, planIndex)}
                                 placeholder={`Kế hoạch ${planIndex + 1}`}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                 disabled={isSubmitting}
