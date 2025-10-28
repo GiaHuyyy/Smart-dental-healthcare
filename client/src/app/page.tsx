@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Header from "@/components/Header";
+import TestMarkdown from "@/components/TestMarkdown";
 import { Search, Star, Smile, Sparkles, Wrench, Hospital, Phone, Mail, MapPin, X, Check } from "lucide-react";
 
 export default function HomePage() {
@@ -336,6 +337,11 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Test Markdown Component */}
+      <div className="mt-8">
+        <TestMarkdown />
+      </div>
     </div>
   );
 }

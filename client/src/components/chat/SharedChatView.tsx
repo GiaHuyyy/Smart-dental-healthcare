@@ -462,7 +462,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                   onClick={() => setSelectedChat("ai")}
                 >
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-primary text-primary">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-primary text-white">
                       <Drone size={16} />
                     </div>
                     <div className="flex-1">
