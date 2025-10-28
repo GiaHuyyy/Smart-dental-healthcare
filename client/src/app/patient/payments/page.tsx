@@ -56,6 +56,7 @@ interface PaymentRecord {
   amount: number;
   status: "pending" | "completed" | "failed" | "refunded";
   type: "appointment" | "treatment" | "medicine" | "other";
+  billType?: "consultation_fee" | "refund" | "reservation_fee" | "cancellation_charge";
   paymentMethod?: string;
   paymentDate?: string;
   transactionId?: string;
@@ -109,6 +110,7 @@ export default function PatientPayments() {
               amount: p.amount,
               status: p.status,
               type: p.type,
+              billType: p.billType,
               paymentMethod: p.paymentMethod,
               paymentDate: p.paymentDate,
               transactionId: p.transactionId,
@@ -181,6 +183,27 @@ export default function PatientPayments() {
     }).format(amount);
   };
 
+  // Format số tiền với dấu +/- dựa vào billType
+  const formatAmountWithSign = (payment: PaymentRecord) => {
+    const amount = payment.amount;
+    const formatted = new Intl.NumberFormat("vi-VN", {
+      minimumFractionDigits: 0,
+    }).format(amount);
+
+    // Bill hoàn tiền và consultation_fee thì thêm dấu +
+    if (payment.billType === "refund" || payment.billType === "consultation_fee") {
+      return `+${formatted} ₫`;
+    }
+
+    // Bill trừ phí (cancellation_charge, reservation_fee) thì thêm dấu -
+    if (payment.billType === "cancellation_charge" || payment.billType === "reservation_fee") {
+      return `-${formatted} ₫`;
+    }
+
+    // Mặc định không có dấu
+    return `${formatted} ₫`;
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
@@ -223,6 +246,21 @@ export default function PatientPayments() {
         return "text-blue-600 bg-blue-50";
       default:
         return "text-gray-600 bg-gray-50";
+    }
+  };
+
+  const getBillTypeLabel = (billType?: string) => {
+    switch (billType) {
+      case "consultation_fee":
+        return "Phí khám";
+      case "refund":
+        return "Hoàn tiền";
+      case "reservation_fee":
+        return "Phí giữ chỗ";
+      case "cancellation_charge":
+        return "Phí hủy lịch";
+      default:
+        return "Thanh toán";
     }
   };
 
@@ -285,8 +323,7 @@ export default function PatientPayments() {
   };
 
   const filteredPayments = payments.filter((payment) => {
-    if (!payment.refId || !payment.doctorId) return false;
-
+    // Cho phép hiển thị cả những bill không có refId/doctorId (như refund, cancellation_charge)
     const appointment = typeof payment.refId === "object" ? payment.refId : null;
     const doctor = typeof payment.doctorId === "object" ? payment.doctorId : null;
 
@@ -296,6 +333,7 @@ export default function PatientPayments() {
     const notes = payment.notes || "";
 
     const matchesSearch =
+      searchTerm === "" || // Nếu không có search term thì match all
       doctorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       appointmentType.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -550,6 +588,27 @@ export default function PatientPayments() {
                             </div>
                           )}
 
+                          {payment.billType && (
+                            <div className="flex items-center gap-3 text-gray-700">
+                              <FileText className="w-5 h-5 text-gray-400" />
+                              <div>
+                                <p className="text-xs text-gray-500">Loại giao dịch</p>
+                                <p
+                                  className={`font-medium ${
+                                    payment.billType === "refund"
+                                      ? "text-green-600"
+                                      : payment.billType === "cancellation_charge" ||
+                                        payment.billType === "reservation_fee"
+                                      ? "text-red-600"
+                                      : "text-blue-600"
+                                  }`}
+                                >
+                                  {getBillTypeLabel(payment.billType)}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
                           {payment.transactionId && (
                             <div className="flex items-center gap-3 text-gray-700 md:col-span-2">
                               <CreditCard className="w-5 h-5 text-gray-400" />
@@ -576,8 +635,16 @@ export default function PatientPayments() {
                       <div className="lg:w-72 flex flex-col items-center justify-center gap-4 p-6 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border-2 border-gray-100">
                         <div className="text-center">
                           <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
-                          <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                            {formatCurrency(payment.amount)}
+                          <p
+                            className={`text-3xl font-bold ${
+                              payment.billType === "refund"
+                                ? "text-green-600"
+                                : payment.billType === "cancellation_charge" || payment.billType === "reservation_fee"
+                                ? "text-red-600"
+                                : "bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent"
+                            }`}
+                          >
+                            {formatAmountWithSign(payment)}
                           </p>
                         </div>
 

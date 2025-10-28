@@ -289,6 +289,8 @@ export default function PatientAppointmentsPage() {
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.PENDING,
+        ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
+        ...(dataToSubmit.voucherId && { appliedVoucherId: dataToSubmit.voucherId }),
       };
 
       const appointmentResult = await appointmentService.createAppointment(appointmentPayload, accessToken);
@@ -443,6 +445,8 @@ export default function PatientAppointmentsPage() {
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
+        ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
+        ...(dataToSubmit.voucherId && { appliedVoucherId: dataToSubmit.voucherId }),
       };
 
       console.log("Booking payload:", payload); // Debug log

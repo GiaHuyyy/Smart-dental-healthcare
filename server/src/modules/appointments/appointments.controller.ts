@@ -13,6 +13,9 @@ import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { AppointmentReminderService } from './appointment-reminder.service';
+import { RescheduleWithBillingDto } from './dto/reschedule-with-billing.dto';
+import { CancelWithBillingDto } from './dto/cancel-with-billing.dto';
+import { CreateFollowUpDto } from './dto/create-follow-up.dto';
 
 @Controller('appointments')
 export class AppointmentsController {
@@ -241,5 +244,85 @@ export class AppointmentsController {
   @ResponseMessage('Gửi reminder thử nghiệm thành công')
   testReminder(@Param('id') appointmentId: string) {
     return this.reminderService.testReminder(appointmentId);
+  }
+
+  // ============= NEW BILLING ENDPOINTS =============
+
+  @Patch(':id/reschedule-with-billing')
+  @Public()
+  @ResponseMessage('Đổi lịch hẹn thành công')
+  rescheduleWithBilling(
+    @Param('id') id: string,
+    @Body() dto: RescheduleWithBillingDto,
+  ) {
+    return this.appointmentsService.rescheduleAppointmentWithBilling(
+      id,
+      {
+        appointmentDate: new Date(dto.appointmentDate),
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+        duration: dto.duration,
+        notes: dto.notes,
+      },
+      dto.userId,
+    );
+  }
+
+  @Delete(':id/cancel-with-billing')
+  @Public()
+  @ResponseMessage('Hủy lịch hẹn thành công')
+  cancelWithBilling(
+    @Param('id') id: string,
+    @Body() dto: CancelWithBillingDto,
+  ) {
+    return this.appointmentsService.cancelAppointmentWithBilling(
+      id,
+      dto.reason,
+      dto.cancelledBy,
+      dto.doctorReason,
+    );
+  }
+
+  @Post('follow-up/create-suggestion')
+  @Public()
+  @ResponseMessage('Tạo đề xuất tái khám thành công')
+  createFollowUpSuggestion(@Body() dto: CreateFollowUpDto) {
+    return this.appointmentsService.createFollowUpSuggestion(
+      dto.parentAppointmentId,
+      dto.suggestedDate ? new Date(dto.suggestedDate) : undefined,
+      dto.suggestedTime,
+      dto.notes || '',
+    );
+  }
+
+  @Get('follow-up/suggestions/:patientId')
+  @Public()
+  @ResponseMessage('Lấy danh sách đề xuất tái khám thành công')
+  getFollowUpSuggestions(@Param('patientId') patientId: string) {
+    return this.appointmentsService.findAll(
+      `?patientId=${patientId}&isFollowUp=true&status=pending`,
+    );
+  }
+
+  @Post(':id/confirm-follow-up')
+  @Public()
+  @ResponseMessage('Xác nhận lịch tái khám thành công')
+  confirmFollowUp(
+    @Param('id') appointmentId: string,
+    @Body('finalDate') finalDate: string,
+    @Body('finalTime') finalTime: string,
+  ) {
+    return this.appointmentsService.confirmFollowUpAppointment(
+      appointmentId,
+      new Date(finalDate),
+      finalTime,
+    );
+  }
+
+  @Post(':id/reject-follow-up')
+  @Public()
+  @ResponseMessage('Từ chối lịch tái khám thành công')
+  rejectFollowUp(@Param('id') appointmentId: string) {
+    return this.appointmentsService.rejectFollowUpAppointment(appointmentId);
   }
 }

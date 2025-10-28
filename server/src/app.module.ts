@@ -21,6 +21,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { RevenueModule } from './modules/revenue/revenue.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UsersModule } from './modules/users/users.module';
+import { VouchersModule } from './modules/vouchers/vouchers.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { WebRTCModule } from './modules/webrtc/webrtc.module';
 
@@ -56,6 +57,7 @@ import { WebRTCModule } from './modules/webrtc/webrtc.module';
     WebRTCModule,
     RevenueModule,
     WalletModule,
+    VouchersModule,
   ],
   controllers: [AppController],
   providers: [

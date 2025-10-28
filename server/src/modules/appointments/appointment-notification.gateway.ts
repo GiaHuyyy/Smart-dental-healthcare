@@ -142,21 +142,41 @@ export class AppointmentNotificationGateway
   /**
    * Notify about appointment cancellation
    */
+  /**
+   * Notify about appointment cancellation (ENHANCED with billing info)
+   */
   async notifyAppointmentCancelled(
     userId: string,
     appointment: any,
-    cancelledBy: 'doctor' | 'patient',
+    cancelledBy: 'doctor' | 'patient' | 'system',
+    feeCharged = false,
+    voucherCreated = false,
   ) {
-    const message =
-      cancelledBy === 'doctor'
-        ? 'Bác sĩ đã hủy lịch hẹn'
-        : 'Bệnh nhân đã hủy lịch hẹn';
+    let message = '';
+
+    // Build message based on who cancelled
+    if (cancelledBy === 'system') {
+      message = 'Hệ thống đã tự động hủy lịch hẹn do bác sĩ không kịp xác nhận';
+    } else if (cancelledBy === 'doctor') {
+      message = 'Bác sĩ đã hủy lịch hẹn';
+    } else {
+      message = 'Bệnh nhân đã hủy lịch hẹn';
+    }
+
+    if (feeCharged) {
+      message += '. Phí đặt chỗ 100,000 VND được áp dụng';
+    }
+    if (voucherCreated) {
+      message += '. Bạn đã nhận voucher giảm giá 5%';
+    }
 
     // Send real-time socket notification
     this.server.to(`user_${userId}`).emit('appointment:cancelled', {
       type: 'APPOINTMENT_CANCELLED',
       appointment,
       cancelledBy,
+      feeCharged,
+      voucherCreated,
       message,
       timestamp: new Date(),
     });
@@ -166,15 +186,23 @@ export class AppointmentNotificationGateway
       await this.notificationGateway.sendNotificationToUser(
         userId,
         {
-          title: '❌ Lịch hẹn đã bị hủy',
+          title:
+            cancelledBy === 'system'
+              ? '⚠️ Hệ thống hủy lịch hẹn'
+              : '❌ Lịch hẹn đã bị hủy',
           message,
           type: 'APPOINTMENT_CANCELLED',
-          data: { appointmentId: appointment._id, cancelledBy },
+          data: {
+            appointmentId: appointment._id,
+            cancelledBy,
+            feeCharged,
+            voucherCreated,
+          },
           linkTo:
-            cancelledBy === 'doctor'
-              ? '/patient/appointments/my-appointments'
-              : '/doctor/schedule',
-          icon: '❌',
+            cancelledBy === 'patient'
+              ? '/doctor/schedule'
+              : '/patient/appointments/my-appointments',
+          icon: cancelledBy === 'system' ? '⚠️' : '❌',
         },
         false,
       );
@@ -189,18 +217,26 @@ export class AppointmentNotificationGateway
   }
 
   /**
-   * Notify about appointment reschedule
+   * Notify about appointment reschedule (ENHANCED with fee info)
    */
   async notifyAppointmentRescheduled(
     userId: string,
     appointment: any,
     userRole: 'doctor' | 'patient' = 'patient',
+    feeCharged = false,
   ) {
+    let message = 'Lịch hẹn đã được dời sang thời gian khác';
+    if (feeCharged) {
+      message +=
+        '. Phí đặt chỗ 100,000 VND được áp dụng do đổi lịch trong vòng 30 phút';
+    }
+
     // Send real-time socket notification
     this.server.to(`user_${userId}`).emit('appointment:rescheduled', {
       type: 'APPOINTMENT_RESCHEDULED',
       appointment,
-      message: 'Lịch hẹn đã được dời sang thời gian khác',
+      feeCharged,
+      message,
       timestamp: new Date(),
     });
 
@@ -210,9 +246,9 @@ export class AppointmentNotificationGateway
         userId,
         {
           title: '🔄 Lịch hẹn đã được dời',
-          message: 'Lịch hẹn đã được dời sang thời gian khác',
+          message,
           type: 'APPOINTMENT_RESCHEDULED',
-          data: { appointmentId: appointment._id },
+          data: { appointmentId: appointment._id, feeCharged },
           linkTo:
             userRole === 'doctor'
               ? '/doctor/schedule'
@@ -302,6 +338,84 @@ export class AppointmentNotificationGateway
     });
 
     this.logger.log(`Sent reminder to user ${userId}`);
+  }
+
+  /**
+   * Notify follow-up suggestion
+   */
+  async notifyFollowUpSuggestion(appointment: any) {
+    const patientId = appointment.patientId?._id || appointment.patientId;
+
+    this.server.to(`user_${patientId}`).emit('appointment:followup', {
+      type: 'FOLLOW_UP_SUGGESTION',
+      appointment,
+      message: 'Bác sĩ đề xuất lịch tái khám với giảm giá 5%',
+      timestamp: new Date(),
+    });
+
+    await this.notificationGateway.sendNotificationToUser(
+      String(patientId),
+      {
+        title: '🔔 Đề xuất tái khám',
+        message:
+          'Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%',
+        type: 'FOLLOW_UP_SUGGESTION',
+        data: { appointmentId: appointment._id },
+        linkTo: '/patient/appointments?tab=follow-ups',
+        icon: '🔔',
+      },
+      false,
+    );
+  }
+
+  /**
+   * Notify doctor when patient confirms follow-up
+   */
+  async notifyFollowUpConfirmed(doctorId: string, appointment: any) {
+    this.server.to(`user_${doctorId}`).emit('appointment:followup-confirmed', {
+      type: 'FOLLOW_UP_CONFIRMED',
+      appointment,
+      message: 'Bệnh nhân đã xác nhận lịch tái khám',
+      timestamp: new Date(),
+    });
+
+    await this.notificationGateway.sendNotificationToUser(
+      doctorId,
+      {
+        title: '✅ Xác nhận lịch tái khám',
+        message: `Bệnh nhân ${appointment.patientId?.fullName || 'đã xác nhận'} lịch tái khám`,
+        type: 'FOLLOW_UP_CONFIRMED',
+        data: { appointmentId: appointment._id },
+        linkTo: '/doctor/schedule',
+        icon: '✅',
+      },
+      false,
+    );
+  }
+
+  /**
+   * Notify doctor when patient rejects follow-up
+   */
+  async notifyFollowUpRejected(doctorId: string, appointment: any) {
+    this.server.to(`user_${doctorId}`).emit('appointment:followup-rejected', {
+      type: 'FOLLOW_UP_REJECTED',
+      appointment,
+      message: 'Bệnh nhân đã từ chối lịch tái khám',
+      timestamp: new Date(),
+    });
+
+    await this.notificationGateway.sendNotificationToUser(
+      doctorId,
+      {
+        title: '❌ Từ chối lịch tái khám',
+        message: `Bệnh nhân ${appointment.patientId?.fullName || 'đã từ chối'} lịch tái khám`,
+        type: 'FOLLOW_UP_REJECTED',
+        data: { appointmentId: appointment._id },
+        linkTo: '/doctor/schedule',
+        icon: '❌',
+      },
+      false,
+    );
   }
 
   /**

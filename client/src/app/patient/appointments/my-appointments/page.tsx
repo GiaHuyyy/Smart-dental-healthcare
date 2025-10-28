@@ -26,7 +26,9 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import RescheduleModal from "@/components/appointments/RescheduleModal";
+import RescheduleWithBillingModal from "@/components/appointments/RescheduleWithBillingModal";
+import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
+import FollowUpSuggestions from "@/components/appointments/FollowUpSuggestions";
 
 function MyAppointmentsContent() {
   const { data: session } = useSession();
@@ -63,95 +65,11 @@ function MyAppointmentsContent() {
           handleViewDetail(apt);
         }
       }
-    } catch (_err) {
+    } catch {
       // ignore malformed URL or other errors
     }
     // run when appointments update (so we can open detail when data is loaded)
   }, [appointments]);
-
-  // Helper function to check if appointment can be cancelled (at least 30 minutes before start time)
-  const canCancelAppointment = (appointment: Appointment): boolean => {
-    try {
-      const now = new Date();
-
-      // Normalize appointmentDate - could be Date object or string
-      let appointmentDate: Date;
-      const rawDate = appointment.appointmentDate;
-
-      // Type guard: check if it's a Date object
-      if (typeof rawDate === "object" && rawDate !== null && "getTime" in rawDate) {
-        appointmentDate = rawDate as Date;
-      } else if (typeof rawDate === "string") {
-        // If it's just a date string (YYYY-MM-DD), don't add time to avoid timezone issues
-        if (rawDate.length === 10) {
-          appointmentDate = new Date(rawDate + "T00:00:00");
-        } else {
-          appointmentDate = new Date(rawDate);
-        }
-      } else {
-        console.error("Invalid appointmentDate format:", rawDate);
-        return false;
-      }
-
-      // Parse startTime (HH:MM format)
-      const [hours, minutes] = (appointment.startTime || "00:00").split(":").map(Number);
-
-      // Combine date and time
-      const appointmentDateTime = new Date(appointmentDate);
-      appointmentDateTime.setHours(hours, minutes, 0, 0);
-
-      const timeDifferenceMs = appointmentDateTime.getTime() - now.getTime();
-      const timeDifferenceMinutes = timeDifferenceMs / (1000 * 60);
-
-      // Can cancel only if appointment is at least 30 minutes away
-      return timeDifferenceMinutes >= 30;
-    } catch (error) {
-      console.error("Error checking cancel eligibility:", error);
-      return false;
-    }
-  };
-
-  // Helper function to check if appointment can be rescheduled
-  const canRescheduleAppointment = (appointment: Appointment): boolean => {
-    try {
-      const now = new Date();
-
-      // Normalize appointmentDate - could be Date object or string
-      let appointmentDate: Date;
-      const rawDate = appointment.appointmentDate;
-
-      // Type guard: check if it's a Date object
-      if (typeof rawDate === "object" && rawDate !== null && "getTime" in rawDate) {
-        appointmentDate = rawDate as Date;
-      } else if (typeof rawDate === "string") {
-        // If it's just a date string (YYYY-MM-DD), don't add time to avoid timezone issues
-        if (rawDate.length === 10) {
-          appointmentDate = new Date(rawDate + "T00:00:00");
-        } else {
-          appointmentDate = new Date(rawDate);
-        }
-      } else {
-        console.error("Invalid appointmentDate format:", rawDate);
-        return false;
-      }
-
-      // Parse startTime (HH:MM format)
-      const [hours, minutes] = (appointment.startTime || "00:00").split(":").map(Number);
-
-      // Combine date and time
-      const appointmentDateTime = new Date(appointmentDate);
-      appointmentDateTime.setHours(hours, minutes, 0, 0);
-
-      const timeDifferenceMs = appointmentDateTime.getTime() - now.getTime();
-      const timeDifferenceMinutes = timeDifferenceMs / (1000 * 60);
-
-      // Can reschedule only if appointment is at least 30 minutes away
-      return timeDifferenceMinutes >= 30;
-    } catch (error) {
-      console.error("Error checking reschedule eligibility:", error);
-      return false;
-    }
-  };
 
   useEffect(() => {
     if (!session?.user) return;
@@ -276,45 +194,6 @@ function MyAppointmentsContent() {
   const handleOpenRescheduleDialog = (appointment: Appointment) => {
     setAppointmentToReschedule(appointment);
     setRescheduleDialogOpen(true);
-  };
-
-  const handleRescheduleConfirm = async (newDate: string, newTime: string, newEndTime: string) => {
-    if (!appointmentToReschedule) return;
-
-    setActionLoading(true);
-    try {
-      const accessToken = (session as { accessToken?: string })?.accessToken;
-
-      // Calculate duration
-      const [startHour, startMin] = newTime.split(":").map(Number);
-      const [endHour, endMin] = newEndTime.split(":").map(Number);
-      const duration = endHour * 60 + endMin - (startHour * 60 + startMin);
-
-      const result = await appointmentService.rescheduleAppointment(
-        appointmentToReschedule._id!,
-        {
-          appointmentDate: newDate,
-          startTime: newTime,
-          endTime: newEndTime,
-          duration,
-        },
-        accessToken
-      );
-
-      if (!result.success) {
-        throw new Error(result.error || "Không thể đổi lịch hẹn");
-      }
-
-      toast.success("Đã thay đổi lịch hẹn thành công");
-      setRescheduleDialogOpen(false);
-      setAppointmentToReschedule(null);
-      fetchAppointments(); // Refresh list
-    } catch (error) {
-      console.error("Reschedule appointment error:", error);
-      toast.error(error instanceof Error ? error.message : "Không thể đổi lịch hẹn");
-    } finally {
-      setActionLoading(false);
-    }
   };
 
   const getStatusIcon = (status: AppointmentStatus) => {
@@ -546,8 +425,16 @@ function MyAppointmentsContent() {
           </div>
         </div>
 
-        {/* Appointments List */}
-        {loading ? (
+        {/* Appointments List hoặc Follow-Up Suggestions based on filter */}
+        {filter === "follow-up" ? (
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-primary" />
+              Đề xuất tái khám
+            </h2>
+            <FollowUpSuggestions />
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
@@ -691,33 +578,38 @@ function MyAppointmentsContent() {
                   <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
                     {appointment.status === AppointmentStatus.PENDING && (
                       <>
-                        {canCancelAppointment(appointment) && (
-                          <button
-                            onClick={() => handleOpenCancelDialog(appointment)}
-                            className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
-                          >
-                            Hủy lịch
-                          </button>
-                        )}
-                        {!canCancelAppointment(appointment) && (
-                          <div className="px-4 py-2 text-xs text-gray-500 italic">
-                            Không thể hủy lịch (còn dưới 30 phút)
-                          </div>
-                        )}
-                        {canRescheduleAppointment(appointment) && (
-                          <button
-                            onClick={() => handleOpenRescheduleDialog(appointment)}
-                            className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
-                          >
-                            Đổi lịch
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleOpenCancelDialog(appointment)}
+                          className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                        >
+                          Hủy lịch
+                        </button>
+                        <button
+                          onClick={() => handleOpenRescheduleDialog(appointment)}
+                          className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                        >
+                          Đổi lịch
+                        </button>
                       </>
                     )}
                     {appointment.status === AppointmentStatus.CONFIRMED && (
-                      <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
-                        Tham gia khám
-                      </button>
+                      <>
+                        <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
+                          Tham gia khám
+                        </button>
+                        <button
+                          onClick={() => handleOpenCancelDialog(appointment)}
+                          className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                        >
+                          Hủy lịch
+                        </button>
+                        <button
+                          onClick={() => handleOpenRescheduleDialog(appointment)}
+                          className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                        >
+                          Đổi lịch
+                        </button>
+                      </>
                     )}
                     {appointment.status === AppointmentStatus.COMPLETED && (
                       <button className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium">
@@ -1029,16 +921,40 @@ function MyAppointmentsContent() {
         </div>
       )}
 
-      {/* Reschedule Modal */}
-      {rescheduleDialogOpen && appointmentToReschedule && appointmentToReschedule.doctor && (
-        <RescheduleModal
-          appointment={appointmentToReschedule}
-          doctor={appointmentToReschedule.doctor}
+      {/* Reschedule Modal - Using new billing modal */}
+      {rescheduleDialogOpen && appointmentToReschedule && (
+        <RescheduleWithBillingModal
+          isOpen={rescheduleDialogOpen}
           onClose={() => {
             setRescheduleDialogOpen(false);
             setAppointmentToReschedule(null);
           }}
-          onConfirm={handleRescheduleConfirm}
+          appointment={appointmentToReschedule}
+          onSuccess={() => {
+            setRescheduleDialogOpen(false);
+            setAppointmentToReschedule(null);
+            fetchAppointments();
+          }}
+        />
+      )}
+
+      {/* Cancel Modal - Using new billing modal */}
+      {cancelDialogOpen && selectedAppointment && (
+        <CancelWithBillingModal
+          isOpen={cancelDialogOpen}
+          onClose={() => {
+            setCancelDialogOpen(false);
+            setSelectedAppointment(null);
+            setCancelReason("");
+          }}
+          appointment={selectedAppointment}
+          userRole="patient"
+          onSuccess={() => {
+            setCancelDialogOpen(false);
+            setSelectedAppointment(null);
+            setCancelReason("");
+            fetchAppointments();
+          }}
         />
       )}
     </div>

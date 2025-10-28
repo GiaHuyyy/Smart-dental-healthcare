@@ -4,16 +4,16 @@ import paymentService from "@/services/paymentService";
 import { AppointmentConfirmation, BookingFormData, ConsultType, Doctor } from "@/types/appointment";
 import { calculateConsultationFee, formatFee } from "@/utils/consultationFees";
 import {
-    Building2,
-    Calendar as CalendarIcon,
-    Check,
-    Clock,
-    FileText,
-    Home,
-    MapPin,
-    UserCircle2,
-    Video,
-    X,
+  Building2,
+  Calendar as CalendarIcon,
+  Check,
+  Clock,
+  FileText,
+  Home,
+  MapPin,
+  UserCircle2,
+  Video,
+  X,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useMemo } from "react";
@@ -73,16 +73,16 @@ export default function BookingFlowModal({
       alert("Thông tin đặt lịch chưa đầy đủ");
       return;
     }
-    
+
     try {
       console.log("🔄 Starting MoMo payment...", { confirmation, doctor });
-      
+
       const token = (session as any)?.access_token || (session as any)?.accessToken;
       const appointment = confirmation.appointment;
-      
+
       // Get consultation fee from doctor or appointment
       const amount = appointment.consultationFee || doctor.consultationFee || 50000;
-      
+
       const payload = {
         appointmentId: appointment._id || appointment.id || "",
         patientId: (appointment.patientId as any)?._id || (appointment.patientId as any) || "",
@@ -90,24 +90,22 @@ export default function BookingFlowModal({
         amount: amount,
         orderInfo: `Thanh toán lịch khám với ${doctor.fullName}`,
       };
-      
+
       console.log("💳 MoMo payload:", payload);
-      
+
       if (!payload.appointmentId || !payload.patientId || !payload.doctorId || !payload.amount) {
         alert("Thiếu thông tin cần thiết để thanh toán");
         console.error("Missing required fields:", payload);
         return;
       }
-      
+
       const result = await paymentService.createMoMoPayment(payload, token);
       console.log("✅ MoMo response:", result);
-      
+
       // Handle both old and new response formats
-      const payUrl = result?.data?.payUrl 
-        || result?.momo?.payUrl 
-        || result?.momo?.deeplink 
-        || result?.momo?.deeplinkMiniApp;
-        
+      const payUrl =
+        result?.data?.payUrl || result?.momo?.payUrl || result?.momo?.deeplink || result?.momo?.deeplinkMiniApp;
+
       if (payUrl) {
         console.log("🚀 Redirecting to MoMo:", payUrl);
         window.location.href = payUrl;
@@ -189,7 +187,12 @@ export default function BookingFlowModal({
                                 <div className="flex items-start gap-2">
                                   <span className="text-gray-400 mt-0.5">₫</span>
                                   <span className="leading-relaxed font-medium">
-                                    {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
+                                    {formatFee(
+                                      calculateConsultationFee(
+                                        bookingData.consultType || ConsultType.ON_SITE,
+                                        doctor.consultationFee
+                                      )
+                                    )}
                                   </span>
                                 </div>
                               </>
@@ -230,7 +233,12 @@ export default function BookingFlowModal({
                                 <div className="flex items-start gap-2">
                                   <span className="text-gray-400 mt-0.5">₫</span>
                                   <span className="leading-relaxed font-medium">
-                                    {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
+                                    {formatFee(
+                                      calculateConsultationFee(
+                                        bookingData.consultType || ConsultType.ON_SITE,
+                                        doctor.consultationFee
+                                      )
+                                    )}
                                   </span>
                                 </div>
                               </>
@@ -271,7 +279,12 @@ export default function BookingFlowModal({
                                 <div className="flex items-start gap-2">
                                   <span className="text-gray-400 mt-0.5">₫</span>
                                   <span className="leading-relaxed font-medium">
-                                    {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
+                                    {formatFee(
+                                      calculateConsultationFee(
+                                        bookingData.consultType || ConsultType.ON_SITE,
+                                        doctor.consultationFee
+                                      )
+                                    )}
                                   </span>
                                 </div>
                                 {(bookingData.patientFirstName || bookingData.patientLastName) && (
@@ -320,15 +333,15 @@ export default function BookingFlowModal({
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
             {step === "time-slot" && (
-              <TimeSlotPicker 
-                doctor={doctor} 
+              <TimeSlotPicker
+                doctor={doctor}
                 onSelectSlot={onSelectSlot}
                 onConsultTypeChange={(consultType) => {
                   // Update consultType immediately when user clicks
                   onSelectSlot(
-                    bookingData.appointmentDate || "", 
-                    bookingData.startTime || "", 
-                    consultType, 
+                    bookingData.appointmentDate || "",
+                    bookingData.startTime || "",
+                    consultType,
                     bookingData.endTime || ""
                   );
                 }}
@@ -353,8 +366,15 @@ export default function BookingFlowModal({
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm text-gray-600">
-                            Phí khám: <span className="font-semibold text-pink-600">
-                              {formatFee(confirmation.appointment.consultationFee || calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
+                            Phí khám:{" "}
+                            <span className="font-semibold text-pink-600">
+                              {formatFee(
+                                confirmation.appointment.consultationFee ||
+                                  calculateConsultationFee(
+                                    bookingData.consultType || ConsultType.ON_SITE,
+                                    doctor.consultationFee
+                                  )
+                              )}
                             </span>
                           </p>
                           <p className="text-xs text-gray-500 mt-1">Thanh toán qua MoMo để hoàn tất đặt lịch</p>
@@ -406,13 +426,49 @@ export default function BookingFlowModal({
                           </span>
                         </div>
                       )}
-                        <div className="flex justify-between pt-3 border-t border-blue-200">
-                        <span className="text-gray-600">Phí khám:</span>
-                        <span className="font-semibold text-primary">
-                          {formatFee(calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}
-                        </span>
+                      {/* Fee Section */}
+                      <div className="pt-3 border-t border-blue-200 space-y-2">
+                        {bookingData.discountAmount && bookingData.discountAmount > 0 ? (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Phí khám gốc:</span>
+                              <span className="text-gray-500 line-through">
+                                {formatFee(
+                                  calculateConsultationFee(
+                                    bookingData.consultType || ConsultType.ON_SITE,
+                                    doctor.consultationFee
+                                  )
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Giảm giá (voucher):</span>
+                              <span className="text-green-600 font-medium">
+                                - {formatFee(bookingData.discountAmount)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-900 font-semibold">Tổng thanh toán:</span>
+                              <span className="font-semibold text-primary text-lg">
+                                {formatFee(bookingData.paymentAmount || 0)}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Phí khám:</span>
+                            <span className="font-semibold text-primary">
+                              {formatFee(
+                                calculateConsultationFee(
+                                  bookingData.consultType || ConsultType.ON_SITE,
+                                  doctor.consultationFee
+                                )
+                              )}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      
+
                       {/* Payment Method Info */}
                       {bookingData.paymentMethod && (
                         <div className="flex justify-between pt-3 border-t border-blue-200">
@@ -428,16 +484,36 @@ export default function BookingFlowModal({
                             )}
                             {bookingData.paymentMethod === "cash" && (
                               <>
-                                <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                <svg
+                                  className="w-5 h-5 text-blue-600"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                                  />
                                 </svg>
                                 <span className="font-medium text-blue-600">Tại phòng khám</span>
                               </>
                             )}
                             {bookingData.paymentMethod === "later" && (
                               <>
-                                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <svg
+                                  className="w-5 h-5 text-green-600"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
                                 </svg>
                                 <span className="font-medium text-green-600">Thanh toán sau</span>
                               </>
@@ -445,17 +521,38 @@ export default function BookingFlowModal({
                           </div>
                         </div>
                       )}
-                      
+
                       {/* MoMo Warning */}
                       {bookingData.paymentMethod === "momo" && (
                         <div className="mt-4 p-3 bg-pink-50 border border-pink-200 rounded-lg">
                           <div className="flex items-start gap-2">
-                            <svg className="w-5 h-5 text-pink-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg
+                              className="w-5 h-5 text-pink-600 flex-shrink-0 mt-0.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
                             </svg>
                             <div className="text-xs text-pink-800">
                               <p className="font-medium mb-1">Thanh toán MoMo:</p>
-                              <p>Bạn sẽ được chuyển đến trang MoMo để thanh toán <strong>{formatFee(bookingData.paymentAmount || calculateConsultationFee(bookingData.consultType || ConsultType.ON_SITE, doctor.consultationFee))}</strong></p>
+                              <p>
+                                Bạn sẽ được chuyển đến trang MoMo để thanh toán{" "}
+                                <strong>
+                                  {formatFee(
+                                    bookingData.paymentAmount ||
+                                      calculateConsultationFee(
+                                        bookingData.consultType || ConsultType.ON_SITE,
+                                        doctor.consultationFee
+                                      )
+                                  )}
+                                </strong>
+                              </p>
                             </div>
                           </div>
                         </div>

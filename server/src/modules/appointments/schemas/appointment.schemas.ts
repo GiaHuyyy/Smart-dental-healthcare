@@ -7,10 +7,28 @@ export type AppointmentDocument = HydratedDocument<Appointment>;
 export enum AppointmentStatus {
   PENDING = 'pending',
   PENDING_PAYMENT = 'pending_payment', // Chờ thanh toán MoMo
+  PENDING_PATIENT_CONFIRMATION = 'pending_patient_confirmation', // Chờ bệnh nhân xác nhận lịch tái khám
   CONFIRMED = 'confirmed',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
   IN_PROGRESS = 'in-progress',
+}
+
+export enum CancellationInitiator {
+  PATIENT = 'patient',
+  DOCTOR = 'doctor',
+}
+
+// Added SYSTEM to represent automatic/system-initiated cancellations (cron job / system)
+export enum CancellationInitiatorExtended {
+  PATIENT = 'patient',
+  DOCTOR = 'doctor',
+  SYSTEM = 'system',
+}
+
+export enum DoctorCancellationReason {
+  EMERGENCY = 'emergency',
+  PATIENT_LATE = 'patient_late',
 }
 
 @Schema({ timestamps: true })
@@ -48,6 +66,19 @@ export class Appointment {
   @Prop()
   cancellationReason: string;
 
+  // cancelledBy can be 'patient', 'doctor' or 'system' (auto-cancel)
+  @Prop({ type: String, enum: Object.values(CancellationInitiatorExtended) })
+  cancelledBy?: string;
+
+  @Prop({ type: String, enum: Object.values(DoctorCancellationReason) })
+  doctorCancellationReason?: string; // 'emergency' hoặc 'patient_late'
+
+  @Prop({ default: false })
+  cancellationFeeCharged?: boolean; // Đã tính phí đặt chỗ chưa
+
+  @Prop()
+  cancellationFeeAmount?: number; // Số tiền phí (thường là 100,000 VND)
+
   @Prop({ default: false })
   isRescheduled: boolean;
 
@@ -62,6 +93,28 @@ export class Appointment {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Payment' })
   paymentId?: MongooseSchema.Types.ObjectId;
+
+  // Follow-up fields
+  @Prop({ default: false })
+  isFollowUp?: boolean; // Đây có phải lịch tái khám không
+
+  @Prop({ default: false })
+  isFollowUpSuggestion?: boolean; // Bác sĩ đề xuất lịch tái khám, chờ bệnh nhân xác nhận
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Appointment' })
+  followUpParentId?: MongooseSchema.Types.ObjectId; // Lịch gốc nếu đây là tái khám
+
+  @Prop()
+  followUpDiscount?: number; // % giảm giá (thường là 5)
+
+  @Prop()
+  suggestedFollowUpDate?: Date; // Ngày bác sĩ đề xuất (nếu có)
+
+  @Prop()
+  suggestedFollowUpTime?: string; // Giờ bác sĩ đề xuất (nếu có)
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Voucher' })
+  appliedVoucherId?: MongooseSchema.Types.ObjectId; // Voucher đã sử dụng
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
@@ -75,7 +128,15 @@ AppointmentSchema.index(
     unique: true,
     // Chỉ áp dụng unique cho lịch pending, pending_payment, confirmed, completed, in-progress (không bao gồm cancelled)
     partialFilterExpression: {
-      status: { $in: ['pending', 'pending_payment', 'confirmed', 'completed', 'in-progress'] },
+      status: {
+        $in: [
+          'pending',
+          'pending_payment',
+          'confirmed',
+          'completed',
+          'in-progress',
+        ],
+      },
     },
   },
 );

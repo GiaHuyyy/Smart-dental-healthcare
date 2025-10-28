@@ -12,6 +12,11 @@ import { Appointment, AppointmentStatus } from './schemas/appointment.schemas';
 import { MedicalRecord } from '../medical-records/schemas/medical-record.schemas';
 import { AppointmentNotificationGateway } from './appointment-notification.gateway';
 import { AppointmentEmailService } from './appointment-email.service';
+import {
+  BillingHelperService,
+  RESERVATION_FEE_AMOUNT,
+} from '../payments/billing-helper.service';
+import { VouchersService } from '../vouchers/vouchers.service';
 
 @Injectable()
 export class AppointmentsService {
@@ -21,6 +26,8 @@ export class AppointmentsService {
     private readonly medicalRecordModel: Model<MedicalRecord>,
     private readonly notificationGateway: AppointmentNotificationGateway,
     private readonly emailService: AppointmentEmailService,
+    private readonly billingHelper: BillingHelperService,
+    private readonly vouchersService: VouchersService,
   ) {}
 
   // Convert "HH:MM" or ISO datetime string -> minutes since midnight (UTC for ISO)
@@ -1252,5 +1259,490 @@ export class AppointmentsService {
     (record as any).followUpAppointmentId = appointment._id;
     record.isFollowUpRequired = true;
     await record.save();
+  }
+
+  /**
+   * ENHANCED: Check if rescheduling is within 30 minutes (near-time)
+   */
+  private isNearTime(appointmentDate: Date, startTime: string): boolean {
+    const apptDateTime = new Date(appointmentDate);
+    const [hours, minutes] = startTime.split(':').map(Number);
+    apptDateTime.setHours(hours, minutes, 0, 0);
+
+    const now = new Date();
+    const diffMinutes = (apptDateTime.getTime() - now.getTime()) / (1000 * 60);
+
+    return diffMinutes < 30 && diffMinutes > 0;
+  }
+
+  /**
+   * ENHANCED: Reschedule with billing logic
+   * - Nếu còn >= 30 phút: Miễn phí
+   * - Nếu < 30 phút: Thu phí 100,000 VND đặt chỗ
+   */
+  async rescheduleAppointmentWithBilling(
+    id: string,
+    updateAppointmentDto: UpdateAppointmentDto,
+    userId: string,
+  ) {
+    const appointment = await this.appointmentModel
+      .findById(id)
+      .populate('patientId')
+      .populate('doctorId');
+
+    if (!appointment) {
+      throw new NotFoundException('Không tìm thấy lịch hẹn');
+    }
+
+    if (appointment.status === AppointmentStatus.COMPLETED) {
+      throw new BadRequestException('Không thể đổi lịch hẹn đã hoàn thành');
+    }
+
+    if (appointment.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException('Không thể đổi lịch hẹn đã hủy');
+    }
+
+    // Check if reschedule is near-time
+    const nearTime = this.isNearTime(
+      appointment.appointmentDate,
+      appointment.startTime,
+    );
+
+    let feeCharged = false;
+    if (nearTime) {
+      // Charge reservation fee
+      await this.billingHelper.chargeReservationFeeFromPatient(
+        (appointment.patientId as any)._id.toString(),
+        (appointment.doctorId as any)._id.toString(),
+        appointment._id.toString(),
+      );
+
+      await this.billingHelper.createReservationFeeForDoctor(
+        (appointment.doctorId as any)._id.toString(),
+        (appointment.patientId as any)._id.toString(),
+        appointment._id.toString(),
+      );
+
+      feeCharged = true;
+    }
+
+    // Create new appointment
+    const newData = {
+      ...appointment.toObject(),
+      ...updateAppointmentDto,
+      _id: undefined,
+      isRescheduled: true,
+      previousAppointmentId: appointment._id,
+      status: AppointmentStatus.PENDING,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any;
+
+    const newApptDate =
+      newData.appointmentDate instanceof Date
+        ? newData.appointmentDate
+        : new Date(newData.appointmentDate);
+    newData.appointmentDate = new Date(
+      Date.UTC(
+        newApptDate.getUTCFullYear(),
+        newApptDate.getUTCMonth(),
+        newApptDate.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+
+    const newStart = newData.startTime || appointment.startTime;
+    newData.startTime = newStart;
+    newData.endTime =
+      newData.endTime ||
+      this.calculateEndTime(
+        newStart,
+        Number(newData.duration) || appointment.duration || 30,
+      );
+
+    const hasExactTimeOverlap = await this.hasExactTimeOverlap(
+      (appointment.doctorId as any)._id.toString(),
+      newData.appointmentDate,
+      newData.startTime,
+    );
+
+    if (hasExactTimeOverlap) {
+      throw new BadRequestException('Bác sĩ đã có lịch hẹn vào khung giờ này');
+    }
+
+    const newAppointment = new this.appointmentModel(newData);
+    await newAppointment.save();
+
+    // Update old appointment
+    appointment.status = AppointmentStatus.CANCELLED;
+    appointment.cancellationReason = feeCharged
+      ? 'Đã đổi lịch (có phí đặt chỗ)'
+      : 'Đã đổi lịch';
+    await appointment.save();
+
+    // Send notifications to both patient and doctor
+    const patientId = (appointment.patientId as any)._id.toString();
+    const doctorId = (appointment.doctorId as any)._id.toString();
+
+    await this.notificationGateway.notifyAppointmentRescheduled(
+      patientId,
+      newAppointment as any,
+      'patient',
+      feeCharged,
+    );
+
+    await this.notificationGateway.notifyAppointmentRescheduled(
+      doctorId,
+      newAppointment as any,
+      'doctor',
+      feeCharged,
+    );
+
+    return {
+      newAppointment,
+      feeCharged,
+      feeAmount: feeCharged ? RESERVATION_FEE_AMOUNT : 0,
+    };
+  }
+
+  /**
+   * ENHANCED: Cancel appointment with refund and billing logic
+   * Patient cancellation:
+   * - >= 30 min: Miễn phí, hoàn 100% phí khám nếu đã thanh toán
+   * - < 30 min: Thu phí 100k đặt chỗ + hoàn phí khám nếu đã thanh toán
+   */
+  async cancelAppointmentWithBilling(
+    id: string,
+    reason: string,
+    cancelledBy: 'patient' | 'doctor',
+    doctorReason?: 'emergency' | 'patient_late',
+  ) {
+    const appointment = await this.appointmentModel
+      .findById(id)
+      .populate('patientId')
+      .populate('doctorId');
+
+    if (!appointment) {
+      throw new NotFoundException('Không tìm thấy lịch hẹn');
+    }
+
+    if (appointment.status === AppointmentStatus.CANCELLED) {
+      throw new BadRequestException('Lịch hẹn đã bị hủy trước đó');
+    }
+
+    const nearTime = this.isNearTime(
+      appointment.appointmentDate,
+      appointment.startTime,
+    );
+
+    let feeCharged = false;
+    let voucherCreated = false;
+    let refundIssued = false;
+
+    if (cancelledBy === 'patient') {
+      // Patient cancellation logic
+      if (nearTime) {
+        // < 30 min: Charge reservation fee
+        await this.billingHelper.chargeReservationFeeFromPatient(
+          (appointment.patientId as any)._id.toString(),
+          (appointment.doctorId as any)._id.toString(),
+          appointment._id.toString(),
+        );
+
+        await this.billingHelper.createReservationFeeForDoctor(
+          (appointment.doctorId as any)._id.toString(),
+          (appointment.patientId as any)._id.toString(),
+          appointment._id.toString(),
+        );
+
+        feeCharged = true;
+      }
+
+      // Check if consultation fee was paid, refund it
+      const hasPaid = await this.billingHelper.hasExistingPayment(
+        appointment._id.toString(),
+      );
+
+      if (hasPaid) {
+        const originalPayment = await this.billingHelper.getOriginalPayment(
+          appointment._id.toString(),
+        );
+
+        if (originalPayment) {
+          await this.billingHelper.refundConsultationFee(
+            (originalPayment as any)._id.toString(),
+            originalPayment.amount,
+            (appointment.patientId as any)._id.toString(),
+            (appointment.doctorId as any)._id.toString(),
+            appointment._id.toString(),
+          );
+
+          refundIssued = true;
+        }
+      }
+
+      appointment.cancelledBy = 'patient';
+      appointment.cancellationFeeCharged = feeCharged;
+      appointment.cancellationFeeAmount = feeCharged
+        ? RESERVATION_FEE_AMOUNT
+        : 0;
+    } else {
+      // Doctor cancellation logic
+      appointment.cancelledBy = 'doctor';
+      appointment.doctorCancellationReason = doctorReason;
+
+      if (doctorReason === 'emergency') {
+        // Emergency: Refund + create voucher
+        const hasPaid = await this.billingHelper.hasExistingPayment(
+          appointment._id.toString(),
+        );
+
+        if (hasPaid) {
+          const originalPayment = await this.billingHelper.getOriginalPayment(
+            appointment._id.toString(),
+          );
+
+          if (originalPayment) {
+            await this.billingHelper.refundConsultationFee(
+              (originalPayment as any)._id.toString(),
+              originalPayment.amount,
+              (appointment.patientId as any)._id.toString(),
+              (appointment.doctorId as any)._id.toString(),
+              appointment._id.toString(),
+            );
+
+            refundIssued = true;
+          }
+        }
+
+        // Create 5% voucher
+        await this.vouchersService.createDoctorCancellationVoucher(
+          (appointment.patientId as any)._id.toString(),
+          appointment._id.toString(),
+        );
+
+        voucherCreated = true;
+      } else if (doctorReason === 'patient_late') {
+        // Patient late: Charge fee + refund consultation fee
+        await this.billingHelper.chargeReservationFeeFromPatient(
+          (appointment.patientId as any)._id.toString(),
+          (appointment.doctorId as any)._id.toString(),
+          appointment._id.toString(),
+        );
+
+        await this.billingHelper.createReservationFeeForDoctor(
+          (appointment.doctorId as any)._id.toString(),
+          (appointment.patientId as any)._id.toString(),
+          appointment._id.toString(),
+        );
+
+        feeCharged = true;
+
+        const hasPaid = await this.billingHelper.hasExistingPayment(
+          appointment._id.toString(),
+        );
+
+        if (hasPaid) {
+          const originalPayment = await this.billingHelper.getOriginalPayment(
+            appointment._id.toString(),
+          );
+
+          if (originalPayment) {
+            await this.billingHelper.refundConsultationFee(
+              (originalPayment as any)._id.toString(),
+              originalPayment.amount,
+              (appointment.patientId as any)._id.toString(),
+              (appointment.doctorId as any)._id.toString(),
+              appointment._id.toString(),
+            );
+
+            refundIssued = true;
+          }
+        }
+      }
+    }
+
+    appointment.status = AppointmentStatus.CANCELLED;
+    appointment.cancellationReason = reason;
+    await appointment.save();
+
+    // Send notifications
+    const patientId = (appointment.patientId as any)._id.toString();
+    const doctorId = (appointment.doctorId as any)._id.toString();
+
+    const targetUserId = cancelledBy === 'patient' ? patientId : doctorId;
+
+    await this.notificationGateway.notifyAppointmentCancelled(
+      targetUserId,
+      appointment as any,
+      cancelledBy,
+      feeCharged,
+      voucherCreated,
+    );
+
+    // Also notify the other party
+    const otherUserId = cancelledBy === 'patient' ? doctorId : patientId;
+    await this.notificationGateway.notifyAppointmentCancelled(
+      otherUserId,
+      appointment as any,
+      cancelledBy,
+      feeCharged,
+      voucherCreated,
+    );
+
+    return {
+      appointment,
+      feeCharged,
+      feeAmount: feeCharged ? RESERVATION_FEE_AMOUNT : 0,
+      refundIssued,
+      voucherCreated,
+    };
+  }
+
+  /**
+   * ENHANCED: Create follow-up appointment suggestion (pending state)
+   * Doctor creates suggestion → Patient sees in tab → Patient schedules with 5% discount
+   */
+  async createFollowUpSuggestion(
+    parentAppointmentId: string,
+    suggestedDate?: Date,
+    suggestedTime?: string,
+    notes?: string,
+  ) {
+    const parentAppointment = await this.appointmentModel
+      .findById(parentAppointmentId)
+      .populate('patientId')
+      .populate('doctorId');
+
+    if (!parentAppointment) {
+      throw new NotFoundException('Không tìm thấy lịch hẹn gốc');
+    }
+
+    // Create voucher for follow-up discount
+    const voucher = await this.vouchersService.createFollowUpVoucher(
+      (parentAppointment.patientId as any)._id.toString(),
+      parentAppointmentId,
+    );
+
+    // Create follow-up appointment in PENDING_PATIENT_CONFIRMATION state
+    // Date and time will be selected by patient later
+    const followUpAppointment = new this.appointmentModel({
+      patientId: (parentAppointment.patientId as any)._id,
+      doctorId: (parentAppointment.doctorId as any)._id,
+      appointmentDate: suggestedDate, // Optional - patient will choose
+      startTime: suggestedTime, // Optional - patient will choose
+      endTime: suggestedTime
+        ? this.calculateEndTime(suggestedTime, 30)
+        : undefined,
+      duration: 30,
+      appointmentType: 'Tái khám',
+      consultationFee: parentAppointment.consultationFee,
+      notes: notes || 'Lịch tái khám theo đề xuất của bác sĩ',
+      status: AppointmentStatus.PENDING_PATIENT_CONFIRMATION,
+      isFollowUp: true,
+      isFollowUpSuggestion: true,
+      followUpParentId: parentAppointmentId,
+      followUpDiscount: 5,
+      suggestedFollowUpDate: suggestedDate, // Store suggestion if provided
+      suggestedFollowUpTime: suggestedTime, // Store suggestion if provided
+      appliedVoucherId: (voucher as any)._id,
+    });
+
+    await followUpAppointment.save();
+
+    // Send notification to patient
+    await this.notificationGateway.notifyFollowUpSuggestion(
+      followUpAppointment as any,
+    );
+
+    // Send email to patient (comment out until email method is added)
+    // await this.emailService.sendFollowUpSuggestionEmail(
+    //   parentAppointment.patientId as any,
+    //   parentAppointment.doctorId as any,
+    //   followUpAppointment as any,
+    // );
+
+    return {
+      followUpAppointment,
+      voucher,
+    };
+  }
+
+  async confirmFollowUpAppointment(
+    appointmentId: string,
+    finalDate: Date,
+    finalTime: string,
+  ) {
+    const appointment = await this.appointmentModel
+      .findById(appointmentId)
+      .populate('patientId')
+      .populate('doctorId');
+
+    if (!appointment) {
+      throw new NotFoundException('Không tìm thấy lịch hẹn');
+    }
+
+    if (appointment.status !== AppointmentStatus.PENDING_PATIENT_CONFIRMATION) {
+      throw new BadRequestException('Lịch hẹn không ở trạng thái chờ xác nhận');
+    }
+
+    // Update appointment with final date/time
+    appointment.appointmentDate = finalDate;
+    appointment.startTime = finalTime;
+    appointment.endTime = this.calculateEndTime(
+      finalTime,
+      appointment.duration,
+    );
+    appointment.status = AppointmentStatus.PENDING_PAYMENT;
+
+    // Apply 5% discount
+    if (appointment.followUpDiscount && appointment.consultationFee) {
+      const discountAmount =
+        (appointment.consultationFee * appointment.followUpDiscount) / 100;
+      appointment.consultationFee =
+        appointment.consultationFee - discountAmount;
+    }
+
+    await appointment.save();
+
+    // Send notification to doctor
+    await this.notificationGateway.notifyFollowUpConfirmed(
+      (appointment.doctorId as any)._id.toString(),
+      appointment as any,
+    );
+
+    return appointment;
+  }
+
+  async rejectFollowUpAppointment(appointmentId: string) {
+    const appointment = await this.appointmentModel
+      .findById(appointmentId)
+      .populate('patientId')
+      .populate('doctorId');
+
+    if (!appointment) {
+      throw new NotFoundException('Không tìm thấy lịch hẹn');
+    }
+
+    if (appointment.status !== AppointmentStatus.PENDING_PATIENT_CONFIRMATION) {
+      throw new BadRequestException('Lịch hẹn không ở trạng thái chờ xác nhận');
+    }
+
+    appointment.status = AppointmentStatus.CANCELLED;
+    appointment.cancelledBy = 'patient';
+    appointment.cancellationReason = 'Bệnh nhân từ chối lịch tái khám';
+
+    await appointment.save();
+
+    // Send notification to doctor
+    await this.notificationGateway.notifyFollowUpRejected(
+      (appointment.doctorId as any)._id.toString(),
+      appointment as any,
+    );
+
+    return appointment;
   }
 }
