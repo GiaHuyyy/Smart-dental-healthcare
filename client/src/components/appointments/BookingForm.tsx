@@ -1,6 +1,7 @@
 "use client";
 
 import { BookingFormData, ConsultType } from "@/types/appointment";
+import voucherService from "@/services/voucherService";
 import {
   AlertCircle,
   Building2,
@@ -17,9 +18,12 @@ import {
   Sparkles,
   RotateCcw,
   Image as ImageIcon,
+  Tag,
+  Check,
 } from "lucide-react";
 import React, { useState } from "react";
 import { useAppSelector } from "@/store/hooks";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { toast } from "sonner";
 
@@ -31,6 +35,7 @@ interface BookingFormProps {
 export default function BookingForm({ bookingData, onSubmit }: BookingFormProps) {
   // Get AI chat data from Redux
   const appointmentDataFromAI = useAppSelector((state) => state.appointment.appointmentData);
+  const { data: session } = useSession();
 
   const [formData, setFormData] = useState<BookingFormData>({
     doctorId: bookingData?.doctorId || "",
@@ -40,16 +45,61 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     bookForSelf: true,
     paymentMethod: "later",
     paymentAmount: 200000,
+    voucherCode: "",
+    discountAmount: 0,
     ...bookingData,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [applyingVoucher, setApplyingVoucher] = useState(false);
+  const [voucherApplied, setVoucherApplied] = useState(false);
 
   const handleInputChange = (field: keyof BookingFormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+    // Reset voucher when code changes
+    if (field === "voucherCode") {
+      setVoucherApplied(false);
+      setFormData((prev) => ({ ...prev, discountAmount: 0 }));
+    }
+  };
+
+  // Apply voucher
+  const handleApplyVoucher = async () => {
+    if (!formData.voucherCode?.trim()) {
+      toast.error("Vui lòng nhập mã voucher");
+      return;
+    }
+
+    setApplyingVoucher(true);
+    try {
+      const accessToken = (session as { access_token?: string })?.access_token;
+      const result = await voucherService.applyVoucher(
+        formData.voucherCode,
+        formData.paymentAmount || 200000,
+        accessToken
+      );
+
+      if (result.success && result.data) {
+        const discount = (formData.paymentAmount || 200000) - result.data.discountedAmount;
+        setFormData((prev) => ({
+          ...prev,
+          discountAmount: discount,
+          paymentAmount: result.data!.discountedAmount,
+          voucherId: result.data!.voucherId, // Save voucherId for appointment creation
+        }));
+        setVoucherApplied(true);
+        toast.success(`✅ Giảm giá ${discount.toLocaleString()}đ!`);
+      } else {
+        toast.error(result.error || "Không thể áp dụng voucher");
+      }
+    } catch (error) {
+      toast.error("Có lỗi xảy ra khi áp dụng voucher");
+    } finally {
+      setApplyingVoucher(false);
     }
   };
 
@@ -494,6 +544,47 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
           </div>
         </div>
       )}
+
+      {/* Voucher Section */}
+      <div className="healthcare-card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Tag className="w-5 h-5 text-primary" />
+          Mã giảm giá
+        </h3>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <input
+                type="text"
+                value={formData.voucherCode || ""}
+                onChange={(e) => handleInputChange("voucherCode", e.target.value)}
+                placeholder="Nhập mã voucher (nếu có)"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                disabled={voucherApplied}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleApplyVoucher}
+              disabled={applyingVoucher || voucherApplied || !formData.voucherCode?.trim()}
+              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {applyingVoucher ? "Đang xử lý..." : voucherApplied ? "Đã áp dụng" : "Áp dụng"}
+            </button>
+          </div>
+          {voucherApplied && formData.discountAmount && formData.discountAmount > 0 && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <Check className="w-5 h-5 text-green-600" />
+              <span className="text-sm text-green-700 font-medium">
+                Giảm giá: {formData.discountAmount.toLocaleString("vi-VN")} ₫
+              </span>
+            </div>
+          )}
+          <p className="text-sm text-gray-500">
+            Bạn có thể nhận voucher giảm giá 5% khi bác sĩ đề xuất lịch tái khám hoặc khi bác sĩ hủy lịch khẩn cấp
+          </p>
+        </div>
+      </div>
 
       {/* Payment Method Selection */}
       <div className="healthcare-card p-6">

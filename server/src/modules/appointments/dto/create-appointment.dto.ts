@@ -67,4 +67,12 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsMongoId()
   medicalRecordId: string;
+
+  @IsOptional()
+  @IsString()
+  voucherCode: string;
+
+  @IsOptional()
+  @IsMongoId()
+  voucherId: string;
 }

@@ -164,4 +164,143 @@ export class AppointmentEmailService {
       );
     }
   }
+
+  /**
+   * Send auto-reject email to patient when appointment is cancelled due to doctor not confirming
+   */
+  async sendAutoRejectEmailToPatient(
+    appointment: any,
+    patient: any,
+    doctor: any,
+    refundIssued = false,
+    refundAmount = 0,
+  ) {
+    try {
+      const appointmentDate = new Date(
+        appointment.appointmentDate,
+      ).toLocaleDateString('vi-VN', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+
+      // Build refund section if applicable
+      let refundSection = '';
+      if (refundIssued) {
+        refundSection = `
+          <div style="background-color: #ecfdf5; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981; margin: 20px 0;">
+            <p style="margin: 0; color: #065f46;">
+              <strong>💰 Hoàn tiền:</strong> Chúng tôi đã hoàn lại <strong>100% phí khám (${refundAmount.toLocaleString('vi-VN')} VND)</strong> vào tài khoản của bạn.
+            </p>
+          </div>
+        `;
+      }
+
+      await this.mailerService.sendMail({
+        to: patient.email,
+        subject: '❌ Lịch hẹn đã bị hủy',
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #dc2626; margin-bottom: 20px;">❌ Lịch hẹn đã bị hủy</h2>
+
+          <p style="font-size: 16px; color: #374151;">Kính gửi <strong>${patient.fullName}</strong>,</p>
+
+          <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626; margin: 20px 0;">
+            <p style="margin: 0; color: #991b1b;">
+              Rất xin lỗi, lịch hẹn <strong>${appointment.startTime}</strong> ngày <strong>${appointmentDate}</strong>
+              của bạn với <strong>Bác sĩ ${doctor.fullName}</strong> đã bị hủy do <strong>Bác sĩ không kịp xác nhận</strong>.
+            </p>
+          </div>
+
+          <p style="font-size: 16px; color: #374151;">Vui lòng đặt lại một lịch hẹn khác.</p>
+
+          ${refundSection}
+
+          <div style="background-color: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e; margin: 20px 0;">
+            <p style="margin: 0; color: #166534;">
+              <strong>🎁 Quà xin lỗi:</strong> Chúng tôi đã gửi cho bạn một voucher giảm giá <strong>5%</strong>
+              cho lần khám tiếp theo để xin lỗi vì sự bất tiện này.
+            </p>
+          </div>
+
+          <p style="font-size: 16px; color: #374151;">Chúng tôi thành thật xin lỗi vì sự bất tiện này.</p>
+
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0; color: #6b7280; font-size: 14px;">
+              Trân trọng,<br/>
+              <strong>Smart Dental Healthcare</strong>
+            </p>
+          </div>
+        </div>
+        `,
+      });
+
+      this.logger.log(`Sent auto-reject email to patient ${patient.email}`);
+    } catch (error) {
+      this.logger.error('Failed to send auto-reject email to patient:', error);
+    }
+  }
+
+  /**
+   * Send auto-reject notification to doctor when appointment is cancelled due to not confirming
+   */
+  async sendAutoRejectEmailToDoctor(
+    appointment: any,
+    doctor: any,
+    patient: any,
+  ) {
+    try {
+      const appointmentDate = new Date(
+        appointment.appointmentDate,
+      ).toLocaleDateString('vi-VN', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+
+      await this.mailerService.sendMail({
+        to: doctor.email,
+        subject: '⚠️ Lịch hẹn đã bị tự động hủy',
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #f59e0b; margin-bottom: 20px;">⚠️ Lịch hẹn đã bị tự động hủy</h2>
+
+          <p style="font-size: 16px; color: #374151;">Kính gửi <strong>Bác sĩ ${doctor.fullName}</strong>,</p>
+
+          <div style="background-color: #fffbeb; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e;">
+              Lịch hẹn <strong>${appointment.startTime}</strong> ngày <strong>${appointmentDate}</strong>
+              với bệnh nhân <strong>${patient.fullName}</strong> đã bị tự động hủy do bạn không xác nhận.
+            </p>
+          </div>
+
+          <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; color: #991b1b;">
+              <strong>⚠️ Lưu ý:</strong> Các lịch hẹn cần được xác nhận trước ít nhất <strong>30 phút</strong>
+              để tránh tự động hủy và đảm bảo trải nghiệm tốt nhất cho bệnh nhân.
+            </p>
+          </div>
+
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0; color: #6b7280; font-size: 14px;">
+              Trân trọng,<br/>
+              <strong>Smart Dental Healthcare System</strong>
+            </p>
+          </div>
+        </div>
+        `,
+      });
+
+      this.logger.log(
+        `Sent auto-reject notification to doctor ${doctor.email}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to send auto-reject notification to doctor:',
+        error,
+      );
+    }
+  }
 }

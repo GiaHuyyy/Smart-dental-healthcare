@@ -2,7 +2,18 @@
 
 import Header from "@/components/Header";
 import ShellLayout from "@/components/ShellLayout";
-import { BarChart2, Calendar, CreditCard, FileText, MessageSquare, Pill, Settings, Users, Wallet } from "lucide-react";
+import {
+  BarChart2,
+  Calendar,
+  CreditCard,
+  FileText,
+  MessageSquare,
+  Pill,
+  Settings,
+  Users,
+  Wallet,
+  Ticket,
+} from "lucide-react";
 
 const navigation = [
   { name: "Tổng quan", href: "/patient", icon: <BarChart2 className="w-4 h-4" /> },
@@ -13,6 +24,7 @@ const navigation = [
   { name: "Đơn thuốc", href: "/patient/prescriptions", icon: <Pill className="w-4 h-4" /> },
   { name: "Ví", href: "/patient/wallet", icon: <Wallet className="w-4 h-4" /> },
   { name: "Thanh toán", href: "/patient/payments", icon: <CreditCard className="w-4 h-4" /> },
+  { name: "Voucher của tôi", href: "/patient/vouchers", icon: <Ticket className="w-4 h-4" /> },
   { name: "Cài đặt", href: "/patient/settings", icon: <Settings className="w-4 h-4" /> },
 ];
 

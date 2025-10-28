@@ -12,6 +12,8 @@ import Image from "next/image";
 import { toast } from "sonner";
 import appointmentService from "@/services/appointmentService";
 import TreatmentModal from "@/components/appointments/TreatmentModal";
+import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
+import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
 
 // Appointment type
 interface Appointment {
@@ -66,6 +68,10 @@ function DoctorScheduleContent() {
   const [treatmentModalOpen, setTreatmentModalOpen] = useState(false);
   const [currentTreatmentAppointment, setCurrentTreatmentAppointment] = useState<Appointment | null>(null);
   const [isSubmittingTreatment, setIsSubmittingTreatment] = useState(false);
+
+  // Follow-up and billing modal states
+  const [followUpModalOpen, setFollowUpModalOpen] = useState(false);
+  const [appointmentForFollowUp, setAppointmentForFollowUp] = useState<Appointment | null>(null);
 
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
@@ -1054,73 +1060,60 @@ function DoctorScheduleContent() {
                     {actionLoading ? "Đang xử lý..." : "Hủy Lịch Hẹn"}
                   </button>
                 )}
+                {selectedAppointment.status === "completed" && (
+                  <button
+                    onClick={() => {
+                      setAppointmentForFollowUp(selectedAppointment);
+                      setFollowUpModalOpen(true);
+                      setDetailModalOpen(false);
+                    }}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
+                  >
+                    <CalendarDays className="w-4 h-4" />
+                    Tạo đề xuất tái khám
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Cancel Appointment Dialog */}
+      {/* Cancel Appointment Modal - Using new billing modal */}
       {cancelDialogOpen && appointmentToCancel && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Xác nhận hủy lịch</h3>
-              <button
-                onClick={() => {
-                  setCancelDialogOpen(false);
-                  setAppointmentToCancel(null);
-                  setCancelReason("");
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
+        <CancelWithBillingModal
+          isOpen={cancelDialogOpen}
+          onClose={() => {
+            setCancelDialogOpen(false);
+            setAppointmentToCancel(null);
+            setCancelReason("");
+          }}
+          appointment={appointmentToCancel as any}
+          userRole="doctor"
+          onSuccess={() => {
+            setCancelDialogOpen(false);
+            setAppointmentToCancel(null);
+            setCancelReason("");
+            fetchAppointments();
+          }}
+        />
+      )}
 
-            <div className="mb-6">
-              <p className="text-gray-600 mb-4">
-                Bạn có chắc chắn muốn hủy lịch hẹn với <strong>{appointmentToCancel.patientName}</strong> vào{" "}
-                <strong>
-                  {new Date(appointmentToCancel.date).toLocaleDateString("vi-VN")} lúc {appointmentToCancel.startTime}
-                </strong>
-                ?
-              </p>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lý do hủy <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="Vui lòng cho biết lý do bạn muốn hủy lịch hẹn này..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setCancelDialogOpen(false);
-                  setAppointmentToCancel(null);
-                  setCancelReason("");
-                }}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                disabled={actionLoading}
-              >
-                Đóng
-              </button>
-              <button
-                onClick={confirmCancel}
-                disabled={!cancelReason.trim() || actionLoading}
-                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {actionLoading ? "Đang hủy..." : "Xác nhận hủy"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Follow-Up Modal - Create follow-up suggestion */}
+      {followUpModalOpen && appointmentForFollowUp && (
+        <CreateFollowUpModal
+          isOpen={followUpModalOpen}
+          onClose={() => {
+            setFollowUpModalOpen(false);
+            setAppointmentForFollowUp(null);
+          }}
+          appointment={appointmentForFollowUp as any}
+          onSuccess={() => {
+            setFollowUpModalOpen(false);
+            setAppointmentForFollowUp(null);
+            fetchAppointments();
+          }}
+        />
       )}
 
       {/* Treatment Modal */}

@@ -133,6 +133,9 @@ export interface BookingFormData {
   notes?: string;
   paymentMethod?: "momo" | "cash" | "later";
   paymentAmount?: number;
+  voucherCode?: string;
+  voucherId?: string;
+  discountAmount?: number;
 }
 
 export interface AppointmentConfirmation {

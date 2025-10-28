@@ -491,6 +491,210 @@ const appointmentService = {
       };
     }
   },
+
+  // ============= NEW BILLING METHODS =============
+
+  /**
+   * Reschedule appointment with billing logic (30-min threshold)
+   */
+  async rescheduleWithBilling(
+    appointmentId: string,
+    payload: {
+      appointmentDate: string;
+      startTime: string;
+      endTime?: string;
+      duration?: number;
+      userId: string;
+      notes?: string;
+    },
+    token?: string
+  ): Promise<{
+    success: boolean;
+    data?: {
+      newAppointment: Appointment;
+      feeCharged: boolean;
+      feeAmount: number;
+    };
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/reschedule-with-billing`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Đổi lịch thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Reschedule with billing error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Cancel appointment with billing logic
+   */
+  async cancelWithBilling(
+    appointmentId: string,
+    payload: {
+      reason: string;
+      cancelledBy: "patient" | "doctor";
+      doctorReason?: "emergency" | "patient_late";
+    },
+    token?: string
+  ): Promise<{
+    success: boolean;
+    data?: {
+      appointment: Appointment;
+      feeCharged: boolean;
+      feeAmount: number;
+      refundIssued: boolean;
+      voucherCreated: boolean;
+    };
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/cancel-with-billing`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Hủy lịch thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Cancel with billing error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Create follow-up appointment suggestion
+   */
+  async createFollowUpSuggestion(
+    payload: {
+      parentAppointmentId: string;
+      suggestedDate: string;
+      suggestedTime: string;
+      notes?: string;
+    },
+    token?: string
+  ): Promise<{
+    success: boolean;
+    data?: {
+      followUpAppointment: Appointment;
+      voucher: any;
+    };
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/create-suggestion`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Tạo đề xuất tái khám thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Create follow-up suggestion error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Get follow-up suggestions for patient
+   */
+  async getFollowUpSuggestions(patientId: string, token?: string): Promise<AppointmentsListResponse> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/suggestions/${patientId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Lấy đề xuất tái khám thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Get follow-up suggestions error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
 };
 
 export default appointmentService;

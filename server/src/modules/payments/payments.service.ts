@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
@@ -6,6 +12,7 @@ import mongoose, { Model } from 'mongoose';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
 import { NotificationGateway } from '../notifications/notification.gateway';
 import { RevenueService } from '../revenue/revenue.service';
+import { VouchersService } from '../vouchers/vouchers.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Payment } from './schemas/payment.schemas';
@@ -23,6 +30,7 @@ export class PaymentsService {
     @Inject(forwardRef(() => RevenueService))
     private readonly revenueService: RevenueService,
     private readonly notificationGateway: NotificationGateway,
+    private readonly vouchersService: VouchersService,
   ) {}
 
   /**
@@ -293,11 +301,12 @@ export class PaymentsService {
           status: updatedPayment.status,
           type: updatedPayment.type,
         });
-        
+
         try {
           // CRITICAL: Đảm bảo revenue được tạo trước khi tiếp tục
-          const revenueResult = await this.revenueService.createRevenueFromPayment(paymentId);
-          
+          const revenueResult =
+            await this.revenueService.createRevenueFromPayment(paymentId);
+
           this.logger.log('💰 Revenue creation result:', {
             success: revenueResult.success,
             message: revenueResult.message,
@@ -305,10 +314,12 @@ export class PaymentsService {
           });
 
           if (!revenueResult.success) {
-            this.logger.error('❌ CRITICAL: Revenue creation failed but payment is completed!');
+            this.logger.error(
+              '❌ CRITICAL: Revenue creation failed but payment is completed!',
+            );
             this.logger.error('❌ This will cause data inconsistency!');
             this.logger.error('❌ Error:', revenueResult.message);
-            
+
             // TODO: Implement retry mechanism or queue for failed revenue creation
             // For now, just log the error but don't fail the callback
           }
@@ -316,7 +327,7 @@ export class PaymentsService {
           // Gửi thông báo cho bác sĩ về doanh thu mới (chỉ khi revenue được tạo thành công)
           if (revenueResult.success && revenueResult.data) {
             this.logger.log('📤 Sending notification to doctor...');
-            
+
             const doctorId = updatedPayment.doctorId.toString();
             const revenue = revenueResult.data;
 
@@ -327,7 +338,8 @@ export class PaymentsService {
               .populate('refId')
               .exec();
 
-            const patientName = (populatedPayment?.patientId as any)?.fullName || 'Bệnh nhân';
+            const patientName =
+              (populatedPayment?.patientId as any)?.fullName || 'Bệnh nhân';
             const formattedAmount = new Intl.NumberFormat('vi-VN', {
               style: 'currency',
               currency: 'VND',
@@ -355,7 +367,9 @@ export class PaymentsService {
             );
 
             this.logger.log('✅ Notification sent to doctor:', doctorId);
-            this.logger.log('✅ ========== REVENUE CREATION COMPLETED ==========');
+            this.logger.log(
+              '✅ ========== REVENUE CREATION COMPLETED ==========',
+            );
           }
         } catch (error) {
           this.logger.error('❌ ========== REVENUE CREATION FAILED ==========');
@@ -363,7 +377,7 @@ export class PaymentsService {
           this.logger.error('❌ Error stack:', error.stack);
           this.logger.error('❌ Payment ID:', paymentId);
           this.logger.error('❌ Doctor ID:', updatedPayment.doctorId);
-          
+
           // IMPORTANT: Don't fail the MoMo callback even if revenue creation fails
           // The payment status is already updated, we can retry revenue creation later
         }
@@ -393,6 +407,26 @@ export class PaymentsService {
                 newStatus: 'confirmed',
                 paymentStatus: 'paid',
               });
+
+              // Mark voucher as used if present
+              if (appointment.appliedVoucherId) {
+                try {
+                  await this.vouchersService.markVoucherAsUsed(
+                    (appointment.appliedVoucherId as any)._id?.toString() ||
+                      appointment.appliedVoucherId.toString(),
+                  );
+                  this.logger.log(
+                    '✅ Voucher marked as used:',
+                    appointment.appliedVoucherId,
+                  );
+                } catch (voucherError) {
+                  this.logger.error(
+                    'Failed to mark voucher as used:',
+                    voucherError,
+                  );
+                  // Don't fail payment if voucher update fails
+                }
+              }
 
               // TODO: Send notification to patient & doctor
             } else {
@@ -471,7 +505,7 @@ export class PaymentsService {
         if (parts.length >= 2) {
           const appointmentId = parts[1]; // APT_68fa749e..._1761244318717 -> 68fa749e...
           this.logger.log('🔍 Searching for appointment:', appointmentId);
-          
+
           // Find payment by appointment reference
           payment = await this.paymentModel
             .findOne({
@@ -480,7 +514,7 @@ export class PaymentsService {
             })
             .populate('refId')
             .sort({ createdAt: -1 }); // Get latest payment for this appointment
-          
+
           if (payment) {
             this.logger.log('✅ Found payment by appointment ID:', payment._id);
           }
@@ -490,13 +524,13 @@ export class PaymentsService {
       // If still not found, try searching by similar transactionId pattern
       if (!payment) {
         this.logger.log('🔍 Trying to find by transaction ID pattern...');
-        
+
         // Try to find payment with transactionId starting with PAY_ for the same reference
         if (orderId.startsWith('APT_')) {
           const parts = orderId.split('_');
           if (parts.length >= 2) {
             const appointmentId = parts[1];
-            
+
             payment = await this.paymentModel
               .findOne({
                 refId: appointmentId,
@@ -505,9 +539,12 @@ export class PaymentsService {
               })
               .populate('refId')
               .sort({ createdAt: -1 });
-            
+
             if (payment) {
-              this.logger.log('✅ Found payment by appointment reference:', payment._id);
+              this.logger.log(
+                '✅ Found payment by appointment reference:',
+                payment._id,
+              );
             }
           }
         }
@@ -515,7 +552,9 @@ export class PaymentsService {
 
       if (!payment) {
         this.logger.error('❌ Payment not found for orderId:', orderId);
-        this.logger.error('   Tried: transactionId match, appointmentId extraction, pattern matching');
+        this.logger.error(
+          '   Tried: transactionId match, appointmentId extraction, pattern matching',
+        );
         throw new BadRequestException('Không tìm thấy thanh toán');
       }
 
@@ -551,10 +590,11 @@ export class PaymentsService {
         // 🔥 CRITICAL: Create revenue for the completed payment
         this.logger.log('💰 Creating revenue for completed payment...');
         try {
-          const revenueResult = await this.revenueService.createRevenueFromPayment(
-            payment._id.toString()
-          );
-          
+          const revenueResult =
+            await this.revenueService.createRevenueFromPayment(
+              payment._id.toString(),
+            );
+
           this.logger.log('💰 Revenue creation result:', {
             success: revenueResult.success,
             message: revenueResult.message,
@@ -576,7 +616,8 @@ export class PaymentsService {
               .populate('patientId', 'fullName')
               .exec();
 
-            const patientName = (populatedPayment?.patientId as any)?.fullName || 'Bệnh nhân';
+            const patientName =
+              (populatedPayment?.patientId as any)?.fullName || 'Bệnh nhân';
             const formattedAmount = new Intl.NumberFormat('vi-VN', {
               style: 'currency',
               currency: 'VND',
@@ -604,7 +645,10 @@ export class PaymentsService {
             this.logger.log('✅ Notification sent to doctor:', doctorId);
           }
         } catch (error) {
-          this.logger.error('❌ Failed to create revenue in queryMomoPayment:', error);
+          this.logger.error(
+            '❌ Failed to create revenue in queryMomoPayment:',
+            error,
+          );
           // Don't fail the query if revenue creation fails
         }
 
@@ -854,7 +898,7 @@ export class PaymentsService {
   async testCreateRevenue(paymentId: string) {
     try {
       this.logger.log('🧪 Testing revenue creation for payment:', paymentId);
-      
+
       // Check if payment exists
       const payment = await this.paymentModel.findById(paymentId).exec();
       if (!payment) {
@@ -863,27 +907,28 @@ export class PaymentsService {
           message: 'Payment not found',
         };
       }
-      
+
       this.logger.log('📋 Payment details:', {
         _id: payment._id,
         status: payment.status,
         amount: payment.amount,
         doctorId: payment.doctorId,
         patientId: payment.patientId,
-        type: payment.type
+        type: payment.type,
       });
-      
+
       // Try to create revenue
-      const result = await this.revenueService.createRevenueFromPayment(paymentId);
+      const result =
+        await this.revenueService.createRevenueFromPayment(paymentId);
       this.logger.log('💰 Revenue creation result:', result);
-      
+
       return result;
     } catch (error) {
       this.logger.error('❌ Test revenue creation failed:', error);
       return {
         success: false,
         message: error.message || 'Failed to create revenue',
-        error: error.stack
+        error: error.stack,
       };
     }
   }
@@ -894,7 +939,7 @@ export class PaymentsService {
   async ensureRevenueForPayment(paymentId: string) {
     try {
       this.logger.log('🔍 Ensuring revenue for payment:', paymentId);
-      
+
       // Check if payment exists and is completed
       const payment = await this.paymentModel.findById(paymentId).exec();
       if (!payment) {
@@ -903,16 +948,17 @@ export class PaymentsService {
           message: 'Payment not found',
         };
       }
-      
+
       if (payment.status !== 'completed') {
         return {
           success: false,
           message: `Payment status is ${payment.status}, not completed`,
         };
       }
-      
+
       // Check if revenue already exists
-      const existingRevenue = await this.revenueService.getRevenueByPaymentId(paymentId);
+      const existingRevenue =
+        await this.revenueService.getRevenueByPaymentId(paymentId);
       if (existingRevenue) {
         return {
           success: true,
@@ -920,18 +966,19 @@ export class PaymentsService {
           data: existingRevenue,
         };
       }
-      
+
       // Create revenue
-      const result = await this.revenueService.createRevenueFromPayment(paymentId);
+      const result =
+        await this.revenueService.createRevenueFromPayment(paymentId);
       this.logger.log('✅ Revenue ensured for payment:', paymentId);
-      
+
       return result;
     } catch (error) {
       this.logger.error('❌ Ensure revenue failed:', error);
       return {
         success: false,
         message: error.message || 'Failed to ensure revenue',
-        error: error.stack
+        error: error.stack,
       };
     }
   }
@@ -946,8 +993,10 @@ export class PaymentsService {
       this.logger.log('📊 Result Code:', resultCode);
 
       // Find payment by transactionId (orderId)
-      const payment = await this.paymentModel.findOne({ transactionId: orderId }).exec();
-      
+      const payment = await this.paymentModel
+        .findOne({ transactionId: orderId })
+        .exec();
+
       if (!payment) {
         this.logger.error('❌ Payment not found for orderId:', orderId);
         return {
@@ -964,7 +1013,8 @@ export class PaymentsService {
 
       // Simulate callback data
       const callbackData: MoMoCallbackData = {
-        partnerCode: this.configService.get<string>('MOMO_PARTNER_CODE') || 'MOMO',
+        partnerCode:
+          this.configService.get<string>('MOMO_PARTNER_CODE') || 'MOMO',
         orderId: orderId,
         requestId: `SIM_REQ_${Date.now()}`,
         amount: payment.amount,
@@ -983,12 +1033,12 @@ export class PaymentsService {
       };
 
       this.logger.log('📤 Calling handleMomoCallback with simulated data...');
-      
+
       // Call the actual callback handler
       const result = await this.handleMomoCallback(callbackData);
-      
+
       this.logger.log('✅ Simulation completed:', result);
-      
+
       return {
         success: true,
         message: 'Callback simulated successfully',
