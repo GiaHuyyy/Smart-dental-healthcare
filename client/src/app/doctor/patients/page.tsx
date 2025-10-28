@@ -1,5 +1,7 @@
 "use client";
 
+import TreatmentModal from "@/components/appointments/TreatmentModal";
+import MedicalRecordDetailModal from "@/components/medical-records/MedicalRecordDetailModal";
 import { useToast } from "@/hooks/use-toast";
 import { Activity, Calendar, Check, Eye, FileText, Filter, Mail, MapPin, MessageCircle, Phone, Pill, Plus, Printer, Search, TrendingUp, User, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -22,7 +24,13 @@ interface Appointment {
   _id: string;
   appointmentDate: string;
   startTime: string;
+  endTime?: string;
   status: string;
+  appointmentType?: string;
+  consultationFee?: number;
+  notes?: string;
+  paymentStatus?: string;
+  duration?: number;
   doctorId: {
     _id: string;
     fullName: string;
@@ -59,15 +67,53 @@ interface MedicalRecord {
   diagnosis: string;
   treatmentPlan: string;
   status: string;
-  doctorId: {
+  doctorId?: {
     _id: string;
     fullName: string;
     specialty: string;
+    email?: string;
   };
-  isFollowUpRequired: boolean;
+  patientId?: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phone: string;
+  };
+  isFollowUpRequired?: boolean;
   followUpDate?: string;
   medications?: string[];
   notes?: string;
+  vitalSigns?: {
+    bloodPressure?: string;
+    heartRate?: number;
+    temperature?: number;
+  };
+  procedures?: Array<{
+    name: string;
+    description: string;
+    date: string;
+    cost: number;
+    status: string;
+  }>;
+  dentalChart?: Array<{
+    toothNumber: number;
+    condition: string;
+    treatment: string;
+    notes: string;
+  }>;
+  attachments?: string[];
+}
+
+interface Payment {
+  _id: string;
+  amount: number;
+  status: string; // pending, completed, failed, refunded
+  type: string; // appointment, treatment, medicine, other
+  paymentDate?: string;
+  paymentMethod?: string;
+  transactionId?: string;
+  refId?: string;
+  refModel?: string;
 }
 
 interface PatientStats {
@@ -95,9 +141,14 @@ export default function DoctorPatients() {
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
   const [patientMedicalRecords, setPatientMedicalRecords] = useState<MedicalRecord[]>([]);
-  const [patientPayments, setPatientPayments] = useState<any[]>([]);
+  const [patientPayments, setPatientPayments] = useState<Payment[]>([]);
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
+  const [selectedMedicalRecord, setSelectedMedicalRecord] = useState<MedicalRecord | null>(null);
+  const [isMedicalRecordModalOpen, setIsMedicalRecordModalOpen] = useState(false);
+  const [medicalRecordDetails, setMedicalRecordDetails] = useState<MedicalRecord | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -240,6 +291,97 @@ export default function DoctorPatients() {
     setSelectedPrescription(null);
   };
 
+  const handleMedicalRecordClick = async (record: MedicalRecord) => {
+    try {
+      setMedicalRecordDetails(null);
+      setSelectedMedicalRecord(record);
+      setIsMedicalRecordModalOpen(true);
+      
+      // Fetch full details
+      const response = await fetch(`/api/medical-records/${record._id}`);
+      const data = await response.json();
+      
+      if (data && !data.error) {
+        setMedicalRecordDetails(data.data || data);
+      } else {
+        setMedicalRecordDetails(record);
+      }
+    } catch (error) {
+      console.error('Error fetching medical record details:', error);
+      setMedicalRecordDetails(record);
+    }
+  };
+
+  const closeMedicalRecordModal = () => {
+    setIsMedicalRecordModalOpen(false);
+    setSelectedMedicalRecord(null);
+    setMedicalRecordDetails(null);
+  };
+
+  const handleEditMedicalRecord = () => {
+    setIsMedicalRecordModalOpen(false);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    // Refetch medical records after edit
+    if (selectedPatient) {
+      fetchPatientMedicalRecords(selectedPatient._id);
+    }
+  };
+
+  const handleSubmitTreatment = async (formData: {
+    chiefComplaints?: string[];
+    diagnosisGroups?: Array<{ diagnosis: string; treatmentPlans: string[] }>;
+    medications?: Array<{ name: string; dosage: string; frequency: string; duration: string; instructions?: string }>;
+    notes?: string;
+  }) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/medical-records/${selectedMedicalRecord?._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+           chiefComplaint: formData.chiefComplaints?.join(', ') || medicalRecordDetails?.chiefComplaint,
+           diagnosis: formData.diagnosisGroups?.map((g) => g.diagnosis).join(', ') || medicalRecordDetails?.diagnosis,
+           treatmentPlan: formData.diagnosisGroups?.map((g) => g.treatmentPlans.join(', ')).join('; ') || medicalRecordDetails?.treatmentPlan,
+          medications: formData.medications?.map((m) => `${m.name} - ${m.dosage} - ${m.frequency}`) || medicalRecordDetails?.medications,
+          notes: formData.notes || medicalRecordDetails?.notes,
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Thành công",
+          description: "Cập nhật hồ sơ bệnh án thành công",
+        });
+        closeEditModal();
+        // Refetch to update list
+        if (selectedPatient) {
+          await fetchPatientMedicalRecords(selectedPatient._id);
+        }
+      } else {
+        toast({
+          title: "Lỗi",
+          description: result.message || "Không thể cập nhật hồ sơ",
+          type: "error"
+        });
+      }
+    } catch (error) {
+      console.error('Error updating medical record:', error);
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi cập nhật hồ sơ",
+        type: "error"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handlePrintPrescription = () => {
     window.print();
   };
@@ -283,29 +425,51 @@ export default function DoctorPatients() {
 
   const fetchPatientPayments = async (patientId: string) => {
     try {
-      // Try client proxy route first, then fall back to server path if needed
+      console.log('Fetching payments for patient:', patientId);
       const res = await fetch(`/api/payments/patient/${patientId}`);
       const data = await res.json();
+      
+      console.log('Payments response:', data);
+      
+      // Handle different response formats
+      let payments = [];
       if (data?.success && Array.isArray(data.data)) {
-        setPatientPayments(data.data);
-        return;
+        payments = data.data;
+      } else if (Array.isArray(data)) {
+        payments = data;
+      } else if (data?.data && Array.isArray(data.data)) {
+        payments = data.data;
       }
-      // Fallback attempt (optional): ignore if fails due to CORS
-      // const res2 = await fetch(`${process.env.NEXT_PUBLIC_API_BASE || ''}/api/v1/payments/patient/${patientId}`);
-      // const data2 = await res2.json();
-      // if (data2?.success && Array.isArray(data2.data)) setPatientPayments(data2.data);
+      
+      console.log('Setting payments:', payments.length);
+      setPatientPayments(payments);
     } catch (err) {
-      console.warn('fetchPatientPayments failed (non-blocking):', err);
+      console.error('fetchPatientPayments failed:', err);
+      setPatientPayments([]);
     }
   };
 
   const nextAppointment = (() => {
     if (!patientAppointments?.length) return null;
     const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
     const upcoming = patientAppointments
-      .map((a) => ({ ...a, dt: new Date(a.appointmentDate) }))
-      .filter((a) => a.dt >= now && (a.status === 'scheduled' || a.status === 'confirmed'))
-      .sort((a, b) => a.dt.getTime() - b.dt.getTime());
+      .map((a) => ({ 
+        ...a, 
+        dt: new Date(a.appointmentDate),
+        appointmentDateTime: new Date(`${a.appointmentDate}T${a.startTime}`)
+      }))
+      .filter((a) => {
+        const appointmentDate = new Date(a.appointmentDate);
+        appointmentDate.setHours(0, 0, 0, 0);
+        
+        // Include upcoming appointments that are not cancelled or completed
+        return appointmentDate >= now && 
+               a.status !== 'cancelled' && 
+               a.status !== 'completed';
+      })
+      .sort((a, b) => a.appointmentDateTime.getTime() - b.appointmentDateTime.getTime());
     return upcoming[0] || null;
   })();
 
@@ -317,9 +481,71 @@ export default function DoctorPatients() {
     return sorted[0]?.recordDate || null;
   })();
 
-  const unpaidPaymentsCount = (() => {
-    if (!patientPayments?.length) return 0;
-    return patientPayments.filter((p: any) => p.paymentStatus === 'unpaid').length;
+  // Payment statistics
+  const paymentStats = (() => {
+    // Log để debug
+    console.log('=== Payment Stats Debug ===');
+    console.log('Patient payments count:', patientPayments.length);
+    console.log('Patient payments data:', JSON.stringify(patientPayments, null, 2));
+    console.log('Patient appointments count:', patientAppointments.length);
+    
+    // Check status values
+    const statusCounts = patientPayments.reduce((acc, p: Payment) => {
+      const status = p.status || 'unknown';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log('Payment status counts:', statusCounts);
+    
+    // Count completed payments từ payments table
+    // Backend trả về status: 'completed', 'pending', 'failed', 'refunded'
+    const completedPayments = patientPayments.filter((p: Payment) => {
+      const status = p.status?.toLowerCase() || '';
+      return status === 'completed';
+    });
+    
+    const pendingPayments = patientPayments.filter((p: Payment) => {
+      const status = p.status?.toLowerCase() || '';
+      return status === 'pending';
+    });
+    
+    console.log('Completed payments:', completedPayments.length);
+    console.log('Pending payments:', pendingPayments.length);
+    console.log('Sample completed payment:', completedPayments[0]);
+    
+    // Tính tổng tiền đã thanh toán
+    const totalPaid = completedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalPending = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    console.log('Total paid amount:', totalPaid);
+    console.log('Total pending amount:', totalPending);
+    
+    // Count unpaid appointments
+    const unpaidAppointments = patientAppointments.filter(a => {
+      if (a.status === 'completed' && (a.paymentStatus === 'unpaid' || !a.paymentStatus)) {
+        return true;
+      }
+      if ((a.status === 'pending' || a.status === 'confirmed' || a.status === 'in-progress') 
+          && a.paymentStatus === 'unpaid') {
+        return true;
+      }
+      return false;
+    }).length;
+
+    console.log('Unpaid appointments:', unpaidAppointments);
+    
+    const result = {
+      unpaid: unpaidAppointments,
+      paid: completedPayments.length,
+      totalPaid: totalPaid,
+      pendingAmount: totalPending,
+      totalFromAllPayments: patientPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
+      totalPayments: patientPayments.length,
+    };
+    
+    console.log('Final stats:', result);
+    
+    return result;
   })();
 
   const formatDate = (dateString: string) => {
@@ -359,16 +585,39 @@ export default function DoctorPatients() {
 
   const getAppointmentStatusBadge = (status: string) => {
     const statusMap: { [key: string]: { bg: string; text: string; label: string } } = {
-      'scheduled': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Đã lên lịch' },
-      'confirmed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Đã xác nhận' },
-      'completed': { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Hoàn thành' },
-      'cancelled': { bg: 'bg-red-100', text: 'text-red-800', label: 'Đã hủy' },
-      'rescheduled': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Đã đổi lịch' }
+      'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Chờ xử lý' },
+      'pending_payment': { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Chờ thanh toán' },
+      'confirmed': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Đã xác nhận' },
+      'in-progress': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Đang khám' },
+      'completed': { bg: 'bg-green-100', text: 'text-green-800', label: 'Hoàn thành' },
+      'cancelled': { bg: 'bg-red-100', text: 'text-red-800', label: 'Đã hủy' }
     };
     const statusInfo = statusMap[status] || { bg: 'bg-gray-100', text: 'text-gray-800', label: status };
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.bg} ${statusInfo.text}`}>
+      <span className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${statusInfo.bg} ${statusInfo.text}`}>
         {statusInfo.label}
+      </span>
+    );
+  };
+
+  const getPaymentStatusBadge = (paymentStatus?: string) => {
+    if (!paymentStatus || paymentStatus === 'unpaid') {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          Chưa thanh toán
+        </span>
+      );
+    }
+    if (paymentStatus === 'paid') {
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          Đã thanh toán
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        {paymentStatus}
       </span>
     );
   };
@@ -813,20 +1062,92 @@ export default function DoctorPatients() {
                               </div>
                             </div>
 
-                            <div className="bg-white rounded-lg p-4 border border-gray-200">
-                              <h3 className="text-lg font-bold text-gray-900 mb-3">Dữ liệu khám</h3>
-                              <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Lần khám gần nhất</span>
-                                  <span className="font-medium text-gray-900">{lastVisitDate ? formatDate(lastVisitDate) : 'Chưa có'}</span>
+                            <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm">
+                              <h3 className="text-base font-bold text-gray-900 mb-4 pb-3 border-b border-gray-200">Dữ liệu khám</h3>
+                              
+                              <div className="space-y-4">
+                                {/* Lần khám gần nhất */}
+                                <div className="pb-3 border-b border-gray-100">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600 font-medium">Lần khám gần nhất</span>
+                                    <span className="text-sm font-bold text-gray-900">
+                                      {lastVisitDate ? formatDate(lastVisitDate) : 'Chưa có'}
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Lịch hẹn sắp tới</span>
-                                  <span className="font-medium text-gray-900">{nextAppointment ? `${formatDate(nextAppointment.appointmentDate)} ${nextAppointment.startTime}` : 'Không có'}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Thanh toán chưa hoàn tất</span>
-                                  <span className="font-medium text-gray-900">{unpaidPaymentsCount}</span>
+                                
+                                {/* Lịch hẹn sắp tới */}
+                                {nextAppointment && (
+                                  <div 
+                                    className="pb-3 border-b border-gray-100 cursor-pointer group"
+                                    onClick={() => {
+                                      closeModal();
+                                      router.push(`/doctor/schedule?appointmentId=${nextAppointment._id}`);
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between mb-3">
+                                      <span className="text-sm text-gray-600 font-medium">Lịch hẹn sắp tới</span>
+                                      {getAppointmentStatusBadge(nextAppointment.status)}
+                                    </div>
+                                    
+                                    <div className="group-hover:bg-blue-50 group-hover:border-blue-200 border border-transparent p-3 rounded-lg transition-all duration-200">
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-9 h-9 rounded-lg bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center flex-shrink-0 border border-gray-200 group-hover:border-blue-300 transition-all duration-200">
+                                          <Calendar className="w-4 h-4 text-gray-700 group-hover:text-blue-600 transition-colors duration-200" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex flex-wrap items-center gap-2 mb-2.5">
+                                            <span className="font-bold text-gray-900 text-base">
+                                              {formatDate(nextAppointment.appointmentDate)}
+                                            </span>
+                                            <span className="text-gray-300 text-lg">•</span>
+                                            <span className="font-semibold text-gray-700">
+                                              {nextAppointment.startTime}
+                                              {nextAppointment.endTime && ` - ${nextAppointment.endTime}`}
+                                            </span>
+                                            <Eye className="w-4 h-4 text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 ml-auto" />
+                                          </div>
+                                          
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            {nextAppointment.appointmentType && (
+                                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 group-hover:bg-blue-100 text-gray-700 group-hover:text-blue-700 border border-gray-200 group-hover:border-blue-300 transition-all duration-200">
+                                                {nextAppointment.appointmentType}
+                                              </span>
+                                            )}
+                                            {nextAppointment.duration && (
+                                              <span className="text-xs text-gray-600 group-hover:text-blue-600 transition-colors duration-200">
+                                                ~{nextAppointment.duration} phút
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Thông tin thanh toán */}
+                                <div className="space-y-2.5 pt-1">
+                                  <div className="flex items-center justify-between py-1.5">
+                                    <span className="text-sm text-gray-600 font-medium">Tổng thanh toán</span>
+                                    <span className="text-sm font-bold text-gray-900">
+                                      {paymentStats.totalPaid > 0 ? paymentStats.totalPaid.toLocaleString('vi-VN') + ' VNĐ' : '0 VNĐ'}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between py-1.5">
+                                    <span className="text-sm text-gray-600 font-medium">Lượt thanh toán</span>
+                                    <span className="text-sm font-bold text-gray-900">
+                                      {paymentStats.paid} lượt
+                                    </span>
+                                  </div>
+                                  {paymentStats.unpaid > 0 && (
+                                    <div className="flex items-center justify-between py-1.5 border-t border-gray-100 pt-2.5">
+                                      <span className="text-sm text-gray-600 font-medium">Chưa thanh toán</span>
+                                      <span className="text-sm font-bold text-gray-900">
+                                        {paymentStats.unpaid} lượt
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -841,44 +1162,42 @@ export default function DoctorPatients() {
                               </h3>
                               <div className="space-y-2">
                                 <button 
-                                  onClick={() => {
-                                    closeModal();
-                                    router.push(`/doctor/appointments?patientId=${selectedPatient._id}&patientName=${encodeURIComponent(selectedPatient.fullName)}`);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-blue-700 hover:bg-gray-50 rounded-md font-medium flex items-center gap-2 text-sm"
-                                >
-                                  <Calendar className="w-4 h-4" />
-                                  Tạo lịch hẹn
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    closeModal();
-                                    router.push(`/doctor/prescriptions/create?patientId=${selectedPatient._id}`);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-emerald-700 hover:bg-gray-50 rounded-md font-medium flex items-center gap-2 text-sm"
-                                >
-                                  <Pill className="w-4 h-4" />
-                                  Tạo đơn thuốc
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    closeModal();
-                                    router.push(`/doctor/treatment?patientId=${selectedPatient._id}`);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-purple-700 hover:bg-gray-50 rounded-md font-medium flex items-center gap-2 text-sm"
-                                >
-                                  <FileText className="w-4 h-4" />
-                                  Tạo hồ sơ
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    closeModal();
-                                    router.push(`/doctor/chat?patientId=${selectedPatient._id}&patientName=${encodeURIComponent(selectedPatient.fullName)}`);
+                                  onClick={async () => {
+                                    try {
+                                      const payload = { 
+                                        patientId: selectedPatient._id,
+                                        patientName: selectedPatient.fullName 
+                                      };
+                                      localStorage.setItem("newConversation", JSON.stringify(payload));
+                                      closeModal();
+                                      router.push(`/doctor/chat?newConversation=true`);
+                                      toast({
+                                        title: "Đang mở cửa sổ chat",
+                                        description: "Đang tạo/khôi phục cuộc hội thoại với bệnh nhân",
+                                      });
+                                    } catch (err) {
+                                      console.error("Failed to start conversation", err);
+                                      toast({
+                                        title: "Lỗi",
+                                        description: "Không thể mở chat. Vui lòng thử lại.",
+                                        type: "error"
+                                      });
+                                    }
                                   }}
                                   className="w-full text-left px-3 py-2 text-orange-700 hover:bg-gray-50 rounded-md font-medium flex items-center gap-2 text-sm"
                                 >
                                   <MessageCircle className="w-4 h-4" />
                                   Nhắn tin
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    closeModal();
+                                    router.push(`/doctor/appointments?patientId=${selectedPatient._id}&patientName=${encodeURIComponent(selectedPatient.fullName)}&mode=create`);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-blue-700 hover:bg-gray-50 rounded-md font-medium flex items-center gap-2 text-sm"
+                                >
+                                  <Calendar className="w-4 h-4" />
+                                  Tái khám
                                 </button>
                               </div>
                             </div>
@@ -893,24 +1212,80 @@ export default function DoctorPatients() {
                               <Calendar className="w-5 h-5 text-gray-700" />
                               Lịch sử lịch hẹn ({patientAppointments.length})
                             </h3>
+                            <button
+                              onClick={() => {
+                                closeModal();
+                                router.push(`/doctor/schedule?patientId=${selectedPatient._id}`);
+                              }}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 flex items-center gap-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Tạo lịch mới
+                            </button>
                           </div>
                           <div className="space-y-3">
                             {patientAppointments.length > 0 ? (
                               patientAppointments.map((appointment) => (
-                                <div key={appointment._id} className="bg-white rounded-md p-3 border border-gray-200">
-                                  <div className="flex justify-between items-start">
+                                <div 
+                                  key={appointment._id} 
+                                  className="bg-white rounded-md p-4 border border-gray-200 hover:shadow-md hover:border-blue-200 hover:bg-blue-50/50 transition-all cursor-pointer group"
+                                  onClick={() => {
+                                    closeModal();
+                                    router.push(`/doctor/schedule?appointmentId=${appointment._id}`);
+                                  }}
+                                >
+                                  <div className="flex justify-between items-start mb-3">
                                     <div className="flex-1">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <div className="w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center">
-                                          <Calendar className="w-4 h-4 text-gray-700" />
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-md bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+                                          <Calendar className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
                                         </div>
-                                        <div>
-                                          <p className="font-semibold text-gray-900 text-sm">
-                                            {formatDate(appointment.appointmentDate)} - {appointment.startTime}
-                                          </p>
-                                          <p className="text-gray-600 text-xs">
-                                            Bác sĩ: {appointment.doctorId.fullName} ({appointment.doctorId.specialty})
-                                          </p>
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <p className="font-bold text-gray-900 text-base">
+                                              {formatDate(appointment.appointmentDate)}
+                                            </p>
+                                            <span className="text-gray-400">•</span>
+                                            <p className="text-gray-700 font-medium text-sm">
+                                              {appointment.startTime}
+                                              {appointment.endTime && ` - ${appointment.endTime}`}
+                                            </p>
+                                            <Eye className="w-4 h-4 text-blue-600 opacity-0 group-hover:opacity-100 transition-all duration-200 ml-auto" />
+                                          </div>
+                                          
+                                          {appointment.appointmentType && (
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-xs font-medium text-blue-600 bg-blue-50 group-hover:bg-blue-100 px-2 py-0.5 rounded transition-colors duration-200">
+                                                {appointment.appointmentType}
+                                              </span>
+                                              {appointment.duration && (
+                                                <span className="text-xs text-gray-500 group-hover:text-blue-600 transition-colors duration-200">
+                                                  ({appointment.duration} phút)
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {appointment.consultationFee && (
+                                            <div className="flex items-center gap-1 text-sm text-gray-600 group-hover:text-blue-600 transition-colors duration-200">
+                                              <TrendingUp className="w-3.5 h-3.5" />
+                                              <span className="font-semibold">
+                                                {appointment.consultationFee.toLocaleString('vi-VN')} VNĐ
+                                              </span>
+                                            </div>
+                                          )}
+
+                                          {appointment.notes && (
+                                            <div className="mt-2 text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                              <span className="font-medium">Ghi chú:</span> {appointment.notes}
+                                            </div>
+                                          )}
+
+                                          {appointment.paymentStatus && (
+                                            <div className="mt-2">
+                                              {getPaymentStatusBadge(appointment.paymentStatus)}
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -921,9 +1296,22 @@ export default function DoctorPatients() {
                                 </div>
                               ))
                             ) : (
-                              <div className="text-center py-8">
-                                <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                                <p className="text-gray-500 text-sm">Chưa có lịch hẹn nào</p>
+                              <div className="text-center py-12">
+                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                  <Calendar className="w-8 h-8 text-gray-400" />
+                                </div>
+                                <h3 className="text-base font-semibold text-gray-900 mb-2">Chưa có lịch hẹn nào</h3>
+                                <p className="text-gray-500 text-sm mb-4">Bệnh nhân này chưa có lịch hẹn nào trong hệ thống</p>
+                                <button
+                                  onClick={() => {
+                                    closeModal();
+                                    router.push(`/doctor/schedule?patientId=${selectedPatient._id}`);
+                                  }}
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  Tạo lịch hẹn đầu tiên
+                                </button>
                               </div>
                             )}
                           </div>
@@ -995,26 +1383,41 @@ export default function DoctorPatients() {
                               <FileText className="w-5 h-5 text-gray-700" />
                               Hồ sơ bệnh án ({patientMedicalRecords.length})
                             </h3>
+                            <button
+                              onClick={() => {
+                                closeModal();
+                                router.push(`/doctor/schedule?patientId=${selectedPatient._id}`);
+                              }}
+                              className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 flex items-center gap-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Tạo hồ sơ mới
+                            </button>
                           </div>
                           <div className="space-y-4">
                             {patientMedicalRecords.length > 0 ? (
                               patientMedicalRecords.map((record) => (
-                                <div key={record._id} className="bg-white rounded-md p-3 border border-gray-200">
+                                <div 
+                                  key={record._id} 
+                                  className="bg-white rounded-md p-3 border border-gray-200 hover:border-blue-200 hover:bg-blue-50/50 transition-all cursor-pointer group"
+                                  onClick={() => handleMedicalRecordClick(record)}
+                                >
                                   <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center">
-                                        <FileText className="w-4 h-4 text-gray-700" />
+                                      <div className="w-8 h-8 rounded-md bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center transition-colors duration-200">
+                                        <FileText className="w-4 h-4 text-gray-700 group-hover:text-blue-600" />
                                       </div>
-                                      <div>
-                                        <h4 className="font-semibold text-gray-900 text-sm">
+                                      <div className="flex-1">
+                                        <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
                                           Khám ngày {formatDate(record.recordDate)}
+                                          <Eye className="w-3.5 h-3.5 text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                                         </h4>
                                         <p className="text-gray-600 text-xs">
-                                          Bác sĩ: {record.doctorId.fullName} ({record.doctorId.specialty})
+                                          Bác sĩ: {record.doctorId?.fullName || 'N/A'} ({record.doctorId?.specialty || 'N/A'})
                                         </p>
                                       </div>
                                     </div>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                                       record.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
                                       record.status === 'active' ? 'bg-blue-100 text-blue-800' :
                                       'bg-yellow-100 text-yellow-800'
@@ -1084,7 +1487,7 @@ export default function DoctorPatients() {
                                 <button 
                                   onClick={() => {
                                     closeModal();
-                                    router.push(`/doctor/treatment?patientId=${selectedPatient._id}`);
+                                    router.push(`/doctor/schedule?patientId=${selectedPatient._id}`);
                                   }}
                                   className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 font-medium text-sm"
                                 >
@@ -1258,6 +1661,79 @@ export default function DoctorPatients() {
                  </div>
                </div>
              </div>
+           )}
+
+           {/* Medical Record Detail Modal */}
+           {isMedicalRecordModalOpen && selectedMedicalRecord && medicalRecordDetails && (
+             <MedicalRecordDetailModal
+               isOpen={isMedicalRecordModalOpen}
+               onClose={closeMedicalRecordModal}
+               record={{
+                 _id: medicalRecordDetails._id,
+                 recordDate: medicalRecordDetails.recordDate,
+                 chiefComplaint: medicalRecordDetails.chiefComplaint,
+                 diagnosis: medicalRecordDetails.diagnosis,
+                 treatmentPlan: medicalRecordDetails.treatmentPlan,
+                 status: medicalRecordDetails.status,
+                 isFollowUpRequired: medicalRecordDetails.isFollowUpRequired || false,
+                 followUpDate: medicalRecordDetails.followUpDate,
+                 doctorId: medicalRecordDetails.doctorId ? {
+                   _id: medicalRecordDetails.doctorId._id,
+                   fullName: medicalRecordDetails.doctorId.fullName,
+                   email: medicalRecordDetails.doctorId.email || '',
+                   specialty: medicalRecordDetails.doctorId.specialty,
+                 } : undefined,
+                 patientId: medicalRecordDetails.patientId,
+                 medications: (medicalRecordDetails.medications || []) as string[],
+                 notes: medicalRecordDetails.notes || '',
+                 procedures: medicalRecordDetails.procedures || [],
+                 dentalChart: medicalRecordDetails.dentalChart || [],
+                 attachments: medicalRecordDetails.attachments || [],
+                 vitalSigns: medicalRecordDetails.vitalSigns || {},
+               }}
+               onEdit={handleEditMedicalRecord}
+               isPatientView={false}
+             />
+           )}
+
+           {/* Edit Medical Record Modal - Using TreatmentModal */}
+           {isEditModalOpen && medicalRecordDetails && selectedPatient && (
+             <TreatmentModal
+               isOpen={isEditModalOpen}
+               onClose={closeEditModal}
+               appointment={{
+                 id: medicalRecordDetails._id,
+                 patientId: selectedPatient._id,
+                 patientName: selectedPatient.fullName,
+                 patientAvatar: selectedPatient.avatarUrl,
+                 date: medicalRecordDetails.recordDate,
+                 startTime: '',
+                 phone: selectedPatient.phone,
+                 email: selectedPatient.email,
+               }}
+               onSubmit={handleSubmitTreatment}
+               isSubmitting={isSubmitting}
+               mode="update"
+               initialData={{
+                 chiefComplaints: medicalRecordDetails.chiefComplaint?.split(/[,，]/).map(c => c.trim()).filter(Boolean) || [],
+                 diagnosisGroups: medicalRecordDetails.diagnosis ? [{
+                   diagnosis: medicalRecordDetails.diagnosis,
+                   treatmentPlans: medicalRecordDetails.treatmentPlan?.split(/[;，]/).map(t => t.trim()).filter(Boolean) || ['']
+                 }] : [{ diagnosis: '', treatmentPlans: [''] }],
+                 medications: medicalRecordDetails.medications?.map((med) => {
+                   const parts = med.includes(' - ') ? med.split(' - ') : [med, '', '', ''];
+                   return {
+                     name: parts[0] || '',
+                     dosage: parts[1] || '',
+                     frequency: parts[2] || '',
+                     duration: parts[3] || '',
+                     instructions: ''
+                   };
+                 }) || [],
+                 notes: medicalRecordDetails.notes || '',
+                 status: medicalRecordDetails.status || 'active',
+               }}
+             />
            )}
          </div>
        </div>
