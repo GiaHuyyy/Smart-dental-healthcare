@@ -279,35 +279,63 @@ export class AppointmentsService {
 
       // 🆕 Create pending payment bill for consultation fee
       // This allows patients to pay later via the payments page
+      // BUT: Only create if:
+      //   1. No bill exists yet (avoid duplicate when paying with wallet/momo)
+      //   2. Payment method is "cash" or "later" (not immediate payment methods)
       const consultationFee =
         (createAppointmentDto as any).consultationFee || 200000;
       const patientId = (createAppointmentDto as any).patientId;
       const docId = (populatedAppointment.doctorId as any)._id;
+      const paymentMethod = (createAppointmentDto as any).paymentMethod;
 
-      console.log('💳 Creating pending payment bill:', {
+      console.log('💳 Checking if payment bill needed:', {
         appointmentId: appointment._id,
         patientId,
         doctorId: docId,
         amount: consultationFee,
+        paymentMethod,
       });
 
-      try {
-        await this.paymentModel.create({
-          patientId,
-          doctorId: docId,
-          amount: consultationFee,
-          status: 'pending', // Bill chưa thanh toán
-          paymentMethod: 'pending', // Chưa chọn phương thức
-          type: 'appointment',
-          billType: 'consultation_fee',
-          refId: appointment._id,
-          refModel: 'Appointment',
-          description: `Phí khám bệnh - Lịch hẹn #${appointment._id}`,
-        });
-        console.log('✅ Pending payment bill created successfully');
-      } catch (billError) {
-        console.error('⚠️ Failed to create pending bill:', billError);
-        // Don't fail the appointment creation if bill creation fails
+      // Only create pending bill for "cash" or "later" payment methods
+      const shouldCreatePendingBill =
+        paymentMethod === 'cash' || paymentMethod === 'later';
+
+      if (!shouldCreatePendingBill) {
+        console.log(
+          `⏭️ Skipping pending bill creation - payment method is "${paymentMethod}" (immediate payment)`,
+        );
+      } else {
+        try {
+          // Check if bill already exists (e.g., created by wallet payment)
+          const existingBill = await this.paymentModel.findOne({
+            refId: appointment._id,
+            billType: 'consultation_fee',
+          });
+
+          if (existingBill) {
+            console.log(
+              '✅ Payment bill already exists (created by wallet payment), skipping...',
+            );
+          } else {
+            // Create pending bill for later payment
+            await this.paymentModel.create({
+              patientId,
+              doctorId: docId,
+              amount: consultationFee,
+              status: 'pending', // Bill chưa thanh toán
+              paymentMethod: 'pending', // Chưa chọn phương thức
+              type: 'appointment',
+              billType: 'consultation_fee',
+              refId: appointment._id,
+              refModel: 'Appointment',
+              description: `Phí khám bệnh - Lịch hẹn #${appointment._id}`,
+            });
+            console.log('✅ Pending payment bill created successfully');
+          }
+        } catch (billError) {
+          console.error('⚠️ Failed to create pending bill:', billError);
+          // Don't fail the appointment creation if bill creation fails
+        }
       }
 
       // Send real-time notification to doctor
@@ -1351,16 +1379,10 @@ export class AppointmentsService {
 
     let feeCharged = false;
     if (nearTime) {
-      // Charge reservation fee
-      await this.billingHelper.chargeReservationFeeFromPatient(
+      // Create pending reservation charge (Phí giữ chỗ)
+      await this.billingHelper.createPendingReservationCharge(
         (appointment.patientId as any)._id.toString(),
         (appointment.doctorId as any)._id.toString(),
-        appointment._id.toString(),
-      );
-
-      await this.billingHelper.createReservationFeeForDoctor(
-        (appointment.doctorId as any)._id.toString(),
-        (appointment.patientId as any)._id.toString(),
         appointment._id.toString(),
       );
 
@@ -1486,16 +1508,10 @@ export class AppointmentsService {
     if (cancelledBy === 'patient') {
       // Patient cancellation logic
       if (nearTime) {
-        // < 30 min: Charge reservation fee
-        await this.billingHelper.chargeReservationFeeFromPatient(
+        // < 30 min: Create pending reservation charge (Phí giữ chỗ)
+        await this.billingHelper.createPendingReservationCharge(
           (appointment.patientId as any)._id.toString(),
           (appointment.doctorId as any)._id.toString(),
-          appointment._id.toString(),
-        );
-
-        await this.billingHelper.createReservationFeeForDoctor(
-          (appointment.doctorId as any)._id.toString(),
-          (appointment.patientId as any)._id.toString(),
           appointment._id.toString(),
         );
 
@@ -1567,21 +1583,16 @@ export class AppointmentsService {
 
         voucherCreated = true;
       } else if (doctorReason === 'patient_late') {
-        // Patient late: Charge fee + refund consultation fee
-        await this.billingHelper.chargeReservationFeeFromPatient(
+        // Patient late: Create ONE pending bill for patient (Phí giữ chỗ)
+        await this.billingHelper.createPendingReservationCharge(
           (appointment.patientId as any)._id.toString(),
           (appointment.doctorId as any)._id.toString(),
-          appointment._id.toString(),
-        );
-
-        await this.billingHelper.createReservationFeeForDoctor(
-          (appointment.doctorId as any)._id.toString(),
-          (appointment.patientId as any)._id.toString(),
           appointment._id.toString(),
         );
 
         feeCharged = true;
 
+        // Refund consultation fee if already paid
         const hasPaid = await this.billingHelper.hasExistingPayment(
           appointment._id.toString(),
         );

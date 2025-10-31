@@ -1,15 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Payment } from './schemas/payment.schemas';
+import { User, UserDocument } from '../users/schemas/user.schemas';
 
 export const RESERVATION_FEE_AMOUNT = 100000; // 100,000 VND
 
 @Injectable()
 export class BillingHelperService {
+  private readonly logger = new Logger(BillingHelperService.name);
+
   constructor(
     @InjectModel(Payment.name)
     private paymentModel: Model<Payment>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
   /**
@@ -62,10 +67,18 @@ export class BillingHelperService {
     doctorId: string,
     appointmentId: string,
   ): Promise<Payment> {
-    return this.paymentModel.create({
+    // Ensure refund amount is always positive (patient receives money back)
+    const refundAmount = Math.abs(originalAmount);
+
+    this.logger.log(
+      `💰 Creating refund bill: patientId=${patientId}, amount=${refundAmount}`,
+    );
+
+    // Create refund bill
+    const refundBill = await this.paymentModel.create({
       patientId,
       doctorId,
-      amount: originalAmount, // Hoàn lại số tiền gốc
+      amount: refundAmount, // Always positive - patient receives money
       status: 'completed',
       type: 'appointment',
       billType: 'refund',
@@ -73,6 +86,50 @@ export class BillingHelperService {
       relatedPaymentId: originalPaymentId,
       refId: appointmentId,
       refModel: 'Appointment',
+    });
+
+    // Add money back to patient's wallet
+    try {
+      const updatedUser = await this.userModel.findByIdAndUpdate(
+        patientId,
+        { $inc: { walletBalance: refundAmount } },
+        { new: true },
+      );
+
+      this.logger.log(
+        `✅ Refund completed: Added ${refundAmount} to patient wallet. New balance: ${updatedUser?.walletBalance}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to update patient wallet for refund:`,
+        error,
+      );
+      // Don't throw - bill is created, wallet update can be retried
+    }
+
+    return refundBill;
+  }
+
+  /**
+   * Tạo bill pending phí giữ chỗ cho bệnh nhân (chưa thanh toán)
+   * Sử dụng khi bác sĩ hủy do bệnh nhân đến muộn hoặc bệnh nhân hủy/đổi lịch cận giờ
+   */
+  async createPendingReservationCharge(
+    patientId: string,
+    doctorId: string,
+    appointmentId: string,
+  ): Promise<Payment> {
+    return this.paymentModel.create({
+      patientId,
+      doctorId,
+      amount: RESERVATION_FEE_AMOUNT, // Số dương - chưa trừ tiền
+      status: 'pending', // Chờ thanh toán
+      paymentMethod: 'pending',
+      type: 'appointment',
+      billType: 'cancellation_charge', // Dùng enum có sẵn
+      refId: appointmentId,
+      refModel: 'Appointment',
+      description: `Phí giữ chỗ - Lịch hẹn #${appointmentId}`,
     });
   }
 

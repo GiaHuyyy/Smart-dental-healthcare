@@ -5,6 +5,7 @@ import {
   Appointment,
   AppointmentSchema,
 } from '../appointments/schemas/appointment.schemas';
+import { User, UserSchema } from '../users/schemas/user.schemas';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RevenueModule } from '../revenue/revenue.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
@@ -20,6 +21,7 @@ import { BillingHelperService } from './billing-helper.service';
     MongooseModule.forFeature([
       { name: Payment.name, schema: PaymentSchema },
       { name: Appointment.name, schema: AppointmentSchema },
+      { name: User.name, schema: UserSchema },
     ]),
     NotificationsModule,
     forwardRef(() => RevenueModule),

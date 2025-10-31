@@ -178,9 +178,23 @@ export default function CancelWithBillingModal({
           )}
 
           <p className="text-gray-600 mb-4">
-            Bạn có chắc chắn muốn hủy lịch hẹn với <strong>{displayName}</strong> vào{" "}
+            Bạn có chắc chắn muốn hủy lịch hẹn với {userRole === "doctor" ? "bệnh nhân " : ""}
+            <strong>{displayName}</strong> vào{" "}
             <strong>
-              {new Date(appointment.appointmentDate).toLocaleDateString("vi-VN")} lúc {appointment.startTime}
+              {(() => {
+                try {
+                  const date = new Date(appointment.appointmentDate);
+                  return date.toLocaleDateString("vi-VN", {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  });
+                } catch {
+                  return "Invalid Date";
+                }
+              })()}{" "}
+              lúc {appointment.startTime}
             </strong>
             ?
           </p>

@@ -196,6 +196,16 @@ export default function PatientPayments() {
       minimumFractionDigits: 0,
     }).format(absAmount);
 
+    // Bill hoàn tiền thì thêm dấu + (cộng tiền cho bệnh nhân)
+    if (payment.billType === "refund") {
+      return `+${formatted} ₫`;
+    }
+
+    // Bills pending (chưa thanh toán) luôn là bill trừ tiền
+    if (payment.status === "pending") {
+      return `-${formatted} ₫`;
+    }
+
     // Nếu amount là số âm → bill trừ tiền (màu đỏ)
     if (amount < 0) {
       return `-${formatted} ₫`;
@@ -208,11 +218,6 @@ export default function PatientPayments() {
       payment.paymentMethod === "wallet_deduction"
     ) {
       return `-${formatted} ₫`;
-    }
-
-    // Bill hoàn tiền thì thêm dấu +
-    if (payment.billType === "refund") {
-      return `+${formatted} ₫`;
     }
 
     // Bill trừ phí (cancellation_charge, reservation_fee) thì thêm dấu -
@@ -278,7 +283,7 @@ export default function PatientPayments() {
       case "reservation_fee":
         return "Phí giữ chỗ";
       case "cancellation_charge":
-        return "Phí hủy lịch";
+        return "Phí giữ chỗ"; // Đổi từ "Phí hủy lịch" thành "Phí giữ chỗ"
       default:
         return "Thanh toán";
     }
@@ -712,15 +717,16 @@ export default function PatientPayments() {
                           <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
                           <p
                             className={`text-3xl font-bold ${
-                              payment.amount < 0 ||
-                              payment.paymentMethod === "momo" ||
-                              payment.paymentMethod === "wallet" ||
-                              payment.paymentMethod === "wallet_deduction" ||
-                              payment.billType === "cancellation_charge" ||
-                              payment.billType === "reservation_fee"
-                                ? "text-red-600"
-                                : payment.billType === "refund"
+                              payment.billType === "refund"
                                 ? "text-green-600"
+                                : payment.status === "pending" ||
+                                  payment.amount < 0 ||
+                                  payment.paymentMethod === "momo" ||
+                                  payment.paymentMethod === "wallet" ||
+                                  payment.paymentMethod === "wallet_deduction" ||
+                                  payment.billType === "cancellation_charge" ||
+                                  payment.billType === "reservation_fee"
+                                ? "text-red-600"
                                 : "bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent"
                             }`}
                           >

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MoMoService } from '../payments/services/momo.service';
+import { BillingHelperService } from '../payments/billing-helper.service';
 import { User, UserDocument } from '../users/schemas/user.schemas';
 import { Payment } from '../payments/schemas/payment.schemas';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
@@ -24,6 +25,7 @@ export class WalletService {
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
     private readonly momoService: MoMoService,
     private readonly configService: ConfigService,
+    private readonly billingHelper: BillingHelperService,
   ) {}
 
   // Lấy số dư ví

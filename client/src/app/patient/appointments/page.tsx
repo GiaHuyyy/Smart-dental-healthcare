@@ -213,7 +213,6 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleConfirmBooking = async () => {
-
     // Step 3: Check payment method and handle accordingly
     const paymentMethod = bookingData.paymentMethod;
 
@@ -387,7 +386,6 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleWalletPayment = async () => {
-
     const userId = (session?.user as { _id?: string })._id;
     const accessToken = (session as { access_token?: string })?.access_token;
 
@@ -410,7 +408,7 @@ export default function PatientAppointmentsPage() {
 
       // Calculate end time and duration
       let endTime = dataToSubmit.endTime;
-      let duration = 30;
+      const duration = 30;
 
       if (!endTime) {
         const [hours, minutes] = dataToSubmit.startTime.split(":").map(Number);
@@ -573,6 +571,7 @@ export default function PatientAppointmentsPage() {
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
+        paymentMethod: dataToSubmit.paymentMethod || "later", // Add payment method
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
