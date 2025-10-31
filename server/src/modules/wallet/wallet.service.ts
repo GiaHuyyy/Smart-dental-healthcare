@@ -304,7 +304,6 @@ export class WalletService {
     appointmentId: string,
     amount: number,
   ) {
-
     // Get appointment details
     const appointment = await this.appointmentModel
       .findById(appointmentId)
@@ -473,6 +472,193 @@ export class WalletService {
       };
     } catch (error) {
       this.logger.error('❌ ========== WALLET PAYMENT FAILED ==========');
+      this.logger.error('Error details:', error);
+      this.logger.error('Stack trace:', error.stack);
+      return {
+        success: false,
+        error: 'Không thể xử lý thanh toán',
+        message: error.message || 'Payment failed',
+      };
+    }
+  }
+
+  // Pay existing pending bill using wallet balance
+  async payPendingBill(userId: string, billId: string) {
+    this.logger.log('💰 ========== PAY PENDING BILL START ==========');
+    this.logger.log(`📋 Request:`, { userId, billId });
+
+    try {
+      // Get the pending bill
+      const bill = await this.paymentModel.findById(billId).exec();
+
+      if (!bill) {
+        this.logger.error(`❌ Bill not found: ${billId}`);
+        return {
+          success: false,
+          error: 'Không tìm thấy hóa đơn',
+          message: 'Bill not found',
+        };
+      }
+
+      this.logger.log('✅ Bill found:', {
+        billId: bill._id,
+        amount: bill.amount,
+        status: bill.status,
+        patientId: bill.patientId,
+      });
+
+      // Verify this bill belongs to the user
+      const patientId =
+        typeof bill.patientId === 'string'
+          ? bill.patientId
+          : (bill.patientId as any)?._id?.toString();
+
+      if (patientId !== userId) {
+        this.logger.error(
+          `❌ Unauthorized: User ${userId} is not the owner ${patientId}`,
+        );
+        return {
+          success: false,
+          error: 'Bạn không có quyền thanh toán hóa đơn này',
+          message: 'Unauthorized',
+        };
+      }
+
+      // Check if bill is already paid
+      if (bill.status === 'completed') {
+        this.logger.warn(`⚠️ Bill already paid: ${billId}`);
+        return {
+          success: false,
+          error: 'Hóa đơn đã được thanh toán',
+          message: 'Bill already paid',
+        };
+      }
+
+      // Check if bill is pending
+      if (bill.status !== 'pending') {
+        this.logger.warn(`⚠️ Bill status is not pending: ${bill.status}`);
+        return {
+          success: false,
+          error: `Không thể thanh toán hóa đơn ở trạng thái ${bill.status}`,
+          message: 'Invalid bill status',
+        };
+      }
+
+      const amount = bill.amount;
+
+      // Get user's wallet balance
+      this.logger.log(`🔍 Fetching wallet balance for user: ${userId}`);
+      const user = await this.userModel
+        .findById(userId)
+        .select('walletBalance')
+        .exec();
+
+      if (!user) {
+        this.logger.error(`❌ User not found: ${userId}`);
+        throw new NotFoundException('Người dùng không tồn tại');
+      }
+
+      const currentBalance = user.walletBalance || 0;
+      this.logger.log(
+        `💵 Current wallet balance: ${currentBalance.toLocaleString('vi-VN')}đ`,
+      );
+
+      // Check if user has enough balance
+      if (currentBalance < amount) {
+        this.logger.warn(
+          `⚠️ Insufficient balance: ${currentBalance} < ${amount}`,
+        );
+        return {
+          success: false,
+          error: `Số dư không đủ. Số dư hiện tại: ${currentBalance.toLocaleString('vi-VN')}đ, cần: ${amount.toLocaleString('vi-VN')}đ`,
+          message: 'Insufficient balance',
+        };
+      }
+
+      this.logger.log('✅ Balance check passed. Processing payment...');
+
+      // Create wallet transaction record
+      this.logger.log('📝 Creating wallet transaction...');
+      const transaction = await this.walletTransactionModel.create({
+        userId,
+        amount: -amount,
+        type: 'payment',
+        status: 'completed',
+        paymentMethod: 'wallet',
+        transactionId: `BILL_${billId}_${Date.now()}`,
+        description: `Thanh toán hóa đơn #${billId}`,
+        appointmentId: bill.refId, // Link to appointment if exists
+      });
+
+      this.logger.log('✅ Wallet transaction created:', {
+        _id: transaction._id,
+        amount: transaction.amount,
+      });
+
+      // Update the existing bill (not create new one)
+      this.logger.log('📝 Updating bill status to completed...');
+      bill.status = 'completed';
+      bill.paymentMethod = 'wallet_deduction';
+      bill.paymentDate = new Date();
+      bill.transactionId = transaction._id.toString();
+      await bill.save();
+
+      this.logger.log('✅ Bill updated successfully:', {
+        _id: bill._id,
+        status: bill.status,
+        paymentMethod: bill.paymentMethod,
+      });
+
+      // Deduct amount from wallet balance
+      this.logger.log(
+        `💰 Updating wallet balance: ${currentBalance} - ${amount}...`,
+      );
+      const updatedUser = await this.userModel.findByIdAndUpdate(
+        userId,
+        { $inc: { walletBalance: -amount } },
+        { new: true },
+      );
+
+      this.logger.log('✅ Wallet balance updated successfully:', {
+        userId,
+        previousBalance: currentBalance,
+        newBalance: updatedUser?.walletBalance,
+        deductedAmount: amount,
+      });
+
+      // Verify the update
+      const verifyUser = await this.userModel
+        .findById(userId)
+        .select('walletBalance')
+        .exec();
+      this.logger.log(
+        '🔍 Verification - Current balance in DB:',
+        verifyUser?.walletBalance,
+      );
+
+      // Update appointment payment status if this is a consultation fee
+      if (bill.refId && bill.billType === 'consultation_fee') {
+        this.logger.log('📝 Updating appointment payment status...');
+        await this.appointmentModel.findByIdAndUpdate(bill.refId, {
+          paymentStatus: 'paid',
+        });
+        this.logger.log('✅ Appointment payment status updated to: paid');
+      }
+
+      this.logger.log('💰 ========== PAY PENDING BILL SUCCESS ==========');
+
+      return {
+        success: true,
+        data: {
+          transactionId: transaction._id,
+          billId: bill._id,
+          newBalance: updatedUser?.walletBalance || 0,
+          amount,
+        },
+        message: 'Thanh toán thành công',
+      };
+    } catch (error) {
+      this.logger.error('❌ ========== PAY PENDING BILL FAILED ==========');
       this.logger.error('Error details:', error);
       this.logger.error('Stack trace:', error.stack);
       return {

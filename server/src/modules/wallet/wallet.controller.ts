@@ -74,6 +74,14 @@ export class WalletController {
     );
   }
 
+  // POST /api/v1/wallet/pay-bill - Pay existing pending bill using wallet
+  @Post('pay-bill')
+  @UseGuards(JwtAuthGuard)
+  async payBill(@Request() req: any, @Body() body: { billId: string }) {
+    const userId = req.user?.userId || req.user?._id;
+    return this.walletService.payPendingBill(userId, body.billId);
+  }
+
   // POST /api/v1/wallet/momo/callback - Public endpoint cho MoMo callback
   @Post('momo/callback')
   @Public()

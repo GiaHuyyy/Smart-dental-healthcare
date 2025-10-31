@@ -1,6 +1,7 @@
 "use client";
 
 import paymentService from "@/services/paymentService";
+import walletService from "@/services/walletService";
 import {
   AlertCircle,
   ArrowRight,
@@ -18,6 +19,7 @@ import {
   User,
   Wallet,
   XCircle,
+  X,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
@@ -71,6 +73,9 @@ export default function PatientPayments() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   const fetchPayments = useCallback(
     async (showLoading = true) => {
@@ -280,43 +285,50 @@ export default function PatientPayments() {
   };
 
   const handlePayNow = async (payment: PaymentRecord) => {
-    console.log("💳 ========== PAYMENT INITIATED FROM PAYMENTS PAGE ==========");
+    console.log("💳 Opening payment modal for payment:", payment._id);
+    setSelectedPayment(payment);
+    setShowPaymentModal(true);
+
+    // Fetch wallet balance
+    const accessToken = (session as { access_token?: string })?.access_token;
+    if (accessToken) {
+      try {
+        const result = await walletService.getBalance(accessToken);
+        if (result.success && result.data) {
+          setWalletBalance(result.data.balance);
+        }
+      } catch (error) {
+        console.error("Failed to fetch wallet balance:", error);
+      }
+    }
+  };
+
+  const handleMoMoPayment = async () => {
+    if (!selectedPayment) return;
+
+    console.log("💳 ========== MOMO PAYMENT INITIATED ==========");
     console.log("Payment details:", {
-      paymentId: payment._id,
-      amount: payment.amount,
-      status: payment.status,
+      paymentId: selectedPayment._id,
+      amount: selectedPayment.amount,
+      status: selectedPayment.status,
     });
 
-    if (!session) {
-      toast.error("Vui lòng đăng nhập", {
-        description: "Bạn cần đăng nhập để thực hiện thanh toán",
-      });
-      return;
-    }
-
-    const sessionUser = (session as any)?.user;
-    const accessToken = (session as any)?.access_token || (session as any)?.accessToken;
-
+    const accessToken = (session as { access_token?: string })?.access_token;
     if (!accessToken) {
-      toast.error("Phiên đăng nhập không hợp lệ", {
-        description: "Vui lòng đăng xuất và đăng nhập lại",
-      });
+      toast.error("Phiên đăng nhập không hợp lệ");
       return;
     }
 
     const loadingToast = toast.loading("Đang tạo yêu cầu thanh toán...", {
-      description: `Thanh toán ${formatCurrency(payment.amount)} qua MoMo`,
+      description: `Thanh toán ${formatCurrency(selectedPayment.amount)} qua MoMo`,
     });
 
     try {
-      // Sử dụng API mới để tạo MoMo payment từ payment đã tồn tại
-      const response = await paymentService.createMoMoPaymentFromExisting(payment._id, accessToken);
+      const response = await paymentService.createMoMoPaymentFromExisting(selectedPayment._id, accessToken);
 
       if (response.success && response.data?.payUrl) {
-        toast.success("Chuyển đến cổng thanh toán", {
-          description: "Bạn sẽ được chuyển đến trang thanh toán MoMo...",
-          duration: 2000,
-        });
+        toast.success("Chuyển đến cổng thanh toán");
+        setShowPaymentModal(false);
 
         const payUrl = response.data!.payUrl;
         setTimeout(() => {
@@ -329,11 +341,59 @@ export default function PatientPayments() {
       }
     } catch (error) {
       console.error("❌ Payment error:", error);
-      toast.error("Có lỗi xảy ra", {
-        description: "Không thể tạo yêu cầu thanh toán. Vui lòng thử lại",
-      });
+      toast.error("Có lỗi xảy ra");
     } finally {
       toast.dismiss(loadingToast);
+    }
+  };
+
+  const handleWalletPayment = async () => {
+    if (!selectedPayment) return;
+
+    console.log("💰 ========== WALLET PAYMENT FOR PENDING BILL ==========");
+    console.log("Bill details:", {
+      billId: selectedPayment._id,
+      amount: selectedPayment.amount,
+      status: selectedPayment.status,
+    });
+
+    const accessToken = (session as { access_token?: string })?.access_token;
+    if (!accessToken) {
+      toast.error("Phiên đăng nhập không hợp lệ");
+      return;
+    }
+
+    // Check wallet balance
+    if (walletBalance < selectedPayment.amount) {
+      toast.error("Số dư ví không đủ", {
+        description: `Cần: ${formatCurrency(selectedPayment.amount)}, Có: ${formatCurrency(walletBalance)}`,
+      });
+      return;
+    }
+
+    const loadingToast = toast.loading("Đang xử lý thanh toán...");
+
+    try {
+      // Use new API to pay existing pending bill (update bill, not create new one)
+      console.log("🔵 Calling payPendingBill API...");
+      const result = await walletService.payPendingBill(accessToken, selectedPayment._id);
+
+      if (result.success) {
+        toast.dismiss(loadingToast);
+        toast.success(`Thanh toán thành công! Số dư mới: ${result.data?.newBalance?.toLocaleString("vi-VN")}đ`);
+        setShowPaymentModal(false);
+        setWalletBalance(result.data?.newBalance || 0);
+        // Refresh payments list
+        console.log("🔄 Refreshing payments list...");
+        fetchPayments(false);
+      } else {
+        toast.dismiss(loadingToast);
+        toast.error(result.error || "Thanh toán thất bại");
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error("❌ Wallet payment error:", error);
+      toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra");
     }
   };
 
@@ -735,6 +795,84 @@ export default function PatientPayments() {
           </div>
         )}
       </div>
+
+      {/* Payment Method Selection Modal */}
+      {showPaymentModal && selectedPayment && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">Chọn phương thức thanh toán</h3>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Amount */}
+            <div className="px-6 py-4 bg-gradient-to-br from-blue-50 to-purple-50 border-b border-gray-200">
+              <p className="text-sm text-gray-600 mb-1">Số tiền cần thanh toán</p>
+              <p className="text-3xl font-bold text-blue-600">{formatCurrency(selectedPayment.amount)}</p>
+            </div>
+
+            {/* Payment Options */}
+            <div className="px-6 py-6 space-y-3">
+              {/* Wallet Payment */}
+              <button
+                onClick={handleWalletPayment}
+                disabled={walletBalance < selectedPayment.amount}
+                className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                  walletBalance < selectedPayment.amount
+                    ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                    : "border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      walletBalance < selectedPayment.amount ? "bg-gray-400" : "bg-purple-600"
+                    }`}
+                  >
+                    <Wallet className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">Thanh toán bằng ví</p>
+                    <p className="text-sm text-gray-600">Số dư: {formatCurrency(walletBalance)}</p>
+                    {walletBalance < selectedPayment.amount && (
+                      <p className="text-xs text-red-600 mt-1">Số dư không đủ</p>
+                    )}
+                  </div>
+                  {walletBalance >= selectedPayment.amount && <CheckCircle className="w-5 h-5 text-purple-600" />}
+                </div>
+              </button>
+
+              {/* MoMo Payment */}
+              <button
+                onClick={handleMoMoPayment}
+                className="w-full p-4 rounded-xl border-2 border-pink-300 hover:border-pink-500 hover:bg-pink-50 transition-all text-left"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center text-white text-xl font-bold">
+                    M
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">Thanh toán bằng MoMo</p>
+                    <p className="text-sm text-gray-600">Ví điện tử MoMo</p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-pink-600" />
+                </div>
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl">
+              <p className="text-xs text-gray-600 text-center">Vui lòng chọn phương thức thanh toán phù hợp</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

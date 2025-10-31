@@ -21,6 +21,7 @@ import {
   FollowUpSuggestion,
   FollowUpSuggestionStatus,
 } from './schemas/follow-up-suggestion.schema';
+import { Payment } from '../payments/schemas/payment.schemas';
 
 @Injectable()
 export class AppointmentsService {
@@ -30,6 +31,8 @@ export class AppointmentsService {
     private readonly medicalRecordModel: Model<MedicalRecord>,
     @InjectModel(FollowUpSuggestion.name)
     private readonly followUpSuggestionModel: Model<FollowUpSuggestion>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<Payment>,
     private readonly notificationGateway: AppointmentNotificationGateway,
     private readonly emailService: AppointmentEmailService,
     private readonly billingHelper: BillingHelperService,
@@ -274,10 +277,42 @@ export class AppointmentsService {
         { path: 'patientId', select: 'fullName email phone' },
       ]);
 
+      // 🆕 Create pending payment bill for consultation fee
+      // This allows patients to pay later via the payments page
+      const consultationFee =
+        (createAppointmentDto as any).consultationFee || 200000;
+      const patientId = (createAppointmentDto as any).patientId;
+      const docId = (populatedAppointment.doctorId as any)._id;
+
+      console.log('💳 Creating pending payment bill:', {
+        appointmentId: appointment._id,
+        patientId,
+        doctorId: docId,
+        amount: consultationFee,
+      });
+
+      try {
+        await this.paymentModel.create({
+          patientId,
+          doctorId: docId,
+          amount: consultationFee,
+          status: 'pending', // Bill chưa thanh toán
+          paymentMethod: 'pending', // Chưa chọn phương thức
+          type: 'appointment',
+          billType: 'consultation_fee',
+          refId: appointment._id,
+          refModel: 'Appointment',
+          description: `Phí khám bệnh - Lịch hẹn #${appointment._id}`,
+        });
+        console.log('✅ Pending payment bill created successfully');
+      } catch (billError) {
+        console.error('⚠️ Failed to create pending bill:', billError);
+        // Don't fail the appointment creation if bill creation fails
+      }
+
       // Send real-time notification to doctor
-      const docId = (populatedAppointment.doctorId as any)._id.toString();
       this.notificationGateway.notifyDoctorNewAppointment(
-        docId,
+        docId.toString(),
         populatedAppointment.toObject(),
       );
 
