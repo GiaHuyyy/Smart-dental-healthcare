@@ -62,10 +62,20 @@ export interface Appointment {
   duration?: number; // Duration in minutes
   appointmentType?: string; // Type description
   consultationFee?: number; // Fee for consultation
+  paymentAmount?: number; // Actual amount paid (after discounts/vouchers)
   // Payment status (paid, refunded, unpaid, pending, etc.)
   paymentStatus?: "paid" | "refunded" | "unpaid" | "pending" | string;
   createdAt?: string;
   updatedAt?: string;
+
+  // Follow-up fields
+  isFollowUp?: boolean; // Is this a follow-up appointment
+  isFollowUpSuggestion?: boolean; // Is this a follow-up suggestion from doctor
+  followUpParentId?: string; // Parent appointment ID
+  followUpDiscount?: number; // Discount percentage (usually 5%)
+  suggestedFollowUpDate?: string; // Doctor's suggested date
+  suggestedFollowUpTime?: string; // Doctor's suggested time
+  appliedVoucherId?: string; // Applied voucher ID
 }
 
 export interface Patient {
@@ -80,6 +90,8 @@ export interface Patient {
 
 export enum AppointmentStatus {
   PENDING = "pending",
+  PENDING_PAYMENT = "pending_payment",
+  PENDING_PATIENT_CONFIRMATION = "pending_patient_confirmation", // Waiting for patient to confirm follow-up suggestion
   CONFIRMED = "confirmed",
   IN_PROGRESS = "in-progress",
   COMPLETED = "completed",
@@ -131,7 +143,7 @@ export interface BookingFormData {
   guardianEmail?: string;
   chiefComplaint?: string;
   notes?: string;
-  paymentMethod?: "momo" | "cash" | "later";
+  paymentMethod?: "momo" | "cash" | "later" | "wallet";
   paymentAmount?: number;
   voucherCode?: string;
   voucherId?: string;

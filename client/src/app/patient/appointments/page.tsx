@@ -5,6 +5,7 @@ import DoctorList from "@/components/appointments/DoctorList";
 import SearchDoctors from "@/components/appointments/SearchDoctors";
 import appointmentService from "@/services/appointmentService";
 import paymentService from "@/services/paymentService";
+import walletService from "@/services/walletService";
 import {
   AppointmentConfirmation,
   AppointmentStatus,
@@ -212,14 +213,15 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleConfirmBooking = async () => {
+
     // Step 3: Check payment method and handle accordingly
     const paymentMethod = bookingData.paymentMethod;
 
     if (paymentMethod === "momo") {
-      // MoMo Flow: Create payment first, appointment will be created after payment success
       await handleMoMoPayment();
+    } else if (paymentMethod === "wallet") {
+      await handleWalletPayment();
     } else {
-      // Cash/Later Flow: Create appointment immediately
       await handleBookingSubmit();
     }
   };
@@ -290,7 +292,7 @@ export default function PatientAppointmentsPage() {
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.PENDING,
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
-        ...(dataToSubmit.voucherId && { appliedVoucherId: dataToSubmit.voucherId }),
+        ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
 
       const appointmentResult = await appointmentService.createAppointment(appointmentPayload, accessToken);
@@ -384,6 +386,132 @@ export default function PatientAppointmentsPage() {
     }
   };
 
+  const handleWalletPayment = async () => {
+
+    const userId = (session?.user as { _id?: string })._id;
+    const accessToken = (session as { access_token?: string })?.access_token;
+
+    if (!userId || !selectedDoctor || !accessToken) {
+      toast.error("Thông tin không đầy đủ");
+      return;
+    }
+
+    const loadingToast = toast.loading("Đang xử lý thanh toán ví...");
+
+    try {
+      const dataToSubmit = bookingData as BookingFormData;
+
+      // Validate required fields
+      if (!dataToSubmit.startTime || !dataToSubmit.appointmentDate || !dataToSubmit.doctorId) {
+        toast.dismiss(loadingToast);
+        toast.error("Vui lòng điền đầy đủ thông tin");
+        return;
+      }
+
+      // Calculate end time and duration
+      let endTime = dataToSubmit.endTime;
+      let duration = 30;
+
+      if (!endTime) {
+        const [hours, minutes] = dataToSubmit.startTime.split(":").map(Number);
+        const totalMinutes = hours * 60 + minutes + duration;
+        const endHours = Math.floor(totalMinutes / 60) % 24;
+        const endMinutes = totalMinutes % 60;
+        endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
+      }
+
+      // Step 1: Create appointment
+      toast.loading("Đang tạo lịch hẹn...", { id: loadingToast });
+
+      const appointmentPayload = {
+        patientId: userId,
+        doctorId: dataToSubmit.doctorId,
+        appointmentDate: dataToSubmit.appointmentDate,
+        startTime: dataToSubmit.startTime,
+        endTime: endTime,
+        duration: duration,
+        consultationFee:
+          dataToSubmit.paymentAmount ||
+          calculateConsultationFee(dataToSubmit.consultType, selectedDoctor?.consultationFee),
+        appointmentType:
+          dataToSubmit.consultType === ConsultType.TELEVISIT
+            ? "Tư vấn từ xa"
+            : dataToSubmit.consultType === ConsultType.HOME_VISIT
+            ? "Khám tại nhà"
+            : "Khám tại phòng khám",
+        notes: dataToSubmit.chiefComplaint || "",
+        ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
+        ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
+      };
+
+      const appointmentResult = await appointmentService.createAppointment(appointmentPayload, accessToken);
+
+      if (!appointmentResult.success || !appointmentResult.data) {
+        toast.dismiss(loadingToast);
+        toast.error(appointmentResult.error || "Không thể tạo lịch hẹn. Vui lòng thử lại.");
+        return;
+      }
+
+      const appointment = appointmentResult.data;
+      const appointmentId = appointment._id ?? appointment.id;
+
+      if (!appointmentId) {
+        toast.dismiss(loadingToast);
+        toast.error("Không lấy được ID lịch hẹn");
+        return;
+      }
+
+      const amount = dataToSubmit.paymentAmount || selectedDoctor.consultationFee || 200000;
+
+      // Step 2: Pay with wallet
+      toast.loading("Đang thanh toán bằng ví...", { id: loadingToast });
+
+      const paymentResult = await walletService.payWithWallet(accessToken, appointmentId, amount);
+
+      if (!paymentResult.success) {
+        toast.dismiss(loadingToast);
+        toast.error(paymentResult.error || "Thanh toán thất bại");
+        return;
+      }
+
+      toast.dismiss(loadingToast);
+      toast.success(`Thanh toán thành công! Số dư mới: ${paymentResult.data?.newBalance?.toLocaleString("vi-VN")}đ`);
+
+      // Step 3: Show confirmation
+      const confirmationData: AppointmentConfirmation = {
+        appointment: {
+          ...appointment,
+          doctor: selectedDoctor || undefined,
+        },
+        doctor: selectedDoctor,
+        bookingId: appointment._id || `BK${Date.now()}`,
+        confirmationMessage: "Lịch hẹn của bạn đã được đặt thành công và đã thanh toán bằng ví!",
+        instructions: [
+          "Vui lòng đến trước 15 phút để làm thủ tục",
+          "Mang theo CMND/CCCD và sổ khám bệnh (nếu có)",
+          "Đến trước 10 phút để làm thủ tục",
+        ],
+        calendarLinks: {
+          google: generateGoogleCalendarLink(appointment, selectedDoctor),
+          ics: `/api/appointments/${appointment._id}/ics`,
+        },
+        receiptUrl: `/api/appointments/${appointment._id}/receipt`,
+      };
+
+      setBookingData((prev) => ({
+        ...prev,
+        ...dataToSubmit,
+      }));
+      setConfirmation(confirmationData);
+      setBookingStep("confirmation");
+      toast.success("Đặt lịch thành công!");
+    } catch (error: unknown) {
+      toast.dismiss(loadingToast);
+      const errorMessage = error instanceof Error ? error.message : "Không thể xử lý thanh toán ví";
+      toast.error(errorMessage);
+    }
+  };
+
   const handleBookingSubmit = async (formData?: BookingFormData) => {
     // If no formData provided (called from confirmation button), use existing bookingData
     const dataToSubmit = formData || (bookingData as BookingFormData);
@@ -446,7 +574,7 @@ export default function PatientAppointmentsPage() {
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
-        ...(dataToSubmit.voucherId && { appliedVoucherId: dataToSubmit.voucherId }),
+        ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
 
       console.log("Booking payload:", payload); // Debug log

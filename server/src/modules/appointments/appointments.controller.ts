@@ -54,6 +54,22 @@ export class AppointmentsController {
     );
   }
 
+  @Get('available-slots/:doctorId')
+  @Public()
+  @ResponseMessage('Lấy danh sách khung giờ trống của bác sĩ thành công')
+  getAvailableSlotsAlt(
+    @Param('doctorId') doctorId: string,
+    @Query('date') date: string,
+    @Query('duration') duration?: string,
+  ) {
+    const durationMinutes = duration ? parseInt(duration) : 30;
+    return this.appointmentsService.getAvailableSlots(
+      doctorId,
+      date,
+      durationMinutes,
+    );
+  }
+
   @Get(':id')
   @Public()
   @ResponseMessage('Lấy thông tin lịch hẹn thành công')
@@ -289,8 +305,6 @@ export class AppointmentsController {
   createFollowUpSuggestion(@Body() dto: CreateFollowUpDto) {
     return this.appointmentsService.createFollowUpSuggestion(
       dto.parentAppointmentId,
-      dto.suggestedDate ? new Date(dto.suggestedDate) : undefined,
-      dto.suggestedTime,
       dto.notes || '',
     );
   }
@@ -298,9 +312,27 @@ export class AppointmentsController {
   @Get('follow-up/suggestions/:patientId')
   @Public()
   @ResponseMessage('Lấy danh sách đề xuất tái khám thành công')
-  getFollowUpSuggestions(@Param('patientId') patientId: string) {
-    return this.appointmentsService.findAll(
-      `?patientId=${patientId}&isFollowUp=true&status=pending`,
+  async getFollowUpSuggestions(@Param('patientId') patientId: string) {
+    return this.appointmentsService.getFollowUpSuggestions(patientId);
+  }
+
+  @Post('follow-up/:id/reject')
+  @Public()
+  @ResponseMessage('Từ chối đề xuất tái khám thành công')
+  rejectFollowUpSuggestion(@Param('id') suggestionId: string) {
+    return this.appointmentsService.rejectFollowUpSuggestion(suggestionId);
+  }
+
+  @Post('follow-up/:id/mark-scheduled')
+  @Public()
+  @ResponseMessage('Đánh dấu đề xuất đã được đặt lịch')
+  markFollowUpAsScheduled(
+    @Param('id') suggestionId: string,
+    @Body('appointmentId') appointmentId: string,
+  ) {
+    return this.appointmentsService.markFollowUpSuggestionAsScheduled(
+      suggestionId,
+      appointmentId,
     );
   }
 
@@ -322,7 +354,7 @@ export class AppointmentsController {
   @Post(':id/reject-follow-up')
   @Public()
   @ResponseMessage('Từ chối lịch tái khám thành công')
-  rejectFollowUp(@Param('id') appointmentId: string) {
+  rejectFollowUpOld(@Param('id') appointmentId: string) {
     return this.appointmentsService.rejectFollowUpAppointment(appointmentId);
   }
 }

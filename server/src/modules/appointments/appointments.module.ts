@@ -14,6 +14,10 @@ import { AppointmentReminderService } from './appointment-reminder.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
+import {
+  FollowUpSuggestion,
+  FollowUpSuggestionSchema,
+} from './schemas/follow-up-suggestion.schema';
 
 @Module({
   imports: [
@@ -21,6 +25,7 @@ import { VouchersModule } from '../vouchers/vouchers.module';
       { name: Appointment.name, schema: AppointmentSchema },
       { name: MedicalRecord.name, schema: MedicalRecordSchema },
       { name: Payment.name, schema: PaymentSchema },
+      { name: FollowUpSuggestion.name, schema: FollowUpSuggestionSchema },
     ]),
     NotificationsModule,
     PaymentsModule,

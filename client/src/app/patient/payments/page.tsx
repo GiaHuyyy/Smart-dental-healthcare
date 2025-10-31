@@ -183,15 +183,30 @@ export default function PatientPayments() {
     }).format(amount);
   };
 
-  // Format số tiền với dấu +/- dựa vào billType
+  // Format số tiền với dấu +/- dựa vào billType HOẶC giá trị amount
   const formatAmountWithSign = (payment: PaymentRecord) => {
     const amount = payment.amount;
+    const absAmount = Math.abs(amount);
     const formatted = new Intl.NumberFormat("vi-VN", {
       minimumFractionDigits: 0,
-    }).format(amount);
+    }).format(absAmount);
 
-    // Bill hoàn tiền và consultation_fee thì thêm dấu +
-    if (payment.billType === "refund" || payment.billType === "consultation_fee") {
+    // Nếu amount là số âm → bill trừ tiền (màu đỏ)
+    if (amount < 0) {
+      return `-${formatted} ₫`;
+    }
+
+    // Bills MoMo/Wallet luôn là trừ tiền (màu đỏ)
+    if (
+      payment.paymentMethod === "momo" ||
+      payment.paymentMethod === "wallet" ||
+      payment.paymentMethod === "wallet_deduction"
+    ) {
+      return `-${formatted} ₫`;
+    }
+
+    // Bill hoàn tiền thì thêm dấu +
+    if (payment.billType === "refund") {
       return `+${formatted} ₫`;
     }
 
@@ -637,10 +652,15 @@ export default function PatientPayments() {
                           <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
                           <p
                             className={`text-3xl font-bold ${
-                              payment.billType === "refund"
-                                ? "text-green-600"
-                                : payment.billType === "cancellation_charge" || payment.billType === "reservation_fee"
+                              payment.amount < 0 ||
+                              payment.paymentMethod === "momo" ||
+                              payment.paymentMethod === "wallet" ||
+                              payment.paymentMethod === "wallet_deduction" ||
+                              payment.billType === "cancellation_charge" ||
+                              payment.billType === "reservation_fee"
                                 ? "text-red-600"
+                                : payment.billType === "refund"
+                                ? "text-green-600"
                                 : "bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent"
                             }`}
                           >

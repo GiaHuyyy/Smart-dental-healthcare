@@ -101,8 +101,15 @@ export default function CancelWithBillingModal({
     }
   };
 
-  // Get patient name for display
-  const patientName = typeof appointment.patientId === "object" ? appointment.patientId.fullName : "bệnh nhân";
+  // Get display name based on user role
+  const displayName =
+    userRole === "doctor"
+      ? typeof appointment.patientId === "object"
+        ? appointment.patientId.fullName
+        : "bệnh nhân"
+      : typeof appointment.doctor === "object"
+      ? appointment.doctor.fullName
+      : "bác sĩ";
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -171,7 +178,7 @@ export default function CancelWithBillingModal({
           )}
 
           <p className="text-gray-600 mb-4">
-            Bạn có chắc chắn muốn hủy lịch hẹn với <strong>{patientName}</strong> vào{" "}
+            Bạn có chắc chắn muốn hủy lịch hẹn với <strong>{displayName}</strong> vào{" "}
             <strong>
               {new Date(appointment.appointmentDate).toLocaleDateString("vi-VN")} lúc {appointment.startTime}
             </strong>

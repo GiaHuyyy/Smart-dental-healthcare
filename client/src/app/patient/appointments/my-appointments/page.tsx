@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import RescheduleWithBillingModal from "@/components/appointments/RescheduleWithBillingModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
@@ -47,56 +47,14 @@ function MyAppointmentsContent() {
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [dateFilter, setDateFilter] = useState<Date | null>(null);
 
-  // Auto-open detail modal from URL parameter (from dashboard click)
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
-      const filterParam = params.get("filter");
-      if (filterParam === "follow-up") {
-        setFilter("follow-up" as AppointmentStatus);
-      }
-
-      // If there's a specific appointment to view
-      const appointmentId = params.get("appointmentId");
-      if (appointmentId && appointments.length > 0) {
-        const apt = appointments.find((a) => a._id === appointmentId);
-        if (apt) {
-          handleViewDetail(apt);
-        }
-      }
-    } catch {
-      // ignore malformed URL or other errors
+  // Memoized fetch function to prevent re-creation on every render
+  const fetchAppointments = useCallback(async () => {
+    // Guard: Check if session and user exist
+    if (!session?.user) {
+      console.warn("⚠️ Cannot fetch appointments: session or user not available");
+      return;
     }
-    // run when appointments update (so we can open detail when data is loaded)
-  }, [appointments]);
 
-  useEffect(() => {
-    if (!session?.user) return;
-    fetchAppointments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
-
-  // Register this page's refresh callback with global socket
-  useEffect(() => {
-    registerAppointmentCallback(fetchAppointments);
-    console.log("✅ Patient my-appointments registered with global socket");
-
-    return () => {
-      unregisterAppointmentCallback();
-      console.log("🔇 Patient my-appointments unregistered from global socket");
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerAppointmentCallback, unregisterAppointmentCallback]);
-
-  // Socket connection status indicator (optional)
-  useEffect(() => {
-    if (isConnected) {
-      console.log("✅ Patient my-appointments connected to global socket");
-    }
-  }, [isConnected]);
-
-  const fetchAppointments = async () => {
     setLoading(true);
     try {
       const userId = (session?.user as { _id?: string })._id;
@@ -146,7 +104,54 @@ function MyAppointmentsContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session, router]);
+
+  // Auto-open detail modal from URL parameter (from dashboard click)
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      const filterParam = params.get("filter");
+      if (filterParam === "follow-up") {
+        setFilter("follow-up" as AppointmentStatus);
+      }
+
+      // If there's a specific appointment to view
+      const appointmentId = params.get("appointmentId");
+      if (appointmentId && appointments.length > 0) {
+        const apt = appointments.find((a) => a._id === appointmentId);
+        if (apt) {
+          handleViewDetail(apt);
+        }
+      }
+    } catch {
+      // ignore malformed URL or other errors
+    }
+    // run when appointments update (so we can open detail when data is loaded)
+  }, [appointments]);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    fetchAppointments();
+  }, [session, fetchAppointments]);
+
+  // Register this page's refresh callback with global socket
+  useEffect(() => {
+    registerAppointmentCallback(fetchAppointments);
+    console.log("✅ Patient my-appointments registered with global socket");
+
+    return () => {
+      unregisterAppointmentCallback();
+      console.log("🔇 Patient my-appointments unregistered from global socket");
+    };
+  }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
+
+  // Socket connection status indicator (optional)
+  useEffect(() => {
+    if (isConnected) {
+      console.log("✅ Patient my-appointments connected to global socket");
+    }
+  }, [isConnected]);
 
   const handleCancelAppointment = async () => {
     if (!selectedAppointment || !cancelReason.trim()) {
