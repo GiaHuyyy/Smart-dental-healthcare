@@ -31,6 +31,10 @@ const nextConfig = {
     // Add any experimental features here
     optimizeCss: false,
   },
+  webpack: (config) => {
+    config.externals.push('lightningcss'); // Ngăn Next.js cố bundle lại LightningCSS
+    return config;
+  },
 };
 
 export default nextConfig;
