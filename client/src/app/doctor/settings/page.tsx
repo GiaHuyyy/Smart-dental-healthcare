@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { sendRequest } from "@/utils/api";
 import { Settings, User, Lock, Bell, Shield, Clock, Save, Eye, EyeOff, Stethoscope, Award, MapPin } from "lucide-react";
+import { toast } from "sonner";
 
 interface DoctorProfile {
   fullName: string;
@@ -150,10 +151,10 @@ export default function DoctorSettings() {
         },
         body: profile,
       });
-      alert("Cập nhật thông tin thành công!");
+      toast.success("Cập nhật thông tin thành công!");
     } catch (error) {
       console.error("Error saving profile:", error);
-      alert("Có lỗi xảy ra khi cập nhật thông tin");
+      toast.error("Có lỗi xảy ra khi cập nhật thông tin");
     } finally {
       setSaving(false);
     }
@@ -170,10 +171,10 @@ export default function DoctorSettings() {
         },
         body: notifications,
       });
-      alert("Cập nhật cài đặt thông báo thành công!");
+      toast.success("Cập nhật cài đặt thông báo thành công!");
     } catch (error) {
       console.error("Error saving notifications:", error);
-      alert("Có lỗi xảy ra khi cập nhật cài đặt");
+      toast.error("Có lỗi xảy ra khi cập nhật cài đặt");
     } finally {
       setSaving(false);
     }
@@ -190,10 +191,10 @@ export default function DoctorSettings() {
         },
         body: security,
       });
-      alert("Cập nhật cài đặt bảo mật thành công!");
+      toast.success("Cập nhật cài đặt bảo mật thành công!");
     } catch (error) {
       console.error("Error saving security:", error);
-      alert("Có lỗi xảy ra khi cập nhật cài đặt");
+      toast.error("Có lỗi xảy ra khi cập nhật cài đặt");
     } finally {
       setSaving(false);
     }
@@ -201,12 +202,12 @@ export default function DoctorSettings() {
 
   const changePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp!");
+      toast.error("Mật khẩu xác nhận không khớp!");
       return;
     }
 
     if (passwordForm.newPassword.length < 6) {
-      alert("Mật khẩu mới phải có ít nhất 6 ký tự!");
+      toast.error("Mật khẩu mới phải có ít nhất 6 ký tự!");
       return;
     }
 
@@ -223,11 +224,11 @@ export default function DoctorSettings() {
           newPassword: passwordForm.newPassword,
         },
       });
-      alert("Đổi mật khẩu thành công!");
+      toast.success("Đổi mật khẩu thành công!");
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (error) {
       console.error("Error changing password:", error);
-      alert("Có lỗi xảy ra khi đổi mật khẩu");
+      toast.error("Có lỗi xảy ra khi đổi mật khẩu");
     } finally {
       setSaving(false);
     }

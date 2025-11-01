@@ -7,6 +7,7 @@ import { Appointment, Doctor, ConsultType } from "@/types/appointment";
 import { useSession } from "next-auth/react";
 import { X, AlertTriangle } from "lucide-react";
 import TimeSlotPicker from "./TimeSlotPicker";
+import { toast } from "sonner";
 
 interface RescheduleWithBillingModalProps {
   isOpen: boolean;
@@ -80,7 +81,7 @@ export default function RescheduleWithBillingModal({
       });
 
       if (result.success) {
-        alert(
+        toast.success(
           result.data?.feeCharged
             ? `Đổi lịch thành công! Phí đặt chỗ: ${result.data.feeAmount.toLocaleString("vi-VN")} VND`
             : "Đổi lịch thành công!"
@@ -121,7 +122,8 @@ export default function RescheduleWithBillingModal({
                   <h4 className="font-bold text-red-900 text-lg mb-2">⚠️ Đổi lịch cận giờ</h4>
                   <div className="space-y-2 text-sm text-red-800">
                     <p>
-                      Đổi lịch lúc này sẽ bị trừ <strong className="text-red-900">{feeAmount.toLocaleString("vi-VN")} VND</strong> phí giữ chỗ.
+                      Đổi lịch lúc này sẽ bị trừ{" "}
+                      <strong className="text-red-900">{feeAmount.toLocaleString("vi-VN")} VND</strong> phí giữ chỗ.
                     </p>
                     <div className="pl-4 border-l-2 border-red-300 space-y-1">
                       <p>• Hệ thống sẽ tạo bill mới cho bác sĩ cộng tiền phí này</p>

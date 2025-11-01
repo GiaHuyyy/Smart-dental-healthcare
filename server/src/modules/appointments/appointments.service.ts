@@ -17,6 +17,12 @@ import {
   RESERVATION_FEE_AMOUNT,
 } from '../payments/billing-helper.service';
 import { VouchersService } from '../vouchers/vouchers.service';
+import {
+  FollowUpSuggestion,
+  FollowUpSuggestionStatus,
+} from './schemas/follow-up-suggestion.schema';
+import { Payment } from '../payments/schemas/payment.schemas';
+import { NotificationGateway } from '../notifications/notification.gateway';
 
 @Injectable()
 export class AppointmentsService {
@@ -24,7 +30,12 @@ export class AppointmentsService {
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
     @InjectModel(MedicalRecord.name)
     private readonly medicalRecordModel: Model<MedicalRecord>,
-    private readonly notificationGateway: AppointmentNotificationGateway,
+    @InjectModel(FollowUpSuggestion.name)
+    private readonly followUpSuggestionModel: Model<FollowUpSuggestion>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<Payment>,
+    private readonly appointmentNotificationGateway: AppointmentNotificationGateway,
+    private readonly notificationGateway: NotificationGateway,
     private readonly emailService: AppointmentEmailService,
     private readonly billingHelper: BillingHelperService,
     private readonly vouchersService: VouchersService,
@@ -240,12 +251,6 @@ export class AppointmentsService {
         (createAppointmentDto as any).appointmentTime = startTime;
       }
 
-      // Ensure appointmentDate is a Date
-      const apptDate =
-        appointmentDate instanceof Date
-          ? appointmentDate
-          : new Date(appointmentDate);
-
       // Per product decision: allow patients to create multiple appointments with the same doctor on the same day.
       // Do not block creation by exact-time overlap here. The DB unique index on (doctorId, appointmentDate, startTime)
       // will still prevent two appointments with the exact same startTime for the same doctor and date.
@@ -268,10 +273,70 @@ export class AppointmentsService {
         { path: 'patientId', select: 'fullName email phone' },
       ]);
 
+      // 🆕 Create pending payment bill for consultation fee
+      // This allows patients to pay later via the payments page
+      // BUT: Only create if:
+      //   1. No bill exists yet (avoid duplicate when paying with wallet/momo)
+      //   2. Payment method is "cash" or "later" (not immediate payment methods)
+      const consultationFee =
+        (createAppointmentDto as any).consultationFee || 200000;
+      const patientId = (createAppointmentDto as any).patientId;
+      const docId = (populatedAppointment.doctorId as any)._id;
+      const paymentMethod = (createAppointmentDto as any).paymentMethod;
+
+      console.log('💳 Checking if payment bill needed:', {
+        appointmentId: appointment._id,
+        patientId,
+        doctorId: docId,
+        amount: consultationFee,
+        paymentMethod,
+      });
+
+      // Only create pending bill for "cash" or "later" payment methods
+      const shouldCreatePendingBill =
+        paymentMethod === 'cash' || paymentMethod === 'later';
+
+      if (!shouldCreatePendingBill) {
+        console.log(
+          `⏭️ Skipping pending bill creation - payment method is "${paymentMethod}" (immediate payment)`,
+        );
+      } else {
+        try {
+          // Check if bill already exists (e.g., created by wallet payment)
+          const existingBill = await this.paymentModel.findOne({
+            refId: appointment._id,
+            billType: 'consultation_fee',
+          });
+
+          if (existingBill) {
+            console.log(
+              '✅ Payment bill already exists (created by wallet payment), skipping...',
+            );
+          } else {
+            // Create pending bill for later payment
+            await this.paymentModel.create({
+              patientId,
+              doctorId: docId,
+              amount: consultationFee,
+              status: 'pending', // Bill chưa thanh toán
+              paymentMethod: 'pending', // Chưa chọn phương thức
+              type: 'appointment',
+              billType: 'consultation_fee',
+              refId: appointment._id,
+              refModel: 'Appointment',
+              description: `Phí khám bệnh - Lịch hẹn #${appointment._id}`,
+            });
+            console.log('✅ Pending payment bill created successfully');
+          }
+        } catch (billError) {
+          console.error('⚠️ Failed to create pending bill:', billError);
+          // Don't fail the appointment creation if bill creation fails
+        }
+      }
+
       // Send real-time notification to doctor
-      const docId = (populatedAppointment.doctorId as any)._id.toString();
-      this.notificationGateway.notifyDoctorNewAppointment(
-        docId,
+      void this.appointmentNotificationGateway.notifyDoctorNewAppointment(
+        docId.toString(),
         populatedAppointment.toObject(),
       );
 
@@ -569,13 +634,16 @@ export class AppointmentsService {
     // Determine who cancelled
     const actualCancelledBy = cancelledBy || 'patient'; // Default to patient for backward compatibility
 
+    // Delete any pending bills for this appointment
+    await this.billingHelper.deletePendingBillsForAppointment(id);
+
     if (actualCancelledBy === 'patient') {
       // Patient cancel: Delete appointment
       await this.appointmentModel.findByIdAndDelete(id);
       await this.syncFollowUpRecord(appointment as any, { cancelled: true });
 
       // Notify doctor
-      this.notificationGateway.notifyAppointmentCancelled(
+      void this.appointmentNotificationGateway.notifyAppointmentCancelled(
         docId,
         appointmentData,
         'patient',
@@ -597,7 +665,7 @@ export class AppointmentsService {
       await this.syncFollowUpRecord(appointment as any, { cancelled: true });
 
       // Notify patient
-      this.notificationGateway.notifyAppointmentCancelled(
+      void this.appointmentNotificationGateway.notifyAppointmentCancelled(
         patId,
         appointmentData,
         'doctor',
@@ -729,6 +797,9 @@ export class AppointmentsService {
       throw new BadRequestException('Không thể hủy lịch hẹn đã hoàn thành');
     }
 
+    // Delete any pending bills for this appointment
+    await this.billingHelper.deletePendingBillsForAppointment(id);
+
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationReason = reason;
 
@@ -760,7 +831,7 @@ export class AppointmentsService {
     const patId = (appointment.patientId as any)._id.toString();
     const appointmentData = appointment.toObject();
 
-    this.notificationGateway.notifyPatientAppointmentConfirmed(
+    void this.appointmentNotificationGateway.notifyPatientAppointmentConfirmed(
       patId,
       appointmentData,
     );
@@ -794,7 +865,10 @@ export class AppointmentsService {
     const patId = (appointment.patientId as any)._id.toString();
     const appointmentData = appointment.toObject();
 
-    this.notificationGateway.notifyAppointmentCompleted(patId, appointmentData);
+    void this.appointmentNotificationGateway.notifyAppointmentCompleted(
+      patId,
+      appointmentData,
+    );
 
     return appointment;
   }
@@ -1310,16 +1384,10 @@ export class AppointmentsService {
 
     let feeCharged = false;
     if (nearTime) {
-      // Charge reservation fee
-      await this.billingHelper.chargeReservationFeeFromPatient(
+      // Create pending reservation charge (Phí giữ chỗ)
+      await this.billingHelper.createPendingReservationCharge(
         (appointment.patientId as any)._id.toString(),
         (appointment.doctorId as any)._id.toString(),
-        appointment._id.toString(),
-      );
-
-      await this.billingHelper.createReservationFeeForDoctor(
-        (appointment.doctorId as any)._id.toString(),
-        (appointment.patientId as any)._id.toString(),
         appointment._id.toString(),
       );
 
@@ -1376,6 +1444,12 @@ export class AppointmentsService {
     const newAppointment = new this.appointmentModel(newData);
     await newAppointment.save();
 
+    // Populate newAppointment to get full doctor and patient data
+    await newAppointment.populate([
+      { path: 'doctorId', select: 'fullName email specialty' },
+      { path: 'patientId', select: 'fullName email phone' },
+    ]);
+
     // Update old appointment
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationReason = feeCharged
@@ -1383,23 +1457,29 @@ export class AppointmentsService {
       : 'Đã đổi lịch';
     await appointment.save();
 
-    // Send notifications to both patient and doctor
+    // Determine who rescheduled and notify only the other party
     const patientId = (appointment.patientId as any)._id.toString();
     const doctorId = (appointment.doctorId as any)._id.toString();
 
-    await this.notificationGateway.notifyAppointmentRescheduled(
-      patientId,
-      newAppointment as any,
-      'patient',
-      feeCharged,
-    );
+    const isPatientRescheduling = userId === patientId;
 
-    await this.notificationGateway.notifyAppointmentRescheduled(
-      doctorId,
-      newAppointment as any,
-      'doctor',
-      feeCharged,
-    );
+    if (isPatientRescheduling) {
+      // Patient rescheduled -> notify doctor only
+      await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
+        doctorId,
+        newAppointment.toObject(),
+        'doctor',
+        feeCharged,
+      );
+    } else {
+      // Doctor rescheduled -> notify patient only
+      await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
+        patientId,
+        newAppointment.toObject(),
+        'patient',
+        feeCharged,
+      );
+    }
 
     return {
       newAppointment,
@@ -1445,16 +1525,10 @@ export class AppointmentsService {
     if (cancelledBy === 'patient') {
       // Patient cancellation logic
       if (nearTime) {
-        // < 30 min: Charge reservation fee
-        await this.billingHelper.chargeReservationFeeFromPatient(
+        // < 30 min: Create pending reservation charge (Phí giữ chỗ)
+        await this.billingHelper.createPendingReservationCharge(
           (appointment.patientId as any)._id.toString(),
           (appointment.doctorId as any)._id.toString(),
-          appointment._id.toString(),
-        );
-
-        await this.billingHelper.createReservationFeeForDoctor(
-          (appointment.doctorId as any)._id.toString(),
-          (appointment.patientId as any)._id.toString(),
           appointment._id.toString(),
         );
 
@@ -1526,21 +1600,16 @@ export class AppointmentsService {
 
         voucherCreated = true;
       } else if (doctorReason === 'patient_late') {
-        // Patient late: Charge fee + refund consultation fee
-        await this.billingHelper.chargeReservationFeeFromPatient(
+        // Patient late: Create ONE pending bill for patient (Phí giữ chỗ)
+        await this.billingHelper.createPendingReservationCharge(
           (appointment.patientId as any)._id.toString(),
           (appointment.doctorId as any)._id.toString(),
-          appointment._id.toString(),
-        );
-
-        await this.billingHelper.createReservationFeeForDoctor(
-          (appointment.doctorId as any)._id.toString(),
-          (appointment.patientId as any)._id.toString(),
           appointment._id.toString(),
         );
 
         feeCharged = true;
 
+        // Refund consultation fee if already paid
         const hasPaid = await this.billingHelper.hasExistingPayment(
           appointment._id.toString(),
         );
@@ -1565,29 +1634,27 @@ export class AppointmentsService {
       }
     }
 
+    // Delete any pending bills for this appointment
+    // This applies when payment method was "cash" or "later" (pending payment)
+    await this.billingHelper.deletePendingBillsForAppointment(
+      appointment._id.toString(),
+    );
+
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationReason = reason;
     await appointment.save();
 
-    // Send notifications
+    // Send notification only to the other party (not the one who cancelled)
     const patientId = (appointment.patientId as any)._id.toString();
     const doctorId = (appointment.doctorId as any)._id.toString();
 
-    const targetUserId = cancelledBy === 'patient' ? patientId : doctorId;
+    // If patient cancelled -> notify doctor
+    // If doctor cancelled -> notify patient
+    const recipientUserId = cancelledBy === 'patient' ? doctorId : patientId;
 
-    await this.notificationGateway.notifyAppointmentCancelled(
-      targetUserId,
-      appointment as any,
-      cancelledBy,
-      feeCharged,
-      voucherCreated,
-    );
-
-    // Also notify the other party
-    const otherUserId = cancelledBy === 'patient' ? doctorId : patientId;
-    await this.notificationGateway.notifyAppointmentCancelled(
-      otherUserId,
-      appointment as any,
+    await this.appointmentNotificationGateway.notifyAppointmentCancelled(
+      recipientUserId,
+      appointment.toObject(),
       cancelledBy,
       feeCharged,
       voucherCreated,
@@ -1603,72 +1670,214 @@ export class AppointmentsService {
   }
 
   /**
-   * ENHANCED: Create follow-up appointment suggestion (pending state)
-   * Doctor creates suggestion → Patient sees in tab → Patient schedules with 5% discount
+   * Create follow-up suggestion (NOT an appointment)
+   * Bác sĩ tạo đề xuất → Bệnh nhân thấy trong tab → Bệnh nhân đặt lịch như bình thường
    */
-  async createFollowUpSuggestion(
-    parentAppointmentId: string,
-    suggestedDate?: Date,
-    suggestedTime?: string,
-    notes?: string,
-  ) {
-    const parentAppointment = await this.appointmentModel
-      .findById(parentAppointmentId)
-      .populate('patientId')
-      .populate('doctorId');
+  async createFollowUpSuggestion(parentAppointmentId: string, notes?: string) {
+    try {
+      console.log('=== CREATE FOLLOW-UP SUGGESTION ===');
+      console.log('parentAppointmentId:', parentAppointmentId);
 
-    if (!parentAppointment) {
-      throw new NotFoundException('Không tìm thấy lịch hẹn gốc');
+      const parentAppointment = await this.appointmentModel
+        .findById(parentAppointmentId)
+        .populate('patientId')
+        .populate('doctorId');
+
+      console.log('parentAppointment found:', !!parentAppointment);
+
+      if (!parentAppointment) {
+        throw new NotFoundException('Không tìm thấy lịch hẹn gốc');
+      }
+
+      console.log(
+        'patientId:',
+        (parentAppointment.patientId as any)?._id?.toString(),
+      );
+      console.log(
+        'doctorId:',
+        (parentAppointment.doctorId as any)?._id?.toString(),
+      );
+
+      // Create voucher for follow-up discount
+      console.log('Creating voucher...');
+      const voucher = await this.vouchersService.createFollowUpVoucher(
+        (parentAppointment.patientId as any)._id.toString(),
+        parentAppointmentId,
+      );
+      console.log('Voucher created:', (voucher as any)._id);
+
+      // Create follow-up SUGGESTION (not appointment) - just a simple record
+      console.log('Creating suggestion...');
+      const suggestion = new this.followUpSuggestionModel({
+        patientId: (parentAppointment.patientId as any)._id,
+        doctorId: (parentAppointment.doctorId as any)._id,
+        parentAppointmentId: parentAppointmentId,
+        notes: notes || 'Lịch tái khám theo đề xuất của bác sĩ',
+        status: FollowUpSuggestionStatus.PENDING,
+        voucherId: (voucher as any)._id,
+      });
+
+      await suggestion.save();
+      console.log('Suggestion saved:', suggestion._id);
+
+      // Populate suggestion for notification and email
+      const populatedSuggestion = await this.followUpSuggestionModel
+        .findById(suggestion._id)
+        .populate('patientId')
+        .populate('doctorId')
+        .populate('voucherId');
+
+      // Send notification to patient
+      try {
+        console.log('Sending notification...');
+        await this.notificationGateway.notifyFollowUpSuggestion(
+          String((parentAppointment.patientId as any)._id),
+          populatedSuggestion,
+        );
+        console.log('Notification sent successfully');
+      } catch (notifError) {
+        console.error('Error sending notification:', notifError);
+        // Don't throw - notification failure shouldn't break the flow
+      }
+
+      // Send email to patient
+      try {
+        console.log('Sending email...');
+        if (populatedSuggestion) {
+          await this.emailService.sendFollowUpSuggestionEmail(
+            populatedSuggestion.patientId as any,
+            populatedSuggestion.doctorId as any,
+            populatedSuggestion as any,
+          );
+          console.log('Email sent successfully');
+        }
+      } catch (emailError) {
+        console.error('Error sending email:', emailError);
+        // Don't throw - email failure shouldn't break the flow
+      }
+
+      console.log('=== FOLLOW-UP SUGGESTION CREATED SUCCESSFULLY ===');
+      return {
+        suggestion,
+        voucher,
+      };
+    } catch (error) {
+      console.error('=== ERROR IN createFollowUpSuggestion ===');
+      console.error('Error:', error);
+      console.error('Stack:', error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Get follow-up suggestions for patient
+   */
+  async getFollowUpSuggestions(patientId: string) {
+    const suggestions = await this.followUpSuggestionModel
+      .find({
+        patientId,
+        status: FollowUpSuggestionStatus.PENDING,
+      })
+      .populate('doctorId')
+      .populate('parentAppointmentId')
+      .populate('voucherId')
+      .sort({ createdAt: -1 });
+
+    return suggestions;
+  }
+
+  /**
+   * Reject follow-up suggestion
+   */
+  async rejectFollowUpSuggestion(suggestionId: string) {
+    try {
+      const suggestion = await this.followUpSuggestionModel
+        .findById(suggestionId)
+        .populate('patientId', 'fullName email')
+        .populate('doctorId', 'fullName email');
+
+      if (!suggestion) {
+        throw new NotFoundException('Không tìm thấy đề xuất tái khám');
+      }
+
+      if (suggestion.status !== FollowUpSuggestionStatus.PENDING) {
+        throw new BadRequestException('Đề xuất này đã được xử lý');
+      }
+
+      suggestion.status = FollowUpSuggestionStatus.REJECTED;
+      suggestion.rejectedAt = new Date();
+      await suggestion.save();
+
+      // Send notification to doctor
+      try {
+        const doctorIdString =
+          typeof suggestion.doctorId === 'object'
+            ? (suggestion.doctorId as any)._id.toString()
+            : (suggestion.doctorId as any).toString();
+
+        await this.notificationGateway.notifyFollowUpRejected(
+          doctorIdString,
+          suggestion as any,
+        );
+      } catch (notifError) {
+        console.error('Error sending notification:', notifError);
+        // Continue execution even if notification fails
+      }
+
+      // Send email to doctor
+      try {
+        console.log('Sending rejection email to doctor...');
+        const populatedSuggestion = await this.followUpSuggestionModel
+          .findById(suggestion._id)
+          .populate('patientId')
+          .populate('doctorId');
+
+        if (
+          populatedSuggestion &&
+          populatedSuggestion.patientId &&
+          populatedSuggestion.doctorId
+        ) {
+          await this.emailService.sendFollowUpRejectedEmail(
+            populatedSuggestion.doctorId as any,
+            populatedSuggestion.patientId as any,
+            populatedSuggestion as any,
+          );
+          console.log('Rejection email sent successfully');
+        } else {
+          console.warn('Could not send email - missing patient or doctor data');
+        }
+      } catch (emailError) {
+        console.error('Error sending rejection email:', emailError);
+        // Don't throw - email failure shouldn't break the flow
+      }
+
+      return suggestion;
+    } catch (error) {
+      console.error('Error in rejectFollowUpSuggestion:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark suggestion as scheduled (called after patient books appointment via 3-step modal)
+   */
+  async markFollowUpSuggestionAsScheduled(
+    suggestionId: string,
+    appointmentId: string,
+  ) {
+    const suggestion =
+      await this.followUpSuggestionModel.findById(suggestionId);
+
+    if (!suggestion) {
+      throw new NotFoundException('Không tìm thấy đề xuất tái khám');
     }
 
-    // Create voucher for follow-up discount
-    const voucher = await this.vouchersService.createFollowUpVoucher(
-      (parentAppointment.patientId as any)._id.toString(),
-      parentAppointmentId,
-    );
+    suggestion.status = FollowUpSuggestionStatus.SCHEDULED;
+    suggestion.scheduledAppointmentId = appointmentId as any;
+    suggestion.scheduledAt = new Date();
+    await suggestion.save();
 
-    // Create follow-up appointment in PENDING_PATIENT_CONFIRMATION state
-    // Date and time will be selected by patient later
-    const followUpAppointment = new this.appointmentModel({
-      patientId: (parentAppointment.patientId as any)._id,
-      doctorId: (parentAppointment.doctorId as any)._id,
-      appointmentDate: suggestedDate, // Optional - patient will choose
-      startTime: suggestedTime, // Optional - patient will choose
-      endTime: suggestedTime
-        ? this.calculateEndTime(suggestedTime, 30)
-        : undefined,
-      duration: 30,
-      appointmentType: 'Tái khám',
-      consultationFee: parentAppointment.consultationFee,
-      notes: notes || 'Lịch tái khám theo đề xuất của bác sĩ',
-      status: AppointmentStatus.PENDING_PATIENT_CONFIRMATION,
-      isFollowUp: true,
-      isFollowUpSuggestion: true,
-      followUpParentId: parentAppointmentId,
-      followUpDiscount: 5,
-      suggestedFollowUpDate: suggestedDate, // Store suggestion if provided
-      suggestedFollowUpTime: suggestedTime, // Store suggestion if provided
-      appliedVoucherId: (voucher as any)._id,
-    });
-
-    await followUpAppointment.save();
-
-    // Send notification to patient
-    await this.notificationGateway.notifyFollowUpSuggestion(
-      followUpAppointment as any,
-    );
-
-    // Send email to patient (comment out until email method is added)
-    // await this.emailService.sendFollowUpSuggestionEmail(
-    //   parentAppointment.patientId as any,
-    //   parentAppointment.doctorId as any,
-    //   followUpAppointment as any,
-    // );
-
-    return {
-      followUpAppointment,
-      voucher,
-    };
+    return suggestion;
   }
 
   async confirmFollowUpAppointment(
@@ -1709,7 +1918,7 @@ export class AppointmentsService {
     await appointment.save();
 
     // Send notification to doctor
-    await this.notificationGateway.notifyFollowUpConfirmed(
+    await this.appointmentNotificationGateway.notifyFollowUpConfirmed(
       (appointment.doctorId as any)._id.toString(),
       appointment as any,
     );

@@ -46,6 +46,10 @@ export class CreateAppointmentDto {
 
   @IsOptional()
   @IsString()
+  paymentMethod: string;
+
+  @IsOptional()
+  @IsString()
   notes: string;
 
   @IsOptional()

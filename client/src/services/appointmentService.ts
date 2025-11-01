@@ -1,4 +1,5 @@
 import { Appointment, AppointmentStatus } from "@/types/appointment";
+import type { FollowUpSuggestion } from "@/types/followUpSuggestion";
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -622,7 +623,7 @@ const appointmentService = {
     success: boolean;
     data?: {
       followUpAppointment: Appointment;
-      voucher: any;
+      voucher: unknown;
     };
     message?: string;
     error?: string;
@@ -663,7 +664,15 @@ const appointmentService = {
   /**
    * Get follow-up suggestions for patient
    */
-  async getFollowUpSuggestions(patientId: string, token?: string): Promise<AppointmentsListResponse> {
+  async getFollowUpSuggestions(
+    patientId: string,
+    token?: string
+  ): Promise<{
+    success: boolean;
+    data?: FollowUpSuggestion[];
+    message?: string;
+    error?: string;
+  }> {
     try {
       const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/suggestions/${patientId}`, {
         method: "GET",
@@ -684,11 +693,133 @@ const appointmentService = {
 
       return {
         success: true,
-        data: data.data,
+        data: data.data || data,
         message: data.message,
       };
     } catch (error) {
       console.error("Get follow-up suggestions error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Reject follow-up suggestion
+   */
+  async rejectFollowUpSuggestion(suggestionId: string, token?: string): Promise<AppointmentResponse> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/${suggestionId}/reject`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Từ chối đề xuất thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Reject follow-up error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Mark follow-up suggestion as scheduled (after patient books via modal)
+   */
+  async markFollowUpAsScheduled(
+    suggestionId: string,
+    appointmentId: string,
+    token?: string
+  ): Promise<AppointmentResponse> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/${suggestionId}/mark-scheduled`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ appointmentId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Đánh dấu đề xuất thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Mark follow-up scheduled error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
+   * Get available time slots for a doctor on a specific date
+   */
+  async getAvailableSlots(
+    doctorId: string,
+    date: string,
+    token?: string
+  ): Promise<{
+    success: boolean;
+    data?: string[];
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/appointments/available-slots/${doctorId}?date=${date}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Lấy danh sách giờ trống thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Get available slots error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Lỗi kết nối server",

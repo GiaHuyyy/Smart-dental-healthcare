@@ -16,6 +16,7 @@ import {
   FileText,
   Home,
   MapPin,
+  MessageCircle,
   MoreVertical,
   User,
   Video,
@@ -24,11 +25,33 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import RescheduleWithBillingModal from "@/components/appointments/RescheduleWithBillingModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
 import FollowUpSuggestions from "@/components/appointments/FollowUpSuggestions";
+
+// Helper function to check if appointment is past the consultation time + 15 minutes
+const isAppointmentPastConsultation = (appointment: Appointment): boolean => {
+  try {
+    // Parse appointment date and time
+    const appointmentDate = new Date(appointment.appointmentDate);
+    const [hours, minutes] = appointment.startTime.split(":").map(Number);
+
+    // Set the appointment time
+    appointmentDate.setHours(hours, minutes, 0, 0);
+
+    // Add 15 minutes to consultation start time
+    const consultationEndTime = new Date(appointmentDate.getTime() + 15 * 60 * 1000);
+
+    // Check if current time is past consultation + 15 minutes
+    const now = new Date();
+    return now > consultationEndTime;
+  } catch (error) {
+    console.error("Error checking appointment time:", error);
+    return false;
+  }
+};
 
 function MyAppointmentsContent() {
   const { data: session } = useSession();
@@ -46,6 +69,40 @@ function MyAppointmentsContent() {
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [dateFilter, setDateFilter] = useState<Date | null>(null);
+
+  // Memoized fetch function to prevent re-creation on every render
+  const fetchAppointments = useCallback(async () => {
+    // Guard: Check if session and user exist
+    if (!session?.user) {
+      console.warn("⚠️ Cannot fetch appointments: session or user not available");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userId = (session?.user as { _id?: string })._id;
+      if (!userId) {
+        toast.error("Vui lòng đăng nhập");
+        router.push("/auth/signin");
+        return;
+      }
+
+      // Call API to get patient appointments
+      const accessToken = (session as { accessToken?: string })?.accessToken;
+      const result = await appointmentService.getPatientAppointments(userId, {}, accessToken);
+
+      if (!result.success) {
+        throw new Error(result.error || "Không thể tải danh sách lịch hẹn");
+      }
+
+      setAppointments(result.data || []);
+    } catch (error) {
+      console.error("❌ Error fetching appointments:", error);
+      toast.error("Không thể tải danh sách lịch hẹn");
+    } finally {
+      setLoading(false);
+    }
+  }, [session, router]);
 
   // Auto-open detail modal from URL parameter (from dashboard click)
   useEffect(() => {
@@ -74,8 +131,7 @@ function MyAppointmentsContent() {
   useEffect(() => {
     if (!session?.user) return;
     fetchAppointments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [session, fetchAppointments]);
 
   // Register this page's refresh callback with global socket
   useEffect(() => {
@@ -86,8 +142,7 @@ function MyAppointmentsContent() {
       unregisterAppointmentCallback();
       console.log("🔇 Patient my-appointments unregistered from global socket");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerAppointmentCallback, unregisterAppointmentCallback]);
+  }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
 
   // Socket connection status indicator (optional)
   useEffect(() => {
@@ -95,58 +150,6 @@ function MyAppointmentsContent() {
       console.log("✅ Patient my-appointments connected to global socket");
     }
   }, [isConnected]);
-
-  const fetchAppointments = async () => {
-    setLoading(true);
-    try {
-      const userId = (session?.user as { _id?: string })._id;
-      if (!userId) {
-        toast.error("Vui lòng đăng nhập");
-        router.push("/auth/signin");
-        return;
-      }
-
-      console.log("🔄 Fetching appointments for user:", userId);
-      // Call API to get patient appointments
-      const accessToken = (session as { accessToken?: string })?.accessToken;
-      const result = await appointmentService.getPatientAppointments(userId, {}, accessToken);
-
-      if (!result.success) {
-        throw new Error(result.error || "Không thể tải danh sách lịch hẹn");
-      }
-
-      console.log("✅ Appointments loaded:", result.data?.length || 0, "records");
-
-      // Log raw appointment data for debugging
-      if (result.data && result.data.length > 0) {
-        console.log("📋 First appointment raw data:", {
-          appointmentDate: result.data[0].appointmentDate,
-          startTime: result.data[0].startTime,
-          dateType: typeof result.data[0].appointmentDate,
-          timeType: typeof result.data[0].startTime,
-        });
-      }
-
-      console.table(
-        (result.data || []).map((apt: Appointment) => ({
-          id: apt._id?.slice(-6) || "N/A",
-          type: apt.appointmentType || "N/A",
-          date: apt.appointmentDate || "N/A",
-          startTime: apt.startTime || "N/A",
-          status: apt.status || "N/A",
-          paymentStatus: apt.paymentStatus || "unpaid",
-          fee: apt.consultationFee || 0,
-        }))
-      );
-
-      setAppointments(result.data || []);
-    } catch (error) {
-      console.error("❌ Error fetching appointments:", error);
-      toast.error("Không thể tải danh sách lịch hẹn");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCancelAppointment = async () => {
     if (!selectedAppointment || !cancelReason.trim()) {
@@ -172,12 +175,45 @@ function MyAppointmentsContent() {
       setCancelDialogOpen(false);
       setCancelReason("");
       setSelectedAppointment(null);
-      fetchAppointments(); // Refresh list
+      fetchAppointments();
     } catch (error) {
-      console.error("Cancel appointment error:", error);
       toast.error(error instanceof Error ? error.message : "Không thể hủy lịch hẹn");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleContactDoctor = async (appointment: Appointment) => {
+    const doctorId = typeof appointment.doctorId === "string" ? appointment.doctorId : appointment.doctorId?._id;
+
+    if (!doctorId) {
+      toast.error("Không tìm thấy thông tin bác sĩ");
+      return;
+    }
+
+    try {
+      // Store doctor info in localStorage for chat page to pick up
+      const payload = {
+        doctorId,
+        doctorName: appointment.doctor?.fullName,
+        openConversation: true, // Signal to open the conversation immediately
+      };
+
+      try {
+        localStorage.setItem("newConversation", JSON.stringify(payload));
+      } catch (storageErr) {
+        console.error("Failed to save to localStorage", storageErr);
+      }
+
+      // Navigate to chat page
+      router.push(`/patient/chat?newConversation=true&doctorId=${doctorId}`);
+
+      toast.success("Đang mở cuộc hội thoại", {
+        description: `Mở chat với ${appointment.doctor?.fullName || "bác sĩ"}`,
+      });
+    } catch (error) {
+      console.error("Failed to open chat:", error);
+      toast.error("Không thể mở chat", { description: "Vui lòng thử lại" });
     }
   };
 
@@ -575,53 +611,82 @@ function MyAppointmentsContent() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                    {appointment.status === AppointmentStatus.PENDING && (
-                      <>
+                  <div className="pt-4 border-t border-gray-100">
+                    {/* Check if appointment is past consultation time + 15 minutes */}
+                    {appointment.status === AppointmentStatus.CONFIRMED &&
+                    isAppointmentPastConsultation(appointment) ? (
+                      <div className="flex flex-col gap-3">
+                        <p className="text-sm italic text-gray-600">
+                          Lịch này đã hoàn thành, vui lòng yêu cầu bác sĩ lên đơn điều trị!
+                        </p>
+                        <div className="flex items-center justify-between gap-3">
+                          <button
+                            onClick={() => handleContactDoctor(appointment)}
+                            className=" px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Liên hệ bác sĩ
+                          </button>
+                          <button
+                            onClick={() => handleViewDetail(appointment)}
+                            className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                          >
+                            Chi tiết
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1">
+                          {appointment.status === AppointmentStatus.PENDING && (
+                            <>
+                              <button
+                                onClick={() => handleOpenCancelDialog(appointment)}
+                                className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                              >
+                                Hủy lịch
+                              </button>
+                              <button
+                                onClick={() => handleOpenRescheduleDialog(appointment)}
+                                className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                              >
+                                Đổi lịch
+                              </button>
+                            </>
+                          )}
+                          {appointment.status === AppointmentStatus.CONFIRMED && (
+                            <>
+                              <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
+                                Tham gia khám
+                              </button>
+                              <button
+                                onClick={() => handleOpenCancelDialog(appointment)}
+                                className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                              >
+                                Hủy lịch
+                              </button>
+                              <button
+                                onClick={() => handleOpenRescheduleDialog(appointment)}
+                                className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                              >
+                                Đổi lịch
+                              </button>
+                            </>
+                          )}
+                          {appointment.status === AppointmentStatus.COMPLETED && (
+                            <button className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium">
+                              Xem kết quả
+                            </button>
+                          )}
+                        </div>
                         <button
-                          onClick={() => handleOpenCancelDialog(appointment)}
-                          className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                          onClick={() => handleViewDetail(appointment)}
+                          className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                         >
-                          Hủy lịch
+                          Chi tiết
                         </button>
-                        <button
-                          onClick={() => handleOpenRescheduleDialog(appointment)}
-                          className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
-                        >
-                          Đổi lịch
-                        </button>
-                      </>
+                      </div>
                     )}
-                    {appointment.status === AppointmentStatus.CONFIRMED && (
-                      <>
-                        <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
-                          Tham gia khám
-                        </button>
-                        <button
-                          onClick={() => handleOpenCancelDialog(appointment)}
-                          className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
-                        >
-                          Hủy lịch
-                        </button>
-                        <button
-                          onClick={() => handleOpenRescheduleDialog(appointment)}
-                          className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
-                        >
-                          Đổi lịch
-                        </button>
-                      </>
-                    )}
-                    {appointment.status === AppointmentStatus.COMPLETED && (
-                      <button className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium">
-                        Xem kết quả
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleViewDetail(appointment)}
-                      className="ml-auto px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                    >
-                      Chi tiết
-                    </button>
                   </div>
                 </div>
               </div>
