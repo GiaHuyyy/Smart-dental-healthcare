@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { format, addDays, startOfDay } from "date-fns";
 import { vi } from "date-fns/locale";
 import appointmentService from "@/services/appointmentService";
+import { useSession } from "next-auth/react";
 import { Appointment } from "@/types/appointment";
 import { X, Calendar, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ interface ScheduleFollowUpModalProps {
 }
 
 export default function ScheduleFollowUpModal({ isOpen, onClose, appointment, onSuccess }: ScheduleFollowUpModalProps) {
+  const { data: session } = useSession();
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [loading, setLoading] = useState(false);
@@ -112,18 +114,71 @@ export default function ScheduleFollowUpModal({ isOpen, onClose, appointment, on
     setLoading(true);
 
     try {
-      // Call API to schedule the follow-up appointment
-      const result = await appointmentService.scheduleFollowUpAppointment(appointment._id, {
+      // Build appointment payload and create a new appointment, then mark the follow-up suggestion as scheduled
+      const patientIdRaw = (appointment as any).patientId;
+      const patientId =
+        typeof patientIdRaw === "object" ? patientIdRaw?._id || patientIdRaw?.id || "" : (patientIdRaw as string) || "";
+
+      if (!patientId) {
+        toast.error("Không tìm thấy thông tin bệnh nhân");
+        setLoading(false);
+        return;
+      }
+
+      const doctorIdRaw = (appointment as any).doctorId;
+      const doctorId =
+        typeof doctorIdRaw === "object" ? doctorIdRaw?._id || doctorIdRaw?.id || "" : (doctorIdRaw as string) || "";
+
+      if (!doctorId) {
+        toast.error("Không tìm thấy thông tin bác sĩ");
+        setLoading(false);
+        return;
+      }
+
+      // Calculate end time (30 minutes duration)
+      const [h, m] = selectedTime.split(":").map(Number);
+      const totalMinutes = h * 60 + m + 30;
+      const endH = Math.floor(totalMinutes / 60) % 24;
+      const endM = totalMinutes % 60;
+      const endTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+      const payload = {
+        patientId,
+        doctorId,
         appointmentDate: selectedDate,
         startTime: selectedTime,
-      });
+        endTime: endTime,
+        duration: 30,
+        consultationFee: (doctor as any)?.consultationFee || 0,
+        appointmentType: (appointment.appointmentType as string) || "Khám tái",
+        notes: appointment.notes || "",
+      };
 
-      if (result.success) {
+      const accessToken = session?.access_token || (session as any)?.accessToken;
+
+      const createResult = await appointmentService.createAppointment(payload, accessToken);
+
+      if (!createResult.success || !createResult.data) {
+        toast.error(createResult.error || "Không thể tạo lịch tái khám. Vui lòng thử lại.");
+        setLoading(false);
+        return;
+      }
+
+      const createdAppointmentId = createResult.data._id || (createResult.data as any).id;
+
+      // Mark the follow-up suggestion as scheduled
+      const markResult = await appointmentService.markFollowUpAsScheduled(
+        appointment._id,
+        createdAppointmentId,
+        accessToken
+      );
+
+      if (markResult.success) {
         toast.success("Đã đặt lịch tái khám thành công!");
         onSuccess();
         onClose();
       } else {
-        toast.error(result.error || "Không thể đặt lịch. Vui lòng thử lại.");
+        toast.error(markResult.error || "Không thể đánh dấu đề xuất là đã lên lịch");
       }
     } catch (error) {
       console.error("Schedule follow-up error:", error);

@@ -623,7 +623,12 @@ const appointmentService = {
     success: boolean;
     data?: {
       followUpAppointment: Appointment;
-      voucher: unknown;
+      voucher: {
+        code: string;
+        discountPercentage: number;
+        expiresAt: string;
+        [key: string]: unknown;
+      };
     };
     message?: string;
     error?: string;
