@@ -22,6 +22,7 @@ import {
   FollowUpSuggestionStatus,
 } from './schemas/follow-up-suggestion.schema';
 import { Payment } from '../payments/schemas/payment.schemas';
+import { NotificationGateway } from '../notifications/notification.gateway';
 
 @Injectable()
 export class AppointmentsService {
@@ -33,7 +34,8 @@ export class AppointmentsService {
     private readonly followUpSuggestionModel: Model<FollowUpSuggestion>,
     @InjectModel(Payment.name)
     private readonly paymentModel: Model<Payment>,
-    private readonly notificationGateway: AppointmentNotificationGateway,
+    private readonly appointmentNotificationGateway: AppointmentNotificationGateway,
+    private readonly notificationGateway: NotificationGateway,
     private readonly emailService: AppointmentEmailService,
     private readonly billingHelper: BillingHelperService,
     private readonly vouchersService: VouchersService,
@@ -249,12 +251,6 @@ export class AppointmentsService {
         (createAppointmentDto as any).appointmentTime = startTime;
       }
 
-      // Ensure appointmentDate is a Date
-      const apptDate =
-        appointmentDate instanceof Date
-          ? appointmentDate
-          : new Date(appointmentDate);
-
       // Per product decision: allow patients to create multiple appointments with the same doctor on the same day.
       // Do not block creation by exact-time overlap here. The DB unique index on (doctorId, appointmentDate, startTime)
       // will still prevent two appointments with the exact same startTime for the same doctor and date.
@@ -339,7 +335,7 @@ export class AppointmentsService {
       }
 
       // Send real-time notification to doctor
-      this.notificationGateway.notifyDoctorNewAppointment(
+      void this.appointmentNotificationGateway.notifyDoctorNewAppointment(
         docId.toString(),
         populatedAppointment.toObject(),
       );
@@ -644,7 +640,7 @@ export class AppointmentsService {
       await this.syncFollowUpRecord(appointment as any, { cancelled: true });
 
       // Notify doctor
-      this.notificationGateway.notifyAppointmentCancelled(
+      void this.appointmentNotificationGateway.notifyAppointmentCancelled(
         docId,
         appointmentData,
         'patient',
@@ -666,7 +662,7 @@ export class AppointmentsService {
       await this.syncFollowUpRecord(appointment as any, { cancelled: true });
 
       // Notify patient
-      this.notificationGateway.notifyAppointmentCancelled(
+      void this.appointmentNotificationGateway.notifyAppointmentCancelled(
         patId,
         appointmentData,
         'doctor',
@@ -829,7 +825,7 @@ export class AppointmentsService {
     const patId = (appointment.patientId as any)._id.toString();
     const appointmentData = appointment.toObject();
 
-    this.notificationGateway.notifyPatientAppointmentConfirmed(
+    void this.appointmentNotificationGateway.notifyPatientAppointmentConfirmed(
       patId,
       appointmentData,
     );
@@ -863,7 +859,10 @@ export class AppointmentsService {
     const patId = (appointment.patientId as any)._id.toString();
     const appointmentData = appointment.toObject();
 
-    this.notificationGateway.notifyAppointmentCompleted(patId, appointmentData);
+    void this.appointmentNotificationGateway.notifyAppointmentCompleted(
+      patId,
+      appointmentData,
+    );
 
     return appointment;
   }
@@ -1450,14 +1449,14 @@ export class AppointmentsService {
     const patientId = (appointment.patientId as any)._id.toString();
     const doctorId = (appointment.doctorId as any)._id.toString();
 
-    await this.notificationGateway.notifyAppointmentRescheduled(
+    await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
       patientId,
       newAppointment as any,
       'patient',
       feeCharged,
     );
 
-    await this.notificationGateway.notifyAppointmentRescheduled(
+    await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
       doctorId,
       newAppointment as any,
       'doctor',
@@ -1627,7 +1626,7 @@ export class AppointmentsService {
 
     const targetUserId = cancelledBy === 'patient' ? patientId : doctorId;
 
-    await this.notificationGateway.notifyAppointmentCancelled(
+    await this.appointmentNotificationGateway.notifyAppointmentCancelled(
       targetUserId,
       appointment as any,
       cancelledBy,
@@ -1637,7 +1636,7 @@ export class AppointmentsService {
 
     // Also notify the other party
     const otherUserId = cancelledBy === 'patient' ? doctorId : patientId;
-    await this.notificationGateway.notifyAppointmentCancelled(
+    await this.appointmentNotificationGateway.notifyAppointmentCancelled(
       otherUserId,
       appointment as any,
       cancelledBy,
@@ -1705,11 +1704,19 @@ export class AppointmentsService {
       await suggestion.save();
       console.log('Suggestion saved:', suggestion._id);
 
+      // Populate suggestion for notification and email
+      const populatedSuggestion = await this.followUpSuggestionModel
+        .findById(suggestion._id)
+        .populate('patientId')
+        .populate('doctorId')
+        .populate('voucherId');
+
       // Send notification to patient
       try {
         console.log('Sending notification...');
         await this.notificationGateway.notifyFollowUpSuggestion(
-          suggestion as any,
+          String((parentAppointment.patientId as any)._id),
+          populatedSuggestion,
         );
         console.log('Notification sent successfully');
       } catch (notifError) {
@@ -1720,12 +1727,6 @@ export class AppointmentsService {
       // Send email to patient
       try {
         console.log('Sending email...');
-        const populatedSuggestion = await this.followUpSuggestionModel
-          .findById(suggestion._id)
-          .populate('patientId')
-          .populate('doctorId')
-          .populate('voucherId');
-
         if (populatedSuggestion) {
           await this.emailService.sendFollowUpSuggestionEmail(
             populatedSuggestion.patientId as any,
@@ -1894,7 +1895,7 @@ export class AppointmentsService {
     await appointment.save();
 
     // Send notification to doctor
-    await this.notificationGateway.notifyFollowUpConfirmed(
+    await this.appointmentNotificationGateway.notifyFollowUpConfirmed(
       (appointment.doctorId as any)._id.toString(),
       appointment as any,
     );

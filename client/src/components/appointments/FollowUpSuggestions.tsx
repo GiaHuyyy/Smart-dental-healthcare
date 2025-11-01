@@ -60,38 +60,25 @@ export default function FollowUpSuggestions() {
     loadSuggestions();
   }, [loadSuggestions]);
 
-  // Listen for real-time follow-up suggestions
+  // Listen for notification:new events to reload suggestions when needed
+  // (Toast is handled by NotificationContext globally)
   useEffect(() => {
     if (!socket || !isConnected) return;
 
-    const handleFollowUpSuggestion = (data: {
-      type: string;
-      appointment: unknown;
-      message: string;
-      timestamp: Date;
-    }) => {
-      console.log("📩 Received follow-up suggestion:", data);
+    const handleNotificationNew = (notification: any) => {
+      console.log("📩 [FollowUpSuggestions] Received notification:", notification);
 
-      // Show toast notification
-      toast.success("🔔 Đề xuất tái khám mới", {
-        description: data.message || "Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%",
-        duration: 5000,
-        action: {
-          label: "Xem ngay",
-          onClick: () => {
-            loadSuggestions();
-          },
-        },
-      });
-
-      // Reload suggestions
-      loadSuggestions();
+      // If it's a follow-up suggestion notification, reload suggestions
+      if (notification.type === "FOLLOW_UP_SUGGESTION") {
+        console.log("♻️ Reloading follow-up suggestions...");
+        loadSuggestions();
+      }
     };
 
-    socket.on("appointment:followup", handleFollowUpSuggestion);
+    socket.on("notification:new", handleNotificationNew);
 
     return () => {
-      socket.off("appointment:followup", handleFollowUpSuggestion);
+      socket.off("notification:new", handleNotificationNew);
     };
   }, [socket, isConnected, loadSuggestions]);
 
