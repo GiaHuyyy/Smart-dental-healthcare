@@ -185,7 +185,7 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => {
-                    const pct = (percent ?? 0) * 100;
+                    const pct = Number(percent ?? 0) * 100;
                     return `${name} ${pct.toFixed(0)}%`;
                   }}
                   outerRadius={80}
