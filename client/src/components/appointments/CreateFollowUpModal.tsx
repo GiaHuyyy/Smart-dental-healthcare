@@ -5,6 +5,7 @@ import { format, addDays } from "date-fns";
 import appointmentService from "@/services/appointmentService";
 import { Appointment } from "@/types/appointment";
 import { X, Gift } from "lucide-react";
+import { toast } from "sonner";
 
 interface CreateFollowUpModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ export default function CreateFollowUpModal({ isOpen, onClose, appointment, onSu
       });
 
       if (result.success) {
-        alert(`Tạo đề xuất tái khám thành công!\nMã voucher: ${result.data?.voucher.code}\nGiảm giá: 5%`);
+        toast.success(`Tạo đề xuất tái khám thành công!\nMã voucher: ${result.data?.voucher.code}\nGiảm giá: 5%`);
         onSuccess();
         onClose();
       } else {

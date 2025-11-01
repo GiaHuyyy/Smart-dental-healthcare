@@ -19,6 +19,7 @@ import { useSession } from "next-auth/react";
 import { useMemo } from "react";
 import BookingForm from "./BookingForm";
 import TimeSlotPicker from "./TimeSlotPicker";
+import { toast } from "sonner";
 
 export type BookingFlowStep = "time-slot" | "details" | "confirmation";
 
@@ -70,7 +71,7 @@ export default function BookingFlowModal({
 
   const handlePayWithMomo = async () => {
     if (!confirmation?.appointment || !doctor) {
-      alert("Thông tin đặt lịch chưa đầy đủ");
+      toast.error("Thông tin đặt lịch chưa đầy đủ");
       return;
     }
 
@@ -94,7 +95,7 @@ export default function BookingFlowModal({
       console.log("💳 MoMo payload:", payload);
 
       if (!payload.appointmentId || !payload.patientId || !payload.doctorId || !payload.amount) {
-        alert("Thiếu thông tin cần thiết để thanh toán");
+        toast.error("Thiếu thông tin cần thiết để thanh toán");
         console.error("Missing required fields:", payload);
         return;
       }
@@ -111,11 +112,11 @@ export default function BookingFlowModal({
         window.location.href = payUrl;
       } else {
         console.error("❌ No payUrl in MoMo response:", result);
-        alert(result?.message || "Không nhận được đường dẫn thanh toán từ MoMo");
+        toast.error(result?.message || "Không nhận được đường dẫn thanh toán từ MoMo");
       }
     } catch (e: any) {
       console.error("❌ MoMo payment error:", e);
-      alert(e?.message || "Tạo thanh toán MoMo thất bại");
+      toast.error(e?.message || "Tạo thanh toán MoMo thất bại");
     }
   };
 

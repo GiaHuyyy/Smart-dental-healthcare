@@ -845,7 +845,7 @@ export default function ChatInterface({
     // Validate file using upload service
     const validation = uploadService.validateImageFile(file);
     if (!validation.isValid) {
-      alert(validation.error);
+      toast.error(validation.error);
       return;
     }
 
@@ -1215,7 +1215,7 @@ export default function ChatInterface({
         // The `handleNewMessage` function in the parent page will handle replacing the temp message.
       } catch (error) {
         console.error("Error sending text message:", error);
-        alert("Failed to send message. Please try again.");
+        toast.error("Failed to send message. Please try again.");
         // If error, restore input and remove temp message
         setInput(originalInput);
         setConversationMessages((prev) => prev.filter((msg) => !(msg as any)?._id?.toString?.().startsWith?.("temp_")));
@@ -1260,7 +1260,7 @@ export default function ChatInterface({
         setInput("");
       } catch (error) {
         console.error("Error sending file:", error);
-        alert("Failed to send file. Please try again.");
+        toast.error("Failed to send file. Please try again.");
       } finally {
         setIsInputFocusedLoading(false);
         // Refocus the input after sending
@@ -1466,7 +1466,7 @@ export default function ChatInterface({
     // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      alert("Kích thước file không được vượt quá 10MB");
+      toast.error("Kích thước file không được vượt quá 10MB");
       return;
     }
 
@@ -1494,7 +1494,7 @@ export default function ChatInterface({
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      alert("Định dạng file không được hỗ trợ");
+      toast.error("Định dạng file không được hỗ trợ");
       return;
     }
 

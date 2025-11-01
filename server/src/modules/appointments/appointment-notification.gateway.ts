@@ -71,11 +71,17 @@ export class AppointmentNotificationGateway
    * Notify doctor about new appointment
    */
   async notifyDoctorNewAppointment(doctorId: string, appointment: any) {
+    // Extract patient name
+    const patientName =
+      appointment.patientId?.fullName || appointment.patientName || '';
+
     // Send real-time socket notification
     this.server.to(`user_${doctorId}`).emit('appointment:new', {
       type: 'NEW_APPOINTMENT',
       appointment,
-      message: 'Bạn có lịch hẹn mới',
+      message: patientName
+        ? `Bạn có lịch hẹn mới từ Bệnh nhân ${patientName}`
+        : 'Bạn có lịch hẹn mới',
       timestamp: new Date(),
     });
 
@@ -85,7 +91,9 @@ export class AppointmentNotificationGateway
         doctorId,
         {
           title: '📅 Lịch hẹn mới',
-          message: `Bạn có lịch hẹn mới từ bệnh nhân ${appointment.patientName || 'N/A'}`,
+          message: patientName
+            ? `Bạn có lịch hẹn mới từ Bệnh nhân ${patientName}`
+            : 'Bạn có lịch hẹn mới',
           type: 'APPOINTMENT_NEW',
           data: { appointmentId: appointment._id },
           linkTo: '/doctor/schedule',
@@ -107,11 +115,17 @@ export class AppointmentNotificationGateway
    * Notify patient about appointment confirmation
    */
   async notifyPatientAppointmentConfirmed(patientId: string, appointment: any) {
+    // Extract doctor name
+    const doctorName =
+      appointment.doctorId?.fullName || appointment.doctorName || '';
+
     // Send real-time socket notification
     this.server.to(`user_${patientId}`).emit('appointment:confirmed', {
       type: 'APPOINTMENT_CONFIRMED',
       appointment,
-      message: 'Lịch hẹn của bạn đã được xác nhận',
+      message: doctorName
+        ? `Bác sĩ ${doctorName} đã xác nhận lịch hẹn của bạn`
+        : 'Bác sĩ đã xác nhận lịch hẹn của bạn',
       timestamp: new Date(),
     });
 
@@ -121,7 +135,9 @@ export class AppointmentNotificationGateway
         patientId,
         {
           title: '✅ Lịch hẹn đã xác nhận',
-          message: `Bác sĩ ${appointment.doctorName || 'N/A'} đã xác nhận lịch hẹn của bạn`,
+          message: doctorName
+            ? `Bác sĩ ${doctorName} đã xác nhận lịch hẹn của bạn`
+            : 'Bác sĩ đã xác nhận lịch hẹn của bạn',
           type: 'APPOINTMENT_CONFIRMED',
           data: { appointmentId: appointment._id },
           linkTo: '/patient/appointments/my-appointments',
@@ -140,9 +156,6 @@ export class AppointmentNotificationGateway
   }
 
   /**
-   * Notify about appointment cancellation
-   */
-  /**
    * Notify about appointment cancellation (ENHANCED with billing info)
    */
   async notifyAppointmentCancelled(
@@ -152,15 +165,27 @@ export class AppointmentNotificationGateway
     feeCharged = false,
     voucherCreated = false,
   ) {
+    // Extract names based on who is receiving the notification
+    const doctorName =
+      appointment.doctorId?.fullName || appointment.doctorName || '';
+    const patientName =
+      appointment.patientId?.fullName || appointment.patientName || '';
+
     let message = '';
 
-    // Build message based on who cancelled
+    // Build message based on who cancelled and who is receiving
     if (cancelledBy === 'system') {
       message = 'Hệ thống đã tự động hủy lịch hẹn do bác sĩ không kịp xác nhận';
     } else if (cancelledBy === 'doctor') {
-      message = 'Bác sĩ đã hủy lịch hẹn';
+      // If doctor cancelled, the notification goes to patient
+      message = doctorName
+        ? `Bác sĩ ${doctorName} đã hủy lịch hẹn`
+        : 'Bác sĩ đã hủy lịch hẹn';
     } else {
-      message = 'Bệnh nhân đã hủy lịch hẹn';
+      // If patient cancelled, the notification goes to doctor
+      message = patientName
+        ? `Bệnh nhân ${patientName} đã hủy lịch hẹn`
+        : 'Bệnh nhân đã hủy lịch hẹn';
     }
 
     if (feeCharged) {
@@ -218,6 +243,7 @@ export class AppointmentNotificationGateway
 
   /**
    * Notify about appointment reschedule (ENHANCED with fee info)
+   * Note: Only patients can reschedule, so this only notifies doctors
    */
   async notifyAppointmentRescheduled(
     userId: string,
@@ -225,7 +251,27 @@ export class AppointmentNotificationGateway
     userRole: 'doctor' | 'patient' = 'patient',
     feeCharged = false,
   ) {
-    let message = 'Lịch hẹn đã được dời sang thời gian khác';
+    // Extract names based on who is receiving the notification
+    const doctorName =
+      appointment.doctorId?.fullName || appointment.doctorName || '';
+    const patientName =
+      appointment.patientId?.fullName || appointment.patientName || '';
+
+    let message = '';
+
+    if (userRole === 'doctor') {
+      // Notification for doctor (patient rescheduled)
+      message = patientName
+        ? `Bệnh nhân ${patientName} đã dời lịch hẹn sang thời gian khác`
+        : 'Bệnh nhân đã dời lịch hẹn sang thời gian khác';
+    } else {
+      // This shouldn't happen since only patients can reschedule
+      // But keep for backward compatibility
+      message = doctorName
+        ? `Bác sĩ ${doctorName} đã dời lịch hẹn của bạn sang thời gian khác`
+        : 'Bác sĩ đã dời lịch hẹn của bạn sang thời gian khác';
+    }
+
     if (feeCharged) {
       message +=
         '. Phí đặt chỗ 100,000 VND được áp dụng do đổi lịch trong vòng 30 phút';
@@ -271,11 +317,17 @@ export class AppointmentNotificationGateway
    * Notify patient about appointment completion
    */
   async notifyAppointmentCompleted(patientId: string, appointment: any) {
+    // Extract doctor name
+    const doctorName =
+      appointment.doctorId?.fullName || appointment.doctorName || '';
+
     // Send real-time socket notification
     this.server.to(`user_${patientId}`).emit('appointment:completed', {
       type: 'APPOINTMENT_COMPLETED',
       appointment,
-      message: 'Lịch khám đã hoàn tất',
+      message: doctorName
+        ? `Lịch khám với Bác sĩ ${doctorName} đã hoàn tất`
+        : 'Lịch khám đã hoàn tất',
       timestamp: new Date(),
     });
 
@@ -285,7 +337,9 @@ export class AppointmentNotificationGateway
         patientId,
         {
           title: '✅ Lịch khám hoàn tất',
-          message: 'Lịch khám đã hoàn tất. Bạn có thể xem hồ sơ bệnh án.',
+          message: doctorName
+            ? `Lịch khám với Bác sĩ ${doctorName} đã hoàn tất. Bạn có thể xem hồ sơ bệnh án.`
+            : 'Lịch khám đã hoàn tất. Bạn có thể xem hồ sơ bệnh án.',
           type: 'APPOINTMENT_COMPLETED',
           data: { appointmentId: appointment._id },
           linkTo: '/patient/medical-records',
@@ -307,10 +361,31 @@ export class AppointmentNotificationGateway
    * Send appointment reminder (30 minutes before)
    */
   async sendAppointmentReminder(userId: string, reminderData: any) {
+    // Extract names
+    const doctorName =
+      reminderData.appointment?.doctorId?.fullName ||
+      reminderData.appointment?.doctorName ||
+      'Bác sĩ';
+    const patientName =
+      reminderData.appointment?.patientId?.fullName ||
+      reminderData.appointment?.patientName ||
+      'Bệnh nhân';
+
+    // Determine message based on user role
+    let message = reminderData.message;
+    if (!message) {
+      if (reminderData.userRole === 'doctor') {
+        message = `Lịch hẹn với ${patientName} sắp bắt đầu trong 30 phút`;
+      } else {
+        message = `Lịch hẹn với ${doctorName} sắp bắt đầu trong 30 phút`;
+      }
+    }
+
     // Send real-time socket notification
     this.server.to(`user_${userId}`).emit('appointment:reminder', {
       type: 'APPOINTMENT_REMINDER',
       ...reminderData,
+      message,
       timestamp: new Date(),
     });
 
@@ -320,9 +395,7 @@ export class AppointmentNotificationGateway
         userId,
         {
           title: '⏰ Nhắc nhở lịch hẹn',
-          message:
-            reminderData.message ||
-            'Lịch hẹn của bạn sắp bắt đầu trong 30 phút',
+          message,
           type: 'APPOINTMENT_REMINDER',
           data: { appointmentId: reminderData.appointmentId },
           linkTo: reminderData.linkTo,
@@ -345,11 +418,15 @@ export class AppointmentNotificationGateway
    */
   async notifyFollowUpSuggestion(appointment: any) {
     const patientId = appointment.patientId?._id || appointment.patientId;
+    const doctorName =
+      appointment.doctorId?.fullName || appointment.doctorName || '';
 
     this.server.to(`user_${patientId}`).emit('appointment:followup', {
       type: 'FOLLOW_UP_SUGGESTION',
       appointment,
-      message: 'Bác sĩ đề xuất lịch tái khám với giảm giá 5%',
+      message: doctorName
+        ? `Bác sĩ ${doctorName} đề xuất lịch tái khám với giảm giá 5%`
+        : 'Bác sĩ đề xuất lịch tái khám với giảm giá 5%',
       timestamp: new Date(),
     });
 
@@ -357,8 +434,9 @@ export class AppointmentNotificationGateway
       String(patientId),
       {
         title: '🔔 Đề xuất tái khám',
-        message:
-          'Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%',
+        message: doctorName
+          ? `Bác sĩ ${doctorName} đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%`
+          : 'Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%',
         type: 'FOLLOW_UP_SUGGESTION',
         data: { appointmentId: appointment._id },
         linkTo: '/patient/appointments?tab=follow-ups',
@@ -372,10 +450,15 @@ export class AppointmentNotificationGateway
    * Notify doctor when patient confirms follow-up
    */
   async notifyFollowUpConfirmed(doctorId: string, appointment: any) {
+    const patientName =
+      appointment.patientId?.fullName || appointment.patientName || '';
+
     this.server.to(`user_${doctorId}`).emit('appointment:followup-confirmed', {
       type: 'FOLLOW_UP_CONFIRMED',
       appointment,
-      message: 'Bệnh nhân đã xác nhận lịch tái khám',
+      message: patientName
+        ? `Bệnh nhân ${patientName} đã xác nhận lịch tái khám`
+        : 'Bệnh nhân đã xác nhận lịch tái khám',
       timestamp: new Date(),
     });
 
@@ -383,7 +466,9 @@ export class AppointmentNotificationGateway
       doctorId,
       {
         title: '✅ Xác nhận lịch tái khám',
-        message: `Bệnh nhân ${appointment.patientId?.fullName || 'đã xác nhận'} lịch tái khám`,
+        message: patientName
+          ? `Bệnh nhân ${patientName} đã xác nhận lịch tái khám`
+          : 'Bệnh nhân đã xác nhận lịch tái khám',
         type: 'FOLLOW_UP_CONFIRMED',
         data: { appointmentId: appointment._id },
         linkTo: '/doctor/schedule',
@@ -397,10 +482,15 @@ export class AppointmentNotificationGateway
    * Notify doctor when patient rejects follow-up
    */
   async notifyFollowUpRejected(doctorId: string, appointment: any) {
+    const patientName =
+      appointment.patientId?.fullName || appointment.patientName || '';
+
     this.server.to(`user_${doctorId}`).emit('appointment:followup-rejected', {
       type: 'FOLLOW_UP_REJECTED',
       appointment,
-      message: 'Bệnh nhân đã từ chối lịch tái khám',
+      message: patientName
+        ? `Bệnh nhân ${patientName} đã từ chối lịch tái khám`
+        : 'Bệnh nhân đã từ chối lịch tái khám',
       timestamp: new Date(),
     });
 
@@ -408,7 +498,9 @@ export class AppointmentNotificationGateway
       doctorId,
       {
         title: '❌ Từ chối lịch tái khám',
-        message: `Bệnh nhân ${appointment.patientId?.fullName || 'đã từ chối'} lịch tái khám`,
+        message: patientName
+          ? `Bệnh nhân ${patientName} đã từ chối lịch tái khám`
+          : 'Bệnh nhân đã từ chối lịch tái khám',
         type: 'FOLLOW_UP_REJECTED',
         data: { appointmentId: appointment._id },
         linkTo: '/doctor/schedule',

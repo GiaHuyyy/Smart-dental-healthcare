@@ -5,6 +5,7 @@ import { differenceInMinutes } from "date-fns";
 import appointmentService from "@/services/appointmentService";
 import { Appointment } from "@/types/appointment";
 import { X, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 interface CancelWithBillingModalProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export default function CancelWithBillingModal({
           message += "\nĐã tạo voucher giảm giá 5% cho bệnh nhân!";
         }
 
-        alert(message);
+        toast.success(message);
         onSuccess();
         onClose();
       } else {

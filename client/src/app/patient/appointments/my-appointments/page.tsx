@@ -87,7 +87,6 @@ function MyAppointmentsContent() {
         return;
       }
 
-      console.log("🔄 Fetching appointments for user:", userId);
       // Call API to get patient appointments
       const accessToken = (session as { accessToken?: string })?.accessToken;
       const result = await appointmentService.getPatientAppointments(userId, {}, accessToken);
@@ -95,30 +94,6 @@ function MyAppointmentsContent() {
       if (!result.success) {
         throw new Error(result.error || "Không thể tải danh sách lịch hẹn");
       }
-
-      console.log("✅ Appointments loaded:", result.data?.length || 0, "records");
-
-      // Log raw appointment data for debugging
-      if (result.data && result.data.length > 0) {
-        console.log("📋 First appointment raw data:", {
-          appointmentDate: result.data[0].appointmentDate,
-          startTime: result.data[0].startTime,
-          dateType: typeof result.data[0].appointmentDate,
-          timeType: typeof result.data[0].startTime,
-        });
-      }
-
-      console.table(
-        (result.data || []).map((apt: Appointment) => ({
-          id: apt._id?.slice(-6) || "N/A",
-          type: apt.appointmentType || "N/A",
-          date: apt.appointmentDate || "N/A",
-          startTime: apt.startTime || "N/A",
-          status: apt.status || "N/A",
-          paymentStatus: apt.paymentStatus || "unpaid",
-          fee: apt.consultationFee || 0,
-        }))
-      );
 
       setAppointments(result.data || []);
     } catch (error) {

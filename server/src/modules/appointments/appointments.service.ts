@@ -1438,6 +1438,12 @@ export class AppointmentsService {
     const newAppointment = new this.appointmentModel(newData);
     await newAppointment.save();
 
+    // Populate newAppointment to get full doctor and patient data
+    await newAppointment.populate([
+      { path: 'doctorId', select: 'fullName email specialty' },
+      { path: 'patientId', select: 'fullName email phone' },
+    ]);
+
     // Update old appointment
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationReason = feeCharged
@@ -1445,23 +1451,29 @@ export class AppointmentsService {
       : 'Đã đổi lịch';
     await appointment.save();
 
-    // Send notifications to both patient and doctor
+    // Determine who rescheduled and notify only the other party
     const patientId = (appointment.patientId as any)._id.toString();
     const doctorId = (appointment.doctorId as any)._id.toString();
 
-    await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
-      patientId,
-      newAppointment as any,
-      'patient',
-      feeCharged,
-    );
+    const isPatientRescheduling = userId === patientId;
 
-    await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
-      doctorId,
-      newAppointment as any,
-      'doctor',
-      feeCharged,
-    );
+    if (isPatientRescheduling) {
+      // Patient rescheduled -> notify doctor only
+      await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
+        doctorId,
+        newAppointment.toObject(),
+        'doctor',
+        feeCharged,
+      );
+    } else {
+      // Doctor rescheduled -> notify patient only
+      await this.appointmentNotificationGateway.notifyAppointmentRescheduled(
+        patientId,
+        newAppointment.toObject(),
+        'patient',
+        feeCharged,
+      );
+    }
 
     return {
       newAppointment,
@@ -1620,25 +1632,17 @@ export class AppointmentsService {
     appointment.cancellationReason = reason;
     await appointment.save();
 
-    // Send notifications
+    // Send notification only to the other party (not the one who cancelled)
     const patientId = (appointment.patientId as any)._id.toString();
     const doctorId = (appointment.doctorId as any)._id.toString();
 
-    const targetUserId = cancelledBy === 'patient' ? patientId : doctorId;
+    // If patient cancelled -> notify doctor
+    // If doctor cancelled -> notify patient
+    const recipientUserId = cancelledBy === 'patient' ? doctorId : patientId;
 
     await this.appointmentNotificationGateway.notifyAppointmentCancelled(
-      targetUserId,
-      appointment as any,
-      cancelledBy,
-      feeCharged,
-      voucherCreated,
-    );
-
-    // Also notify the other party
-    const otherUserId = cancelledBy === 'patient' ? doctorId : patientId;
-    await this.appointmentNotificationGateway.notifyAppointmentCancelled(
-      otherUserId,
-      appointment as any,
+      recipientUserId,
+      appointment.toObject(),
       cancelledBy,
       feeCharged,
       voucherCreated,
@@ -1775,8 +1779,10 @@ export class AppointmentsService {
    */
   async rejectFollowUpSuggestion(suggestionId: string) {
     try {
-      const suggestion =
-        await this.followUpSuggestionModel.findById(suggestionId);
+      const suggestion = await this.followUpSuggestionModel
+        .findById(suggestionId)
+        .populate('patientId', 'fullName email')
+        .populate('doctorId', 'fullName email');
 
       if (!suggestion) {
         throw new NotFoundException('Không tìm thấy đề xuất tái khám');
@@ -1792,8 +1798,13 @@ export class AppointmentsService {
 
       // Send notification to doctor
       try {
+        const doctorIdString =
+          typeof suggestion.doctorId === 'object'
+            ? (suggestion.doctorId as any)._id.toString()
+            : (suggestion.doctorId as any).toString();
+
         await this.notificationGateway.notifyFollowUpRejected(
-          (suggestion.doctorId as any).toString(),
+          doctorIdString,
           suggestion as any,
         );
       } catch (notifError) {

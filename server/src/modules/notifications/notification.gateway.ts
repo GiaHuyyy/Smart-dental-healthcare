@@ -192,13 +192,15 @@ export class NotificationGateway
     const doctorName =
       typeof suggestion.doctorId === 'object'
         ? suggestion.doctorId.fullName
-        : 'Bác sĩ';
+        : '';
 
     this.logger.log('Doctor name:', doctorName);
 
     const notificationData = {
       title: '🔔 Đề xuất tái khám',
-      message: `Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%`,
+      message: doctorName
+        ? `Bác sĩ ${doctorName} đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%`
+        : 'Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%',
       type: 'FOLLOW_UP_SUGGESTION',
       data: {
         appointmentId: suggestion._id,
@@ -240,18 +242,21 @@ export class NotificationGateway
   async notifyFollowUpRejected(doctorId: string, suggestion: any) {
     this.logger.log('🔔 notifyFollowUpRejected called');
     this.logger.log('Doctor ID:', doctorId);
-    this.logger.log('Suggestion:', JSON.stringify(suggestion, null, 2));
+    this.logger.log('Suggestion patientId type:', typeof suggestion.patientId);
+    this.logger.log('Suggestion patientId value:', suggestion.patientId);
 
     const patientName =
-      typeof suggestion.patientId === 'object'
+      typeof suggestion.patientId === 'object' && suggestion.patientId?.fullName
         ? suggestion.patientId.fullName
-        : 'Bệnh nhân';
+        : '';
 
-    this.logger.log('Patient name:', patientName);
+    this.logger.log('Patient name extracted:', patientName);
 
     const notificationData = {
       title: 'Đề xuất tái khám bị từ chối',
-      message: `${patientName} đã từ chối đề xuất tái khám của bạn`,
+      message: patientName
+        ? `Bệnh nhân ${patientName} đã từ chối đề xuất tái khám của bạn`
+        : 'Bệnh nhân đã từ chối đề xuất tái khám của bạn',
       type: 'FOLLOW_UP_REJECTED',
       data: {
         suggestionId: suggestion._id,
