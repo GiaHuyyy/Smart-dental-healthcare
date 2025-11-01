@@ -634,6 +634,9 @@ export class AppointmentsService {
     // Determine who cancelled
     const actualCancelledBy = cancelledBy || 'patient'; // Default to patient for backward compatibility
 
+    // Delete any pending bills for this appointment
+    await this.billingHelper.deletePendingBillsForAppointment(id);
+
     if (actualCancelledBy === 'patient') {
       // Patient cancel: Delete appointment
       await this.appointmentModel.findByIdAndDelete(id);
@@ -793,6 +796,9 @@ export class AppointmentsService {
     if (appointment.status === AppointmentStatus.COMPLETED) {
       throw new BadRequestException('Không thể hủy lịch hẹn đã hoàn thành');
     }
+
+    // Delete any pending bills for this appointment
+    await this.billingHelper.deletePendingBillsForAppointment(id);
 
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationReason = reason;
@@ -1627,6 +1633,12 @@ export class AppointmentsService {
         }
       }
     }
+
+    // Delete any pending bills for this appointment
+    // This applies when payment method was "cash" or "later" (pending payment)
+    await this.billingHelper.deletePendingBillsForAppointment(
+      appointment._id.toString(),
+    );
 
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationReason = reason;

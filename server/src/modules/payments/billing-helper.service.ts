@@ -163,4 +163,26 @@ export class BillingHelperService {
       status: 'completed',
     });
   }
+
+  /**
+   * Xóa tất cả bill pending liên quan đến appointment khi hủy lịch
+   * Áp dụng khi hủy lịch có payment method là "cash" hoặc "later"
+   */
+  async deletePendingBillsForAppointment(
+    appointmentId: string,
+  ): Promise<number> {
+    const result = await this.paymentModel.deleteMany({
+      refId: appointmentId,
+      refModel: 'Appointment',
+      status: 'pending',
+    });
+
+    if (result.deletedCount > 0) {
+      this.logger.log(
+        `✅ Deleted ${result.deletedCount} pending bill(s) for appointment ${appointmentId}`,
+      );
+    }
+
+    return result.deletedCount;
+  }
 }
