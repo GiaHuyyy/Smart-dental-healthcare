@@ -56,6 +56,8 @@ interface Props {
   onSelectSlot?: (slotInfo: SlotInfo) => void;
   view?: View;
   onViewChange?: (view: View) => void;
+  date?: Date;
+  onNavigate?: (date: Date) => void;
 }
 
 export default function DoctorCalendar({
@@ -64,8 +66,21 @@ export default function DoctorCalendar({
   onSelectSlot,
   view = "week",
   onViewChange,
+  date: externalDate,
+  onNavigate: externalOnNavigate,
 }: Props) {
-  const [date, setDate] = useState(new Date());
+  const [internalDate, setInternalDate] = useState(new Date());
+
+  // Use external date if provided, otherwise use internal state
+  const date = externalDate || internalDate;
+
+  // Handle date navigation
+  const handleNavigate = (newDate: Date) => {
+    setInternalDate(newDate);
+    if (externalOnNavigate) {
+      externalOnNavigate(newDate);
+    }
+  };
 
   const events: CalendarEvent[] = appointments.map((apt) => ({
     id: apt.id,
@@ -148,7 +163,7 @@ export default function DoctorCalendar({
         endAccessor="end"
         style={{ height: "calc(100vh - 250px)", minHeight: "600px" }}
         date={date}
-        onNavigate={(newDate) => setDate(newDate)}
+        onNavigate={handleNavigate}
         defaultView={view}
         view={view}
         onView={onViewChange}

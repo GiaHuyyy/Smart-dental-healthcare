@@ -12,8 +12,8 @@ import Image from "next/image";
 import { toast } from "sonner";
 import appointmentService from "@/services/appointmentService";
 import TreatmentModal from "@/components/appointments/TreatmentModal";
-import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
+import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 
 // Appointment type
 interface Appointment {
@@ -63,6 +63,11 @@ function DoctorScheduleContent() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+
+  // Date filter state
+  const [startFilterDate, setStartFilterDate] = useState<string>("");
+  const [endFilterDate, setEndFilterDate] = useState<string>("");
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
 
   // Treatment modal states
   const [treatmentModalOpen, setTreatmentModalOpen] = useState(false);
@@ -161,13 +166,56 @@ function DoctorScheduleContent() {
     }
   }, [searchParams, appointments, detailModalOpen]);
 
+  // Auto-switch calendar view based on date filter selection
+  useEffect(() => {
+    if (startFilterDate && endFilterDate) {
+      // Both dates selected - calculate difference
+      const start = new Date(startFilterDate);
+      const end = new Date(endFilterDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // If range is <= 7 days, use week view, otherwise month view
+      if (diffDays <= 7) {
+        setView("week");
+      } else {
+        setView("month");
+      }
+      // Set calendar to show the start date
+      setCalendarDate(start);
+    } else if (startFilterDate) {
+      // Only start date selected - switch to day view
+      setView("day");
+      // Set calendar to show the selected date
+      setCalendarDate(new Date(startFilterDate));
+    }
+  }, [startFilterDate, endFilterDate]);
+
   // Filter appointments based on selected tab (for LIST view - shows ALL including cancelled)
   // Filter appointments for LIST view - shows all including cancelled
   const getFilteredAppointments = () => {
-    if (selectedTab === "all") {
-      return appointments;
+    let filtered = appointments;
+
+    // Filter by status tab
+    if (selectedTab !== "all") {
+      filtered = filtered.filter((apt) => apt.status === selectedTab);
     }
-    return appointments.filter((apt) => apt.status === selectedTab);
+
+    // Filter by date range
+    if (startFilterDate && endFilterDate) {
+      // Both dates selected - filter by range
+      filtered = filtered.filter((apt) => {
+        const aptDate = new Date(apt.date);
+        const start = new Date(startFilterDate);
+        const end = new Date(endFilterDate);
+        return aptDate >= start && aptDate <= end;
+      });
+    } else if (startFilterDate) {
+      // Only start date - filter by single date
+      filtered = filtered.filter((apt) => apt.date === startFilterDate);
+    }
+
+    return filtered;
   };
 
   // Filter appointments for CALENDAR view
@@ -582,6 +630,11 @@ function DoctorScheduleContent() {
     setView(newView);
   };
 
+  // Handle calendar navigation
+  const handleNavigate = (newDate: Date) => {
+    setCalendarDate(newDate);
+  };
+
   if (!session) {
     return null;
   }
@@ -616,6 +669,34 @@ function DoctorScheduleContent() {
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"}`} />
                 <span className="text-sm text-gray-600">{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
+              </div>
+
+              {/* Date Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">Từ</span>
+                <input
+                  type="date"
+                  value={startFilterDate}
+                  onChange={(e) => setStartFilterDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <span className="text-sm font-medium text-gray-700">đến</span>
+                <input
+                  type="date"
+                  value={endFilterDate}
+                  onChange={(e) => setEndFilterDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  onClick={() => {
+                    setStartFilterDate("");
+                    setEndFilterDate("");
+                  }}
+                  disabled={!startFilterDate && !endFilterDate}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Xóa
+                </button>
               </div>
 
               {/* Action buttons */}
@@ -761,7 +842,9 @@ function DoctorScheduleContent() {
           <DoctorCalendar
             appointments={calendarAppointments}
             view={view}
+            date={calendarDate}
             onViewChange={handleViewChange}
+            onNavigate={handleNavigate}
             onSelectEvent={handleSelectEvent}
             onSelectSlot={handleSelectSlot}
           />
@@ -1107,12 +1190,13 @@ function DoctorScheduleContent() {
             setFollowUpModalOpen(false);
             setAppointmentForFollowUp(null);
           }}
-          appointment={appointmentForFollowUp as any}
-          onSuccess={() => {
-            setFollowUpModalOpen(false);
-            setAppointmentForFollowUp(null);
-            fetchAppointments();
-          }}
+          appointment={appointmentForFollowUp}
+          patientName={appointmentForFollowUp.patientName}
+          // onSuccess={() => {
+          //   setFollowUpModalOpen(false);
+          //   setAppointmentForFollowUp(null);
+          //   fetchAppointments();
+          // }}
         />
       )}
 

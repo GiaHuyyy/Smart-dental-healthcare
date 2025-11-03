@@ -1,6 +1,7 @@
 "use client";
 
 import TreatmentModal from "@/components/appointments/TreatmentModal";
+import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 import MedicalRecordDetailModal from "@/components/medical-records/MedicalRecordDetailModal";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -26,7 +27,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getSession } from "next-auth/react";
 
 interface Patient {
   _id: string;
@@ -184,11 +184,6 @@ export default function DoctorPatients() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [selectedPatientForFollowUp, setSelectedPatientForFollowUp] = useState<MedicalRecord | null>(null);
-  const [followUpData, setFollowUpData] = useState({
-    suggestedDate: "",
-    suggestedTime: "",
-    notes: "",
-  });
   const router = useRouter();
   const { toast } = useToast();
 
@@ -320,97 +315,7 @@ export default function DoctorPatients() {
     setPatientMedicalRecords([]);
     setPatientPayments([]);
     setIsFollowUpModalOpen(false);
-    setFollowUpData({ suggestedDate: "", suggestedTime: "", notes: "" });
-  };
-
-  const handleCreateFollowUp = async () => {
-    console.log("=== DEBUG CREATE FOLLOW-UP ===");
-    console.log("selectedPatientForFollowUp:", selectedPatientForFollowUp);
-    console.log("appointmentId:", selectedPatientForFollowUp?.appointmentId);
-    console.log("appointmentId type:", typeof selectedPatientForFollowUp?.appointmentId);
-
-    if (!selectedPatientForFollowUp?.appointmentId) {
-      toast({
-        title: "Thiếu thông tin",
-        description: "Không tìm thấy appointment ID từ hồ sơ bệnh án",
-        type: "error",
-      });
-      return;
-    }
-
-    if (!followUpData.notes.trim()) {
-      toast({
-        title: "Thiếu thông tin",
-        description: "Vui lòng nhập ghi chú tái khám",
-        type: "error",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const session = await getSession();
-      const token = (session as { access_token?: string })?.access_token;
-
-      // Extract string ID from appointmentId (could be object or string)
-      const appointmentIdString =
-        typeof selectedPatientForFollowUp.appointmentId === "string"
-          ? selectedPatientForFollowUp.appointmentId
-          : (selectedPatientForFollowUp.appointmentId as any)?._id || selectedPatientForFollowUp.appointmentId;
-
-      const payload = {
-        parentAppointmentId: appointmentIdString,
-        notes: followUpData.notes,
-      };
-
-      console.log("Payload to send:", payload);
-      console.log("Payload JSON:", JSON.stringify(payload));
-
-      const apiUrl = `${
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
-      }/api/v1/appointments/follow-up/create-suggestion`;
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log("Response status:", response.status);
-      const result = await response.json();
-      console.log("Response data:", result);
-
-      if (!response.ok) {
-        throw new Error(result.message || "Không thể tạo đề xuất tái khám");
-      }
-
-      toast({
-        title: "Thành công",
-        description: "Đã gửi đề xuất tái khám cho bệnh nhân",
-        type: "success",
-      });
-
-      setIsFollowUpModalOpen(false);
-      setSelectedPatientForFollowUp(null);
-      setFollowUpData({ suggestedDate: "", suggestedTime: "", notes: "" });
-
-      // Refresh medical records
-      if (selectedPatient?._id) {
-        await fetchPatientMedicalRecords(selectedPatient._id);
-      }
-    } catch (error) {
-      console.error("Error creating follow-up:", error);
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể tạo đề xuất tái khám",
-        type: "error",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setSelectedPatientForFollowUp(null);
   };
 
   const handlePrescriptionClick = (prescription: Prescription) => {
@@ -1661,7 +1566,8 @@ export default function DoctorPatients() {
                                       {record.status === "completed" && record.appointmentId && (
                                         <div className="pt-2">
                                           <button
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                              e.stopPropagation();
                                               setSelectedPatientForFollowUp(record);
                                               setIsFollowUpModalOpen(true);
                                             }}
@@ -1985,89 +1891,22 @@ export default function DoctorPatients() {
             )}
 
             {/* Follow-up Appointment Modal */}
-            {isFollowUpModalOpen && selectedPatientForFollowUp && (
-              <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Đề xuất tái khám</h3>
-                    <button
-                      onClick={() => {
-                        setIsFollowUpModalOpen(false);
-                        setSelectedPatientForFollowUp(null);
-                        setFollowUpData({ suggestedDate: "", suggestedTime: "", notes: "" });
-                      }}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bệnh nhân</label>
-                      <input
-                        type="text"
-                        value={selectedPatient?.fullName || "N/A"}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hồ sơ khám</label>
-                      <input
-                        type="text"
-                        value={`Khám ngày ${new Date(selectedPatientForFollowUp.recordDate).toLocaleDateString(
-                          "vi-VN"
-                        )}`}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Ghi chú tái khám <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        value={followUpData.notes}
-                        onChange={(e) => setFollowUpData({ ...followUpData, notes: e.target.value })}
-                        rows={4}
-                        placeholder="Lý do tái khám, lời dặn cho bệnh nhân..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                      <p className="text-sm text-green-700">
-                        🎁 Bệnh nhân sẽ tự động nhận <strong>voucher giảm giá 5%</strong> khi đề xuất được tạo
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={() => {
-                          setIsFollowUpModalOpen(false);
-                          setSelectedPatientForFollowUp(null);
-                          setFollowUpData({ suggestedDate: "", suggestedTime: "", notes: "" });
-                        }}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                        disabled={isSubmitting}
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        onClick={handleCreateFollowUp}
-                        disabled={isSubmitting || !followUpData.notes.trim()}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSubmitting ? "Đang gửi..." : "Gửi đề xuất"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {isFollowUpModalOpen && selectedPatientForFollowUp && selectedPatient && (
+              <CreateFollowUpModal
+                isOpen={isFollowUpModalOpen}
+                onClose={() => {
+                  setIsFollowUpModalOpen(false);
+                  setSelectedPatientForFollowUp(null);
+                }}
+                medicalRecord={selectedPatientForFollowUp}
+                patientName={selectedPatient.fullName}
+                onSuccess={() => {
+                  // Refresh medical records
+                  if (selectedPatient?._id) {
+                    fetchPatientMedicalRecords(selectedPatient._id);
+                  }
+                }}
+              />
             )}
           </div>
         </div>
