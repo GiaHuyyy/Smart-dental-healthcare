@@ -1,427 +1,617 @@
-import { LinearGradient } from 'expo-linear-gradient';
+﻿/**
+ * Patient Dashboard Screen
+ * Trang tổng quan bệnh nhân với thông tin sức khỏe và lịch hẹn
+ * API integration similar to client/src/app/patient/page.tsx
+ */
+
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Activity,
-  AlertTriangle,
-  Calendar,
-  Check,
-  Clock,
-  Eye,
-  FileText,
-  Heart,
-  MessageSquare,
-  Phone,
-  Stethoscope,
-  Thermometer,
-  TrendingUp,
-} from 'lucide-react-native';
-import { ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-type StatusVariant = 'normal' | 'info' | 'attention';
+import { AppHeader } from '@/components/layout/AppHeader';
+import { PolicyButton, PolicyModal } from '@/components/policy';
+import { Card } from '@/components/ui/Card';
+import { Colors } from '@/constants/colors';
+import { useAuth } from '@/contexts/auth-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { API_BASE_URL, formatApiError } from '@/utils/api';
 
-type KpiCardData = {
-  id: string;
+// Types matching client service
+interface PatientDashboardStats {
+  nextAppointment: {
+    id: string;
+    date: string;
+    time: string;
+    doctor: string;
+    type: string;
+  } | null;
+  completedAppointments: number;
+  completedGrowth: number;
+  followUpRequired: number;
+  oralHealthScore: number;
+}
+
+interface RecentActivity {
+  _id: string;
   title: string;
-  value: string;
-  subtitle?: string;
-  badge?: string;
-  accent: {
-    background: string;
-    color: string;
+  description: string;
+  date: string;
+  status: 'completed' | 'pending' | 'attention';
+  icon: 'check' | 'clock' | 'file';
+}
+
+// Icon mapping
+const getActivityIcon = (icon: 'check' | 'clock' | 'file'): keyof typeof Ionicons.glyphMap => {
+  switch (icon) {
+    case 'check':
+      return 'checkmark-circle-outline';
+    case 'clock':
+      return 'time-outline';
+    case 'file':
+      return 'document-text-outline';
+  }
+};
+
+const getActivityColor = (status: 'completed' | 'pending' | 'attention') => {
+  switch (status) {
+    case 'completed':
+      return { bg: Colors.success[50], text: Colors.success[700], label: 'Hoàn thành' };
+    case 'pending':
+      return { bg: Colors.primary[50], text: Colors.primary[700], label: 'Đang xử lý' };
+    case 'attention':
+      return { bg: Colors.warning[50], text: Colors.warning[700], label: 'Cần xem' };
+  }
+};
+
+export default function PatientDashboard() {
+  const router = useRouter();
+  const { session, isAuthenticated, isHydrating } = useAuth();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<PatientDashboardStats | null>(null);
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+
+  const fetchDashboardData = useCallback(async (showLoader = true) => {
+    if (!isAuthenticated || !session?.user?._id || !session?.token) {
+      return;
+    }
+
+    if (showLoader) {
+      setLoading(true);
+    }
+    setErrorMessage(null);
+
+    try {
+      const userId = session.user._id;
+      const token = session.token;
+
+      // Fetch stats - matching client service
+      const [appointmentsRes, completedRes, activitiesRes] = await Promise.all([
+        // Next appointment
+        fetch(`${API_BASE_URL}/api/v1/appointments/patient/${userId}?status=confirmed&limit=1`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        // Completed appointments
+        fetch(`${API_BASE_URL}/api/v1/appointments/patient/${userId}?status=completed`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        // Recent activities
+        fetch(`${API_BASE_URL}/api/v1/appointments/patient/${userId}/history?pageSize=3`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ]);
+
+      // Process next appointment
+      let nextAppointment = null;
+      if (appointmentsRes.ok) {
+        const appointmentsData = await appointmentsRes.json();
+        const appointments = appointmentsData.data || appointmentsData;
+
+        if (Array.isArray(appointments) && appointments.length > 0) {
+          const apt = appointments[0];
+          nextAppointment = {
+            id: apt._id || '',
+            date: new Date(apt.appointmentDate).toLocaleDateString('vi-VN'),
+            time: apt.startTime || 'N/A',
+            doctor: apt.doctor?.fullName || apt.doctorId?.fullName || 'N/A',
+            type: apt.appointmentType || 'Khám định kỳ',
+          };
+        }
+      }
+
+      // Process completed appointments
+      let completedAppointments = 0;
+      if (completedRes.ok) {
+        const completedData = await completedRes.json();
+        const appointments = completedData.data || completedData;
+        completedAppointments = Array.isArray(appointments) ? appointments.length : 0;
+      }
+
+      // Process activities
+      let activitiesList: RecentActivity[] = [];
+      if (activitiesRes.ok) {
+        const activitiesData = await activitiesRes.json();
+        const appointments = activitiesData.data?.appointments || activitiesData.data || [];
+
+        activitiesList = appointments.map((apt: any) => {
+          let status: 'completed' | 'pending' | 'attention' = 'pending';
+          let icon: 'check' | 'clock' | 'file' = 'clock';
+
+          if (apt.status === 'completed') {
+            status = 'completed';
+            icon = 'check';
+          } else if (apt.status === 'pending') {
+            status = 'pending';
+            icon = 'clock';
+          } else if (apt.status === 'confirmed') {
+            status = 'attention';
+            icon = 'file';
+          }
+
+          return {
+            _id: apt._id,
+            title: apt.appointmentType || 'Khám định kỳ',
+            description: `${new Date(apt.appointmentDate).toLocaleDateString('vi-VN')} — ${
+              apt.doctor?.fullName || apt.doctorId?.fullName || 'Bác sĩ'
+            }`,
+            date: apt.appointmentDate,
+            status,
+            icon,
+          };
+        });
+      }
+
+      // Set mock values for follow-up and health score (can be replaced with real API)
+      setStats({
+        nextAppointment,
+        completedAppointments,
+        completedGrowth: 2,
+        followUpRequired: 2,
+        oralHealthScore: 74,
+      });
+
+      setActivities(activitiesList.length > 0 ? activitiesList : getMockActivities());
+    } catch (error) {
+      console.error('Dashboard fetch error:', error);
+      setErrorMessage(formatApiError(error, 'Không thể tải dữ liệu dashboard'));
+      // Set mock data on error
+      setStats({
+        nextAppointment: null,
+        completedAppointments: 0,
+        completedGrowth: 0,
+        followUpRequired: 0,
+        oralHealthScore: 74,
+      });
+      setActivities(getMockActivities());
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [isAuthenticated, session]);
+
+  useEffect(() => {
+    if (!isHydrating && isAuthenticated) {
+      void fetchDashboardData();
+    }
+  }, [isHydrating, isAuthenticated, fetchDashboardData]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    void fetchDashboardData(false);
+  }, [fetchDashboardData]);
+
+  const getMockActivities = (): RecentActivity[] => {
+    return [
+      {
+        _id: '1',
+        title: 'Khám định kỳ hoàn thành',
+        description: '15/01/2024 — BS. Nguyễn Thị B',
+        date: '2024-01-15',
+        status: 'completed',
+        icon: 'check',
+      },
+      {
+        _id: '2',
+        title: 'Tẩy trắng răng được lên lịch',
+        description: '20/01/2024 — Chờ xác nhận',
+        date: '2024-01-20',
+        status: 'pending',
+        icon: 'clock',
+      },
+      {
+        _id: '3',
+        title: 'Kết quả X-quang đã sẵn sàng',
+        description: '12/01/2024 — Xem kết quả',
+        date: '2024-01-12',
+        status: 'attention',
+        icon: 'file',
+      },
+    ];
   };
-  Icon: typeof Calendar;
-};
 
-type ActivityItem = {
-  id: string;
-  title: string;
-  subtitle: string;
-  status: StatusVariant;
-  Icon: typeof Calendar;
-};
-
-type Reminder = {
-  id: string;
-  title: string;
-  subtitle: string;
-};
-
-type HealthMetric = {
-  id: string;
-  label: string;
-  value: string;
-  Icon: typeof Heart;
-};
-
-type Trend = {
-  id: string;
-  label: string;
-  value: number;
-  trend: string;
-};
-
-const STATUS_COLORS: Record<StatusVariant, { text: string; background: string }> = {
-  normal: { text: '#047857', background: '#D1FAE5' },
-  info: { text: '#1d4ed8', background: '#dbeafe' },
-  attention: { text: '#b45309', background: '#fef3c7' },
-};
-
-const KPI_CARDS: KpiCardData[] = [
-  {
-    id: 'next-appointment',
-    title: 'Lịch hẹn tiếp theo',
-    value: '15/01/2024',
-    subtitle: '09:00 • BS. Nguyễn Thị B',
-    badge: 'Khám định kỳ',
-    accent: { background: '#dbeafe', color: '#1d4ed8' },
-    Icon: Calendar,
-  },
-  {
-    id: 'completed-visits',
-    title: 'Lần khám hoàn thành',
-    value: '12',
-    subtitle: '+2 tháng này',
-    accent: { background: '#dcfce7', color: '#047857' },
-    Icon: Check,
-  },
-  {
-    id: 'follow-up',
-    title: 'Cần theo dõi',
-    value: '2',
-    subtitle: 'Yêu cầu tái khám',
-    accent: { background: '#fef3c7', color: '#b45309' },
-    Icon: AlertTriangle,
-  },
-  {
-    id: 'oral-health',
-    title: 'Sức khỏe răng miệng',
-    value: '74%',
-    subtitle: 'Tình trạng tốt',
-    accent: { background: '#fee2e2', color: '#be123c' },
-    Icon: Heart,
-  },
-];
-
-const ACTIVITIES: ActivityItem[] = [
-  {
-    id: 'activity-1',
-    title: 'Khám định kỳ hoàn thành',
-    subtitle: '15/01/2024 — BS. Nguyễn Thị B',
-    status: 'normal',
-    Icon: Check,
-  },
-  {
-    id: 'activity-2',
-    title: 'Tẩy trắng răng được lên lịch',
-    subtitle: '20/01/2024 — Chờ xác nhận',
-    status: 'info',
-    Icon: Clock,
-  },
-  {
-    id: 'activity-3',
-    title: 'Kết quả X-quang đã sẵn sàng',
-    subtitle: '12/01/2024 — Xem kết quả',
-    status: 'attention',
-    Icon: FileText,
-  },
-];
-
-const HEALTH_METRICS: HealthMetric[] = [
-  {
-    id: 'temperature',
-    label: 'Nhiệt độ',
-    value: '36.5°C',
-    Icon: Thermometer,
-  },
-  {
-    id: 'heart-rate',
-    label: 'Nhịp tim',
-    value: '72 BPM',
-    Icon: Heart,
-  },
-  {
-    id: 'spo2',
-    label: 'SpO₂',
-    value: '95%',
-    Icon: Eye,
-  },
-];
-
-const REMINDERS: Reminder[] = [
-  {
-    id: 'reminder-1',
-    title: 'Đánh răng sau bữa ăn',
-    subtitle: 'Đã 3 giờ kể từ bữa trưa',
-  },
-  {
-    id: 'reminder-2',
-    title: 'Uống thuốc kháng sinh',
-    subtitle: 'Đã hoàn thành hôm nay',
-  },
-  {
-    id: 'reminder-3',
-    title: 'Tái khám định kỳ',
-    subtitle: 'Còn 5 ngày nữa',
-  },
-];
-
-const TRENDS: Trend[] = [
-  {
-    id: 'trend-1',
-    label: 'Vệ sinh răng miệng',
-    value: 85,
-    trend: '+5%',
-  },
-  {
-    id: 'trend-2',
-    label: 'Tuân thủ điều trị',
-    value: 92,
-    trend: '+2%',
-  },
-];
-
-function StatusPill({ label, status }: { label: string; status: StatusVariant }) {
-  const colors = STATUS_COLORS[status];
-  return (
-    <View className="self-start rounded-full px-3 py-1" style={{ backgroundColor: colors.background }}>
-      <Text className="text-xs font-semibold" style={{ color: colors.text }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function ProgressBar({ value, color }: { value: number; color: string }) {
-  return (
-    <View className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-      <View className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: color }} />
-    </View>
-  );
-}
-
-function KpiCard({ card }: { card: KpiCardData }) {
-  const { Icon } = card;
-  return (
-    <View className="flex-1 rounded-3xl border border-white/70 bg-white/90 p-4 shadow-lg shadow-blue-100">
-      <View className="flex-row items-center gap-3">
-        <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: card.accent.background }}>
-          <Icon color={card.accent.color} size={24} />
-        </View>
-        <View>
-          <Text className="text-sm font-semibold text-slate-600">{card.title}</Text>
-          <Text className="text-xl font-bold text-slate-900">{card.value}</Text>
-        </View>
-      </View>
-      {card.subtitle ? <Text className="mt-3 text-sm text-slate-500">{card.subtitle}</Text> : null}
-      {card.badge ? (
-        <View className="mt-3 self-start rounded-full px-3 py-1" style={{ backgroundColor: card.accent.background }}>
-          <Text className="text-xs font-semibold" style={{ color: card.accent.color }}>
-            {card.badge}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-export default function PatientDashboardScreen() {
-  return (
-    <LinearGradient colors={['#eff6ff', '#e0f2fe', '#fff']} className="flex-1">
-      <SafeAreaView className="flex-1">
-        <ScrollView
+  if (!isHydrating && !isAuthenticated) {
+    return (
+      <>
+        <AppHeader title="Tổng quan" showNotification showAvatar notificationCount={0} />
+        <ScrollView 
           className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, paddingTop: 12 }}
-          showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: theme.background }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
         >
-          <View className="space-y-6">
-            <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1 pr-4">
-                  <View className="h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: '#1d4ed8' }}>
-                    <Heart color="#ffffff" size={28} />
-                  </View>
-                  <Text className="mt-5 text-2xl font-semibold text-slate-900">Chào mừng trở lại, Nguyễn Văn A</Text>
-                  <Text className="mt-2 text-sm text-slate-600">
-                    Theo dõi sức khỏe răng miệng và quản lý các cuộc hẹn của bạn
-                  </Text>
-                  <View className="mt-4 flex-row space-x-3">
-                    <StatusPill label="Khỏe mạnh" status="normal" />
-                    <StatusPill label="2 lời nhắc" status="attention" />
-                  </View>
-                </View>
-                <View className="w-24 space-y-3">
-                  <View className="rounded-2xl bg-blue-50 px-3 py-2">
-                    <Text className="text-xs font-semibold text-blue-600">Điểm chăm sóc</Text>
-                    <Text className="text-lg font-bold text-blue-700">92</Text>
-                  </View>
-                  <View className="rounded-2xl bg-emerald-50 px-3 py-2">
-                    <Text className="text-xs font-semibold text-emerald-600">Lịch trong tuần</Text>
-                    <Text className="text-lg font-bold text-emerald-700">02</Text>
-                  </View>
-                </View>
-              </View>
-              <View className="mt-6 flex-row space-x-3">
-                <View className="flex-1 items-center justify-center rounded-2xl bg-blue-600 py-3">
-                  <View className="flex-row items-center space-x-2">
-                    <Calendar color="#ffffff" size={18} />
-                    <Text className="text-sm font-semibold text-white">Đặt lịch mới</Text>
-                  </View>
-                </View>
-                <View className="flex-1 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 py-3">
-                  <View className="flex-row items-center space-x-2">
-                    <MessageSquare color="#1d4ed8" size={18} />
-                    <Text className="text-sm font-semibold text-blue-700">Liên hệ bác sĩ</Text>
-                  </View>
-                </View>
-              </View>
+          <Card className="w-full max-w-md p-6">
+            <View className="items-center">
+              <Ionicons name="medical-outline" size={36} color={Colors.primary[600]} />
+              <Text className="mt-4 text-xl font-semibold" style={{ color: theme.text.primary }}>
+                Đăng nhập để xem dashboard
+              </Text>
+              <Text className="mt-2 text-center text-sm" style={{ color: theme.text.secondary }}>
+                Theo dõi sức khỏe răng miệng và lịch hẹn của bạn.
+              </Text>
+              <TouchableOpacity
+                className="mt-6 w-full items-center justify-center rounded-2xl py-3"
+                style={{ backgroundColor: Colors.primary[600] }}
+                onPress={() => router.push('/(auth)/login' as const)}
+              >
+                <Text className="text-sm font-semibold text-white">Đăng nhập</Text>
+              </TouchableOpacity>
             </View>
+          </Card>
+        </ScrollView>
+      </>
+    );
+  }
 
-            <View className="space-y-4">
-              <View className="flex-row flex-wrap gap-4">
-                {KPI_CARDS.map((card) => (
-                  <View key={card.id} className="w-full flex-1" style={{ minWidth: '48%' }}>
-                    <KpiCard card={card} />
-                  </View>
-                ))}
-              </View>
-            </View>
+  if (loading) {
+    return (
+      <>
+        <AppHeader title="Tổng quan" showNotification showAvatar notificationCount={3} />
+        <ScrollView 
+          className="flex-1"
+          style={{ backgroundColor: theme.background }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+        >
+          <ActivityIndicator size="large" color={Colors.primary[600]} />
+          <Text className="mt-4 text-sm" style={{ color: theme.text.secondary }}>
+            Đang tải dữ liệu...
+          </Text>
+        </ScrollView>
+      </>
+    );
+  }
 
-            <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-              <View className="flex-row items-center gap-2">
-                <Activity color="#1f2937" size={20} />
-                <Text className="text-lg font-semibold text-slate-900">Hoạt động gần đây</Text>
-              </View>
-              <View className="mt-5 space-y-4">
-                {ACTIVITIES.map((item) => {
-                  const { Icon } = item;
-                  return (
-                    <View
-                      key={item.id}
-                      className="flex-row items-start gap-3 rounded-2xl border border-slate-100 bg-white/95 p-4"
-                    >
-                      <View className="rounded-2xl bg-blue-50 p-3">
-                        <Icon color="#1d4ed8" size={20} />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-sm font-semibold text-slate-900">{item.title}</Text>
-                        <Text className="mt-1 text-xs text-slate-500">{item.subtitle}</Text>
-                        <View className="mt-3">
-                          <StatusPill
-                            label={item.status === 'normal' ? 'Hoàn thành' : item.status === 'info' ? 'Đang xử lý' : 'Cần xem'}
-                            status={item.status}
-                          />
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View className="space-y-6">
-              <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-                <View className="flex-row items-center gap-2">
-                  <Stethoscope color="#1f2937" size={20} />
-                  <Text className="text-lg font-semibold text-slate-900">Chỉ số sức khỏe</Text>
-                </View>
-                <View className="mt-5 flex-row flex-wrap gap-4">
-                  {HEALTH_METRICS.map((metric) => {
-                    const { Icon } = metric;
-                    return (
-                      <View
-                        key={metric.id}
-                        className="flex-1 items-center justify-center rounded-2xl bg-blue-50 p-4"
-                        style={{ minWidth: '30%' }}
-                      >
-                        <Icon color="#1d4ed8" size={24} />
-                        <Text className="mt-2 text-lg font-semibold text-blue-700">{metric.value}</Text>
-                        <Text className="mt-1 text-xs text-slate-600">{metric.label}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-                <View className="flex-row items-center gap-2">
-                  <FileText color="#1f2937" size={20} />
-                  <Text className="text-lg font-semibold text-slate-900">Hồ sơ &amp; Báo cáo</Text>
-                </View>
-                <View className="mt-5 space-y-4">
-                  <View className="rounded-2xl border border-slate-100 bg-white/95 p-4">
-                    <Text className="text-sm font-semibold text-slate-900">Hồ sơ khám gần nhất</Text>
-                    <Text className="mt-1 text-xs text-slate-500">10/12/2023 — Phục hồi răng số 6</Text>
-                    <View className="mt-3">
-                      <StatusPill label="Hoàn thành" status="normal" />
-                    </View>
-                  </View>
-                  <View className="rounded-2xl border border-slate-100 bg-white/95 p-4">
-                    <Text className="text-sm font-semibold text-slate-900">Sơ đồ răng</Text>
-                    <Text className="mt-1 text-xs text-slate-500">32 răng — 4 răng đã điều trị</Text>
-                    <View className="mt-3 space-y-2">
-                      <ProgressBar value={87} color="#1d4ed8" />
-                      <Text className="text-right text-xs font-medium text-blue-700">87% hoàn thành</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            <View className="space-y-6">
-              <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-                <View className="flex-row items-center gap-2">
-                  <Clock color="#1f2937" size={20} />
-                  <Text className="text-lg font-semibold text-slate-900">Nhắc nhở chăm sóc</Text>
-                </View>
-                <View className="mt-5 space-y-3">
-                  {REMINDERS.map((reminder) => (
-                    <View key={reminder.id} className="flex-row items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
-                      <View className="mt-1 h-3 w-3 rounded-full" style={{ backgroundColor: '#1d4ed8' }} />
-                      <View className="flex-1">
-                        <Text className="text-sm font-semibold text-slate-900">{reminder.title}</Text>
-                        <Text className="mt-1 text-xs text-slate-600">{reminder.subtitle}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-                <View className="flex-row items-center gap-2">
-                  <Phone color="#1f2937" size={20} />
-                  <Text className="text-lg font-semibold text-slate-900">Liên hệ nhanh</Text>
-                </View>
-                <View className="mt-5 space-y-3">
-                  <View className="items-center justify-center rounded-2xl bg-blue-600 py-3">
-                    <Text className="text-sm font-semibold text-white">Gọi phòng khám</Text>
-                  </View>
-                  <View className="items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 py-3">
-                    <Text className="text-sm font-semibold text-blue-700">Gửi tin nhắn</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-                <View className="flex-row items-center gap-2">
-                  <TrendingUp color="#1f2937" size={20} />
-                  <Text className="text-lg font-semibold text-slate-900">Xu hướng sức khỏe</Text>
-                </View>
-                <View className="mt-5 space-y-4">
-                  {TRENDS.map((trend) => (
-                    <View key={trend.id} className="space-y-2">
-                      <View className="flex-row items-center justify-between">
-                        <Text className="text-sm text-slate-600">{trend.label}</Text>
-                        <Text className="text-sm font-medium text-blue-600">↗ {trend.trend}</Text>
-                      </View>
-                      <ProgressBar value={trend.value} color="#1d4ed8" />
-                    </View>
-                  ))}
-                </View>
-              </View>
+  return (
+    <>
+      <AppHeader 
+        title="Tổng quan" 
+        showNotification 
+        showAvatar 
+        notificationCount={3}
+        rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
+      />
+      <ScrollView
+        className="flex-1"
+        style={{ backgroundColor: theme.background }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[Colors.primary[600]]}
+            tintColor={Colors.primary[600]}
+          />
+        }
+      >
+        {errorMessage && (
+          <View className="mx-4 mt-4 rounded-xl p-4" style={{ backgroundColor: Colors.error[50] }}>
+            <View className="flex-row items-center">
+              <Ionicons name="alert-circle-outline" size={20} color={Colors.error[600]} />
+              <Text className="ml-2 flex-1 text-sm" style={{ color: Colors.error[700] }}>
+                {errorMessage}
+              </Text>
             </View>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+        )}
+
+        {/* Welcome Section */}
+        <View className="mt-4 px-4">
+          <Text className="text-2xl font-bold" style={{ color: theme.text.primary }}>
+            Xin chào {session?.user?.fullName ? session.user.fullName.split(' ').slice(-1)[0] : 'bạn'}! 👋
+          </Text>
+          <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
+            {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </Text>
+        </View>
+
+        {/* Stats Grid */}
+        <View className="mt-4 px-4">
+          <View className="flex-row gap-3">
+            {/* Next Appointment */}
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() => router.push('/(tabs)/appointments')}
+              activeOpacity={0.7}
+            >
+              <Card className="h-32">
+                <View className="flex-1 justify-between">
+                  <View className="flex-row items-start justify-between">
+                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[100] }}>
+                      <Ionicons name="calendar-outline" size={20} color={Colors.primary[600]} />
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={theme.text.tertiary} />
+                  </View>
+                  <View>
+                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                      Lịch hẹn tiếp theo
+                    </Text>
+                    {stats?.nextAppointment ? (
+                      <>
+                        <Text className="mt-1 text-sm font-semibold" style={{ color: theme.text.primary }}>
+                          {stats.nextAppointment.date}
+                        </Text>
+                        <Text className="mt-0.5 text-xs" style={{ color: theme.text.tertiary }}>
+                          {stats.nextAppointment.time} • {stats.nextAppointment.doctor}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text className="mt-1 text-sm font-semibold" style={{ color: theme.text.tertiary }}>
+                        Chưa có lịch hẹn
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </Card>
+            </TouchableOpacity>
+
+            {/* Completed Visits */}
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() => router.push('/(tabs)/appointments')}
+              activeOpacity={0.7}
+            >
+              <Card className="h-32">
+                <View className="flex-1 justify-between">
+                  <View className="flex-row items-start justify-between">
+                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.success[100] }}>
+                      <Ionicons name="checkmark-done-outline" size={20} color={Colors.success[600]} />
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={theme.text.tertiary} />
+                  </View>
+                  <View>
+                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                      Lượt khám hoàn thành
+                    </Text>
+                    <Text className="mt-1 text-2xl font-bold" style={{ color: theme.text.primary }}>
+                      {stats?.completedAppointments || 0}
+                    </Text>
+                    {stats && stats.completedGrowth > 0 && (
+                      <View className="mt-1 flex-row items-center">
+                        <Ionicons name="trending-up-outline" size={12} color={Colors.success[600]} />
+                        <Text className="ml-1 text-xs font-medium" style={{ color: Colors.success[600] }}>
+                          +{stats.completedGrowth} tháng này
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </Card>
+            </TouchableOpacity>
+          </View>
+
+          <View className="mt-3 flex-row gap-3">
+            {/* Follow-up Required */}
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() => router.push('/(tabs)/records')}
+              activeOpacity={0.7}
+            >
+              <Card className="h-32">
+                <View className="flex-1 justify-between">
+                  <View className="flex-row items-start justify-between">
+                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.warning[100] }}>
+                      <Ionicons name="alert-circle-outline" size={20} color={Colors.warning[600]} />
+                    </View>
+                    {stats && stats.followUpRequired > 0 && (
+                      <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.error[100] }}>
+                        <Text className="text-xs font-semibold" style={{ color: Colors.error[700] }}>
+                          {stats.followUpRequired}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <View>
+                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                      Cần tái khám
+                    </Text>
+                    <Text className="mt-1 text-2xl font-bold" style={{ color: theme.text.primary }}>
+                      {stats?.followUpRequired || 0}
+                    </Text>
+                    <Text className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                      Lịch hẹn cần xác nhận
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            </TouchableOpacity>
+
+            {/* Oral Health Score */}
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() => router.push('/(tabs)/records')}
+              activeOpacity={0.7}
+            >
+              <Card className="h-32">
+                <View className="flex-1 justify-between">
+                  <View className="flex-row items-start justify-between">
+                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[100] }}>
+                      <Ionicons name="fitness-outline" size={20} color={Colors.primary[600]} />
+                    </View>
+                    <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.success[100] }}>
+                      <Text className="text-xs font-semibold" style={{ color: Colors.success[700] }}>
+                        Tốt
+                      </Text>
+                    </View>
+                  </View>
+                  <View>
+                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                      Chỉ số sức khỏe
+                    </Text>
+                    <Text className="mt-1 text-2xl font-bold" style={{ color: theme.text.primary }}>
+                      {stats?.oralHealthScore || 0}%
+                    </Text>
+                    <Text className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
+                      Tình trạng răng miệng
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Recent Activities */}
+        <View className="mt-6 px-4">
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
+              Hoạt động gần đây
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/appointments')}>
+              <Text className="text-sm font-medium" style={{ color: Colors.primary[600] }}>
+                Xem tất cả
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          {activities.length > 0 ? (
+            <Card className="p-0">
+              {activities.map((activity, index) => {
+                const activityStyle = getActivityColor(activity.status);
+                return (
+                  <TouchableOpacity
+                    key={activity._id}
+                    onPress={() => router.push('/(tabs)/appointments')}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      className="flex-row items-center p-4"
+                      style={{
+                        borderBottomWidth: index < activities.length - 1 ? 1 : 0,
+                        borderBottomColor: theme.border,
+                      }}
+                    >
+                      <View
+                        className="h-10 w-10 items-center justify-center rounded-xl"
+                        style={{ backgroundColor: activityStyle.bg }}
+                      >
+                        <Ionicons
+                          name={getActivityIcon(activity.icon)}
+                          size={20}
+                          color={activityStyle.text}
+                        />
+                      </View>
+                      <View className="ml-3 flex-1">
+                        <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
+                          {activity.title}
+                        </Text>
+                        <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>
+                          {activity.description}
+                        </Text>
+                      </View>
+                      <View className="rounded-full px-2 py-1" style={{ backgroundColor: activityStyle.bg }}>
+                        <Text className="text-xs font-medium" style={{ color: activityStyle.text }}>
+                          {activityStyle.label}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </Card>
+          ) : (
+            <Card className="items-center py-8">
+              <View
+                className="h-16 w-16 items-center justify-center rounded-full"
+                style={{ backgroundColor: Colors.gray[100] }}
+              >
+                <Ionicons name="time-outline" size={32} color={Colors.gray[400]} />
+              </View>
+              <Text className="mt-3 text-sm font-medium" style={{ color: theme.text.primary }}>
+                Chưa có hoạt động nào
+              </Text>
+              <Text className="mt-1 text-center text-xs" style={{ color: theme.text.secondary }}>
+                Các hoạt động gần đây sẽ được hiển thị tại đây
+              </Text>
+            </Card>
+          )}
+        </View>
+
+        {/* Quick Actions */}
+        <View className="mt-6 px-4">
+          <Text className="mb-3 text-base font-semibold" style={{ color: theme.text.primary }}>
+            Thao tác nhanh
+          </Text>
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() => router.push('/(tabs)/appointments')}
+              activeOpacity={0.7}
+            >
+              <Card className="items-center py-5">
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-full"
+                  style={{ backgroundColor: Colors.primary[100] }}
+                >
+                  <Ionicons name="add-circle-outline" size={24} color={Colors.primary[600]} />
+                </View>
+                <Text className="mt-2 text-sm font-medium" style={{ color: theme.text.primary }}>
+                  Đặt lịch hẹn
+                </Text>
+              </Card>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-1"
+              onPress={() => router.push('/(tabs)/chat')}
+              activeOpacity={0.7}
+            >
+              <Card className="items-center py-5">
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-full"
+                  style={{ backgroundColor: Colors.primary[100] }}
+                >
+                  <Ionicons name="chatbubbles-outline" size={24} color={Colors.primary[600]} />
+                </View>
+                <Text className="mt-2 text-sm font-medium" style={{ color: theme.text.primary }}>
+                  Liên hệ bác sĩ
+                </Text>
+              </Card>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+
+      <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
+    </>
   );
 }

@@ -1,9 +1,13 @@
-import { ConsultType } from "@/types/appointment";
-
 /**
  * Consultation fee calculator based on consult type and base fee
  * Giá khám theo hình thức và giá cơ bản của bác sĩ
  */
+
+export enum ConsultType {
+  TELEVISIT = 'televisit',
+  ON_SITE = 'on-site',
+  HOME_VISIT = 'home-visit',
+}
 
 // Multipliers for each consult type (hệ số nhân theo hình thức khám)
 const CONSULT_TYPE_MULTIPLIERS = {
@@ -60,7 +64,7 @@ export function getDoctorFeesByType(doctorBaseFee?: number) {
  * @returns Formatted string (e.g., "200,000₫")
  */
 export function formatFee(amount: number): string {
-  return `${amount.toLocaleString("vi-VN")}₫`;
+  return `${amount.toLocaleString('vi-VN')}₫`;
 }
 
 /**
@@ -69,13 +73,13 @@ export function formatFee(amount: number): string {
 export function getConsultTypeLabel(consultType: ConsultType): string {
   switch (consultType) {
     case ConsultType.TELEVISIT:
-      return "Tư vấn từ xa";
+      return 'Tư vấn từ xa';
     case ConsultType.ON_SITE:
-      return "Khám tại phòng khám";
+      return 'Khám tại phòng khám';
     case ConsultType.HOME_VISIT:
-      return "Khám tại nhà";
+      return 'Khám tại nhà';
     default:
-      return "";
+      return '';
   }
 }
 
@@ -85,22 +89,13 @@ export function getConsultTypeLabel(consultType: ConsultType): string {
 export function getConsultTypeDescription(consultType: ConsultType): string {
   switch (consultType) {
     case ConsultType.TELEVISIT:
-      return "Video call online";
+      return 'Video call online';
     case ConsultType.ON_SITE:
-      return "Đến phòng khám";
+      return 'Đến phòng khám';
     case ConsultType.HOME_VISIT:
-      return "Bác sĩ đến tận nơi";
+      return 'Bác sĩ đến tận nơi';
     default:
-      return "";
+      return '';
   }
 }
-
-
-
-
-
-
-
-
-
 

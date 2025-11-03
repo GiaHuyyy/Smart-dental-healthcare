@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { Eye, EyeOff, Smile, User } from 'lucide-react-native';
+import { Eye, EyeOff, Smile, Stethoscope, User } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -32,7 +32,8 @@ type LoginResponse = {
 type QueryParams = {
   email?: string | string[];
 };
-const PATIENT_ROLE = 'patient' as const;
+
+type UserType = 'patient' | 'doctor';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -46,6 +47,7 @@ export default function LoginScreen() {
     return typeof value === 'string' ? value : '';
   }, [params]);
 
+  const [userType, setUserType] = useState<UserType>('patient');
   const [email, setEmail] = useState<string>(prefilledEmail);
   const [password, setPassword] = useState<string>('');
   const [rememberMe, setRememberMe] = useState<boolean>(true);
@@ -75,7 +77,7 @@ export default function LoginScreen() {
           username: email.trim(),
           email: email.trim(),
           password,
-          role: PATIENT_ROLE,
+          role: userType,
         },
       });
 
@@ -94,7 +96,13 @@ export default function LoginScreen() {
       const userName = user.fullName ?? user.email ?? 'bạn';
 
       Alert.alert('Đăng nhập thành công', `Chào mừng ${userName}!`);
-      router.replace('/(tabs)');
+      
+      // Navigate based on user role
+      if (user.role === 'doctor') {
+        router.replace('/(doctor)' as any);
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (err) {
       const message = formatApiError(err);
       setError(message);
@@ -134,27 +142,77 @@ export default function LoginScreen() {
                     </View>
                   </TouchableOpacity>
                   <View className="mt-8 w-full rounded-3xl border border-white/70 bg-white/80 p-8 shadow-xl">
-                    <Text className="text-center text-2xl font-semibold text-slate-900">Đăng nhập Bệnh nhân</Text>
+                    <Text className="text-center text-2xl font-semibold text-slate-900">Đăng nhập hệ thống</Text>
                     <Text className="mt-2 text-center text-base text-slate-500">
-                      Sử dụng tài khoản bệnh nhân để truy cập hồ sơ và đặt lịch khám
+                      Vui lòng chọn loại tài khoản và đăng nhập
                     </Text>
                   </View>
                 </View>
 
-                <View className="mt-8 space-y-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl">
-                  <View className="items-center space-y-3 rounded-2xl border border-blue-100 bg-blue-50 px-6 py-5">
-                    <View className="h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
-                      <User color="#1d4ed8" size={28} />
-                    </View>
-                    <View className="items-center">
-                      <Text className="text-base font-semibold text-slate-900">Cổng đăng nhập Bệnh nhân</Text>
-                      <Text className="mt-1 text-center text-xs text-slate-500">
-                        Dùng để đặt lịch, theo dõi điều trị và trò chuyện với bác sĩ
-                      </Text>
-                    </View>
+                {/* User Type Selection */}
+                <View className="mt-6 space-y-4 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl">
+                  <View className="flex-row gap-4">
+                    {/* Patient Card */}
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      className={`flex-1 rounded-2xl border-2 p-4 ${
+                        userType === 'patient'
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                      onPress={() => {
+                        setUserType('patient');
+                        setEmail('');
+                        setPassword('');
+                      }}
+                    >
+                      <View className="items-center">
+                        <View
+                          className={`mb-2 h-12 w-12 items-center justify-center rounded-xl ${
+                            userType === 'patient' ? 'bg-blue-100' : 'bg-gray-100'
+                          }`}
+                        >
+                          <User color={userType === 'patient' ? '#1d4ed8' : '#6b7280'} size={24} />
+                        </View>
+                        <Text className={`font-semibold ${userType === 'patient' ? 'text-blue-700' : 'text-gray-700'}`}>
+                          Bệnh nhân
+                        </Text>
+                        <Text className="mt-1 text-center text-xs text-gray-500">Đặt lịch & theo dõi sức khỏe</Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Doctor Card */}
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      className={`flex-1 rounded-2xl border-2 p-4 ${
+                        userType === 'doctor'
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                      onPress={() => {
+                        setUserType('doctor');
+                        setEmail('');
+                        setPassword('');
+                      }}
+                    >
+                      <View className="items-center">
+                        <View
+                          className={`mb-2 h-12 w-12 items-center justify-center rounded-xl ${
+                            userType === 'doctor' ? 'bg-blue-100' : 'bg-gray-100'
+                          }`}
+                        >
+                          <Stethoscope color={userType === 'doctor' ? '#1d4ed8' : '#6b7280'} size={24} />
+                        </View>
+                        <Text className={`font-semibold ${userType === 'doctor' ? 'text-blue-700' : 'text-gray-700'}`}>
+                          Bác sĩ
+                        </Text>
+                        <Text className="mt-1 text-center text-xs text-gray-500">Quản lý bệnh nhân & điều trị</Text>
+                      </View>
+                    </TouchableOpacity>
                   </View>
 
-                  <View className="rounded-3xl border border-slate-100 bg-white/90 p-6">
+                  {/* Login Form */}
+                  <View className="rounded-3xl border border-slate-100 bg-white/90 p-6 shadow-sm">
                     {error ? (
                       <View className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4">
                         <Text className="text-sm font-medium text-red-600">{error}</Text>
@@ -232,7 +290,9 @@ export default function LoginScreen() {
                           <Text className="text-base font-semibold text-white">Đang đăng nhập...</Text>
                         </View>
                       ) : (
-                        <Text className="text-center text-lg font-semibold text-white">Đăng nhập Bệnh nhân</Text>
+                        <Text className="text-center text-lg font-semibold text-white">
+                          Đăng nhập {userType === 'doctor' ? 'Bác sĩ' : 'Bệnh nhân'}
+                        </Text>
                       )}
                     </TouchableOpacity>
 
