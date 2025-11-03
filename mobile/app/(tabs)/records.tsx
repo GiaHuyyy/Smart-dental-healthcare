@@ -1,19 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-    Activity,
-    AlertTriangle,
-    Calendar,
-    CheckCircle2,
-    ClipboardList,
-    FileText,
-    Layers,
-    ListChecks,
-    Pill,
-    Stethoscope,
-    TimerReset,
-} from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -24,9 +11,13 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/layout/AppHeader';
+import { PolicyButton, PolicyModal } from '@/components/policy';
+import { Card } from '@/components/ui/Card';
+import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { apiRequest, formatApiError } from '@/utils/api';
 
 type PopulatedUser = {
@@ -148,19 +139,35 @@ function RecordStatusPill({ status }: { status?: string }) {
 }
 
 function ProceduresPreview({ procedures }: { procedures?: MedicalRecordProcedure[] }) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
   const items = ensureArray<MedicalRecordProcedure>(procedures).slice(0, 3);
   if (items.length === 0) return null;
   return (
     <View className="mt-4 space-y-2">
-      <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thủ thuật chính</Text>
+      <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+        Thủ thuật chính
+      </Text>
       {items.map((item, index) => (
-        <View key={`${item.name ?? index}-${index}`} className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
-          <Text className="text-sm font-semibold text-slate-800">{item.name ?? 'Thủ thuật nha khoa'}</Text>
-          {item.description ? <Text className="mt-1 text-xs text-slate-500">{item.description}</Text> : null}
+        <View
+          key={`${item.name ?? index}-${index}`}
+          className="rounded-2xl p-3"
+          style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
+        >
+          <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+            {item.name ?? 'Thủ thuật nha khoa'}
+          </Text>
+          {item.description ? (
+            <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
+              {item.description}
+            </Text>
+          ) : null}
           {item.status ? (
             <View className="mt-2 flex-row items-center space-x-2">
-              <ListChecks color="#1d4ed8" size={14} />
-              <Text className="text-xs font-medium text-blue-700">{item.status}</Text>
+              <Ionicons name="checkmark-done-outline" size={14} color={Colors.primary[600]} />
+              <Text className="text-xs font-medium" style={{ color: Colors.primary[700] }}>
+                {item.status}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -170,24 +177,41 @@ function ProceduresPreview({ procedures }: { procedures?: MedicalRecordProcedure
 }
 
 function MedicationsPreview({ medications }: { medications?: MedicalRecordMedication[] }) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
   const meds = ensureArray<MedicalRecordMedication>(medications).slice(0, 2);
   if (meds.length === 0) return null;
   return (
-    <View className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3">
+    <View
+      className="mt-4 rounded-2xl p-3"
+      style={{ backgroundColor: Colors.success[50], borderWidth: 1, borderColor: Colors.success[100] }}
+    >
       <View className="flex-row items-center space-x-2">
-        <Pill color="#047857" size={16} />
-        <Text className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Thuốc kê đơn</Text>
+        <Ionicons name="medkit-outline" size={16} color={Colors.success[700]} />
+        <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: Colors.success[700] }}>
+          Thuốc kê đơn
+        </Text>
       </View>
       <View className="mt-3 space-y-2">
         {meds.map((med, index) => (
-          <View key={`${med.name ?? index}-${index}`} className="rounded-xl bg-white/80 p-3">
-            <Text className="text-sm font-semibold text-slate-800">{med.name ?? 'Thuốc'}</Text>
-            <Text className="text-xs text-slate-500">
+          <View
+            key={`${med.name ?? index}-${index}`}
+            className="rounded-xl p-3"
+            style={{ backgroundColor: theme.card }}
+          >
+            <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+              {med.name ?? 'Thuốc'}
+            </Text>
+            <Text className="text-xs" style={{ color: theme.text.secondary }}>
               {med.dosage ? `${med.dosage}` : ''}
               {med.frequency ? ` • ${med.frequency}` : ''}
               {med.duration ? ` • ${med.duration}` : ''}
             </Text>
-            {med.instructions ? <Text className="mt-1 text-xs text-slate-500">{med.instructions}</Text> : null}
+            {med.instructions ? (
+              <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
+                {med.instructions}
+              </Text>
+            ) : null}
           </View>
         ))}
       </View>
@@ -196,20 +220,27 @@ function MedicationsPreview({ medications }: { medications?: MedicalRecordMedica
 }
 
 function RecordCard({ record }: { record: MedicalRecord }) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
   const followUpRequired = Boolean(record.isFollowUpRequired && record.followUpDate);
   return (
-    <View className="rounded-3xl border border-white/70 bg-white/95 p-5 shadow-lg shadow-blue-100">
+    <Card shadow="md" className="p-5">
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-4">
           <View className="flex-row items-center space-x-3">
-            <View className="h-12 w-12 items-center justify-center rounded-2xl bg-blue-100">
-              <Stethoscope color="#1d4ed8" size={24} />
+            <View
+              className="h-12 w-12 items-center justify-center rounded-2xl"
+              style={{ backgroundColor: Colors.primary[100] }}
+            >
+              <Ionicons name="medical-outline" size={24} color={Colors.primary[600]} />
             </View>
             <View className="flex-1">
-              <Text className="text-base font-semibold text-slate-900">
+              <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
                 Khám ngày {formatDate(record.recordDate)}
               </Text>
-              <Text className="mt-1 text-xs text-slate-500">Bác sĩ: {extractDoctorName(record.doctorId)}</Text>
+              <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
+                Bác sĩ: {extractDoctorName(record.doctorId)}
+              </Text>
             </View>
           </View>
         </View>
@@ -219,49 +250,70 @@ function RecordCard({ record }: { record: MedicalRecord }) {
       <View className="mt-5 space-y-3">
         {record.chiefComplaint ? (
           <View className="flex-row items-start space-x-3">
-            <AlertTriangle color="#b45309" size={18} />
+            <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[600]} />
             <View className="flex-1">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Triệu chứng chính</Text>
-              <Text className="mt-1 text-sm text-slate-700">{record.chiefComplaint}</Text>
+              <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+                Triệu chứng chính
+              </Text>
+              <Text className="mt-1 text-sm" style={{ color: theme.text.primary }}>
+                {record.chiefComplaint}
+              </Text>
             </View>
           </View>
         ) : null}
         {record.diagnosis ? (
           <View className="flex-row items-start space-x-3">
-            <ClipboardList color="#1d4ed8" size={18} />
+            <Ionicons name="clipboard-outline" size={18} color={Colors.primary[600]} />
             <View className="flex-1">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chẩn đoán</Text>
-              <Text className="mt-1 text-sm text-slate-700">{record.diagnosis}</Text>
+              <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+                Chẩn đoán
+              </Text>
+              <Text className="mt-1 text-sm" style={{ color: theme.text.primary }}>
+                {record.diagnosis}
+              </Text>
             </View>
           </View>
         ) : null}
         {record.treatmentPlan ? (
           <View className="flex-row items-start space-x-3">
-            <CheckCircle2 color="#047857" size={18} />
+            <Ionicons name="checkmark-circle-outline" size={18} color={Colors.success[600]} />
             <View className="flex-1">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Kế hoạch điều trị</Text>
-              <Text className="mt-1 text-sm text-slate-700">{record.treatmentPlan}</Text>
+              <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+                Kế hoạch điều trị
+              </Text>
+              <Text className="mt-1 text-sm" style={{ color: theme.text.primary }}>
+                {record.treatmentPlan}
+              </Text>
             </View>
           </View>
         ) : null}
         {record.notes ? (
           <View className="flex-row items-start space-x-3">
-            <FileText color="#0f172a" size={18} />
+            <Ionicons name="document-text-outline" size={18} color={theme.text.secondary} />
             <View className="flex-1">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ghi chú</Text>
-              <Text className="mt-1 text-sm text-slate-700">{record.notes}</Text>
+              <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+                Ghi chú
+              </Text>
+              <Text className="mt-1 text-sm" style={{ color: theme.text.primary }}>
+                {record.notes}
+              </Text>
             </View>
           </View>
         ) : null}
       </View>
 
       {followUpRequired ? (
-        <View className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/90 p-4">
+        <View
+          className="mt-5 rounded-2xl p-4"
+          style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}
+        >
           <View className="flex-row items-center space-x-2">
-            <TimerReset color="#b45309" size={18} />
-            <Text className="text-sm font-semibold text-amber-800">Cần tái khám</Text>
+            <Ionicons name="time-outline" size={18} color={Colors.warning[700]} />
+            <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
+              Cần tái khám
+            </Text>
           </View>
-          <Text className="mt-2 text-xs text-amber-700">
+          <Text className="mt-2 text-xs" style={{ color: Colors.warning[700] }}>
             Lịch hẹn tái khám đề xuất: {formatDate(record.followUpDate)} {record.followUpTime ? `• ${record.followUpTime}` : ''}
           </Text>
         </View>
@@ -269,13 +321,15 @@ function RecordCard({ record }: { record: MedicalRecord }) {
 
       <ProceduresPreview procedures={record.procedures} />
       <MedicationsPreview medications={record.medications} />
-    </View>
+    </Card>
   );
 }
 
 export default function RecordsScreen() {
   const router = useRouter();
   const { session, isAuthenticated, isHydrating } = useAuth();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
   const patientId = session?.user?._id ?? '';
   const token = session?.token ?? '';
 
@@ -288,6 +342,7 @@ export default function RecordsScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [followUpOnly, setFollowUpOnly] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   const loadRecords = useCallback(
     async ({ viaRefresh = false, signal }: { viaRefresh?: boolean; signal?: AbortSignal } = {}) => {
@@ -382,36 +437,36 @@ export default function RecordsScreen() {
         label: 'Tổng hồ sơ',
         value: total,
         description: 'Lịch sử khám của bạn',
-        background: '#dbeafe',
-        color: '#1d4ed8',
-        Icon: FileText,
+        background: Colors.primary[50],
+        color: Colors.primary[600],
+        icon: 'document-text-outline' as const,
       },
       {
         id: 'completed',
         label: 'Đã hoàn thành',
         value: completed,
         description: 'Điều trị hoàn tất',
-        background: '#dcfce7',
-        color: '#047857',
-        Icon: CheckCircle2,
+        background: Colors.success[50],
+        color: Colors.success[700],
+        icon: 'checkmark-circle-outline' as const,
       },
       {
         id: 'pending',
         label: 'Đang chờ',
         value: pending,
         description: 'Đang xử lý',
-        background: '#fef3c7',
-        color: '#b45309',
-        Icon: Activity,
+        background: Colors.warning[50],
+        color: Colors.warning[700],
+        icon: 'pulse-outline' as const,
       },
       {
         id: 'followup',
         label: 'Cần tái khám',
         value: followUps,
         description: 'Theo dõi sát sao',
-        background: '#fee2e2',
-        color: '#be123c',
-        Icon: TimerReset,
+        background: Colors.error[50],
+        color: Colors.error[600],
+        icon: 'time-outline' as const,
       },
     ];
   }, [stats, records]);
@@ -425,182 +480,267 @@ export default function RecordsScreen() {
 
   if (!isHydrating && !isAuthenticated) {
     return (
-      <LinearGradient colors={['#eef2ff', '#e0f2fe', '#fff']} className="flex-1">
-        <SafeAreaView className="flex-1 items-center justify-center px-6">
-          <View className="w-full max-w-md rounded-3xl border border-white/70 bg-white/95 p-6 text-center shadow-lg shadow-blue-100">
-            <Calendar color="#1d4ed8" size={36} className="self-center" />
-            <Text className="mt-4 text-xl font-semibold text-slate-900">Đăng nhập để xem hồ sơ</Text>
-            <Text className="mt-2 text-sm text-slate-500">
+      <>
+        <AppHeader 
+          title="Hồ sơ bệnh án" 
+          showNotification 
+          showAvatar 
+          notificationCount={0}
+          rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
+        />
+        <View className="flex-1 items-center justify-center px-6" style={{ backgroundColor: theme.background }}>
+          <Card shadow="md" className="w-full max-w-md p-6 items-center">
+            <Ionicons name="calendar-outline" size={36} color={Colors.primary[600]} />
+            <Text className="mt-4 text-xl font-semibold" style={{ color: theme.text.primary }}>
+              Đăng nhập để xem hồ sơ
+            </Text>
+            <Text className="mt-2 text-sm text-center" style={{ color: theme.text.secondary }}>
               Vui lòng đăng nhập để truy cập toàn bộ lịch sử khám và hồ sơ điều trị của bạn.
             </Text>
             <TouchableOpacity
-              className="mt-6 items-center justify-center rounded-2xl bg-blue-600 py-3"
+              className="mt-6 w-full items-center justify-center rounded-2xl py-3"
+              style={{ backgroundColor: Colors.primary[600] }}
               onPress={() => router.push('/(auth)/login' as const)}
             >
               <Text className="text-sm font-semibold text-white">Đăng nhập</Text>
             </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+          </Card>
+        </View>
+
+        <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
+      </>
     );
   }
 
   return (
-    <LinearGradient colors={['#eef2ff', '#e0f2fe', '#fff']} className="flex-1">
-      <SafeAreaView className="flex-1">
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, paddingTop: 12 }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            isAuthenticated ? (
-              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1d4ed8" />
-            ) : undefined
-          }
-        >
-          <View className="space-y-6">
-            <View className="rounded-3xl border border-white/70 bg-white/95 p-6 shadow-lg shadow-blue-100">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1 pr-4">
-                  <View className="h-14 w-14 items-center justify-center rounded-2xl bg-blue-600">
-                    <ClipboardList color="#ffffff" size={28} />
-                  </View>
-                  <Text className="mt-5 text-2xl font-semibold text-slate-900">Hồ sơ bệnh án</Text>
-                  <Text className="mt-2 text-sm text-slate-600">
-                    Theo dõi toàn bộ lịch sử khám, điều trị và kế hoạch tái khám của bạn tại Smart Dental.
-                  </Text>
-                </View>
-                <View className="w-28 space-y-3">
-                  <View className="rounded-2xl bg-blue-50 px-3 py-2">
-                    <Text className="text-[11px] font-semibold text-blue-600">Hồ sơ</Text>
-                    <Text className="text-lg font-bold text-blue-700">{records.length}</Text>
-                  </View>
-                  <View className="rounded-2xl bg-emerald-50 px-3 py-2">
-                    <Text className="text-[11px] font-semibold text-emerald-600">Tái khám</Text>
-                    <Text className="text-lg font-bold text-emerald-700">
-                      {records.filter((item) => item.isFollowUpRequired).length}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {latestRecord ? (
-                <View className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
-                  <View className="flex-row items-center space-x-2">
-                    <Stethoscope color="#1d4ed8" size={18} />
-                    <Text className="text-sm font-semibold text-blue-700">Lần khám gần nhất</Text>
-                  </View>
-                  <Text className="mt-2 text-sm text-slate-700">
-                    {formatDateTime(latestRecord.recordDate)} • {extractDoctorName(latestRecord.doctorId)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-
-            <View className="flex-row flex-wrap gap-4">
-              {quickStats.map(({ id, label, value, description, background, color, Icon }) => (
-                <View key={id} className="w-full flex-1" style={{ minWidth: '48%' }}>
-                  <View className="h-full rounded-3xl border border-white/70 bg-white/95 p-4 shadow-md shadow-blue-100">
-                    <View className="flex-row items-center space-x-3">
-                      <View className="h-12 w-12 items-center justify-center rounded-2xl" style={{ backgroundColor: background }}>
-                        <Icon color={color} size={22} />
-                      </View>
-                      <View>
-                        <Text className="text-xs font-semibold text-slate-500">{label}</Text>
-                        <Text className="text-xl font-bold text-slate-900">{value}</Text>
-                      </View>
-                    </View>
-                    <Text className="mt-3 text-xs text-slate-500">{description}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-
-            <View className="rounded-3xl border border-white/70 bg-white/95 p-6 shadow-lg shadow-blue-100">
-              <Text className="text-lg font-semibold text-slate-900">Bộ lọc hồ sơ</Text>
-              <View className="mt-4 space-y-4">
-                <View className="rounded-2xl border border-blue-100 bg-blue-50/80 p-3">
-                  <TextInput
-                    value={searchTerm}
-                    onChangeText={setSearchTerm}
-                    placeholder="Tìm theo triệu chứng, chẩn đoán hoặc tên bác sĩ..."
-                    placeholderTextColor="#94a3b8"
-                    className="text-sm text-slate-900"
-                  />
-                </View>
-
-                <View className="flex-row flex-wrap gap-3">
-                  {STATUS_FILTERS.map((option) => {
-                    const isActive = statusFilter === option.id;
-                    return (
-                      <TouchableOpacity
-                        key={option.id}
-                        onPress={() => setStatusFilter(option.id)}
-                        className={`rounded-2xl border px-4 py-2 ${
-                          isActive ? 'border-blue-600 bg-blue-600' : 'border-blue-100 bg-white'
-                        }`}
-                      >
-                        <Text className={`text-xs font-semibold ${isActive ? 'text-white' : 'text-blue-700'}`}>
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setFollowUpOnly((prev) => !prev)}
-                  className={`flex-row items-center justify-between rounded-2xl border px-4 py-3 ${
-                    followUpOnly ? 'border-emerald-500 bg-emerald-100/80' : 'border-slate-200 bg-white'
-                  }`}
+    <>
+      <AppHeader 
+        title="Hồ sơ bệnh án" 
+        showNotification 
+        showAvatar 
+        notificationCount={0}
+        rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
+      />
+      <ScrollView
+        className="flex-1"
+        style={{ backgroundColor: theme.background }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, paddingTop: 12 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          isAuthenticated ? (
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary[600]} />
+          ) : undefined
+        }
+      >
+        <View className="space-y-6">
+          {/* Header Card */}
+          <Card shadow="md" className="p-6">
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-4">
+                <View
+                  className="h-14 w-14 items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: Colors.primary[600] }}
                 >
-                  <View className="flex-row items-center space-x-3">
-                    <TimerReset color={followUpOnly ? '#047857' : '#94a3b8'} size={18} />
-                    <Text className="text-sm font-semibold text-slate-800">Chỉ hiển thị hồ sơ cần tái khám</Text>
-                  </View>
-                  <View
-                    className={`h-5 w-5 items-center justify-center rounded-full ${
-                      followUpOnly ? 'bg-emerald-500' : 'bg-slate-200'
-                    }`}
-                  >
-                    <Text className="text-[10px] font-bold text-white">{followUpOnly ? '✓' : ''}</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {errorMessage ? (
-              <View className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
-                <View className="flex-row items-center space-x-2">
-                  <AlertTriangle color="#b45309" size={18} />
-                  <Text className="flex-1 text-sm font-semibold text-amber-800">{errorMessage}</Text>
+                  <Ionicons name="clipboard-outline" size={28} color="#ffffff" />
                 </View>
-              </View>
-            ) : null}
-
-            {loading && records.length === 0 ? (
-              <View className="items-center justify-center rounded-3xl border border-white/70 bg-white/95 p-8">
-                <ActivityIndicator color="#1d4ed8" />
-                <Text className="mt-3 text-sm text-slate-500">Đang tải hồ sơ bệnh án...</Text>
-              </View>
-            ) : filteredRecords.length === 0 ? (
-              <View className="items-center justify-center rounded-3xl border border-dashed border-blue-200 bg-blue-50/70 p-8 text-center">
-                <Layers color="#1d4ed8" size={28} />
-                <Text className="mt-3 text-sm font-semibold text-blue-700">Chưa có hồ sơ phù hợp</Text>
-                <Text className="mt-1 text-xs text-blue-500">
-                  Thử thay đổi bộ lọc hoặc đặt lịch khám mới để tạo thêm hồ sơ.
+                <Text className="mt-5 text-2xl font-semibold" style={{ color: theme.text.primary }}>
+                  Hồ sơ bệnh án
+                </Text>
+                <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>
+                  Theo dõi toàn bộ lịch sử khám, điều trị và kế hoạch tái khám của bạn tại Smart Dental.
                 </Text>
               </View>
-            ) : (
-              <View className="space-y-5">
-                {filteredRecords.map((record) => (
-                  <RecordCard key={record._id ?? `${record.recordDate}-${extractDoctorName(record.doctorId)}`} record={record} />
-                ))}
+              <View className="w-28 space-y-3">
+                <View className="rounded-2xl px-3 py-2" style={{ backgroundColor: Colors.primary[50] }}>
+                  <Text className="text-[11px] font-semibold" style={{ color: Colors.primary[600] }}>
+                    Hồ sơ
+                  </Text>
+                  <Text className="text-lg font-bold" style={{ color: Colors.primary[700] }}>
+                    {records.length}
+                  </Text>
+                </View>
+                <View className="rounded-2xl px-3 py-2" style={{ backgroundColor: Colors.success[50] }}>
+                  <Text className="text-[11px] font-semibold" style={{ color: Colors.success[600] }}>
+                    Tái khám
+                  </Text>
+                  <Text className="text-lg font-bold" style={{ color: Colors.success[700] }}>
+                    {records.filter((item) => item.isFollowUpRequired).length}
+                  </Text>
+                </View>
               </View>
-            )}
+            </View>
+
+            {latestRecord ? (
+              <View
+                className="mt-6 rounded-2xl p-4"
+                style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
+              >
+                <View className="flex-row items-center space-x-2">
+                  <Ionicons name="medical-outline" size={18} color={Colors.primary[600]} />
+                  <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                    Lần khám gần nhất
+                  </Text>
+                </View>
+                <Text className="mt-2 text-sm" style={{ color: theme.text.primary }}>
+                  {formatDateTime(latestRecord.recordDate)} • {extractDoctorName(latestRecord.doctorId)}
+                </Text>
+              </View>
+            ) : null}
+          </Card>
+
+          {/* Quick Stats */}
+          <View className="flex-row flex-wrap gap-4">
+            {quickStats.map(({ id, label, value, description, background, color, icon }) => (
+              <View key={id} className="w-full flex-1" style={{ minWidth: '48%' }}>
+                <Card shadow="md" className="h-full p-4">
+                  <View className="flex-row items-center space-x-3">
+                    <View
+                      className="h-12 w-12 items-center justify-center rounded-2xl"
+                      style={{ backgroundColor: background }}
+                    >
+                      <Ionicons name={icon} size={22} color={color} />
+                    </View>
+                    <View>
+                      <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
+                        {label}
+                      </Text>
+                      <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>
+                        {value}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="mt-3 text-xs" style={{ color: theme.text.secondary }}>
+                    {description}
+                  </Text>
+                </Card>
+              </View>
+            ))}
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+
+          {/* Filter Card */}
+          <Card shadow="md" className="p-6">
+            <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
+              Bộ lọc hồ sơ
+            </Text>
+            <View className="mt-4 space-y-4">
+              <View
+                className="rounded-2xl p-3"
+                style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
+              >
+                <TextInput
+                  value={searchTerm}
+                  onChangeText={setSearchTerm}
+                  placeholder="Tìm theo triệu chứng, chẩn đoán hoặc tên bác sĩ..."
+                  placeholderTextColor={theme.text.secondary}
+                  className="text-sm"
+                  style={{ color: theme.text.primary }}
+                />
+              </View>
+
+              <View className="flex-row flex-wrap gap-3">
+                {STATUS_FILTERS.map((option) => {
+                  const isActive = statusFilter === option.id;
+                  return (
+                    <TouchableOpacity
+                      key={option.id}
+                      onPress={() => setStatusFilter(option.id)}
+                      className="rounded-2xl px-4 py-2"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: isActive ? Colors.primary[600] : Colors.primary[100],
+                        backgroundColor: isActive ? Colors.primary[600] : theme.card,
+                      }}
+                    >
+                      <Text
+                        className="text-xs font-semibold"
+                        style={{ color: isActive ? '#ffffff' : Colors.primary[700] }}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setFollowUpOnly((prev) => !prev)}
+                className="flex-row items-center justify-between rounded-2xl px-4 py-3"
+                style={{
+                  borderWidth: 1,
+                  borderColor: followUpOnly ? Colors.success[600] : theme.border,
+                  backgroundColor: followUpOnly ? Colors.success[50] : theme.card,
+                }}
+              >
+                <View className="flex-row items-center space-x-3">
+                  <Ionicons
+                    name="time-outline"
+                    size={18}
+                    color={followUpOnly ? Colors.success[700] : theme.text.secondary}
+                  />
+                  <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                    Chỉ hiển thị hồ sơ cần tái khám
+                  </Text>
+                </View>
+                <View
+                  className="h-5 w-5 items-center justify-center rounded-full"
+                  style={{ backgroundColor: followUpOnly ? Colors.success[600] : theme.border }}
+                >
+                  <Text className="text-[10px] font-bold text-white">{followUpOnly ? '✓' : ''}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </Card>
+
+          {/* Error Message */}
+          {errorMessage ? (
+            <Card
+              shadow="md"
+              className="p-4"
+              style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}
+            >
+              <View className="flex-row items-center space-x-2">
+                <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[700]} />
+                <Text className="flex-1 text-sm font-semibold" style={{ color: Colors.warning[700] }}>
+                  {errorMessage}
+                </Text>
+              </View>
+            </Card>
+          ) : null}
+
+          {/* Content */}
+          {loading && records.length === 0 ? (
+            <Card shadow="md" className="items-center justify-center p-8">
+              <ActivityIndicator color={Colors.primary[600]} />
+              <Text className="mt-3 text-sm" style={{ color: theme.text.secondary }}>
+                Đang tải hồ sơ bệnh án...
+              </Text>
+            </Card>
+          ) : filteredRecords.length === 0 ? (
+            <Card shadow="md" className="items-center justify-center p-8">
+              <View
+                className="rounded-full p-4"
+                style={{ backgroundColor: Colors.primary[50] }}
+              >
+                <Ionicons name="layers-outline" size={28} color={Colors.primary[600]} />
+              </View>
+              <Text className="mt-3 text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                Chưa có hồ sơ phù hợp
+              </Text>
+              <Text className="mt-1 text-xs text-center" style={{ color: theme.text.secondary }}>
+                Thử thay đổi bộ lọc hoặc đặt lịch khám mới để tạo thêm hồ sơ.
+              </Text>
+            </Card>
+          ) : (
+            <View className="space-y-5">
+              {filteredRecords.map((record) => (
+                <RecordCard key={record._id ?? `${record.recordDate}-${extractDoctorName(record.doctorId)}`} record={record} />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
+    </>
   );
 }

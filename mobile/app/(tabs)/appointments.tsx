@@ -1,24 +1,12 @@
-import DateTimePicker, { DateTimePickerAndroid, DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-  AlertTriangle,
-  Calendar,
-  CheckCircle,
-  Clock,
-  MapPin,
-  MessageSquare,
-  Phone,
-  Users,
-  Video,
-} from 'lucide-react-native';
-import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -26,9 +14,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import BookingStepModal from '@/components/appointments/BookingStepModal';
+import { AppHeader } from '@/components/layout/AppHeader';
+import { PolicyButton, PolicyModal } from '@/components/policy';
+import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/Card';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import paymentService from '@/services/paymentService';
 import { apiRequest, formatApiError } from '@/utils/api';
 
 type Doctor = {
@@ -49,30 +45,14 @@ type AppointmentDisplay = {
   isVirtual: boolean;
   statusLabel: string;
   statusVariant: keyof typeof STATUS_STYLES;
+  canCancel?: boolean;
   raw: Record<string, unknown>;
   sortKey: number;
 };
 
 const MINIMUM_LEAD_MS = 2 * 60 * 60 * 1000;
 
-const AVAILABLE_TIMES = [
-  '08:00',
-  '08:30',
-  '09:00',
-  '09:30',
-  '10:00',
-  '10:30',
-  '11:00',
-  '11:30',
-  '14:00',
-  '14:30',
-  '15:00',
-  '15:30',
-  '16:00',
-  '16:30',
-];
-
-const APPOINTMENT_TYPE_OPTIONS = ['Khám định kỳ', 'Tư vấn trực tuyến', 'Khám cấp cứu'];
+// Time slots are now generated dynamically based on duration and booked slots
 
 const STATUS_STYLES = {
   pending: { text: '#b45309', background: '#fef3c7' },
@@ -181,18 +161,18 @@ function isVirtualMode(type?: string, location?: string): boolean {
   return locationText.includes('video') || locationText.includes('online') || locationText.includes('zoom');
 }
 
-function mapStatus(status?: string): { label: string; variant: keyof typeof STATUS_STYLES } {
+function mapStatus(status?: string): { label: string; variant: keyof typeof STATUS_STYLES; canCancel: boolean } {
   const normalized = (status ?? '').toLowerCase();
   if (normalized.includes('confirm')) {
-    return { label: 'Đã xác nhận', variant: 'confirmed' };
+    return { label: 'Đã xác nhận', variant: 'confirmed', canCancel: true };
   }
   if (normalized.includes('complete')) {
-    return { label: 'Đã hoàn thành', variant: 'completed' };
+    return { label: 'Đã hoàn thành', variant: 'completed', canCancel: false };
   }
   if (normalized.includes('cancel')) {
-    return { label: 'Đã hủy', variant: 'cancelled' };
+    return { label: 'Đã hủy', variant: 'cancelled', canCancel: false };
   }
-  return { label: 'Đang chờ xác nhận', variant: 'pending' };
+  return { label: 'Đang chờ xác nhận', variant: 'pending', canCancel: true };
 }
 
 function buildAppointmentDisplay(appointment: Record<string, any>): AppointmentDisplay {
@@ -200,7 +180,7 @@ function buildAppointmentDisplay(appointment: Record<string, any>): AppointmentD
   const startTime = normalizeTimeString(appointment.startTime ?? appointment.time ?? appointment.appointmentTime);
   const endTime = normalizeTimeString(appointment.endTime ?? appointment.finishTime ?? appointment.expectedEndTime);
   const timeLabel = startTime ? (endTime ? `${startTime} - ${endTime}` : startTime) : '—';
-  const { label: statusLabel, variant } = mapStatus(appointment.status);
+  const { label: statusLabel, variant, canCancel } = mapStatus(appointment.status);
   const doctorName = extractDoctorName(appointment);
   const location = extractLocation(appointment);
   const title = extractTitle(appointment);
@@ -218,6 +198,7 @@ function buildAppointmentDisplay(appointment: Record<string, any>): AppointmentD
     isVirtual,
     statusLabel,
     statusVariant: variant,
+    canCancel,
     raw: appointment,
     sortKey: dateTime ? dateTime.getTime() : Number.MAX_SAFE_INTEGER,
   };
@@ -243,80 +224,108 @@ function AppointmentCard({
   onCancel: (item: AppointmentDisplay) => void;
   cancelling: boolean;
 }) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
+  
   return (
-    <View className="rounded-3xl border border-white/70 bg-white/90 p-5 shadow-lg shadow-blue-100">
+    <Card shadow="md" className="mb-4">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-2">
-          <Text className="text-base font-semibold text-slate-900">{appointment.title}</Text>
-          <Text className="mt-1 text-sm text-slate-500">{appointment.doctorName}</Text>
-        </View>
-        <View className={`rounded-full px-3 py-1 ${appointment.isVirtual ? 'bg-emerald-100' : 'bg-blue-100'}`}>
-          <Text className={`text-xs font-semibold ${appointment.isVirtual ? 'text-emerald-700' : 'text-blue-700'}`}>
-            {appointment.isVirtual ? 'Trực tuyến' : 'Tại phòng khám'}
+          <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
+            {appointment.title}
+          </Text>
+          <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
+            {appointment.doctorName}
           </Text>
         </View>
+        <Badge 
+          variant={appointment.isVirtual ? 'success' : 'primary'}
+          size="sm"
+        >
+          {appointment.isVirtual ? 'Trực tuyến' : 'Tại phòng khám'}
+        </Badge>
       </View>
 
-      <View className="mt-4 space-y-3">
-        <View className="flex-row items-center space-x-3">
-          <Calendar color="#1d4ed8" size={18} />
-          <Text className="text-sm font-medium text-slate-700">
+      <View className="mt-4 gap-3">
+        <View className="flex-row items-center gap-3">
+          <Ionicons name="calendar-outline" size={18} color={Colors.primary[600]} />
+          <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
             {appointment.dateLabel} • {appointment.timeLabel}
           </Text>
         </View>
-        <View className="flex-row items-center space-x-3">
-          <MapPin color="#1d4ed8" size={18} />
-          <Text className="flex-1 text-sm text-slate-600">{appointment.location}</Text>
+        <View className="flex-row items-center gap-3">
+          <Ionicons name="location-outline" size={18} color={Colors.primary[600]} />
+          <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
+            {appointment.location}
+          </Text>
         </View>
         <AppointmentStatusPill label={appointment.statusLabel} variant={appointment.statusVariant} />
       </View>
 
-      <View className="mt-5 flex-row space-x-3">
-        <TouchableOpacity
-          className="flex-1 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 py-3"
-          onPress={() =>
-            Alert.alert(
-              'Liên hệ bác sĩ',
-              'Tính năng trao đổi trực tiếp đang được phát triển trên ứng dụng di động. Vui lòng sử dụng cổng web để trò chuyện với bác sĩ.',
-            )
-          }
-        >
-          <View className="flex-row items-center space-x-2">
-            <MessageSquare color="#1d4ed8" size={18} />
-            <Text className="text-sm font-semibold text-blue-700">Trao đổi</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className="flex-1 items-center justify-center rounded-2xl bg-red-50 py-3"
-          onPress={() => onCancel(appointment)}
-          disabled={cancelling}
-        >
-          {cancelling ? (
-            <View className="flex-row items-center space-x-2">
-              <ActivityIndicator color="#b91c1c" />
-              <Text className="text-sm font-semibold text-red-700">Đang hủy...</Text>
+      {/* Action Buttons - Only show if appointment can be cancelled */}
+      {appointment.canCancel !== false && (
+        <View className="mt-5 flex-row gap-3">
+          <TouchableOpacity
+            className="flex-1 items-center justify-center rounded-2xl py-3"
+            style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[200] }}
+            onPress={() =>
+              Alert.alert(
+                'Liên hệ bác sĩ',
+                'Tính năng trao đổi trực tiếp đang được phát triển trên ứng dụng di động. Vui lòng sử dụng cổng web để trò chuyện với bác sĩ.',
+              )
+            }
+          >
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="chatbubble-outline" size={18} color={Colors.primary[600]} />
+              <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                Trao đổi
+              </Text>
             </View>
-          ) : (
-            <Text className="text-sm font-semibold text-red-700">Hủy lịch</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 items-center justify-center rounded-2xl py-3"
+            style={{ backgroundColor: Colors.error[50] }}
+            onPress={() => onCancel(appointment)}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <View className="flex-row items-center gap-2">
+                <ActivityIndicator color={Colors.error[600]} />
+                <Text className="text-sm font-semibold" style={{ color: Colors.error[700] }}>
+                  Đang hủy...
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-sm font-semibold" style={{ color: Colors.error[700] }}>
+                Hủy lịch
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+    </Card>
   );
 }
 
 function HistoryCard({ appointment }: { appointment: AppointmentDisplay }) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
+  
   return (
-    <View className="rounded-2xl border border-white/60 bg-white/85 p-4">
-      <Text className="text-sm font-semibold text-slate-900">{appointment.title}</Text>
-      <Text className="mt-1 text-xs text-slate-500">
+    <Card shadow="sm" className="mb-3">
+      <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+        {appointment.title}
+      </Text>
+      <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
         {appointment.dateLabel} • {appointment.timeLabel}
       </Text>
-      <Text className="mt-2 text-xs text-slate-500">{appointment.doctorName}</Text>
+      <Text className="mt-2 text-xs" style={{ color: theme.text.secondary }}>
+        {appointment.doctorName}
+      </Text>
       <View className="mt-3">
         <AppointmentStatusPill label={appointment.statusLabel} variant={appointment.statusVariant} />
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -333,14 +342,21 @@ function DoctorSelectModal({
   onClose: () => void;
   onSelect: (doctorId: string) => void;
 }) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
+  
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 items-center justify-center bg-slate-900/40">
-        <View className="max-h-[70%] w-11/12 rounded-3xl bg-white p-5 shadow-2xl">
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <View className="max-h-[70%] w-11/12 rounded-3xl p-5 shadow-2xl" style={{ backgroundColor: theme.card }}>
           <View className="mb-4 flex-row items-center justify-between">
-            <Text className="text-lg font-semibold text-slate-900">Chọn bác sĩ</Text>
+            <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
+              Chọn bác sĩ
+            </Text>
             <TouchableOpacity onPress={onClose}>
-              <Text className="text-sm font-medium text-blue-600">Đóng</Text>
+              <Text className="text-sm font-medium" style={{ color: Colors.primary[600] }}>
+                Đóng
+              </Text>
             </TouchableOpacity>
           </View>
           <ScrollView className="max-h-96">
@@ -350,17 +366,24 @@ function DoctorSelectModal({
               return (
                 <TouchableOpacity
                   key={id}
-                  className={`mb-3 rounded-2xl border px-4 py-3 ${
-                    isActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-slate-50'
-                  }`}
+                  className="mb-3 rounded-2xl px-4 py-3"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: isActive ? Colors.primary[500] : Colors[colorScheme ?? 'light'].border,
+                    backgroundColor: isActive ? Colors.primary[50] : theme.card,
+                  }}
                   onPress={() => {
                     onSelect(id);
                     onClose();
                   }}
                 >
-                  <Text className="text-sm font-semibold text-slate-900">{doctor.fullName ?? doctor.name ?? 'Bác sĩ'}</Text>
+                  <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                    {doctor.fullName ?? doctor.name ?? 'Bác sĩ'}
+                  </Text>
                   {doctor.specialty ? (
-                    <Text className="mt-1 text-xs text-slate-500">{doctor.specialty}</Text>
+                    <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
+                      {doctor.specialty}
+                    </Text>
                   ) : null}
                 </TouchableOpacity>
               );
@@ -379,6 +402,8 @@ function DoctorSelectModal({
 
 export default function AppointmentsScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
   const { session, isAuthenticated, isHydrating } = useAuth();
 
   const patientId = session?.user?._id ?? '';
@@ -394,20 +419,23 @@ export default function AppointmentsScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
-  const [appointmentType, setAppointmentType] = useState(APPOINTMENT_TYPE_OPTIONS[0]);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [inlinePickerDate, setInlinePickerDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState('');
-  const [notes, setNotes] = useState('');
-  const [busyTimes, setBusyTimes] = useState<Set<string>>(new Set());
-  const [checkingBusyTimes, setCheckingBusyTimes] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [showInlineDatePicker, setShowInlineDatePicker] = useState(false);
-  const inlineSelectedDateLabel = useMemo(
-    () => formatVietnameseDate(formatDateInput(inlinePickerDate)),
-    [inlinePickerDate],
-  );
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<AppointmentDisplay | null>(null);
+  
+  // New booking flow states
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedDoctorForBooking, setSelectedDoctorForBooking] = useState<Doctor | null>(null);
+  
+  // Payment loading modal states
+  const [showPaymentLoadingModal, setShowPaymentLoadingModal] = useState(false);
+  const [pendingPaymentInfo, setPendingPaymentInfo] = useState<{
+    appointmentId: string;
+    orderId?: string;
+    timeout: ReturnType<typeof setTimeout>;
+    pollingInterval?: ReturnType<typeof setInterval>;
+  } | null>(null);
 
   const fetchDoctors = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -469,45 +497,6 @@ export default function AppointmentsScreen() {
     [patientId, token],
   );
 
-  const fetchDoctorBusyTimes = useCallback(
-    async (doctorId: string, dateString: string) => {
-      if (!doctorId || !dateString) {
-        setBusyTimes(new Set());
-        return;
-      }
-      try {
-        setCheckingBusyTimes(true);
-        const response = await apiRequest<any>(`/api/v1/appointments/doctor/${doctorId}`, {
-          token,
-        });
-        const payload = response.data as any;
-        const list: Record<string, any>[] = Array.isArray(payload)
-          ? payload
-          : Array.isArray(payload?.results)
-            ? payload.results
-            : Array.isArray(payload?.data)
-              ? payload.data
-              : [];
-        const busy = new Set<string>();
-        list.forEach((item) => {
-          const rawDate = getAppointmentDateRaw(item);
-          if (rawDate !== dateString) return;
-          const time = normalizeTimeString(item.startTime ?? item.time ?? item.appointmentTime);
-          if (time) {
-            busy.add(time);
-          }
-        });
-        setBusyTimes(busy);
-      } catch (error) {
-        console.warn('fetchDoctorBusyTimes failed', error);
-        setBusyTimes(new Set());
-      } finally {
-        setCheckingBusyTimes(false);
-      }
-    },
-    [token],
-  );
-
   useEffect(() => {
     if (!isAuthenticated) return;
     void fetchDoctors();
@@ -520,63 +509,12 @@ export default function AppointmentsScreen() {
     }, [patientId, token, fetchAppointments]),
   );
 
-  useEffect(() => {
-    if (selectedDoctorId && selectedDate) {
-      void fetchDoctorBusyTimes(selectedDoctorId, selectedDate);
-    } else {
-      setBusyTimes(new Set());
-    }
-  }, [selectedDoctorId, selectedDate, fetchDoctorBusyTimes]);
-
-  useEffect(() => {
-    if (selectedDate) {
-      setInlinePickerDate(dateFromInput(selectedDate));
-    } else {
-      setInlinePickerDate(new Date());
-    }
-  }, [selectedDate]);
-
-  useEffect(() => {
-    setSelectedTime('');
-  }, [selectedDate, selectedDoctorId]);
-
   const onRefresh = useCallback(async () => {
     if (!patientId || !token) return;
     setRefreshing(true);
     await fetchAppointments(false);
     setRefreshing(false);
   }, [fetchAppointments, patientId, token]);
-
-  const openDatePicker = useCallback(() => {
-    const initialDate = selectedDate ? dateFromInput(selectedDate) : new Date();
-    setInlinePickerDate(initialDate);
-
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        mode: 'date',
-        value: initialDate,
-        minimumDate: new Date(),
-        onChange: (event: DateTimePickerEvent, dateValue?: Date) => {
-          if (event.type === 'dismissed') {
-            return;
-          }
-          if (dateValue) {
-            setSelectedDate(formatDateInput(dateValue));
-          }
-        },
-      });
-      return;
-    }
-
-    setShowInlineDatePicker(true);
-  }, [selectedDate]);
-
-  const handleWebDateChange = useCallback((event: { target?: { value?: string } }) => {
-    const value = event?.target?.value;
-    if (value) {
-      setInlinePickerDate(dateFromInput(value));
-    }
-  }, []);
 
   const upcomingAndHistory = useMemo(() => {
     const now = new Date();
@@ -586,9 +524,15 @@ export default function AppointmentsScreen() {
     appointments.forEach((item) => {
       const display = buildAppointmentDisplay(item);
       const dateTime = getAppointmentDateTime(item);
+      // Only show cancel button for upcoming appointments that are not completed or cancelled
       if (!dateTime || dateTime.getTime() >= now.getTime()) {
+        // Upcoming appointments can be cancelled if status is pending or confirmed
+        const status = (item.status || '').toLowerCase();
+        display.canCancel = !status.includes('complete') && !status.includes('cancel') && !status.includes('paid');
         upcoming.push(display);
       } else {
+        // Past appointments cannot be cancelled
+        display.canCancel = false;
         history.push(display);
       }
     });
@@ -599,106 +543,209 @@ export default function AppointmentsScreen() {
     return { upcoming, history };
   }, [appointments]);
 
-  const isTimeDisabled = useCallback(
-    (time: string) => {
-      if (!selectedDate) {
-        return true;
-      }
-      if (busyTimes.has(time)) {
-        return true;
-      }
-      const dateTime = combineDateAndTime(selectedDate, time);
-      if (!dateTime) {
-        return true;
-      }
-      const now = new Date();
-      if (dateTime.getTime() <= now.getTime()) {
-        return true;
-      }
-      if (dateTime.getTime() - now.getTime() < MINIMUM_LEAD_MS) {
-        return true;
-      }
-      return false;
-    },
-    [selectedDate, busyTimes],
-  );
-
-  const handleSubmit = useCallback(async () => {
-    if (!isAuthenticated || !patientId || !token) {
-      Alert.alert('Cần đăng nhập', 'Vui lòng đăng nhập để đặt lịch hẹn.');
-      return;
-    }
-
-    if (!selectedDoctorId) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng chọn bác sĩ phụ trách.');
-      return;
-    }
-
-    if (!selectedDate || !selectedTime) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng chọn ngày và giờ khám.');
-      return;
-    }
-
-    const dateTime = combineDateAndTime(selectedDate, selectedTime);
-    if (!dateTime) {
-      Alert.alert('Thời gian không hợp lệ', 'Không thể xác định thời gian đã chọn.');
-      return;
-    }
-
-    const now = new Date();
-    if (dateTime.getTime() <= now.getTime()) {
-      Alert.alert('Thời gian không hợp lệ', 'Không thể đặt lịch vào thời điểm đã qua.');
-      return;
-    }
-
-    if (dateTime.getTime() - now.getTime() < MINIMUM_LEAD_MS) {
-      Alert.alert('Thời gian quá gấp', 'Vui lòng đặt lịch trước ít nhất 2 giờ.');
-      return;
-    }
-
-    setSubmitting(true);
-
+  // Handle payment timeout
+  const handlePaymentTimeout = useCallback(async (appointmentId: string) => {
     try {
-      const endTime = addMinutesToTime(selectedTime, 30);
-      const appointmentDateISO = new Date(`${selectedDate}T00:00:00.000Z`).toISOString();
+      console.warn('⏰ Payment timeout - cancelling appointment:', appointmentId);
+      
+      // Clear polling if exists
+      if (pendingPaymentInfo?.pollingInterval) {
+        clearInterval(pendingPaymentInfo.pollingInterval);
+      }
+      
+      // Close loading modal
+      setShowPaymentLoadingModal(false);
+      setPendingPaymentInfo(null);
 
-      await apiRequest('/api/v1/appointments', {
-        method: 'POST',
-        token,
-        body: {
-          patientId,
-          doctorId: selectedDoctorId,
-          appointmentDate: appointmentDateISO,
-          startTime: selectedTime,
-          endTime,
-          appointmentType,
-          notes: notes.trim(),
-          duration: 30,
-        },
-      });
+      // Cancel appointment due to timeout
+      if (token) {
+        await apiRequest(`/api/v1/appointments/${appointmentId}/cancel`, {
+          method: 'DELETE',
+          token,
+          body: { 
+            reason: 'Thanh toán quá thời hạn - không nhận được xác nhận từ MoMo',
+            cancelledBy: 'patient',
+          },
+        });
+      }
 
-      Alert.alert('Đặt lịch thành công', 'Lịch hẹn của bạn đã được tạo. Vui lòng chờ bác sĩ xác nhận.');
-      setSelectedDate('');
-      setSelectedTime('');
-      setNotes('');
-      await fetchAppointments();
-    } catch (error) {
-      const message = formatApiError(error, 'Không thể tạo lịch hẹn. Vui lòng thử lại.');
-      Alert.alert('Đặt lịch thất bại', message);
-    } finally {
-      setSubmitting(false);
+      Alert.alert(
+        'Thanh toán quá thời hạn',
+        'Chúng tôi không nhận được xác nhận thanh toán từ MoMo. Lịch hẹn đã được hủy. Vui lòng thử lại.',
+        [{ text: 'OK', onPress: () => fetchAppointments() }]
+      );
+    } catch (error: any) {
+      console.error('❌ Failed to cancel appointment on timeout:', error);
     }
-  }, [
-    isAuthenticated,
-    patientId,
-    token,
-    selectedDoctorId,
-    selectedDate,
-    selectedTime,
-    appointmentType,
-    notes,
-    fetchAppointments,
-  ]);
+  }, [token, fetchAppointments, pendingPaymentInfo]);
+
+  // Handle MoMo payment callback via deep linking
+  const handleMoMoCallback = useCallback(async (url: string) => {
+    try {
+      console.log('📱 MoMo callback received:', url);
+      
+      // Check if we're waiting for payment
+      if (!showPaymentLoadingModal || !pendingPaymentInfo) {
+        console.log('⚠️ No pending payment, ignoring callback...');
+        return;
+      }
+      
+      // Parse URL to extract query parameters
+      try {
+        // Extract query string from URL
+        const urlParts = url.split('?');
+        if (urlParts.length < 2) {
+          console.log('⚠️ No query parameters in URL, ignoring...');
+          return;
+        }
+
+        const queryString = urlParts[1];
+        const params = new URLSearchParams(queryString);
+        
+        const orderId = params.get('orderId');
+        const resultCode = params.get('resultCode');
+        const message = params.get('message');
+
+        // Only process if we have orderId and resultCode
+        if (!orderId || !resultCode) {
+          console.log('⚠️ Missing callback parameters, ignoring...');
+          return;
+        }
+
+        // Clear timeout and polling
+        if (pendingPaymentInfo.timeout) {
+          clearTimeout(pendingPaymentInfo.timeout);
+        }
+        if (pendingPaymentInfo.pollingInterval) {
+          clearInterval(pendingPaymentInfo.pollingInterval);
+        }
+
+        console.log('🔍 MoMo callback params:', { orderId, resultCode, message });
+
+        // Close loading modal
+        setShowPaymentLoadingModal(false);
+        setPendingPaymentInfo(null);
+
+        // resultCode = 0 means payment successful
+        if (resultCode === '0') {
+          console.log('✅ Payment successful, checking status...');
+          
+          if (!token) {
+            console.warn('⚠️ No token available, cannot verify payment');
+            return;
+          }
+
+          // Wait a bit for backend to process the callback
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          // Query payment status from backend
+          try {
+            const paymentStatus = await paymentService.checkPaymentStatus(orderId, token);
+            console.log('💰 Payment status:', paymentStatus);
+
+            // Check if payment is completed
+            const payment = paymentStatus?.data?.payment || paymentStatus?.payment;
+            const isCompleted = payment?.status === 'completed' || payment?.status === 'success' || paymentStatus?.success;
+
+            if (isCompleted) {
+              console.log('✅ Payment confirmed, appointment confirmed...');
+              
+              // Refresh appointments to show updated status
+              await fetchAppointments();
+              
+              // Show success message
+              Alert.alert(
+                'Thanh toán thành công!',
+                'Lịch hẹn của bạn đã được xác nhận. Doanh thu đã được ghi nhận.',
+                [{ text: 'OK' }]
+              );
+            } else {
+              console.warn('⚠️ Payment not completed yet:', payment?.status);
+              
+              // Cancel appointment if payment not completed
+              try {
+                await apiRequest(`/api/v1/appointments/${pendingPaymentInfo.appointmentId}/cancel`, {
+                  method: 'DELETE',
+                  token,
+                  body: { 
+                    reason: 'Thanh toán chưa được xác nhận hoàn tất',
+                    cancelledBy: 'patient',
+                  },
+                });
+                await fetchAppointments();
+              } catch (e) {
+                console.error('Failed to cancel appointment:', e);
+              }
+              
+              Alert.alert(
+                'Thanh toán chưa hoàn tất',
+                'Thanh toán chưa được xác nhận hoàn tất. Lịch hẹn đã được hủy. Vui lòng thử lại.',
+                [{ text: 'OK' }]
+              );
+            }
+          } catch (error: any) {
+            console.error('❌ Failed to check payment status:', error);
+            Alert.alert(
+              'Lỗi xác nhận thanh toán',
+              'Không thể xác nhận trạng thái thanh toán. Vui lòng kiểm tra lại lịch hẹn của bạn.',
+              [{ text: 'OK', onPress: () => fetchAppointments() }]
+            );
+          }
+        } else {
+          // Payment failed or cancelled
+          console.log('❌ Payment failed or cancelled:', { resultCode, message });
+          
+          // Cancel appointment due to payment failure
+          try {
+            await apiRequest(`/api/v1/appointments/${pendingPaymentInfo.appointmentId}/cancel`, {
+              method: 'DELETE',
+              token,
+              body: { 
+                reason: 'Thanh toán không thành công hoặc bị hủy',
+                cancelledBy: 'patient',
+              },
+            });
+            await fetchAppointments();
+          } catch (e) {
+            console.error('Failed to cancel appointment:', e);
+          }
+          
+          Alert.alert(
+            'Thanh toán không thành công',
+            message || 'Thanh toán không thành công hoặc bị hủy. Lịch hẹn đã được hủy. Vui lòng thử lại.',
+            [{ text: 'OK' }]
+          );
+        }
+      } catch (parseError) {
+        console.error('❌ Failed to parse callback URL:', parseError);
+        setShowPaymentLoadingModal(false);
+        setPendingPaymentInfo(null);
+      }
+    } catch (error: any) {
+      console.error('❌ Error handling MoMo callback:', error);
+      setShowPaymentLoadingModal(false);
+      setPendingPaymentInfo(null);
+    }
+  }, [token, fetchAppointments, showPaymentLoadingModal, pendingPaymentInfo]);
+
+  // Set up deep linking listener
+  useEffect(() => {
+    // Handle initial URL (when app is opened via deep link)
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleMoMoCallback(url);
+      }
+    });
+
+    // Listen for deep link events (when app is already running)
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleMoMoCallback(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [handleMoMoCallback]);
 
   const handleCancelAppointment = useCallback(
     (appointment: AppointmentDisplay) => {
@@ -707,434 +754,995 @@ export default function AppointmentsScreen() {
         return;
       }
 
-      Alert.alert('Hủy lịch hẹn', 'Bạn có chắc muốn hủy lịch hẹn này không?', [
-        { text: 'Không', style: 'cancel' },
-        {
-          text: 'Đồng ý',
-          style: 'destructive',
-          onPress: async () => {
-            setCancellingId(appointment.id);
-            try {
-              await apiRequest(`/api/v1/appointments/${appointment.id}/cancel`, {
-                method: 'DELETE',
-                token,
-                body: { reason: 'Hủy bởi bệnh nhân trên ứng dụng di động' },
-              });
-              Alert.alert('Đã hủy lịch hẹn');
-              await fetchAppointments();
-            } catch (error) {
-              const message = formatApiError(error, 'Không thể hủy lịch hẹn.');
-              Alert.alert('Hủy lịch thất bại', message);
-            } finally {
-              setCancellingId(null);
-            }
-          },
-        },
-      ]);
+      // Open cancel modal instead of simple Alert
+      setAppointmentToCancel(appointment);
+      setShowCancelModal(true);
     },
-    [token, fetchAppointments],
+    [token],
   );
 
-  const formDisabled = !isAuthenticated || submitting || isHydrating;
+  const handleConfirmCancel = useCallback(
+    async (reason: string) => {
+      if (!appointmentToCancel || !token) {
+        return;
+      }
+
+      setCancellingId(appointmentToCancel.id);
+      try {
+        await apiRequest(`/api/v1/appointments/${appointmentToCancel.id}/cancel`, {
+          method: 'DELETE',
+          token,
+          body: { 
+            reason: reason || 'Hủy bởi bệnh nhân trên ứng dụng di động',
+            cancelledBy: 'patient',
+          },
+        });
+        Alert.alert('Thành công', 'Đã hủy lịch hẹn thành công');
+        setShowCancelModal(false);
+        setAppointmentToCancel(null);
+        await fetchAppointments();
+      } catch (error) {
+        const message = formatApiError(error, 'Không thể hủy lịch hẹn.');
+        Alert.alert('Hủy lịch thất bại', message);
+      } finally {
+        setCancellingId(null);
+      }
+    },
+    [appointmentToCancel, token, fetchAppointments],
+  );
+
+  // New booking flow handlers
+  const handleOpenBookingModal = (doctor?: Doctor) => {
+    if (!isAuthenticated || !patientId) {
+      Alert.alert('Cần đăng nhập', 'Vui lòng đăng nhập để đặt lịch hẹn.');
+      return;
+    }
+
+    // Use selected doctor from form or passed doctor
+    const doctorToBook = doctor || doctors.find((d) => (d._id ?? d.id) === selectedDoctorId);
+    
+    if (!doctorToBook) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng chọn bác sĩ phụ trách.');
+      return;
+    }
+
+    setSelectedDoctorForBooking(doctorToBook);
+    setShowBookingModal(true);
+  };
+
+  const handleBookingConfirm = async (formData: any) => {
+    if (!token || !patientId) {
+      throw new Error('Vui lòng đăng nhập để đặt lịch');
+    }
+
+    try {
+      // Validate required fields (same as client)
+      if (!formData.startTime || !formData.appointmentDate || !formData.doctorId) {
+        throw new Error('Vui lòng điền đầy đủ thông tin');
+      }
+
+      // Validate time format HH:MM
+      const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
+      if (!timeRegex.test(formData.startTime)) {
+        throw new Error('Định dạng giờ không hợp lệ. Vui lòng chọn lại.');
+      }
+
+      // Step 1: Create appointment payload (same structure as client)
+      // Calculate duration from startTime and endTime if available
+      let duration = 30; // default
+      if (formData.endTime && formData.startTime) {
+        const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+        const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
+        duration = endHours * 60 + endMinutes - (startHours * 60 + startMinutes);
+      }
+
+      const appointmentPayload = {
+        patientId,
+        doctorId: formData.doctorId,
+        appointmentDate: formData.appointmentDate, // Already in ISO format from date picker
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        duration,
+        consultationFee: formData.paymentAmount,
+        appointmentType:
+          formData.consultType === 'televisit'
+            ? 'Tư vấn từ xa'
+            : formData.consultType === 'home-visit'
+            ? 'Khám tại nhà'
+            : 'Khám tại phòng khám',
+        notes: formData.chiefComplaint || '',
+        status: formData.paymentMethod === 'momo' ? 'pending_payment' : 'pending',
+        // Add patient info if booking for someone else
+        ...((!formData.bookForSelf && {
+          patientFirstName: formData.patientFirstName,
+          patientLastName: formData.patientLastName,
+          patientDOB: formData.patientDOB,
+          patientGender: formData.patientGender,
+        }) || {}),
+        // Add voucher if applied
+        ...(formData.voucherCode && { voucherCode: formData.voucherCode }),
+        ...(formData.voucherId && { appliedVoucherId: formData.voucherId }),
+      };
+
+      // Create appointment
+      const appointmentResponse = await apiRequest('/api/v1/appointments', {
+        method: 'POST',
+        token,
+        body: appointmentPayload,
+      });
+
+      const appointment = appointmentResponse.data || appointmentResponse;
+
+      // Step 2: Handle payment based on method
+      if (formData.paymentMethod === 'momo') {
+        // MoMo payment flow
+        await handleMoMoPayment(appointment, formData);
+      } else {
+        // Cash or later payment - appointment created successfully
+        Alert.alert(
+          'Đặt lịch thành công',
+          formData.paymentMethod === 'cash'
+            ? 'Lịch hẹn của bạn đã được tạo. Vui lòng thanh toán tiền mặt khi đến khám.'
+            : 'Lịch hẹn của bạn đã được tạo. Vui lòng chờ bác sĩ xác nhận.',
+          [{ text: 'OK', onPress: () => fetchAppointments() }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Booking error:', error);
+      throw error;
+    }
+  };
+
+  const handleMoMoPayment = async (appointment: any, formData: any) => {
+    try {
+      if (!token || !patientId) {
+        throw new Error('Thiếu thông tin người dùng');
+      }
+
+      const appointmentId = appointment._id || appointment.id;
+      if (!appointmentId) {
+        throw new Error('Không thể lấy ID lịch hẹn');
+      }
+
+      // Create MoMo payment (same as client)
+      const paymentResponse = await paymentService.createMoMoPayment(
+        {
+          appointmentId,
+          patientId,
+          doctorId: formData.doctorId,
+          amount: formData.paymentAmount,
+          orderInfo: `Thanh toán lịch khám với ${selectedDoctorForBooking?.fullName || 'bác sĩ'}`,
+        },
+        token
+      );
+
+      if (!paymentResponse.success || !paymentResponse.data?.payUrl) {
+        // Cancel appointment if payment creation failed (same as client)
+        try {
+          await apiRequest(`/api/v1/appointments/${appointmentId}/cancel`, {
+            method: 'DELETE',
+            token,
+            body: { reason: 'Không thể tạo thanh toán' },
+          });
+        } catch (e) {
+          console.error('Failed to cancel appointment:', e);
+        }
+
+        throw new Error(paymentResponse.message || 'Không thể tạo thanh toán MoMo');
+      }
+
+      const orderId = paymentResponse.data?.orderId;
+
+      // Auto-open MoMo after short delay (like client web)
+      // This will show loading modal and wait for callback
+      setTimeout(async () => {
+        try {
+          await openMoMoPayment(paymentResponse.data!.payUrl, appointmentId, orderId);
+        } catch (e) {
+          console.error('Failed to auto-open MoMo:', e);
+          // Cancel appointment if can't open MoMo
+          try {
+            await apiRequest(`/api/v1/appointments/${appointmentId}/cancel`, {
+              method: 'DELETE',
+              token,
+              body: { 
+                reason: 'Không thể mở ứng dụng MoMo',
+                cancelledBy: 'patient',
+              },
+            });
+          } catch (cancelError) {
+            console.error('Failed to cancel appointment:', cancelError);
+          }
+          setShowPaymentLoadingModal(false);
+          setPendingPaymentInfo(null);
+        }
+      }, 1500);
+    } catch (error: any) {
+      console.error('MoMo payment error:', error);
+      Alert.alert('Lỗi thanh toán', error.message || 'Không thể tạo thanh toán MoMo. Vui lòng thử lại.');
+      throw error; // Re-throw to parent
+    }
+  };
+
+  const openMoMoPayment = async (payUrl: string, appointmentId: string, orderId?: string) => {
+    try {
+      // Check if URL can be opened
+      const supported = await Linking.canOpenURL(payUrl);
+      if (supported) {
+        // Set up pending payment info
+        const timeout = setTimeout(() => {
+          // Timeout after 10 minutes - cancel appointment if no callback received
+          console.warn('⚠️ Payment timeout - no callback received after 10 minutes');
+          handlePaymentTimeout(appointmentId);
+        }, 10 * 60 * 1000); // 10 minutes timeout
+
+        // Start polling payment status if we have orderId
+        let pollingInterval: ReturnType<typeof setInterval> | undefined;
+        if (orderId && token) {
+          // Set pending info first to have reference
+          const pendingInfo: {
+            appointmentId: string;
+            orderId?: string;
+            timeout: ReturnType<typeof setTimeout>;
+            pollingInterval?: ReturnType<typeof setInterval>;
+          } = {
+            appointmentId,
+            orderId,
+            timeout,
+          };
+          
+          pollingInterval = setInterval(async () => {
+            try {
+              console.log('🔄 Polling payment status and appointment...', { orderId, appointmentId });
+              
+              // Check payment status first
+              let paymentCompleted = false;
+              if (orderId) {
+                try {
+                  const paymentStatus = await paymentService.checkPaymentStatus(orderId!, token);
+                  const payment = paymentStatus?.data?.payment || paymentStatus?.payment;
+                  paymentCompleted = payment?.status === 'completed' || payment?.status === 'success' || paymentStatus?.success;
+                  
+                  if (paymentCompleted) {
+                    console.log('✅ Payment completed detected!');
+                  }
+                } catch (error) {
+                  console.warn('⚠️ Payment status check failed:', error);
+                }
+              }
+              
+              // Check appointment status and bill
+              try {
+                const appointmentResponse = await apiRequest(`/api/v1/appointments/${appointmentId}`, {
+                  method: 'GET',
+                  token,
+                });
+                
+                const appointment: any = appointmentResponse.data || appointmentResponse;
+                console.log('📋 Appointment status:', appointment?.status);
+                
+                // Check if appointment has payment/bill
+                const hasPayment = !!(appointment?.paymentId || appointment?.payment);
+                const hasBill = !!(appointment?.billId || appointment?.bill || 
+                               (appointment?.bills && Array.isArray(appointment.bills) && appointment.bills.length > 0));
+                
+                // Check if status is confirmed or has payment
+                const appointmentStatus = appointment?.status || '';
+                const isConfirmed = appointmentStatus === 'confirmed' || appointmentStatus === 'paid' || 
+                                   appointmentStatus === 'pending';
+                
+                // If payment completed OR appointment has bill/payment OR status is confirmed with payment
+                if (paymentCompleted || hasPayment || hasBill || (isConfirmed && hasPayment)) {
+                  console.log('✅ Bill/Payment detected! Payment:', hasPayment, 'Bill:', hasBill, 'Status:', appointmentStatus);
+                  
+                  // Get current pending info to clear intervals
+                  setPendingPaymentInfo((current) => {
+                    if (current?.pollingInterval) {
+                      clearInterval(current.pollingInterval);
+                    }
+                    if (current?.timeout) {
+                      clearTimeout(current.timeout);
+                    }
+                    return null;
+                  });
+                  
+                  // Close modal
+                  setShowPaymentLoadingModal(false);
+                  
+                  // Refresh appointments
+                  await fetchAppointments();
+                  
+                  // Show success message
+                  Alert.alert(
+                    'Thanh toán thành công!',
+                    'Lịch hẹn của bạn đã được xác nhận. Hóa đơn đã được tạo và doanh thu đã được ghi nhận.',
+                    [{ text: 'OK' }]
+                  );
+                  
+                  return; // Exit polling
+                }
+              } catch (error) {
+                console.warn('⚠️ Appointment check failed:', error);
+              }
+            } catch (error) {
+              console.error('❌ Polling error:', error);
+            }
+          }, 3000); // Poll every 3 seconds
+          
+          pendingInfo.pollingInterval = pollingInterval;
+          setPendingPaymentInfo(pendingInfo);
+        } else {
+          // Even without orderId, we should poll appointment status to check for bill
+          const pendingInfo: {
+            appointmentId: string;
+            orderId?: string;
+            timeout: ReturnType<typeof setTimeout>;
+            pollingInterval?: ReturnType<typeof setInterval>;
+          } = {
+            appointmentId,
+            orderId,
+            timeout,
+          };
+          
+          // Poll appointment status to check for bill/payment
+          const pollingInterval = setInterval(async () => {
+            try {
+              console.log('🔄 Polling appointment for bill/payment...', appointmentId);
+              
+              const appointmentResponse = await apiRequest(`/api/v1/appointments/${appointmentId}`, {
+                method: 'GET',
+                token,
+              });
+              
+              const appointment: any = appointmentResponse.data || appointmentResponse;
+              
+              // Check if appointment has payment/bill
+              const hasPayment = !!(appointment?.paymentId || appointment?.payment);
+              const hasBill = !!(appointment?.billId || appointment?.bill || 
+                             (appointment?.bills && Array.isArray(appointment.bills) && appointment.bills.length > 0));
+              
+              // Check if status is confirmed or has payment
+              const appointmentStatus = appointment?.status || '';
+              const isConfirmed = appointmentStatus === 'confirmed' || appointmentStatus === 'paid' || 
+                                 appointmentStatus === 'pending';
+              
+              // If appointment has bill/payment OR status is confirmed with payment
+              if (hasPayment || hasBill || (isConfirmed && hasPayment)) {
+                console.log('✅ Bill/Payment detected! Payment:', hasPayment, 'Bill:', hasBill, 'Status:', appointmentStatus);
+                
+                // Get current pending info to clear intervals
+                setPendingPaymentInfo((current) => {
+                  if (current?.pollingInterval) {
+                    clearInterval(current.pollingInterval);
+                  }
+                  if (current?.timeout) {
+                    clearTimeout(current.timeout);
+                  }
+                  return null;
+                });
+                
+                // Close modal
+                setShowPaymentLoadingModal(false);
+                
+                // Refresh appointments
+                await fetchAppointments();
+                
+                // Show success message
+                Alert.alert(
+                  'Thanh toán thành công!',
+                  'Lịch hẹn của bạn đã được xác nhận. Hóa đơn đã được tạo và doanh thu đã được ghi nhận.',
+                  [{ text: 'OK' }]
+                );
+                
+                return; // Exit polling
+              }
+            } catch (error) {
+              console.warn('⚠️ Appointment polling error:', error);
+            }
+          }, 3000); // Poll every 3 seconds
+          
+          pendingInfo.pollingInterval = pollingInterval;
+          setPendingPaymentInfo(pendingInfo);
+        }
+        
+        // Show loading modal
+        setShowPaymentLoadingModal(true);
+        
+        // Open MoMo payment URL
+        await Linking.openURL(payUrl);
+      } else {
+        Alert.alert('Lỗi', 'Không thể mở ứng dụng MoMo. Vui lòng kiểm tra lại hoặc copy URL để mở thủ công.');
+        console.log('MoMo Payment URL:', payUrl);
+        
+        // Cancel appointment if can't open MoMo
+        try {
+          await apiRequest(`/api/v1/appointments/${appointmentId}/cancel`, {
+            method: 'DELETE',
+            token,
+            body: { reason: 'Không thể mở MoMo' },
+          });
+        } catch (e) {
+          console.error('Failed to cancel appointment:', e);
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to open MoMo URL:', error);
+      Alert.alert('Lỗi', 'Không thể mở ứng dụng MoMo. Vui lòng thử lại.');
+      
+      // Cancel appointment if can't open MoMo
+      try {
+        await apiRequest(`/api/v1/appointments/${appointmentId}/cancel`, {
+          method: 'DELETE',
+          token,
+          body: { 
+            reason: 'Lỗi khi mở MoMo',
+            cancelledBy: 'patient',
+          },
+        });
+      } catch (e) {
+        console.error('Failed to cancel appointment:', e);
+      }
+    }
+  };
+
+  const formDisabled = !isAuthenticated || isHydrating;
 
   return (
-    <LinearGradient colors={['#eef2ff', '#e0f2fe', '#fff']} className="flex-1">
-      <SafeAreaView className="flex-1">
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: 12 }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            isAuthenticated ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1d4ed8" /> : undefined
-          }
-        >
-          <View className="space-y-6">
-            <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1 pr-4">
-                  <Text className="text-2xl font-semibold text-slate-900">Quản lý lịch hẹn</Text>
-                  <Text className="mt-2 text-sm text-slate-500">
-                    Đặt lịch mới, xem trạng thái và chuẩn bị cho các buổi khám cùng Smart Dental.
-                  </Text>
-                </View>
-                <View className="items-center justify-center rounded-3xl bg-blue-100 p-4">
-                  <Users color="#1d4ed8" size={28} />
-                </View>
-              </View>
-              {isAuthenticated ? (
-                <Text className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                  Xin chào {session?.user?.fullName ?? session?.user?.email}, hãy chọn bác sĩ và thời gian phù hợp để đặt lịch khám.
-                </Text>
-              ) : (
-                <TouchableOpacity
-                  className="mt-4 items-center justify-center rounded-2xl bg-blue-600 py-3"
-                  onPress={() => router.push('/(auth)/login' as const)}
-                >
-                  <Text className="text-sm font-semibold text-white">Đăng nhập để đặt lịch</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+    <>
+      <AppHeader
+        title="Lịch hẹn"
+        showNotification
+        showAvatar
+        notificationCount={0}
+        rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
+      />
 
-            {errorMessage ? (
-              <View className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
-                <View className="flex-row items-center space-x-2">
-                  <AlertTriangle color="#b45309" size={20} />
-                  <Text className="flex-1 text-sm font-semibold text-amber-800">{errorMessage}</Text>
-                </View>
-              </View>
-            ) : null}
-
-            <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-              <Text className="text-lg font-semibold text-slate-900">Đặt lịch mới</Text>
-              <Text className="mt-2 text-sm text-slate-500">
-                Lựa chọn bác sĩ, khung giờ và ghi chú nhu cầu của bạn. Lịch hẹn sẽ được xác nhận trong thời gian sớm nhất.
+      <ScrollView
+        className="flex-1"
+        style={{ backgroundColor: theme.background }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, paddingTop: 16 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          isAuthenticated ? (
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh} 
+              tintColor={Colors.primary[600]} 
+            />
+          ) : undefined
+        }
+      >
+        {/* Header Card */}
+        <Card className="mb-6">
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1 pr-4">
+              <Text className="text-2xl font-bold" style={{ color: theme.text.primary }}>
+                Quản lý lịch hẹn
               </Text>
-
-              <View className="mt-6 space-y-5">
-                <View>
-                  <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Bác sĩ phụ trách</Text>
-                  <TouchableOpacity
-                    className={`flex-row items-center justify-between rounded-2xl border px-4 py-3 ${
-                      formDisabled ? 'border-slate-200 bg-slate-50' : 'border-blue-200 bg-blue-50'
-                    }`}
-                    onPress={() => setDoctorModalVisible(true)}
-                    disabled={formDisabled}
-                  >
-                    <View className="flex-1">
-                      <Text className="text-sm font-semibold text-slate-900">
-                        {doctors.find((doc) => (doc._id ?? doc.id) === selectedDoctorId)?.fullName ??
-                          doctors.find((doc) => (doc._id ?? doc.id) === selectedDoctorId)?.name ??
-                          'Chọn bác sĩ'}
-                      </Text>
-                      <Text className="mt-1 text-xs text-slate-500">Nhấn để xem danh sách bác sĩ</Text>
-                    </View>
-                    {doctorsLoading ? <ActivityIndicator color="#1d4ed8" /> : <Users color="#1d4ed8" size={20} />}
-                  </TouchableOpacity>
-                </View>
-
-                <View>
-                  <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Ngày khám</Text>
-                  <TouchableOpacity
-                    className={`flex-row items-center justify-between rounded-2xl border px-4 py-3 ${
-                      formDisabled ? 'border-slate-200 bg-slate-50' : 'border-blue-200 bg-blue-50'
-                    }`}
-                    onPress={openDatePicker}
-                    disabled={formDisabled}
-                  >
-                    <Text className="text-sm font-semibold text-slate-900">
-                      {selectedDate ? formatVietnameseDate(selectedDate) : 'Chọn ngày khám'}
-                    </Text>
-                    <Calendar color="#1d4ed8" size={20} />
-                  </TouchableOpacity>
-                </View>
-
-                <View>
-                  <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Khung giờ</Text>
-                  <View className="flex-row flex-wrap gap-3">
-                    {AVAILABLE_TIMES.map((time) => {
-                      const disabled = formDisabled || isTimeDisabled(time);
-                      const selected = selectedTime === time;
-                      return (
-                        <TouchableOpacity
-                          key={time}
-                          disabled={disabled}
-                          onPress={() => setSelectedTime(time)}
-                          className={`rounded-2xl border px-4 py-2 ${
-                            selected ? 'border-blue-600 bg-blue-600' : 'border-blue-100 bg-white'
-                          } ${disabled ? 'opacity-40' : ''}`}
-                        >
-                          <Text className={`text-sm font-semibold ${selected ? 'text-white' : 'text-blue-700'}`}>{time}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  {selectedDate ? (
-                    <View className="mt-3 flex-row items-center space-x-2">
-                      {checkingBusyTimes ? (
-                        <ActivityIndicator color="#1d4ed8" size="small" />
-                      ) : (
-                        <Clock color="#1d4ed8" size={16} />
-                      )}
-                      <Text className="flex-1 text-xs text-slate-500">
-                        {busyTimes.size > 0
-                          ? `Khung giờ đã kín: ${Array.from(busyTimes.values()).sort().join(', ')}`
-                          : 'Chọn khung giờ phù hợp, nên đặt trước ít nhất 2 giờ.'}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View>
-                  <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Loại lịch hẹn</Text>
-                  <View className="flex-row flex-wrap gap-3">
-                    {APPOINTMENT_TYPE_OPTIONS.map((option) => {
-                      const active = appointmentType === option;
-                      return (
-                        <TouchableOpacity
-                          key={option}
-                          className={`rounded-2xl border px-4 py-2 ${
-                            active ? 'border-emerald-500 bg-emerald-100' : 'border-slate-200 bg-white'
-                          }`}
-                          onPress={() => setAppointmentType(option)}
-                          disabled={formDisabled}
-                        >
-                          <Text
-                            className={`text-sm font-semibold ${active ? 'text-emerald-700' : 'text-slate-600'}`}
-                          >
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                <View>
-                  <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Ghi chú cho bác sĩ</Text>
-                  <TextInput
-                    className="min-h-[100px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900"
-                    placeholder="Mô tả triệu chứng, tiền sử bệnh hoặc nhu cầu của bạn..."
-                    placeholderTextColor="#94a3b8"
-                    multiline
-                    value={notes}
-                    onChangeText={setNotes}
-                    editable={!formDisabled}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  className={`items-center justify-center rounded-2xl py-4 ${
-                    formDisabled ? 'bg-slate-300' : 'bg-blue-600'
-                  }`}
-                  onPress={handleSubmit}
-                  disabled={formDisabled}
-                >
-                  {submitting ? (
-                    <View className="flex-row items-center space-x-2">
-                      <ActivityIndicator color="#ffffff" />
-                      <Text className="text-base font-semibold text-white">Đang gửi yêu cầu...</Text>
-                    </View>
-                  ) : (
-                    <Text className="text-base font-semibold text-white">Đặt lịch khám</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+              <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>
+                Đặt lịch mới, xem trạng thái và chuẩn bị cho các buổi khám cùng Smart Dental.
+              </Text>
             </View>
-
-            <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-lg font-semibold text-slate-900">Lịch hẹn sắp tới</Text>
-                <View className="flex-row items-center space-x-2">
-                  <CheckCircle color="#1d4ed8" size={18} />
-                  <Text className="text-xs font-medium text-blue-700">Tự động làm mới</Text>
-                </View>
-              </View>
-              {appointmentsLoading && !refreshing ? (
-                <View className="items-center py-8">
-                  <ActivityIndicator color="#1d4ed8" />
-                </View>
-              ) : upcomingAndHistory.upcoming.length > 0 ? (
-                <View className="mt-5 space-y-4">
-                  {upcomingAndHistory.upcoming.map((appointment) => (
-                    <AppointmentCard
-                      key={appointment.id}
-                      appointment={appointment}
-                      onCancel={handleCancelAppointment}
-                      cancelling={cancellingId === appointment.id}
-                    />
-                  ))}
-                </View>
-              ) : (
-                <View className="mt-5 items-center rounded-3xl border border-dashed border-blue-200 bg-blue-50/60 p-6">
-                  <Calendar color="#1d4ed8" size={28} />
-                  <Text className="mt-3 text-sm font-semibold text-blue-700">Chưa có lịch hẹn nào sắp tới</Text>
-                  <Text className="mt-1 text-xs text-blue-500">Hãy đặt lịch mới để bắt đầu hành trình chăm sóc răng miệng.</Text>
-                </View>
-              )}
-            </View>
-
-            <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-              <Text className="text-lg font-semibold text-slate-900">Chuẩn bị cho buổi khám</Text>
-              <View className="mt-5 space-y-3">
-                <View className="flex-row items-center space-x-3 rounded-2xl bg-blue-50 p-3">
-                  <Clock color="#1d4ed8" size={18} />
-                  <Text className="flex-1 text-sm text-slate-600">Đến sớm 10 phút để hoàn tất thủ tục và khai báo y tế.</Text>
-                </View>
-                <View className="flex-row items-center space-x-3 rounded-2xl bg-blue-50 p-3">
-                  <Phone color="#1d4ed8" size={18} />
-                  <Text className="flex-1 text-sm text-slate-600">Mang theo thẻ BHYT, giấy tờ tùy thân và hồ sơ khám trước đó.</Text>
-                </View>
-                <View className="flex-row items-center space-x-3 rounded-2xl bg-blue-50 p-3">
-                  <Video color="#1d4ed8" size={18} />
-                  <Text className="flex-1 text-sm text-slate-600">Kiểm tra đường truyền và thiết bị nếu thực hiện tư vấn trực tuyến.</Text>
-                </View>
-              </View>
-            </View>
-
-            <View className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-lg shadow-blue-100">
-              <Text className="text-lg font-semibold text-slate-900">Lịch sử khám</Text>
-              {appointmentsLoading && !refreshing ? (
-                <View className="items-center py-8">
-                  <ActivityIndicator color="#1d4ed8" />
-                </View>
-              ) : upcomingAndHistory.history.length > 0 ? (
-                <View className="mt-4 space-y-3">
-                  {upcomingAndHistory.history.map((appointment) => (
-                    <HistoryCard key={appointment.id} appointment={appointment} />
-                  ))}
-                </View>
-              ) : (
-                <Text className="mt-4 text-sm text-slate-500">
-                  Chưa có lịch sử khám nào. Khi bạn hoàn thành buổi khám, lịch sử sẽ xuất hiện tại đây.
-                </Text>
-              )}
+            <View 
+              className="items-center justify-center rounded-2xl p-4"
+              style={{ backgroundColor: Colors.primary[100] }}
+            >
+              <Ionicons name="calendar" size={28} color={Colors.primary[600]} />
             </View>
           </View>
-        </ScrollView>
+          {isAuthenticated ? (
+            <View className="mt-4 rounded-2xl p-4" style={{ backgroundColor: Colors.primary[50] }}>
+              <Text className="text-sm" style={{ color: Colors.primary[700] }}>
+                Xin chào {session?.user?.fullName ?? session?.user?.email}, hãy chọn bác sĩ và thời gian phù hợp để đặt lịch khám.
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              className="mt-4 items-center justify-center rounded-2xl py-3"
+              style={{ backgroundColor: Colors.primary[600] }}
+              onPress={() => router.push('/(auth)/login' as const)}
+            >
+              <Text className="text-sm font-semibold text-white">Đăng nhập để đặt lịch</Text>
+            </TouchableOpacity>
+          )}
+        </Card>
 
-        <DoctorSelectModal
-          visible={doctorModalVisible}
-          doctors={doctors}
-          selectedDoctorId={selectedDoctorId}
-          onClose={() => setDoctorModalVisible(false)}
-          onSelect={(id) => setSelectedDoctorId(id)}
-        />
+        {errorMessage ? (
+          <Card className="mb-6" style={{ backgroundColor: Colors.warning[50] }}>
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="warning" size={20} color={Colors.warning[600]} />
+              <Text className="flex-1 text-sm font-semibold" style={{ color: Colors.warning[700] }}>
+                {errorMessage}
+              </Text>
+            </View>
+          </Card>
+        ) : null}
 
-        {showInlineDatePicker ? (
-          <Modal
-            visible
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowInlineDatePicker(false)}
-          >
-            <View className="flex-1 items-center justify-center bg-slate-900/40">
-              <View className="w-11/12 max-w-xl">
-                <LinearGradient
-                  colors={['#f8fafc', '#e0f2fe']}
-                  className="rounded-3xl p-5 shadow-2xl shadow-blue-200"
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1 pr-4">
-                      <View className="flex-row items-center space-x-2">
-                        <View className="rounded-full bg-blue-100 p-2">
-                          <Calendar color="#1d4ed8" size={18} />
-                        </View>
-                        <Text className="text-base font-semibold text-slate-900">Chọn ngày khám</Text>
-                      </View>
-                      <Text className="mt-2 text-xs text-slate-500">
-                        Lựa chọn ngày phù hợp. Bạn có thể đổi nhanh bằng các nút gợi ý bên dưới.
-                      </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => setShowInlineDatePicker(false)} className="rounded-full bg-slate-200 px-3 py-1">
-                      <Text className="text-xs font-semibold text-slate-600">Đóng</Text>
-                    </TouchableOpacity>
+        {/* Booking Form - Simplified */}
+        <Card className="mb-6">
+          <SectionHeader title="Đặt lịch mới" />
+          <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>
+            Chọn bác sĩ và bắt đầu quy trình đặt lịch khám 3 bước đơn giản.
+          </Text>
+
+          <View className="mt-6 gap-4">
+            {/* Doctor Selection */}
+            <View>
+              <Text className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.secondary }}>
+                Chọn bác sĩ
+              </Text>
+              <TouchableOpacity
+                className="flex-row items-center justify-between rounded-2xl px-4 py-3"
+                style={{
+                  borderWidth: 1,
+                  borderColor: formDisabled ? theme.border : Colors.primary[200],
+                  backgroundColor: formDisabled ? Colors[colorScheme ?? 'light'].card : Colors.primary[50],
+                }}
+                onPress={() => setDoctorModalVisible(true)}
+                disabled={formDisabled}
+              >
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                    {doctors.find((doc) => (doc._id ?? doc.id) === selectedDoctorId)?.fullName ??
+                      doctors.find((doc) => (doc._id ?? doc.id) === selectedDoctorId)?.name ??
+                      'Chọn bác sĩ'}
+                  </Text>
+                  {selectedDoctorId && (
+                    <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
+                      {doctors.find((doc) => (doc._id ?? doc.id) === selectedDoctorId)?.specialty || 'Chuyên khoa'}
+                    </Text>
+                  )}
+                </View>
+                {doctorsLoading ? (
+                  <ActivityIndicator color={Colors.primary[600]} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color={Colors.primary[600]} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Book Appointment Button */}
+            <TouchableOpacity
+              className="items-center justify-center rounded-2xl py-4"
+              style={{ backgroundColor: formDisabled ? Colors[colorScheme ?? 'light'].border : Colors.primary[600] }}
+              onPress={() => handleOpenBookingModal()}
+              disabled={formDisabled}
+            >
+              <View className="flex-row items-center gap-2">
+                <Ionicons name="calendar" size={20} color="white" />
+                <Text className="text-base font-semibold text-white">Bắt đầu đặt lịch</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Quick info */}
+            <View className="flex-row items-start gap-2 rounded-2xl p-3" style={{ backgroundColor: Colors.info[50] }}>
+              <Ionicons name="information-circle" size={18} color={Colors.info[600]} />
+              <Text className="flex-1 text-xs" style={{ color: Colors.info[700] }}>
+                Sau khi chọn bác sĩ, bạn sẽ được hướng dẫn qua 3 bước: Chọn lịch → Điền thông tin → Xác nhận & Thanh toán
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* Upcoming Appointments */}
+        <Card className="mb-6">
+          <View className="flex-row items-center justify-between mb-4">
+            <SectionHeader title="Lịch hẹn sắp tới" />
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="checkmark-circle" size={18} color={Colors.primary[600]} />
+              <Text className="text-xs font-medium" style={{ color: Colors.primary[700] }}>
+                Tự động làm mới
+              </Text>
+            </View>
+          </View>
+          {appointmentsLoading && !refreshing ? (
+            <View className="items-center py-8">
+              <ActivityIndicator color={Colors.primary[600]} />
+            </View>
+          ) : upcomingAndHistory.upcoming.length > 0 ? (
+            <View className="gap-4">
+              {upcomingAndHistory.upcoming.map((appointment) => (
+                <AppointmentCard
+                  key={appointment.id}
+                  appointment={appointment}
+                  onCancel={handleCancelAppointment}
+                  cancelling={cancellingId === appointment.id}
+                />
+              ))}
+            </View>
+          ) : (
+            <View className="items-center rounded-3xl p-6" style={{ 
+              borderWidth: 1, 
+              borderStyle: 'dashed', 
+              borderColor: Colors.primary[200],
+              backgroundColor: Colors.primary[50] 
+            }}>
+              <Ionicons name="calendar-outline" size={28} color={Colors.primary[600]} />
+              <Text className="mt-3 text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                Chưa có lịch hẹn nào sắp tới
+              </Text>
+              <Text className="mt-1 text-xs" style={{ color: Colors.primary[500] }}>
+                Hãy đặt lịch mới để bắt đầu hành trình chăm sóc răng miệng.
+              </Text>
+            </View>
+          )}
+        </Card>
+
+        {/* Prepare for visit */}
+        <Card className="mb-6">
+          <SectionHeader title="Chuẩn bị cho buổi khám" />
+          <View className="mt-5 gap-3">
+            <View className="flex-row items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: Colors.primary[50] }}>
+              <Ionicons name="time-outline" size={18} color={Colors.primary[600]} />
+              <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
+                Đến sớm 10 phút để hoàn tất thủ tục và khai báo y tế.
+              </Text>
+            </View>
+            <View className="flex-row items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: Colors.primary[50] }}>
+              <Ionicons name="card-outline" size={18} color={Colors.primary[600]} />
+              <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
+                Mang theo thẻ BHYT, giấy tờ tùy thân và hồ sơ khám trước đó.
+              </Text>
+            </View>
+            <View className="flex-row items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: Colors.primary[50] }}>
+              <Ionicons name="videocam-outline" size={18} color={Colors.primary[600]} />
+              <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
+                Kiểm tra đường truyền và thiết bị nếu thực hiện tư vấn trực tuyến.
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        {/* History */}
+        <Card className="mb-6">
+          <SectionHeader title="Lịch sử khám" />
+          {appointmentsLoading && !refreshing ? (
+            <View className="items-center py-8">
+              <ActivityIndicator color={Colors.primary[600]} />
+            </View>
+          ) : upcomingAndHistory.history.length > 0 ? (
+            <View className="mt-4 gap-3">
+              {upcomingAndHistory.history.map((appointment) => (
+                <HistoryCard key={appointment.id} appointment={appointment} />
+              ))}
+            </View>
+          ) : (
+            <Text className="mt-4 text-sm" style={{ color: theme.text.secondary }}>
+              Chưa có lịch sử khám nào. Khi bạn hoàn thành buổi khám, lịch sử sẽ xuất hiện tại đây.
+            </Text>
+          )}
+        </Card>
+      </ScrollView>
+
+      <DoctorSelectModal
+        visible={doctorModalVisible}
+        doctors={doctors}
+        selectedDoctorId={selectedDoctorId}
+        onClose={() => setDoctorModalVisible(false)}
+        onSelect={(id) => setSelectedDoctorId(id)}
+      />
+
+      {/* Booking Step Modal */}
+      <BookingStepModal
+        visible={showBookingModal}
+        onClose={() => {
+          setShowBookingModal(false);
+          setSelectedDoctorForBooking(null);
+        }}
+        doctor={selectedDoctorForBooking}
+        onConfirm={handleBookingConfirm}
+        availableTimes={[]}
+      />
+
+      <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
+
+      {/* Cancel Appointment Modal */}
+      <CancelAppointmentModal
+        visible={showCancelModal}
+        appointment={appointmentToCancel}
+        loading={cancellingId !== null}
+        onClose={() => {
+          setShowCancelModal(false);
+          setAppointmentToCancel(null);
+        }}
+        onConfirm={handleConfirmCancel}
+      />
+
+      {/* Payment Loading Modal */}
+      <PaymentLoadingModal
+        visible={showPaymentLoadingModal}
+        onCancel={async () => {
+          // User cancels payment waiting - cancel appointment
+          if (pendingPaymentInfo && token) {
+            try {
+              // Clear timeout and polling
+              if (pendingPaymentInfo.timeout) {
+                clearTimeout(pendingPaymentInfo.timeout);
+              }
+              if (pendingPaymentInfo.pollingInterval) {
+                clearInterval(pendingPaymentInfo.pollingInterval);
+              }
+              
+              await apiRequest(`/api/v1/appointments/${pendingPaymentInfo.appointmentId}/cancel`, {
+                method: 'DELETE',
+                token,
+                body: { 
+                  reason: 'Người dùng hủy đợi thanh toán',
+                  cancelledBy: 'patient',
+                },
+              });
+              
+              setShowPaymentLoadingModal(false);
+              setPendingPaymentInfo(null);
+              await fetchAppointments();
+              
+              Alert.alert('Đã hủy', 'Lịch hẹn đã được hủy do người dùng hủy quá trình thanh toán.');
+            } catch (error: any) {
+              console.error('Failed to cancel appointment:', error);
+              Alert.alert('Lỗi', 'Không thể hủy lịch hẹn. Vui lòng thử lại.');
+            }
+          } else {
+            setShowPaymentLoadingModal(false);
+            setPendingPaymentInfo(null);
+          }
+        }}
+      />
+    </>
+  );
+}
+
+// Payment Loading Modal Component
+function PaymentLoadingModal({
+  visible,
+  onCancel,
+}: {
+  visible: boolean;
+  onCancel: () => void;
+}) {
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View className="flex-1 items-center justify-center bg-black/50 px-4">
+        <View 
+          className="rounded-3xl shadow-2xl w-full max-w-md p-6"
+          style={{ backgroundColor: theme.background }}
+        >
+          <View className="items-center gap-4">
+            {/* Loading Spinner */}
+            <ActivityIndicator size="large" color={Colors.primary[600]} />
+            
+            {/* Title */}
+            <Text className="text-xl font-bold text-center" style={{ color: theme.text.primary }}>
+              Đang đợi thanh toán MoMo
+            </Text>
+            
+            {/* Description */}
+            <View className="items-center gap-2">
+              <Text className="text-sm text-center" style={{ color: theme.text.secondary }}>
+                Vui lòng hoàn tất thanh toán trên ứng dụng MoMo.
+              </Text>
+              <Text className="text-xs text-center" style={{ color: theme.text.secondary }}>
+                Lịch hẹn sẽ chỉ được xác nhận sau khi thanh toán thành công.
+              </Text>
+            </View>
+            
+            {/* Cancel Button */}
+            <TouchableOpacity
+              onPress={onCancel}
+              className="mt-4 px-6 py-3 rounded-2xl"
+              style={{ 
+                backgroundColor: theme.card, 
+                borderWidth: 1, 
+                borderColor: theme.border,
+              }}
+            >
+              <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                Hủy đặt lịch
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// Cancel Appointment Modal Component
+function CancelAppointmentModal({
+  visible,
+  appointment,
+  loading,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  appointment: AppointmentDisplay | null;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [cancelReason, setCancelReason] = useState('');
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
+
+  // Reset reason when modal opens/closes
+  useEffect(() => {
+    if (visible) {
+      setCancelReason('');
+    }
+  }, [visible]);
+
+  const handleSubmit = () => {
+    if (!cancelReason.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập lý do hủy lịch hẹn');
+      return;
+    }
+    onConfirm(cancelReason.trim());
+  };
+
+  if (!appointment) return null;
+
+  // Check if cancellation is within 30 minutes (fee will be charged)
+  const appointmentDateTime = getAppointmentDateTime(appointment.raw);
+  const now = new Date();
+  const minutesUntil = appointmentDateTime 
+    ? Math.floor((appointmentDateTime.getTime() - now.getTime()) / (1000 * 60))
+    : Infinity;
+  const isNearTime = minutesUntil < 30 && minutesUntil > 0;
+  const feeAmount = isNearTime ? 100000 : 0;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 items-center justify-center bg-black/50 px-4">
+        <View 
+          className="rounded-3xl shadow-2xl w-full max-w-md"
+          style={{ backgroundColor: theme.background }}
+        >
+          {/* Header */}
+          <View className="flex-row items-center justify-between border-b px-6 py-4" style={{ borderColor: theme.border }}>
+            <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>
+              Xác nhận hủy lịch
+            </Text>
+            <TouchableOpacity onPress={onClose} disabled={loading}>
+              <Ionicons name="close" size={24} color={theme.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Content */}
+          <ScrollView className="flex-1 px-6 py-4" showsVerticalScrollIndicator={false}>
+            {/* Warning for near-time cancellation */}
+            {isNearTime && (
+              <View className="mb-4 rounded-2xl p-4" style={{ backgroundColor: Colors.warning[50], borderWidth: 2, borderColor: Colors.warning[500] }}>
+                <View className="flex-row items-start gap-3">
+                  <Ionicons name="warning" size={24} color={Colors.warning[600]} />
+                  <View className="flex-1">
+                    <Text className="text-base font-bold mb-2" style={{ color: Colors.warning[700] }}>
+                      ⚠️ Hủy lịch cận giờ
+                    </Text>
+                    <Text className="text-sm mb-2" style={{ color: Colors.warning[700] }}>
+                      Hủy lúc này sẽ bị trừ{' '}
+                      <Text className="font-bold">{feeAmount.toLocaleString('vi-VN')} VND</Text> phí giữ chỗ.
+                    </Text>
+                    <Text className="text-xs mt-2 font-medium" style={{ color: Colors.warning[700] }}>
+                      Bạn có chắc chắn muốn tiếp tục?
+                    </Text>
                   </View>
+                </View>
+              </View>
+            )}
 
-                  <View className="mt-4 rounded-2xl border border-blue-200 bg-white/80 p-4">
-                    <Text className="text-xs font-semibold uppercase tracking-wide text-blue-600">Ngày đã chọn</Text>
-                    <Text className="mt-1 text-lg font-semibold text-slate-900">{inlineSelectedDateLabel}</Text>
+            {/* Info for normal cancellation (>= 30 minutes) */}
+            {!isNearTime && minutesUntil > 0 && (
+              <View className="mb-4 rounded-2xl p-4" style={{ backgroundColor: Colors.success[50], borderWidth: 2, borderColor: Colors.success[500] }}>
+                <View className="flex-row items-start gap-3">
+                  <Ionicons name="checkmark-circle" size={24} color={Colors.success[600]} />
+                  <View className="flex-1">
+                    <Text className="text-base font-bold mb-2" style={{ color: Colors.success[700] }}>
+                      ✓ Hủy lịch an toàn
+                    </Text>
+                    <Text className="text-sm" style={{ color: Colors.success[700] }}>
+                      <Text className="font-bold">✓ Bạn sẽ được hoàn 100% phí khám</Text>
+                      {'\n'}
+                      Nếu đã thanh toán, hệ thống sẽ tạo bill mới cộng tiền khám lại cho bạn
+                    </Text>
                   </View>
+                </View>
+              </View>
+            )}
 
-                  <View className="mt-3 flex-row flex-wrap gap-3">
-                    <TouchableOpacity
-                      className="flex-1 items-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2"
-                      onPress={() => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        setInlinePickerDate(today);
-                      }}
-                    >
-                      <Text className="text-sm font-semibold text-blue-700">Hôm nay</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      className="flex-1 items-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2"
-                      onPress={() => {
-                        const tomorrow = new Date();
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        tomorrow.setHours(0, 0, 0, 0);
-                        setInlinePickerDate(tomorrow);
-                      }}
-                    >
-                      <Text className="text-sm font-semibold text-blue-700">Ngày mai</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      className="flex-1 items-center rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2"
-                      onPress={() => {
-                        const weekend = new Date();
-                        const day = weekend.getDay();
-                        const offset = day === 6 ? 0 : day === 0 ? 0 : 6 - day;
-                        weekend.setDate(weekend.getDate() + offset);
-                        weekend.setHours(0, 0, 0, 0);
-                        setInlinePickerDate(weekend);
-                      }}
-                    >
-                      <Text className="text-sm font-semibold text-blue-700">Cuối tuần gần nhất</Text>
-                    </TouchableOpacity>
+            {/* Appointment Info */}
+            <View className="mb-4 rounded-2xl p-4" style={{ backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}>
+              <Text className="text-sm mb-3" style={{ color: theme.text.secondary }}>
+                Bạn có chắc chắn muốn hủy lịch hẹn:
+              </Text>
+              <View className="gap-2">
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="person-outline" size={18} color={Colors.primary[600]} />
+                  <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                    {appointment.doctorName}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="calendar-outline" size={18} color={Colors.primary[600]} />
+                  <Text className="text-sm" style={{ color: theme.text.secondary }}>
+                    {appointment.dateLabel} • {appointment.timeLabel}
+                  </Text>
+                </View>
+                {appointment.location && (
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="location-outline" size={18} color={Colors.primary[600]} />
+                    <Text className="text-sm" style={{ color: theme.text.secondary }}>
+                      {appointment.location}
+                    </Text>
                   </View>
-
-                  <View className="mt-4 rounded-3xl border border-white/70 bg-white/90 p-3">
-                    {Platform.OS === 'web'
-                      ? (
-                          <View className="w-full">
-                            {createElement('input', {
-                              type: 'date',
-                              value: formatDateInput(inlinePickerDate),
-                              min: formatDateInput(new Date()),
-                              onChange: handleWebDateChange,
-                              style: {
-                                width: '100%',
-                                height: 56,
-                                fontSize: 16,
-                                padding: '12px 16px',
-                                borderRadius: 16,
-                                border: '1px solid #bfdbfe',
-                                background: 'linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%)',
-                                color: '#1e293b',
-                                outline: 'none',
-                              },
-                            } as any)}
-                          </View>
-                        )
-                      : (
-                          <DateTimePicker
-                            mode="date"
-                            display={Platform.OS === 'ios' ? 'inline' : 'spinner'}
-                            value={inlinePickerDate}
-                            minimumDate={new Date()}
-                            onChange={(_, dateValue) => {
-                              if (dateValue) {
-                                setInlinePickerDate(dateValue);
-                              }
-                            }}
-                          />
-                        )}
-                  </View>
-
-                  <View className="mt-5 flex-row justify-end space-x-3">
-                    <TouchableOpacity
-                      className="rounded-2xl border border-slate-200 px-4 py-2"
-                      onPress={() => setShowInlineDatePicker(false)}
-                    >
-                      <Text className="text-sm font-semibold text-slate-600">Hủy</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      className="rounded-2xl bg-blue-600 px-4 py-2"
-                      onPress={() => {
-                        setSelectedDate(formatDateInput(inlinePickerDate));
-                        setShowInlineDatePicker(false);
-                      }}
-                    >
-                      <Text className="text-sm font-semibold text-white">Chọn</Text>
-                    </TouchableOpacity>
-                  </View>
-                </LinearGradient>
+                )}
               </View>
             </View>
-          </Modal>
-        ) : null}
-      </SafeAreaView>
-    </LinearGradient>
+
+            {/* Cancel Reason Input */}
+            <View>
+              <Text className="text-sm font-semibold mb-2" style={{ color: theme.text.primary }}>
+                Lý do hủy <Text style={{ color: Colors.error[600] }}>*</Text>
+              </Text>
+              <TextInput
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                placeholder="Vui lòng cho biết lý do bạn muốn hủy lịch hẹn này..."
+                multiline
+                numberOfLines={4}
+                className="rounded-2xl px-4 py-3"
+                style={{
+                  backgroundColor: theme.card,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  color: theme.text.primary,
+                  textAlignVertical: 'top',
+                  minHeight: 100,
+                }}
+                placeholderTextColor={theme.text.secondary}
+                editable={!loading}
+              />
+            </View>
+          </ScrollView>
+
+          {/* Footer */}
+          <View className="flex-row gap-3 border-t px-6 py-4" style={{ borderColor: theme.border }}>
+            <TouchableOpacity
+              onPress={onClose}
+              disabled={loading}
+              className="flex-1 items-center justify-center rounded-2xl py-3"
+              style={{ 
+                backgroundColor: theme.card, 
+                borderWidth: 1, 
+                borderColor: theme.border,
+                opacity: loading ? 0.5 : 1,
+              }}
+            >
+              <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                Đóng
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={loading || !cancelReason.trim()}
+              className="flex-1 items-center justify-center rounded-2xl py-3"
+              style={{ 
+                backgroundColor: loading || !cancelReason.trim() ? Colors.gray[400] : Colors.error[600],
+              }}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-sm font-semibold text-white">
+                  Xác nhận hủy
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }

@@ -5,7 +5,7 @@ import React from 'react';
 import { Colors } from '@/constants/colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export default function TabLayout() {
+export default function DoctorTabLayout() {
   const colorScheme = useColorScheme();
 
   return (
@@ -27,70 +27,43 @@ export default function TabLayout() {
         options={{
           title: 'Tổng quan',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="stats-chart" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="appointments"
+        name="schedule"
         options={{
-          title: 'Lịch hẹn',
+          title: 'Lịch khám',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="chat"
+        name="patients"
         options={{
-          title: 'Chat',
+          title: 'Bệnh nhân',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles" size={size} color={color} />
+            <Ionicons name="people" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="doctors"
+        name="revenue"
         options={{
-          title: 'Bác sĩ',
+          title: 'Doanh thu',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="medkit" size={size} color={color} />
+            <Ionicons name="wallet" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="records"
+        name="more"
         options={{
-          title: 'Hồ sơ',
+          title: 'Thêm',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="prescriptions"
-        options={{
-          title: 'Đơn thuốc',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="medical" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="payments"
-        options={{
-          title: 'Thanh toán',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Cài đặt',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={size} color={color} />
+            <Ionicons name="menu" size={size} color={color} />
           ),
         }}
       />
