@@ -1192,11 +1192,11 @@ function DoctorScheduleContent() {
           }}
           appointment={appointmentForFollowUp}
           patientName={appointmentForFollowUp.patientName}
-          // onSuccess={() => {
-          //   setFollowUpModalOpen(false);
-          //   setAppointmentForFollowUp(null);
-          //   fetchAppointments();
-          // }}
+          onSuccess={() => {
+            setFollowUpModalOpen(false);
+            setAppointmentForFollowUp(null);
+            // fetchAppointments();
+          }}
         />
       )}
 

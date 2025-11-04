@@ -68,7 +68,8 @@ function MyAppointmentsContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
-  const [dateFilter, setDateFilter] = useState<Date | null>(null);
+  const [startFilterDate, setStartFilterDate] = useState<string>("");
+  const [endFilterDate, setEndFilterDate] = useState<string>("");
 
   // Memoized fetch function to prevent re-creation on every render
   const fetchAppointments = useCallback(async () => {
@@ -333,11 +334,24 @@ function MyAppointmentsContent() {
     // Filter by status
     const statusMatch = filter === "all" || apt.status === filter;
 
-    // Filter by date if dateFilter is set
-    if (dateFilter && statusMatch) {
+    // Filter by date range
+    if (startFilterDate && endFilterDate && statusMatch) {
+      // Both dates selected - filter by range
       const aptDate = new Date(apt.appointmentDate);
-      const filterDate = new Date(dateFilter);
-      // Compare only date parts (ignore time)
+      const start = new Date(startFilterDate);
+      const end = new Date(endFilterDate);
+
+      // Set time to start of day for comparison
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      aptDate.setHours(0, 0, 0, 0);
+
+      return aptDate >= start && aptDate <= end;
+    } else if (startFilterDate && statusMatch) {
+      // Only start date - filter by single date
+      const aptDate = new Date(apt.appointmentDate);
+      const filterDate = new Date(startFilterDate);
+
       return (
         aptDate.getFullYear() === filterDate.getFullYear() &&
         aptDate.getMonth() === filterDate.getMonth() &&
@@ -383,27 +397,30 @@ function MyAppointmentsContent() {
           <div className="flex flex-col gap-4">
             {/* Calendar Filter */}
             <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Từ</span>
               <input
                 type="date"
-                value={dateFilter ? dateFilter.toISOString().split("T")[0] : ""}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setDateFilter(new Date(e.target.value));
-                  } else {
-                    setDateFilter(null);
-                  }
-                }}
+                value={startFilterDate}
+                onChange={(e) => setStartFilterDate(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
-              {dateFilter && (
-                <button
-                  onClick={() => setDateFilter(null)}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Xóa lọc
-                </button>
-              )}
+              <span className="text-sm font-medium text-gray-700">đến</span>
+              <input
+                type="date"
+                value={endFilterDate}
+                onChange={(e) => setEndFilterDate(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              <button
+                onClick={() => {
+                  setStartFilterDate("");
+                  setEndFilterDate("");
+                }}
+                disabled={!startFilterDate && !endFilterDate}
+                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Xóa
+              </button>
             </div>
 
             {/* Status Tabs */}

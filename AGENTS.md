@@ -26,7 +26,7 @@
 - **API (NestJS)**: `cd server; npm install; cp env.example .env` (fill secrets); start with `npm run dev`; tests via `npm run test`, lint via `npm run lint`; use seed scripts (`npm run seed:doctors`, `npm run seed:medications`) to populate baselines.
 - **Web (Next.js)**: `cd client; npm install; cp .env.example .env` (if present) or sync with backend team; launch `npm run dev` (Turbopack, port 3000); `npm run lint` enforces rules; `npm run build` before deployment.
 - **Mobile (Expo)**: `cd mobile; npm install; cp .env.example .env` (create if missing based on backend env); run `npm start` or platform-specific scripts (`npm run android`, `npm run ios`, `npm run web`) which bind to port 8082; Expo lint via `npm run lint`.
-- **Full stack loop**: start backend first (port 3001), then web and/or mobile; confirm CORS origins include `http://localhost:3000` and `http://localhost:8082`.
+- **Full stack loop**: start backend first (port 8081), then web and/or mobile; confirm CORS origins include `http://localhost:3000`.
 
 ## Quality Bar
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const body = await request.json();
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -69,7 +69,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
     if (token) headers["Authorization"] = `Bearer ${token}`;
