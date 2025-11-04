@@ -92,9 +92,7 @@ export class AiChatService {
 
   private async getDoctorsFromDatabase() {
     try {
-      console.log('🔍 Fetching doctors from database...');
       const doctors = await this.usersService.findDoctors();
-      console.log(`✅ Found ${doctors.length} doctors in database`);
 
       // Return DB doctor records but attach computed keywords so callers can match suggestions
       return doctors.map((doctor) => ({

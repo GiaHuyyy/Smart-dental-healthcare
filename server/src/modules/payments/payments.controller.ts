@@ -1,14 +1,14 @@
 import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    HttpCode,
-    HttpStatus,
-    Param,
-    Patch,
-    Post,
-    Query,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
 import { Public } from 'src/decorator/customize';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -98,9 +98,12 @@ export class PaymentsController {
   @HttpCode(HttpStatus.OK)
   async simulateCallback(
     @Param('orderId') orderId: string,
-    @Body() body?: { resultCode?: number }
+    @Body() body?: { resultCode?: number },
   ) {
-    return await this.paymentsService.simulateMoMoCallback(orderId, body?.resultCode || 0);
+    return await this.paymentsService.simulateMoMoCallback(
+      orderId,
+      body?.resultCode || 0,
+    );
   }
 
   /**
@@ -135,10 +138,22 @@ export class PaymentsController {
     return this.paymentsService.findByDoctor(doctorId);
   }
 
+  @Get('appointment/:appointmentId')
+  @Public()
+  findByAppointment(@Param('appointmentId') appointmentId: string) {
+    return this.paymentsService.findByAppointment(appointmentId);
+  }
+
   @Get(':id')
   @Public()
   findOne(@Param('id') id: string) {
     return this.paymentsService.findOne(id);
+  }
+
+  @Post(':id/mark-paid')
+  @Public()
+  markAsPaid(@Param('id') id: string, @Body() body: { doctorId: string }) {
+    return this.paymentsService.markAsPaid(id, body.doctorId);
   }
 
   @Patch(':id')
