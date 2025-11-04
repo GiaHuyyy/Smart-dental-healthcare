@@ -44,7 +44,8 @@ export default function FollowUpSuggestions() {
       const response = await appointmentService.getFollowUpSuggestions(session.user._id, session.access_token);
 
       if (response.success && response.data) {
-        setSuggestions(response.data.filter((s) => s.status === "pending"));
+        const pendingSuggestions = response.data.filter((s) => s.status === "pending");
+        setSuggestions(pendingSuggestions);
       } else {
         toast.error(response.error || "Không thể tải gợi ý tái khám");
       }
@@ -671,7 +672,7 @@ export default function FollowUpSuggestions() {
                             {suggestion.voucherId.code}
                           </span>
                           <span className="text-xs font-medium px-2 py-0.5 bg-green-50 text-green-600 rounded">
-                            -{suggestion.voucherId.discountPercentage}%
+                            -{suggestion.voucherId.value}%
                           </span>
                         </div>
                       </div>

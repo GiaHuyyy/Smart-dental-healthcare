@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import {
   FileText,
   Calendar,
@@ -65,22 +64,10 @@ interface MedicalRecord {
     instructions?: string;
   }>;
   notes?: string;
-  prescriptions?: Array<{
-    _id: string;
-    medications: Array<{
-      name: string;
-      dosage: string;
-      frequency: string;
-      duration: string;
-      instructions: string;
-    }>;
-    prescriptionDate: string;
-  }>;
 }
 
 export default function PatientRecordsPage() {
   const { data: session } = useSession();
-  const router = useRouter();
 
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<MedicalRecord[]>([]);
@@ -91,7 +78,6 @@ export default function PatientRecordsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [prescriptions, setPrescriptions] = useState<any[]>([]);
 
   // Fetch medical records
   const fetchRecords = useCallback(async () => {
@@ -124,31 +110,14 @@ export default function PatientRecordsPage() {
     }
   }, [session]);
 
-  // Fetch prescriptions for a record
-  const fetchPrescriptions = useCallback(
-    async (recordId: string) => {
-      try {
-        const accessToken = (session as any)?.access_token;
-        const response = await fetch(`/api/v1/prescriptions/medical-record/${recordId}`, {
-          headers: {
-            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setPrescriptions(data?.data || data || []);
-        }
-      } catch (error) {
-        console.error("Error fetching prescriptions:", error);
-      }
-    },
-    [session]
-  );
-
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
+
+  const handleViewDetail = useCallback((record: MedicalRecord) => {
+    setSelectedRecord(record);
+    setDetailModalOpen(true);
+  }, []);
 
   // Handle appointmentId from URL to auto-open medical record modal
   useEffect(() => {
@@ -217,7 +186,7 @@ export default function PatientRecordsPage() {
     };
 
     handleAppointmentParam();
-  }, [records, session]);
+  }, [records, session, handleViewDetail]);
 
   // Filter records
   useEffect(() => {
@@ -278,17 +247,6 @@ export default function PatientRecordsPage() {
 
     setFilteredRecords(filtered);
   }, [records, searchTerm, statusFilter, startDate, endDate]);
-
-  const handleViewDetail = useCallback(
-    (record: MedicalRecord) => {
-      setSelectedRecord(record);
-      if (record._id) {
-        fetchPrescriptions(record._id);
-      }
-      setDetailModalOpen(true);
-    },
-    [session]
-  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -581,11 +539,9 @@ export default function PatientRecordsPage() {
         {detailModalOpen && selectedRecord && (
           <RecordDetailModal
             record={selectedRecord}
-            prescriptions={prescriptions} 
             onClose={() => {
               setDetailModalOpen(false);
               setSelectedRecord(null);
-              setPrescriptions([]);
             }}
           />
         )}
@@ -595,15 +551,7 @@ export default function PatientRecordsPage() {
 }
 
 // Detail Modal Component
-function RecordDetailModal({
-  record,
-  prescriptions,
-  onClose,
-}: {
-  record: MedicalRecord;
-  prescriptions: any[];
-  onClose: () => void;
-}) {
+function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-4xl w-full my-8">
@@ -719,40 +667,6 @@ function RecordDetailModal({
                   ))}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Prescriptions */}
-          {prescriptions.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Đơn thuốc đã kê</h3>
-              <div className="space-y-3">
-                {prescriptions.map((prescription) => (
-                  <div key={prescription._id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-gray-600">
-                        Ngày kê: {new Date(prescription.prescriptionDate).toLocaleDateString("vi-VN")}
-                      </span>
-                      {prescription.status && (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                          {prescription.status}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      {prescription.medications?.map((med: any, index: number) => (
-                        <div key={index} className="text-sm">
-                          <span className="font-medium">{med.name}</span>
-                          <span className="text-gray-600">
-                            {" "}
-                            - {med.dosage}, {med.frequency}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 

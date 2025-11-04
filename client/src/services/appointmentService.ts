@@ -625,7 +625,7 @@ const appointmentService = {
       followUpAppointment: Appointment;
       voucher: {
         code: string;
-        discountPercentage: number;
+        value: number;
         expiresAt: string;
         [key: string]: unknown;
       };

@@ -18,6 +18,7 @@ import {
   MapPin,
   MessageCircle,
   MoreVertical,
+  Search,
   Star,
   User,
   Video,
@@ -72,6 +73,11 @@ function MyAppointmentsContent() {
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [startFilterDate, setStartFilterDate] = useState<string>("");
   const [endFilterDate, setEndFilterDate] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Review modal states
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -79,6 +85,9 @@ function MyAppointmentsContent() {
   const [appointmentReviews, setAppointmentReviews] = useState<
     Record<string, { _id: string; rating: number; comment: string } | null>
   >({});
+
+  // Follow-up suggestions count
+  const [followUpSuggestionsCount, setFollowUpSuggestionsCount] = useState(0);
 
   // Memoized fetch function to prevent re-creation on every render
   const fetchAppointments = useCallback(async () => {
@@ -120,6 +129,23 @@ function MyAppointmentsContent() {
     }
   }, [session, router]);
 
+  // Fetch follow-up suggestions count
+  const fetchFollowUpSuggestionsCount = useCallback(async () => {
+    if (!session?.user?._id) return;
+
+    try {
+      const accessToken = (session as any)?.access_token;
+      const response = await appointmentService.getFollowUpSuggestions(session.user._id, accessToken);
+
+      if (response.success && response.data) {
+        const pendingCount = response.data.filter((s) => s.status === "pending").length;
+        setFollowUpSuggestionsCount(pendingCount);
+      }
+    } catch (error) {
+      console.error("Failed to load follow-up suggestions count:", error);
+    }
+  }, [session?.user?._id, session]);
+
   // Auto-open detail modal from URL parameter (from dashboard click)
   useEffect(() => {
     try {
@@ -147,7 +173,8 @@ function MyAppointmentsContent() {
   useEffect(() => {
     if (!session?.user) return;
     fetchAppointments();
-  }, [session, fetchAppointments]);
+    fetchFollowUpSuggestionsCount();
+  }, [session, fetchAppointments, fetchFollowUpSuggestionsCount]);
 
   // Register this page's refresh callback with global socket
   useEffect(() => {
@@ -464,8 +491,15 @@ function MyAppointmentsContent() {
       // Filter by status
       const statusMatch = filter === "all" || apt.status === filter;
 
+      // Filter by search term (doctor name, specialty, chief complaint)
+      const searchMatch =
+        !searchTerm ||
+        apt.doctor?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.doctor?.specialty?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        apt.chiefComplaint?.toLowerCase().includes(searchTerm.toLowerCase());
+
       // Filter by date range
-      if (startFilterDate && endFilterDate && statusMatch) {
+      if (startFilterDate && endFilterDate && statusMatch && searchMatch) {
         // Both dates selected - filter by range
         const aptDate = new Date(apt.appointmentDate);
         const start = new Date(startFilterDate);
@@ -477,7 +511,7 @@ function MyAppointmentsContent() {
         aptDate.setHours(0, 0, 0, 0);
 
         return aptDate >= start && aptDate <= end;
-      } else if (startFilterDate && statusMatch) {
+      } else if (startFilterDate && statusMatch && searchMatch) {
         // Only start date - filter by single date
         const aptDate = new Date(apt.appointmentDate);
         const filterDate = new Date(startFilterDate);
@@ -489,7 +523,7 @@ function MyAppointmentsContent() {
         );
       }
 
-      return statusMatch;
+      return statusMatch && searchMatch;
     })
     .sort((a, b) => {
       // Sort by createdAt descending (newest first)
@@ -497,6 +531,17 @@ function MyAppointmentsContent() {
       const dateB = new Date(b.createdAt || b.appointmentDate);
       return dateB.getTime() - dateA.getTime();
     });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, startFilterDate, endFilterDate, searchTerm]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -528,98 +573,226 @@ function MyAppointmentsContent() {
           </div>
         </div>
 
-        {/* Filter Tabs and Calendar */}
+        {/* Search and Calendar Filter */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex flex-col gap-4">
-            {/* Calendar Filter */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-700">Từ</span>
+          <div className="flex flex-col md:flex-row items-center gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 w-full md:w-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
-                type="date"
-                value={startFilterDate}
-                onChange={(e) => setStartFilterDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                type="text"
+                placeholder="Tìm kiếm bác sĩ, chuyên khoa, lý do khám..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
-              <span className="text-sm font-medium text-gray-700">đến</span>
-              <input
-                type="date"
-                value={endFilterDate}
-                onChange={(e) => setEndFilterDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-              <button
-                onClick={() => {
-                  setStartFilterDate("");
-                  setEndFilterDate("");
-                }}
-                disabled={!startFilterDate && !endFilterDate}
-                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Xóa
-              </button>
             </div>
 
-            {/* Status Tabs */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setFilter("all")}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === "all" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Tất cả
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.PENDING)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.PENDING ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Chờ xác nhận
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.CONFIRMED)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.CONFIRMED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Đã xác nhận
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.COMPLETED)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.COMPLETED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Hoàn thành
-              </button>
-              <button
-                onClick={() => setFilter(AppointmentStatus.CANCELLED)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  filter === AppointmentStatus.CANCELLED ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Đã hủy
-              </button>
-              <button
-                onClick={() => setFilter("follow-up" as AppointmentStatus)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                  filter === "follow-up" ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                Lịch tái khám
-              </button>
-            </div>
+            <span className="text-sm font-medium text-gray-700">Từ</span>
+            <input
+              type="date"
+              value={startFilterDate}
+              onChange={(e) => setStartFilterDate(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            <span className="text-sm font-medium text-gray-700">đến</span>
+            <input
+              type="date"
+              value={endFilterDate}
+              onChange={(e) => setEndFilterDate(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            <button
+              onClick={() => {
+                setStartFilterDate("");
+                setEndFilterDate("");
+                setSearchTerm("");
+              }}
+              disabled={!startFilterDate && !endFilterDate && !searchTerm}
+              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Xóa
+            </button>
           </div>
         </div>
+
+        {/* Stats Cards - Filter by Status */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <button
+            onClick={() => setFilter("all")}
+            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+              filter === "all" ? "border-primary shadow-md" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Tất cả</p>
+                <p className="text-2xl font-bold text-gray-900">{appointments.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setFilter(AppointmentStatus.PENDING)}
+            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+              filter === AppointmentStatus.PENDING ? "border-yellow-500 shadow-md" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Chờ xác nhận</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {appointments.filter((a) => a.status === AppointmentStatus.PENDING).length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setFilter(AppointmentStatus.CONFIRMED)}
+            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+              filter === AppointmentStatus.CONFIRMED ? "border-green-500 shadow-md" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Đã xác nhận</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {appointments.filter((a) => a.status === AppointmentStatus.CONFIRMED).length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setFilter(AppointmentStatus.COMPLETED)}
+            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+              filter === AppointmentStatus.COMPLETED ? "border-primary shadow-md" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Hoàn thành</p>
+                <p className="text-2xl font-bold text-primary">
+                  {appointments.filter((a) => a.status === AppointmentStatus.COMPLETED).length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setFilter(AppointmentStatus.CANCELLED)}
+            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+              filter === AppointmentStatus.CANCELLED ? "border-red-500 shadow-md" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Đã hủy</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {appointments.filter((a) => a.status === AppointmentStatus.CANCELLED).length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setFilter("follow-up" as AppointmentStatus)}
+            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+              filter === "follow-up" ? "border-amber-500 shadow-md" : "border-gray-200"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Cần tái khám</p>
+                <p className="text-2xl font-bold text-amber-600">{followUpSuggestionsCount}</p>
+              </div>
+              <div className="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Pagination Controls - Above List */}
+        {!loading && filteredAppointments.length > 0 && filter !== "follow-up" && totalPages > 1 && (
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredAppointments.length)} trong tổng số{" "}
+                {filteredAppointments.length} lịch hẹn
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Trước
+                </button>
+                <div className="flex items-center gap-1">
+                  {[...Array(totalPages)].map((_, index) => {
+                    const pageNumber = index + 1;
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      pageNumber === 1 ||
+                      pageNumber === totalPages ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => setCurrentPage(pageNumber)}
+                          className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                      return (
+                        <span key={pageNumber} className="px-2 text-gray-400">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Tiếp
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Appointments List hoặc Follow-Up Suggestions based on filter */}
         {filter === "follow-up" ? (
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Calendar className="w-6 h-6 text-primary" />
-              Đề xuất tái khám
+              Cần tái khám
             </h2>
             <FollowUpSuggestions />
           </div>
@@ -644,142 +817,220 @@ function MyAppointmentsContent() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
-            {filteredAppointments.map((appointment) => (
-              <div
-                key={appointment._id}
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100"
-              >
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-4 flex-1">
-                      {/* Doctor Avatar */}
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        {appointment.doctor?.profileImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={appointment.doctor.profileImage}
-                            alt={appointment.doctor.fullName}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <User className="w-8 h-8 text-primary" />
-                        )}
-                      </div>
-
-                      {/* Appointment Info */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {appointment.doctor?.fullName || "Bác sĩ"}
-                        </h3>
-                        <p className="text-sm text-primary mb-2">{appointment.doctor?.specialty || "Nha khoa"}</p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Calendar className="w-4 h-4 text-gray-400" />
-                            <span>
-                              {new Date(appointment.appointmentDate).toLocaleDateString("vi-VN", {
-                                weekday: "short",
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Clock className="w-4 h-4 text-gray-400" />
-                            <span>{appointment.startTime}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            {getConsultTypeIcon(appointment.consultType || appointment.appointmentType)}
-                            <span>{getConsultTypeText(appointment.consultType || appointment.appointmentType)}</span>
-                          </div>
-                          {appointment.doctor?.clinicAddress && (
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <MapPin className="w-4 h-4 text-gray-400" />
-                              <span className="truncate">{appointment.doctor.clinicAddress}</span>
-                            </div>
+          <>
+            <div className="grid grid-cols-1 gap-6">
+              {paginatedAppointments.map((appointment) => (
+                <div
+                  key={appointment._id}
+                  className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100"
+                >
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-start gap-4 flex-1">
+                        {/* Doctor Avatar */}
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          {appointment.doctor?.profileImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={appointment.doctor.profileImage}
+                              alt={appointment.doctor.fullName}
+                              className="w-full h-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <User className="w-8 h-8 text-primary" />
                           )}
                         </div>
 
-                        {appointment.chiefComplaint && (
-                          <div className="flex items-start gap-2 text-sm text-gray-600 mb-3">
-                            <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                            <span className="line-clamp-2">{appointment.chiefComplaint}</span>
-                          </div>
-                        )}
+                        {/* Appointment Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                            {appointment.doctor?.fullName || "Bác sĩ"}
+                          </h3>
+                          <p className="text-sm text-primary mb-2">{appointment.doctor?.specialty || "Nha khoa"}</p>
 
-                        {/* Payment Status */}
-                        {appointment.consultationFee && (
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-2 text-sm">
-                                <DollarSign className="w-4 h-4 text-gray-400" />
-                                <span className="font-medium text-gray-700">
-                                  {new Intl.NumberFormat("vi-VN", {
-                                    style: "currency",
-                                    currency: "VND",
-                                    minimumFractionDigits: 0,
-                                  }).format(appointment.consultationFee)}
-                                </span>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Calendar className="w-4 h-4 text-gray-400" />
+                              <span>
+                                {new Date(appointment.appointmentDate).toLocaleDateString("vi-VN", {
+                                  weekday: "short",
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Clock className="w-4 h-4 text-gray-400" />
+                              <span>{appointment.startTime}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              {getConsultTypeIcon(appointment.consultType || appointment.appointmentType)}
+                              <span>{getConsultTypeText(appointment.consultType || appointment.appointmentType)}</span>
+                            </div>
+                            {appointment.doctor?.clinicAddress && (
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <MapPin className="w-4 h-4 text-gray-400" />
+                                <span className="truncate">{appointment.doctor.clinicAddress}</span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <CreditCard className="w-4 h-4 text-gray-400" />
-                                <span
-                                  className={`text-xs font-medium px-2 py-1 rounded ${
-                                    appointment.paymentStatus === "paid"
-                                      ? "bg-green-100 text-green-700"
+                            )}
+                          </div>
+
+                          {appointment.chiefComplaint && (
+                            <div className="flex items-start gap-2 text-sm text-gray-600 mb-3">
+                              <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <span className="line-clamp-2">{appointment.chiefComplaint}</span>
+                            </div>
+                          )}
+
+                          {/* Payment Status */}
+                          {appointment.consultationFee && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <DollarSign className="w-4 h-4 text-gray-400" />
+                                  <span className="font-medium text-gray-700">
+                                    {new Intl.NumberFormat("vi-VN", {
+                                      style: "currency",
+                                      currency: "VND",
+                                      minimumFractionDigits: 0,
+                                    }).format(appointment.consultationFee)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <CreditCard className="w-4 h-4 text-gray-400" />
+                                  <span
+                                    className={`text-xs font-medium px-2 py-1 rounded ${
+                                      appointment.paymentStatus === "paid"
+                                        ? "bg-green-100 text-green-700"
+                                        : appointment.paymentStatus === "refunded"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-yellow-100 text-yellow-700"
+                                    }`}
+                                  >
+                                    {appointment.paymentStatus === "paid"
+                                      ? "Đã thanh toán"
                                       : appointment.paymentStatus === "refunded"
-                                      ? "bg-blue-100 text-blue-700"
-                                      : "bg-yellow-100 text-yellow-700"
-                                  }`}
-                                >
-                                  {appointment.paymentStatus === "paid"
-                                    ? "Đã thanh toán"
-                                    : appointment.paymentStatus === "refunded"
-                                    ? "Đã hoàn tiền"
-                                    : "Chưa thanh toán"}
-                                </span>
+                                      ? "Đã hoàn tiền"
+                                      : "Chưa thanh toán"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="flex items-center gap-2 ml-4">
+                        <span
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 ${getStatusColor(
+                            appointment.status
+                          )}`}
+                        >
+                          {getStatusIcon(appointment.status)}
+                          {getStatusText(appointment.status)}
+                        </span>
+                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                          <MoreVertical className="w-5 h-5 text-gray-600" />
+                        </button>
                       </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-2 ml-4">
-                      <span
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 ${getStatusColor(
-                          appointment.status
-                        )}`}
-                      >
-                        {getStatusIcon(appointment.status)}
-                        {getStatusText(appointment.status)}
-                      </span>
-                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                        <MoreVertical className="w-5 h-5 text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="pt-4 border-t border-gray-100">
-                    {/* Check if appointment is past consultation time + 15 minutes */}
-                    {appointment.status === AppointmentStatus.CONFIRMED &&
-                    isAppointmentPastConsultation(appointment) ? (
-                      <div className="flex flex-col gap-3">
-                        <p className="text-sm italic text-gray-600">
-                          Lịch này đã hoàn thành, vui lòng yêu cầu bác sĩ lên đơn điều trị!
-                        </p>
+                    {/* Action Buttons */}
+                    <div className="pt-4 border-t border-gray-100">
+                      {/* Check if appointment is past consultation time + 15 minutes */}
+                      {appointment.status === AppointmentStatus.CONFIRMED &&
+                      isAppointmentPastConsultation(appointment) ? (
+                        <div className="flex flex-col gap-3">
+                          <p className="text-sm italic text-gray-600">
+                            Lịch này đã hoàn thành, vui lòng yêu cầu bác sĩ lên đơn điều trị!
+                          </p>
+                          <div className="flex items-center justify-between gap-3">
+                            <button
+                              onClick={() => handleContactDoctor(appointment)}
+                              className=" px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              Liên hệ bác sĩ
+                            </button>
+                            <button
+                              onClick={() => handleViewDetail(appointment)}
+                              className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                            >
+                              Chi tiết
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
                         <div className="flex items-center justify-between gap-3">
-                          <button
-                            onClick={() => handleContactDoctor(appointment)}
-                            className=" px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                            Liên hệ bác sĩ
-                          </button>
+                          <div className="flex items-center gap-3 flex-1">
+                            {appointment.status === AppointmentStatus.PENDING && (
+                              <>
+                                <button
+                                  onClick={() => handleOpenCancelDialog(appointment)}
+                                  className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                                >
+                                  Hủy lịch
+                                </button>
+                                <button
+                                  onClick={() => handleOpenRescheduleDialog(appointment)}
+                                  className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                                >
+                                  Đổi lịch
+                                </button>
+                              </>
+                            )}
+                            {appointment.status === AppointmentStatus.CONFIRMED && (
+                              <>
+                                <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
+                                  Tham gia khám
+                                </button>
+                                <button
+                                  onClick={() => handleOpenCancelDialog(appointment)}
+                                  className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
+                                >
+                                  Hủy lịch
+                                </button>
+                                <button
+                                  onClick={() => handleOpenRescheduleDialog(appointment)}
+                                  className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                                >
+                                  Đổi lịch
+                                </button>
+                              </>
+                            )}
+                            {appointment.status === AppointmentStatus.COMPLETED && (
+                              <>
+                                {appointment._id && appointmentReviews[appointment._id] ? (
+                                  <button
+                                    onClick={() => handleViewReview(appointment)}
+                                    className="px-4 py-2 text-sm border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center gap-2"
+                                  >
+                                    <Star className="w-4 h-4 fill-blue-500" />
+                                    Xem đánh giá
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleOpenReviewModal(appointment)}
+                                    className="px-4 py-2 text-sm border border-yellow-400 text-yellow-600 rounded-lg hover:bg-yellow-50 transition-colors font-medium flex items-center gap-2"
+                                  >
+                                    <Star className="w-4 h-4" />
+                                    Đánh giá
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    // Navigate to records page with appointmentId to auto-open the modal
+                                    router.push(`/patient/records?appointmentId=${appointment._id}`);
+                                  }}
+                                  className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                                >
+                                  Xem kết quả
+                                </button>
+                              </>
+                            )}
+                          </div>
                           <button
                             onClick={() => handleViewDetail(appointment)}
                             className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
@@ -787,89 +1038,13 @@ function MyAppointmentsContent() {
                             Chi tiết
                           </button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 flex-1">
-                          {appointment.status === AppointmentStatus.PENDING && (
-                            <>
-                              <button
-                                onClick={() => handleOpenCancelDialog(appointment)}
-                                className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
-                              >
-                                Hủy lịch
-                              </button>
-                              <button
-                                onClick={() => handleOpenRescheduleDialog(appointment)}
-                                className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
-                              >
-                                Đổi lịch
-                              </button>
-                            </>
-                          )}
-                          {appointment.status === AppointmentStatus.CONFIRMED && (
-                            <>
-                              <button className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium">
-                                Tham gia khám
-                              </button>
-                              <button
-                                onClick={() => handleOpenCancelDialog(appointment)}
-                                className="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors font-medium"
-                              >
-                                Hủy lịch
-                              </button>
-                              <button
-                                onClick={() => handleOpenRescheduleDialog(appointment)}
-                                className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
-                              >
-                                Đổi lịch
-                              </button>
-                            </>
-                          )}
-                          {appointment.status === AppointmentStatus.COMPLETED && (
-                            <>
-                              {appointment._id && appointmentReviews[appointment._id] ? (
-                                <button
-                                  onClick={() => handleViewReview(appointment)}
-                                  className="px-4 py-2 text-sm border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center gap-2"
-                                >
-                                  <Star className="w-4 h-4 fill-blue-500" />
-                                  Xem đánh giá
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleOpenReviewModal(appointment)}
-                                  className="px-4 py-2 text-sm border border-yellow-400 text-yellow-600 rounded-lg hover:bg-yellow-50 transition-colors font-medium flex items-center gap-2"
-                                >
-                                  <Star className="w-4 h-4" />
-                                  Đánh giá
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  // Navigate to records page with appointmentId to auto-open the modal
-                                  router.push(`/patient/records?appointmentId=${appointment._id}`);
-                                }}
-                                className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
-                              >
-                                Xem kết quả
-                              </button>
-                            </>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleViewDetail(appointment)}
-                          className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                        >
-                          Chi tiết
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
