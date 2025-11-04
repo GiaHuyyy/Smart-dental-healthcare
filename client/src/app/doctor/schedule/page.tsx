@@ -3,7 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays, CheckCircle } from "lucide-react";
+import {
+  X,
+  Calendar,
+  Clock,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Plus,
+  Download,
+  CalendarDays,
+  CheckCircle,
+  DollarSign,
+} from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
 import DoctorCalendar from "@/components/Calendar/DoctorCalendar";
@@ -78,6 +91,11 @@ function DoctorScheduleContent() {
   const [followUpModalOpen, setFollowUpModalOpen] = useState(false);
   const [appointmentForFollowUp, setAppointmentForFollowUp] = useState<Appointment | null>(null);
 
+  // Payment modal states
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [pendingBill, setPendingBill] = useState<any>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
     const userId = (session?.user as { _id?: string })?._id;
@@ -133,11 +151,9 @@ function DoctorScheduleContent() {
   // Register this page's refresh callback with global socket
   useEffect(() => {
     registerAppointmentCallback(fetchAppointments);
-    console.log("✅ Doctor schedule registered with global socket");
 
     return () => {
       unregisterAppointmentCallback();
-      console.log("🔇 Doctor schedule unregistered from global socket");
     };
   }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
 
@@ -480,8 +496,6 @@ function DoctorScheduleContent() {
           notes: formData.notes,
         };
 
-        console.log("📝 Prescription Payload:", JSON.stringify(prescriptionPayload, null, 2));
-
         const prescriptionResponse = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/prescriptions`,
           {
@@ -616,6 +630,82 @@ function DoctorScheduleContent() {
     if (appointment) {
       setSelectedAppointment(appointment);
       setDetailModalOpen(true);
+      // Check for pending bill if appointment is completed
+      if (appointment.status === "completed") {
+        checkPendingBill(appointment._id || appointment.id);
+      }
+    }
+  };
+
+  // Check for pending bill
+  const checkPendingBill = async (appointmentId: string) => {
+    try {
+      const accessToken = (session as ExtendedSession).accessToken;
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
+        }/api/v1/payments/appointment/${appointmentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        // Check if payment is pending
+        if (result.success && result.data && result.data.status === "pending") {
+          setPendingBill(result.data);
+        } else {
+          setPendingBill(null);
+        }
+      } else {
+        setPendingBill(null);
+      }
+    } catch (error) {
+      console.error("Error checking pending bill:", error);
+      setPendingBill(null);
+    }
+  };
+
+  // Handle payment confirmation
+  const handlePaymentConfirm = async () => {
+    if (!pendingBill || !session?.user?._id) return;
+
+    setIsProcessingPayment(true);
+    try {
+      const accessToken = (session as ExtendedSession).accessToken;
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/payments/${
+          pendingBill._id
+        }/mark-paid`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            doctorId: session.user._id,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Không thể xác nhận thanh toán");
+      }
+
+      toast.success("Đã xác nhận thanh toán thành công");
+      setPendingBill(null);
+      setPaymentModalOpen(false);
+      fetchAppointments();
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      toast.error("Có lỗi xảy ra khi xử lý thanh toán");
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -877,6 +967,10 @@ function DoctorScheduleContent() {
                     onClick={() => {
                       setSelectedAppointment(apt);
                       setDetailModalOpen(true);
+                      // Check for pending bill if appointment is completed
+                      if (apt.status === "completed") {
+                        checkPendingBill(apt._id || apt.id);
+                      }
                     }}
                   >
                     <div className="grid grid-cols-12 gap-4 items-center">
@@ -1144,17 +1238,30 @@ function DoctorScheduleContent() {
                   </button>
                 )}
                 {selectedAppointment.status === "completed" && (
-                  <button
-                    onClick={() => {
-                      setAppointmentForFollowUp(selectedAppointment);
-                      setFollowUpModalOpen(true);
-                      setDetailModalOpen(false);
-                    }}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
-                  >
-                    <CalendarDays className="w-4 h-4" />
-                    Tạo đề xuất tái khám
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setAppointmentForFollowUp(selectedAppointment);
+                        setFollowUpModalOpen(true);
+                        setDetailModalOpen(false);
+                      }}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
+                    >
+                      <CalendarDays className="w-4 h-4" />
+                      Tạo đề xuất tái khám
+                    </button>
+                    {pendingBill && (
+                      <button
+                        onClick={() => {
+                          setPaymentModalOpen(true);
+                        }}
+                        className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 flex items-center justify-center gap-2"
+                      >
+                        <DollarSign className="w-4 h-4" />
+                        Thanh toán ({new Intl.NumberFormat("vi-VN").format(pendingBill.amount)}đ)
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1192,12 +1299,80 @@ function DoctorScheduleContent() {
           }}
           appointment={appointmentForFollowUp}
           patientName={appointmentForFollowUp.patientName}
-          // onSuccess={() => {
-          //   setFollowUpModalOpen(false);
-          //   setAppointmentForFollowUp(null);
-          //   fetchAppointments();
-          // }}
+          onSuccess={() => {
+            setFollowUpModalOpen(false);
+            setAppointmentForFollowUp(null);
+            // fetchAppointments();
+          }}
         />
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {paymentModalOpen && pendingBill && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Xác nhận thanh toán</h2>
+              <button
+                onClick={() => setPaymentModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+                disabled={isProcessingPayment}
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-2">Thông tin hóa đơn</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Mã hóa đơn:</span>
+                    <span className="text-sm font-medium text-gray-900">{pendingBill._id?.slice(-8)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Tổng tiền:</span>
+                    <span className="text-lg font-bold text-primary">
+                      {new Intl.NumberFormat("vi-VN").format(pendingBill.amount)}đ
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Trạng thái:</span>
+                    <span className="text-sm font-medium text-yellow-600">Chờ thanh toán</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  Bạn có chắc chắn muốn xác nhận thanh toán cho hóa đơn này? Hành động này sẽ:
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-blue-700 list-disc list-inside">
+                  <li>Đánh dấu hóa đơn đã thanh toán</li>
+                  <li>Gửi thông báo cho bệnh nhân</li>
+                  <li>Gửi email xác nhận</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => setPaymentModalOpen(false)}
+                  disabled={isProcessingPayment}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handlePaymentConfirm}
+                  disabled={isProcessingPayment}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isProcessingPayment ? "Đang xử lý..." : "Xác nhận thanh toán"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Treatment Modal */}

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model } from 'mongoose';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -20,10 +24,19 @@ export class ReviewsService {
     }
   }
 
-  async findAll(page = 1, limit = 10): Promise<{ data: Review[]; total: number; page: number; limit: number }> {
+  async findAll(
+    page = 1,
+    limit = 10,
+  ): Promise<{ data: Review[]; total: number; page: number; limit: number }> {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.reviewModel.find().skip(skip).limit(limit).populate('patientId', 'fullName email').populate('doctorId', 'fullName email').exec(),
+      this.reviewModel
+        .find()
+        .skip(skip)
+        .limit(limit)
+        .populate('patientId', 'fullName email')
+        .populate('doctorId', 'fullName email')
+        .exec(),
       this.reviewModel.countDocuments(),
     ]);
 
@@ -35,14 +48,23 @@ export class ReviewsService {
     };
   }
 
-  async findByDoctor(doctorId: string, page = 1, limit = 10): Promise<{ data: Review[]; total: number; page: number; limit: number }> {
+  async findByDoctor(
+    doctorId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{ data: Review[]; total: number; page: number; limit: number }> {
     if (!mongoose.Types.ObjectId.isValid(doctorId)) {
       throw new BadRequestException('ID bác sĩ không hợp lệ');
     }
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.reviewModel.find({ doctorId }).skip(skip).limit(limit).populate('patientId', 'fullName email').exec(),
+      this.reviewModel
+        .find({ doctorId })
+        .skip(skip)
+        .limit(limit)
+        .populate('patientId', 'fullName email')
+        .exec(),
       this.reviewModel.countDocuments({ doctorId }),
     ]);
 
@@ -54,14 +76,23 @@ export class ReviewsService {
     };
   }
 
-  async findByPatient(patientId: string, page = 1, limit = 10): Promise<{ data: Review[]; total: number; page: number; limit: number }> {
+  async findByPatient(
+    patientId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{ data: Review[]; total: number; page: number; limit: number }> {
     if (!mongoose.Types.ObjectId.isValid(patientId)) {
       throw new BadRequestException('ID bệnh nhân không hợp lệ');
     }
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.reviewModel.find({ patientId }).skip(skip).limit(limit).populate('doctorId', 'fullName email').exec(),
+      this.reviewModel
+        .find({ patientId })
+        .skip(skip)
+        .limit(limit)
+        .populate('doctorId', 'fullName email')
+        .exec(),
       this.reviewModel.countDocuments({ patientId }),
     ]);
 
@@ -73,12 +104,36 @@ export class ReviewsService {
     };
   }
 
+  async findByPatientAndAppointment(
+    patientId: string,
+    appointmentId: string,
+  ): Promise<{ data: Review | null }> {
+    if (!mongoose.Types.ObjectId.isValid(patientId)) {
+      throw new BadRequestException('ID bệnh nhân không hợp lệ');
+    }
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      throw new BadRequestException('ID lịch hẹn không hợp lệ');
+    }
+
+    const review = await this.reviewModel
+      .findOne({
+        patientId: new mongoose.Types.ObjectId(patientId),
+        refId: new mongoose.Types.ObjectId(appointmentId),
+        refModel: 'Appointment',
+      })
+      .populate('doctorId', 'fullName email')
+      .exec();
+
+    return { data: review };
+  }
+
   async findOne(id: string): Promise<Review> {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new BadRequestException('ID đánh giá không hợp lệ');
     }
 
-    const review = await this.reviewModel.findById(id)
+    const review = await this.reviewModel
+      .findById(id)
       .populate('patientId', 'fullName email')
       .populate('doctorId', 'fullName email')
       .exec();
@@ -95,9 +150,29 @@ export class ReviewsService {
       throw new BadRequestException('ID đánh giá không hợp lệ');
     }
 
+    // Check current review edit count
+    const currentReview = await this.reviewModel.findById(id);
+    if (!currentReview) {
+      throw new NotFoundException('Không tìm thấy đánh giá');
+    }
+
+    // Validate edit count (allow only 1 edit)
+    const editCount = (currentReview as any).editCount || 0;
+    if (editCount >= 1) {
+      throw new BadRequestException(
+        'Bạn đã chỉnh sửa đánh giá này rồi. Mỗi đánh giá chỉ được phép sửa một lần.',
+      );
+    }
+
     const updatedReview = await this.reviewModel.findByIdAndUpdate(
       id,
-      { $set: updateReviewDto },
+      {
+        $set: {
+          ...updateReviewDto,
+          editedAt: new Date(),
+        },
+        $inc: { editCount: 1 },
+      },
       { new: true },
     );
 
@@ -122,15 +197,25 @@ export class ReviewsService {
     return { deleted: true };
   }
 
-  async getDoctorRating(doctorId: string): Promise<{ averageRating: number; totalReviews: number }> {
+  async getDoctorRating(
+    doctorId: string,
+  ): Promise<{ averageRating: number; totalReviews: number }> {
     if (!mongoose.Types.ObjectId.isValid(doctorId)) {
       throw new BadRequestException('ID bác sĩ không hợp lệ');
     }
 
-    const result = await this.reviewModel.aggregate([
-      { $match: { doctorId: new mongoose.Types.ObjectId(doctorId) } },
-      { $group: { _id: null, averageRating: { $avg: '$rating' }, totalReviews: { $sum: 1 } } },
-    ]).exec();
+    const result = await this.reviewModel
+      .aggregate([
+        { $match: { doctorId: new mongoose.Types.ObjectId(doctorId) } },
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: '$rating' },
+            totalReviews: { $sum: 1 },
+          },
+        },
+      ])
+      .exec();
 
     if (result.length === 0) {
       return { averageRating: 0, totalReviews: 0 };

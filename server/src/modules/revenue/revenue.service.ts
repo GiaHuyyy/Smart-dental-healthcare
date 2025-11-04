@@ -48,14 +48,6 @@ export class RevenueService {
         throw new BadRequestException('Không tìm thấy thanh toán');
       }
 
-      this.logger.log('✅ Payment found:', {
-        paymentId: payment._id,
-        status: payment.status,
-        amount: payment.amount,
-        doctorId: payment.doctorId,
-        patientId: payment.patientId,
-      });
-
       if (payment.status !== 'completed') {
         this.logger.error('❌ Payment not completed:', payment.status);
         throw new BadRequestException(`Thanh toán chưa hoàn thành (status: ${payment.status})`);
@@ -64,7 +56,7 @@ export class RevenueService {
       // Check if revenue already exists for this payment
       this.logger.log('🔍 Checking if revenue already exists...');
       const existingRevenue = await this.revenueModel.findOne({ paymentId }).exec();
-      
+
       if (existingRevenue) {
         this.logger.warn('⚠️ Revenue already exists for payment:', paymentId);
         this.logger.log('📊 Existing revenue:', {
@@ -73,7 +65,7 @@ export class RevenueService {
           amount: existingRevenue.amount,
           status: existingRevenue.status,
         });
-        
+
         return {
           success: true,
           data: existingRevenue,
@@ -128,12 +120,12 @@ export class RevenueService {
 
       // Emit realtime event cho bác sĩ
       const doctorId = payment.doctorId.toString();
-      
+
       this.logger.log('🔔 Preparing to emit socket event...');
       this.logger.log(`   - Doctor ID: ${doctorId}`);
       this.logger.log(`   - RevenueGateway available: ${!!this.revenueGateway}`);
       this.logger.log(`   - Gateway server available: ${!!this.revenueGateway?.server}`);
-      
+
       if (!this.revenueGateway) {
         this.logger.error('❌ RevenueGateway is not available!');
       } else if (!this.revenueGateway.server) {
@@ -144,7 +136,7 @@ export class RevenueService {
       }
 
       this.logger.log('✅ ========== REVENUE CREATION SUCCESSFUL ==========');
-      
+
       return {
         success: true,
         data: populatedRevenue,
@@ -154,7 +146,7 @@ export class RevenueService {
       this.logger.error('❌ ========== REVENUE CREATION FAILED ==========');
       this.logger.error('❌ Error:', error.message);
       this.logger.error('❌ Stack:', error.stack);
-      
+
       return {
         success: false,
         message: error.message || 'Có lỗi xảy ra khi tạo doanh thu',
@@ -416,7 +408,7 @@ export class RevenueService {
 
       // Get monthly revenue data
       const monthlyRevenuePipeline: any[] = [
-        { 
+        {
           $match: {
             doctorId: new mongoose.Types.ObjectId(doctorId),
             status: { $in: ['completed', 'withdrawn'] },
@@ -475,8 +467,6 @@ export class RevenueService {
           };
         })
       );
-
-      this.logger.log(`✅ Found ${revenues.length} revenues with full statistics`);
 
       return {
         success: true,

@@ -246,6 +246,7 @@ export default function FollowUpSuggestions() {
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.CONFIRMED,
+        paymentMethod: "wallet", // Wallet payment
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
@@ -387,6 +388,7 @@ export default function FollowUpSuggestions() {
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.PENDING,
+        paymentMethod: "momo", // MoMo payment
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
@@ -504,6 +506,7 @@ export default function FollowUpSuggestions() {
             : "Khám tại phòng khám",
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.CONFIRMED,
+        paymentMethod: dataToSubmit.paymentMethod || "later", // Add payment method
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };

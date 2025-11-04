@@ -417,14 +417,6 @@ export class WalletService {
         transactionId: transaction._id.toString(),
       });
 
-      this.logger.log('✅ Payment bill created:', {
-        _id: paymentBill._id,
-        amount: paymentBill.amount,
-        patientId: paymentBill.patientId,
-        doctorId: paymentBill.doctorId,
-        paymentMethod: paymentBill.paymentMethod,
-      });
-
       // Deduct amount from wallet balance
       this.logger.log(
         `💰 Updating wallet balance: ${currentBalance} - ${amount}...`,

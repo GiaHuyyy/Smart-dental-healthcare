@@ -88,12 +88,9 @@ export default function PatientPayments() {
           setLoading(false);
           return;
         }
-
-        console.log("🔄 Fetching payments for user:", userId);
         const response = await paymentService.getPaymentsByPatient(userId, (session as any)?.access_token);
 
         if (response.success && response.data) {
-          console.log("✅ Payments loaded:", response.data.length, "records");
           // Normalize backend payment objects to PaymentRecord[] expected by this UI
           const normalized: PaymentRecord[] = (response.data as any[]).map((p) => {
             const sessionUser = (session as any)?.user;
@@ -188,7 +185,7 @@ export default function PatientPayments() {
     }).format(amount);
   };
 
-  // Format số tiền với dấu +/- dựa vào billType HOẶC giá trị amount
+  // Format số tiền với dấu +/- dựa vào billType
   const formatAmountWithSign = (payment: PaymentRecord) => {
     const amount = payment.amount;
     const absAmount = Math.abs(amount);
@@ -196,37 +193,14 @@ export default function PatientPayments() {
       minimumFractionDigits: 0,
     }).format(absAmount);
 
-    // Bill hoàn tiền thì thêm dấu + (cộng tiền cho bệnh nhân)
+    // Chỉ có 2 loại:
+    // 1. Bill hoàn tiền → dấu cộng (+)
     if (payment.billType === "refund") {
       return `+${formatted} ₫`;
     }
 
-    // Bills pending (chưa thanh toán) luôn là bill trừ tiền
-    if (payment.status === "pending") {
-      return `-${formatted} ₫`;
-    }
-
-    // Nếu amount là số âm → bill trừ tiền (màu đỏ)
-    if (amount < 0) {
-      return `-${formatted} ₫`;
-    }
-
-    // Bills MoMo/Wallet luôn là trừ tiền (màu đỏ)
-    if (
-      payment.paymentMethod === "momo" ||
-      payment.paymentMethod === "wallet" ||
-      payment.paymentMethod === "wallet_deduction"
-    ) {
-      return `-${formatted} ₫`;
-    }
-
-    // Bill trừ phí (cancellation_charge, reservation_fee) thì thêm dấu -
-    if (payment.billType === "cancellation_charge" || payment.billType === "reservation_fee") {
-      return `-${formatted} ₫`;
-    }
-
-    // Mặc định không có dấu
-    return `${formatted} ₫`;
+    // 2. Tất cả bill khác → dấu trừ (-)
+    return `-${formatted} ₫`;
   };
 
   const getStatusIcon = (status: string) => {
@@ -675,12 +649,7 @@ export default function PatientPayments() {
                                 <p className="text-xs text-gray-500">Loại giao dịch</p>
                                 <p
                                   className={`font-medium ${
-                                    payment.billType === "refund"
-                                      ? "text-green-600"
-                                      : payment.billType === "cancellation_charge" ||
-                                        payment.billType === "reservation_fee"
-                                      ? "text-red-600"
-                                      : "text-blue-600"
+                                    payment.billType === "refund" ? "text-green-600" : "text-red-600"
                                   }`}
                                 >
                                   {getBillTypeLabel(payment.billType)}
@@ -717,17 +686,7 @@ export default function PatientPayments() {
                           <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
                           <p
                             className={`text-3xl font-bold ${
-                              payment.billType === "refund"
-                                ? "text-green-600"
-                                : payment.status === "pending" ||
-                                  payment.amount < 0 ||
-                                  payment.paymentMethod === "momo" ||
-                                  payment.paymentMethod === "wallet" ||
-                                  payment.paymentMethod === "wallet_deduction" ||
-                                  payment.billType === "cancellation_charge" ||
-                                  payment.billType === "reservation_fee"
-                                ? "text-red-600"
-                                : "bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent"
+                              payment.billType === "refund" ? "text-green-600" : "text-red-600"
                             }`}
                           >
                             {formatAmountWithSign(payment)}

@@ -6,7 +6,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { appointmentId } = resolved;
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
 
     console.log("Fetching medical records for appointment:", appointmentId);
 

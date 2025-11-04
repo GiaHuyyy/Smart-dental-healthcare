@@ -1,0 +1,207 @@
+<!-- filepath: c:\Users\tovug\Desktop\TTDN_KLTN\Smart-dental-healthcare\server\src\mail\templates\payment-confirmation.hbs -->
+
+<html>
+
+  <head>
+    <title>Xác nhận thanh toán - Smart Dental Healthcare</title>
+    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  </head>
+
+  <body
+    style="margin: 0; padding: 0; min-width: 100%; font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; line-height: 1.6; background-color: #f0fdf4; color: #1f2937;"
+  >
+
+    <div
+      style='max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);'
+    >
+
+      <!-- Header -->
+      <div
+        style='background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 24px; text-align: center;'
+      >
+        <div
+          style='display: inline-block; width: 60px; height: 60px; background-color: #ffffff; border-radius: 12px; margin-bottom: 16px; line-height: 60px; font-size: 30px;'
+        >
+          ✅
+        </div>
+        <h1
+          style='font-size: 28px; font-weight: 700; line-height: 1.2; margin: 0; color: #ffffff;'
+        >
+          Thanh toán thành công
+        </h1>
+        <p style='font-size: 16px; margin: 8px 0 0 0; color: #d1fae5;'>
+          Hóa đơn của bạn đã được xác nhận
+        </p>
+      </div>
+
+      <!-- Nội dung chính -->
+      <div style='padding: 32px 24px;'>
+        <h2
+          style='font-size: 24px; font-weight: 600; color: #10b981; margin: 0 0 16px 0;'
+        >
+          Xin chào
+          {{patientName}}! 👋
+        </h2>
+
+        <p style='margin: 0 0 20px 0; color: #4b5563;'>
+          Chúng tôi xác nhận rằng bạn đã
+          <strong>thanh toán thành công</strong>
+          cho lịch khám tại phòng khám của chúng tôi.
+        </p>
+
+        <!-- Payment Info Box -->
+        <div
+          style='background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-left: 4px solid #10b981; padding: 20px; margin: 24px 0; border-radius: 8px;'
+        >
+          <h3
+            style='font-size: 18px; font-weight: 600; color: #065f46; margin: 0 0 16px 0;'
+          >
+            📋 Thông tin thanh toán
+          </h3>
+
+          <table style='width: 100%; border-collapse: collapse;'>
+            <tr>
+              <td
+                style='padding: 8px 0; color: #6b7280; font-weight: 500; width: 40%;'
+              >
+                Bác sĩ:
+              </td>
+              <td style='padding: 8px 0; color: #1f2937; font-weight: 600;'>
+                BS.
+                {{doctorName}}
+              </td>
+            </tr>
+            <tr>
+              <td
+                style='padding: 8px 0; color: #6b7280; font-weight: 500; border-top: 1px solid #d1fae5;'
+              >
+                Số tiền:
+              </td>
+              <td
+                style='padding: 8px 0; color: #10b981; font-weight: 700; font-size: 20px; border-top: 1px solid #d1fae5;'
+              >
+                {{amount}}
+                ₫
+              </td>
+            </tr>
+            <tr>
+              <td
+                style='padding: 8px 0; color: #6b7280; font-weight: 500; border-top: 1px solid #d1fae5;'
+              >
+                Phương thức:
+              </td>
+              <td
+                style='padding: 8px 0; color: #1f2937; font-weight: 600; border-top: 1px solid #d1fae5;'
+              >
+                {{paymentMethod}}
+              </td>
+            </tr>
+            <tr>
+              <td
+                style='padding: 8px 0; color: #6b7280; font-weight: 500; border-top: 1px solid #d1fae5;'
+              >
+                Ngày thanh toán:
+              </td>
+              <td
+                style='padding: 8px 0; color: #1f2937; font-weight: 600; border-top: 1px solid #d1fae5;'
+              >
+                {{paymentDate}}
+              </td>
+            </tr>
+            <tr>
+              <td
+                style='padding: 8px 0; color: #6b7280; font-weight: 500; border-top: 1px solid #d1fae5;'
+              >
+                Mã giao dịch:
+              </td>
+              <td
+                style='padding: 8px 0; color: #6b7280; font-family: monospace; font-size: 14px; border-top: 1px solid #d1fae5;'
+              >
+                {{transactionId}}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Important Notes -->
+        <div
+          style='background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 8px;'
+        >
+          <p
+            style='margin: 0; color: #92400e; font-weight: 600; font-size: 14px;'
+          >
+            💡 Lưu ý quan trọng:
+          </p>
+          <ul style='margin: 8px 0 0 0; padding-left: 20px; color: #92400e;'>
+            <li style='margin: 4px 0;'>
+              Vui lòng lưu lại email này để đối chiếu khi cần
+            </li>
+            <li style='margin: 4px 0;'>
+              Nếu có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi
+            </li>
+            <li style='margin: 4px 0;'>
+              Bạn có thể xem lại lịch sử thanh toán trong tài khoản của mình
+            </li>
+          </ul>
+        </div>
+
+        <!-- CTA Button -->
+        <div style='text-align: center; margin: 32px 0;'>
+          <a
+            href='{{viewUrl}}'
+            style='display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);'
+          >
+            Xem lịch sử thanh toán
+          </a>
+        </div>
+
+        <!-- Support Info -->
+        <div
+          style='background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 24px 0;'
+        >
+          <h3
+            style='font-size: 16px; font-weight: 600; color: #1f2937; margin: 0 0 12px 0;'
+          >
+            🤝 Cần hỗ trợ?
+          </h3>
+          <p style='margin: 0; color: #6b7280; font-size: 14px;'>
+            Nếu bạn có bất kỳ câu hỏi nào về thanh toán này, vui lòng liên hệ:
+          </p>
+          <p style='margin: 8px 0 0 0; color: #1f2937; font-weight: 600;'>
+            📞 Hotline: 1900-xxxx<br />
+            📧 Email: support@smartdental.vn
+          </p>
+        </div>
+
+        <!-- Thank You Message -->
+        <div style='text-align: center; margin: 32px 0;'>
+          <p
+            style='font-size: 18px; font-weight: 600; color: #10b981; margin: 0 0 8px 0;'
+          >
+            Cảm ơn bạn đã tin tưởng! 💚
+          </p>
+          <p style='color: #6b7280; margin: 0;'>
+            Chúc bạn luôn khỏe mạnh và hạnh phúc!
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div
+        style='background-color: #f9fafb; padding: 24px; border-top: 1px solid #e5e7eb; text-align: center;'
+      >
+        <p style='margin: 0 0 8px 0; color: #6b7280; font-size: 14px;'>
+          © 2024 Smart Dental Healthcare. All rights reserved.
+        </p>
+        <p style='margin: 0; color: #9ca3af; font-size: 12px;'>
+          Email này được gửi tự động, vui lòng không trả lời.
+        </p>
+      </div>
+
+    </div>
+
+  </body>
+
+</html>

@@ -19,7 +19,7 @@ async function bootstrap() {
 
   //config cors
   const rawCorsOrigin = configService.get<string>('CORS_ORIGIN');
-  const fallbackOrigins = ['http://localhost:3000', 'http://localhost:8082'];
+  const fallbackOrigins = ['http://localhost:3000'];
   const configuredOrigins = rawCorsOrigin
     ? rawCorsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean)
     : [];

@@ -7,11 +7,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
+import { MailerService } from '@nestjs-modules/mailer';
 import aqp from 'api-query-params';
 import mongoose, { Model } from 'mongoose';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
 import { NotificationGateway } from '../notifications/notification.gateway';
 import { RevenueService } from '../revenue/revenue.service';
+import { User } from '../users/schemas/user.schemas';
 import { VouchersService } from '../vouchers/vouchers.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
@@ -25,12 +27,14 @@ export class PaymentsService {
   constructor(
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
+    @InjectModel(User.name) private userModel: Model<User>,
     private readonly momoService: MoMoService,
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => RevenueService))
     private readonly revenueService: RevenueService,
     private readonly notificationGateway: NotificationGateway,
     private readonly vouchersService: VouchersService,
+    private readonly mailerService: MailerService,
   ) {}
 
   /**
@@ -514,10 +518,6 @@ export class PaymentsService {
             })
             .populate('refId')
             .sort({ createdAt: -1 }); // Get latest payment for this appointment
-
-          if (payment) {
-            this.logger.log('✅ Found payment by appointment ID:', payment._id);
-          }
         }
       }
 
@@ -539,13 +539,6 @@ export class PaymentsService {
               })
               .populate('refId')
               .sort({ createdAt: -1 });
-
-            if (payment) {
-              this.logger.log(
-                '✅ Found payment by appointment reference:',
-                payment._id,
-              );
-            }
           }
         }
       }
@@ -584,8 +577,6 @@ export class PaymentsService {
           payment.transactionId = momoResponse.transId.toString();
         }
         await payment.save();
-
-        this.logger.log('✅ Payment status updated to completed');
 
         // 🔥 CRITICAL: Create revenue for the completed payment
         this.logger.log('💰 Creating revenue for completed payment...');
@@ -766,8 +757,6 @@ export class PaymentsService {
         })
         .exec();
 
-      this.logger.log(`✅ Found ${payments.length} payments`);
-
       // Debug first payment to verify populate
       if (payments.length > 0) {
         this.logger.log('📦 Sample payment:', {
@@ -817,8 +806,6 @@ export class PaymentsService {
           },
         })
         .exec();
-
-      this.logger.log(`✅ Found ${payments.length} payments for doctor`);
 
       return {
         success: true,
@@ -1075,6 +1062,205 @@ export class PaymentsService {
         success: false,
         message: error.message || 'Có lỗi xảy ra khi xóa thanh toán',
       };
+    }
+  }
+
+  /**
+   * Get payment by appointment ID
+   * GET /api/v1/payments/appointment/:appointmentId
+   */
+  async findByAppointment(appointmentId: string) {
+    try {
+      if (!mongoose.isValidObjectId(appointmentId)) {
+        throw new BadRequestException('ID lịch hẹn không hợp lệ');
+      }
+
+      this.logger.log('🔍 Finding payment for appointment:', appointmentId);
+
+      const payment = await this.paymentModel
+        .findOne({
+          refId: appointmentId,
+          refModel: 'Appointment',
+          billType: 'consultation_fee',
+        })
+        .sort({ createdAt: -1 })
+        .populate('patientId', 'fullName email phone')
+        .populate('doctorId', 'fullName email specialty')
+        .exec();
+
+      if (!payment) {
+        return {
+          success: false,
+          message: 'Không tìm thấy hóa đơn cho lịch hẹn này',
+        };
+      }
+
+      return {
+        success: true,
+        data: payment,
+        message: 'Lấy thông tin thanh toán thành công',
+      };
+    } catch (error) {
+      this.logger.error('❌ findByAppointment error:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy thông tin thanh toán',
+      };
+    }
+  }
+
+  /**
+   * Mark payment as paid (for cash/direct payment)
+   * POST /api/v1/payments/:id/mark-paid
+   */
+  async markAsPaid(paymentId: string, doctorId: string) {
+    this.logger.log('💰 ========== MARK PAYMENT AS PAID START ==========');
+    this.logger.log('📋 Request:', { paymentId, doctorId });
+
+    try {
+      if (!mongoose.isValidObjectId(paymentId)) {
+        throw new BadRequestException('ID thanh toán không hợp lệ');
+      }
+
+      // Get the payment
+      const payment = await this.paymentModel
+        .findById(paymentId)
+        .populate('patientId', 'fullName email phone')
+        .populate('doctorId', 'fullName email')
+        .exec();
+
+      if (!payment) {
+        this.logger.error('❌ Payment not found:', paymentId);
+        throw new BadRequestException('Không tìm thấy hóa đơn');
+      }
+
+      // Verify doctor ownership
+      const paymentDoctorId =
+        typeof payment.doctorId === 'object' && payment.doctorId !== null
+          ? (payment.doctorId as any)._id?.toString() || ''
+          : String(payment.doctorId || '');
+
+      if (paymentDoctorId !== doctorId) {
+        this.logger.error('❌ Unauthorized: Doctor mismatch');
+        throw new BadRequestException(
+          'Bạn không có quyền xác nhận thanh toán này',
+        );
+      }
+
+      // Check if already paid
+      if (payment.status === 'completed') {
+        this.logger.warn('⚠️ Payment already completed');
+        return {
+          success: false,
+          message: 'Hóa đơn này đã được thanh toán',
+        };
+      }
+
+      // Check if status is pending
+      if (payment.status !== 'pending') {
+        this.logger.warn(`⚠️ Payment status is not pending: ${payment.status}`);
+        return {
+          success: false,
+          message: `Không thể thanh toán hóa đơn ở trạng thái ${payment.status}`,
+        };
+      }
+
+      // Update payment status
+      payment.status = 'completed';
+      payment.paymentMethod = 'cash';
+      payment.paymentDate = new Date();
+      payment.transactionId = `CASH_${payment._id.toString()}_${Date.now()}`;
+      await payment.save();
+
+      // Update appointment payment status
+      if (payment.refId && payment.refModel === 'Appointment') {
+        this.logger.log('📝 Updating appointment payment status...');
+        await this.appointmentModel.findByIdAndUpdate(payment.refId, {
+          paymentStatus: 'paid',
+        });
+        this.logger.log('✅ Appointment payment status updated');
+      }
+
+      // Create revenue record
+      this.logger.log('💰 Creating revenue record...');
+      try {
+        await this.revenueService.createRevenueFromPayment(
+          payment._id.toString(),
+        );
+        this.logger.log('✅ Revenue record created');
+      } catch (error) {
+        this.logger.error('⚠️ Failed to create revenue:', error);
+        // Continue even if revenue creation fails
+      }
+
+      // Get patient and doctor info for notifications
+      const patient = payment.patientId as any;
+      const doctor = payment.doctorId as any;
+
+      // Send real-time notification to patient
+      this.logger.log('📢 Sending real-time notification...');
+      try {
+        const patientId: string =
+          patient._id?.toString() || String(patient || '');
+        await this.notificationGateway.sendNotificationToUser(
+          patientId,
+          {
+            title: 'Thanh toán thành công',
+            message: `Hóa đơn ${new Intl.NumberFormat('vi-VN').format(payment.amount)}đ đã được xác nhận thanh toán`,
+            type: 'PAYMENT_SUCCESS',
+            data: {
+              paymentId: payment._id.toString(),
+              amount: payment.amount,
+              paymentMethod: 'cash',
+            },
+            linkTo: '/patient/payments',
+            icon: '💰',
+          },
+          true,
+        );
+        this.logger.log('✅ Real-time notification sent');
+      } catch (error) {
+        this.logger.error('⚠️ Failed to send notification:', error);
+      }
+
+      // Send email notification to patient
+      this.logger.log('📧 Sending email notification...');
+      try {
+        const appointmentDate = new Date().toLocaleDateString('vi-VN', {
+          weekday: 'long',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+
+        await this.mailerService.sendMail({
+          to: patient.email,
+          subject: 'Xác nhận thanh toán thành công',
+          template: 'payment-confirmation',
+          context: {
+            patientName: patient.fullName,
+            doctorName: doctor.fullName,
+            amount: new Intl.NumberFormat('vi-VN').format(payment.amount),
+            paymentMethod: 'Tiền mặt',
+            paymentDate: appointmentDate,
+            transactionId: payment.transactionId,
+            viewUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/patient/payments`,
+          },
+        });
+        this.logger.log('✅ Email sent to:', patient.email);
+      } catch (error) {
+        this.logger.error('⚠️ Failed to send email:', error);
+      }
+
+      return {
+        success: true,
+        data: payment,
+        message: 'Xác nhận thanh toán thành công',
+      };
+    } catch (error) {
+      this.logger.error('❌ ========== MARK PAYMENT AS PAID FAILED ==========');
+      this.logger.error(error);
+      throw error;
     }
   }
 }
