@@ -458,38 +458,45 @@ function MyAppointmentsContent() {
     }
   };
 
-  // Filter appointments by status and date
-  const filteredAppointments = appointments.filter((apt) => {
-    // Filter by status
-    const statusMatch = filter === "all" || apt.status === filter;
+  // Filter appointments by status and date, then sort by createdAt (newest first)
+  const filteredAppointments = appointments
+    .filter((apt) => {
+      // Filter by status
+      const statusMatch = filter === "all" || apt.status === filter;
 
-    // Filter by date range
-    if (startFilterDate && endFilterDate && statusMatch) {
-      // Both dates selected - filter by range
-      const aptDate = new Date(apt.appointmentDate);
-      const start = new Date(startFilterDate);
-      const end = new Date(endFilterDate);
+      // Filter by date range
+      if (startFilterDate && endFilterDate && statusMatch) {
+        // Both dates selected - filter by range
+        const aptDate = new Date(apt.appointmentDate);
+        const start = new Date(startFilterDate);
+        const end = new Date(endFilterDate);
 
-      // Set time to start of day for comparison
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      aptDate.setHours(0, 0, 0, 0);
+        // Set time to start of day for comparison
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        aptDate.setHours(0, 0, 0, 0);
 
-      return aptDate >= start && aptDate <= end;
-    } else if (startFilterDate && statusMatch) {
-      // Only start date - filter by single date
-      const aptDate = new Date(apt.appointmentDate);
-      const filterDate = new Date(startFilterDate);
+        return aptDate >= start && aptDate <= end;
+      } else if (startFilterDate && statusMatch) {
+        // Only start date - filter by single date
+        const aptDate = new Date(apt.appointmentDate);
+        const filterDate = new Date(startFilterDate);
 
-      return (
-        aptDate.getFullYear() === filterDate.getFullYear() &&
-        aptDate.getMonth() === filterDate.getMonth() &&
-        aptDate.getDate() === filterDate.getDate()
-      );
-    }
+        return (
+          aptDate.getFullYear() === filterDate.getFullYear() &&
+          aptDate.getMonth() === filterDate.getMonth() &&
+          aptDate.getDate() === filterDate.getDate()
+        );
+      }
 
-    return statusMatch;
-  });
+      return statusMatch;
+    })
+    .sort((a, b) => {
+      // Sort by createdAt descending (newest first)
+      const dateA = new Date(a.createdAt || a.appointmentDate);
+      const dateB = new Date(b.createdAt || b.appointmentDate);
+      return dateB.getTime() - dateA.getTime();
+    });
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -838,7 +845,13 @@ function MyAppointmentsContent() {
                                   Đánh giá
                                 </button>
                               )}
-                              <button className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium">
+                              <button
+                                onClick={() => {
+                                  // Navigate to records page with appointmentId to auto-open the modal
+                                  router.push(`/patient/records?appointmentId=${appointment._id}`);
+                                }}
+                                className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium"
+                              >
                                 Xem kết quả
                               </button>
                             </>
