@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
 
-export async function GET(request: NextRequest, { params }: { params: { patientId: string; appointmentId: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ patientId: string; appointmentId: string }> }
+) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
 
@@ -10,7 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: { patientI
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { patientId, appointmentId } = params;
+    const { patientId, appointmentId } = await params;
 
     // Query backend for review by this patient for this appointment
     const response = await fetch(`${API_URL}/api/v1/reviews/patient/${patientId}/appointment/${appointmentId}`, {

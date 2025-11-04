@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
 
-export async function GET(req: NextRequest, { params }: { params: { patientId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ patientId: string }> }) {
   try {
     const token = req.headers.get("authorization")?.replace("Bearer ", "");
-    const { patientId } = params;
+    const { patientId } = await params;
 
     // Get query params for pagination
     const { searchParams } = new URL(req.url);

@@ -14,7 +14,7 @@ export interface Voucher {
   code: string;
   discountType: string;
   discountValue: number;
-  discountPercentage?: number;
+  value?: number;
   expiryDate?: string;
 }
 

@@ -21,7 +21,6 @@ const navigation = [
   { name: "Bác sĩ", href: "/patient/doctors", icon: <Users className="w-4 h-4" /> },
   { name: "Chat & Tư vấn", href: "/patient/chat", icon: <MessageSquare className="w-4 h-4" /> },
   { name: "Hồ sơ điều trị", href: "/patient/records", icon: <FileText className="w-4 h-4" /> },
-  { name: "Đơn thuốc", href: "/patient/prescriptions", icon: <Pill className="w-4 h-4" /> },
   { name: "Ví", href: "/patient/wallet", icon: <Wallet className="w-4 h-4" /> },
   { name: "Thanh toán", href: "/patient/payments", icon: <CreditCard className="w-4 h-4" /> },
   { name: "Voucher của tôi", href: "/patient/vouchers", icon: <Ticket className="w-4 h-4" /> },

@@ -37,7 +37,7 @@ export default function PatientDashboard() {
     try {
       setLoading(true);
       const userId = (session?.user as { _id?: string })._id;
-      const accessToken = (session as { accessToken?: string })?.accessToken;
+      const accessToken = (session as any)?.access_token;
 
       if (!userId) {
         console.log("No user ID found");
@@ -122,7 +122,8 @@ export default function PatientDashboard() {
                   <div className="space-y-1">
                     <h3 className="text-lg font-bold text-gray-900">{stats.nextAppointment.date}</h3>
                     <p className="text-xs text-gray-600">
-                      {stats.nextAppointment.time} - {stats.nextAppointment.doctor}
+                      {stats.nextAppointment.time}
+                      {stats.nextAppointment.doctor && ` - ${stats.nextAppointment.doctor}`}
                     </p>
                     <p className="text-xs font-medium" style={{ color: "var(--color-primary)" }}>
                       {stats.nextAppointment.type}

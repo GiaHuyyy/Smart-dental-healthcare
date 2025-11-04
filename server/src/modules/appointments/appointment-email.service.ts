@@ -323,7 +323,7 @@ export class AppointmentEmailService {
             🎁 Ưu đãi đặc biệt cho bạn!
           </p>
           <p style="margin: 0; color: white; font-size: 24px; font-weight: bold;">
-            GIẢM ${suggestion.voucherId.discountPercentage || suggestion.voucherId.discountValue}%
+            GIẢM ${suggestion.voucherId.discountPercentage || suggestion.voucherId.value}%
           </p>
           <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
             Mã voucher: <strong>${suggestion.voucherId.code}</strong>
