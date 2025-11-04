@@ -198,7 +198,7 @@ export default function PatientDashboard() {
 
           {/* Card 4: Sức khỏe răng miệng */}
           <div
-            onClick={() => router.push("/patient/medical-records")}
+            onClick={() => router.push("/patient/records")}
             className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
           >
             <div className="flex items-start gap-3">
