@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -18,23 +18,46 @@ import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { apiRequest, formatApiError } from '@/utils/api';
 
+// Types matching web client
+interface Message {
+  _id: string;
+  content: string;
+  senderId: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string;
+  };
+  senderRole: 'patient' | 'doctor';
+  messageType: 'text' | 'image' | 'file';
+  createdAt: string;
+  isRead: boolean;
+}
 
-type Doctor = {
-  _id?: string;
-  id?: string;
-  fullName?: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  specialty?: string;
-  specialization?: string;
-  experienceYears?: number;
-  rating?: number;
-  bio?: string;
-  lastMessage?: string;
-  lastMessageTime?: string;
-  unreadCount?: number;
-};
+interface Conversation {
+  _id: string;
+  patientId: {
+    _id: string;
+    fullName: string;
+    avatar?: string;
+    email: string;
+  };
+  doctorId: {
+    _id: string;
+    fullName: string;
+    avatar?: string;
+    email: string;
+    specialty?: string;
+  };
+  status: string;
+  unreadPatientCount: number;
+  unreadDoctorCount: number;
+  lastMessageAt?: string;
+  lastMessage?: {
+    content: string;
+    createdAt: string;
+  };
+}
 
 type ChatListItemProps = {
   id: string;
@@ -117,13 +140,13 @@ export default function ChatListScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
 
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
 
-  const fetchDoctors = useCallback(async () => {
+  const fetchConversations = useCallback(async () => {
     if (!isAuthenticated || !session?.token) {
       return;
     }
@@ -132,28 +155,40 @@ export default function ChatListScreen() {
     setErrorMessage(null);
 
     try {
-      const response = await apiRequest<Doctor[]>('/doctors', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-        },
-      });
+      console.log('📡 [ChatList] Loading conversations from REST API...');
+      
+      // Extract userId and userRole from session
+      const userId = session.user._id;
+      const userRole = session.user.role;
+      
+      // Use REST API with correct prefix /api/v1 and required query params
+      const response = await apiRequest<Conversation[]>(
+        `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        }
+      );
 
       if (response.data) {
-        setDoctors(response.data);
+        console.log(`✅ [ChatList] Loaded ${response.data.length} conversations`);
+        setConversations(response.data);
       } else {
-        setErrorMessage('Không thể tải danh sách bác sĩ');
+        setErrorMessage('Không thể tải danh sách cuộc trò chuyện');
       }
     } catch (error) {
-      setErrorMessage(formatApiError(error, 'Lỗi khi tải danh sách bác sĩ'));
+      console.error('❌ [ChatList] Error:', error);
+      setErrorMessage(formatApiError(error, 'Lỗi khi tải danh sách cuộc trò chuyện'));
     } finally {
       setLoading(false);
     }
   }, [isAuthenticated, session?.token]);
 
   useEffect(() => {
-    void fetchDoctors();
-  }, [fetchDoctors]);
+    void fetchConversations();
+  }, [fetchConversations]);
 
   const handleChatWithAI = useCallback(() => {
     router.push({
@@ -163,21 +198,45 @@ export default function ChatListScreen() {
   }, [router]);
 
   const handleChatWithDoctor = useCallback(
-    (doctor: Doctor) => {
-      const doctorId = doctor._id ?? doctor.id ?? 'unknown';
-      const doctorName = doctor.fullName ?? doctor.name ?? 'Bác sĩ';
+    (conversation: Conversation) => {
+      const doctor = conversation.doctorId;
+      const doctorId = doctor._id;
+      const doctorName = doctor.fullName;
+      const conversationId = conversation._id;
       router.push({
         pathname: '/chat/[id]',
-        params: { id: doctorId, name: doctorName, type: 'doctor' },
+        params: { 
+          id: doctorId, 
+          name: doctorName, 
+          type: 'doctor',
+          conversationId: conversationId, // Add conversation ID
+        },
       });
     },
     [router],
   );
 
-  const filteredDoctors = doctors.filter((doctor) => {
+  const formatMessageTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return `${diffMins} phút`;
+    if (diffHours < 24) return `${diffHours} giờ`;
+    if (diffDays < 7) return `${diffDays} ngày`;
+    
+    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  };
+
+  const filteredConversations = conversations.filter((conv) => {
     if (!searchTerm.trim()) return true;
-    const name = doctor.fullName ?? doctor.name ?? '';
-    const specialty = doctor.specialty ?? doctor.specialization ?? '';
+    const doctor = conv.doctorId;
+    const name = doctor.fullName;
+    const specialty = doctor.specialty ?? '';
     const search = searchTerm.toLowerCase();
     return name.toLowerCase().includes(search) || specialty.toLowerCase().includes(search);
   });
@@ -269,11 +328,11 @@ export default function ChatListScreen() {
             />
           </View>
 
-          {/* Doctors list */}
+          {/* Conversations list */}
           <View>
             <View className="mb-3 flex-row items-center justify-between px-1">
               <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
-                Bác sĩ ({filteredDoctors.length})
+                Cuộc trò chuyện ({filteredConversations.length})
               </Text>
               {loading ? <ActivityIndicator size="small" color={Colors.primary[600]} /> : null}
             </View>
@@ -295,72 +354,63 @@ export default function ChatListScreen() {
               </View>
             ) : null}
 
-            {loading && doctors.length === 0 ? (
+            {loading && conversations.length === 0 ? (
               <Card className="items-center justify-center p-8">
                 <ActivityIndicator color={Colors.primary[600]} />
                 <Text className="mt-3 text-sm" style={{ color: theme.text.secondary }}>
-                  Đang tải danh sách bác sĩ...
+                  Đang tải danh sách cuộc trò chuyện...
                 </Text>
               </Card>
-            ) : filteredDoctors.length === 0 ? (
+            ) : filteredConversations.length === 0 ? (
               <View 
                 className="items-center justify-center rounded-2xl border border-dashed p-8"
                 style={{ 
                   borderColor: Colors.primary[200],
-                  backgroundColor: `${Colors.primary[50]}B3`
+                  backgroundColor: Colors.primary[50] + 'B3'
                 }}
               >
-                <Ionicons name="people-outline" size={28} color={Colors.primary[600]} />
+                <Ionicons name="chatbubbles-outline" size={28} color={Colors.primary[600]} />
                 <Text className="mt-3 text-sm font-semibold" style={{ color: Colors.primary[700] }}>
-                  {searchTerm.trim() ? 'Không tìm thấy bác sĩ phù hợp' : 'Chưa có bác sĩ nào'}
+                  {searchTerm.trim() ? 'Không tìm thấy cuộc trò chuyện phù hợp' : 'Chưa có cuộc trò chuyện nào'}
                 </Text>
-                <Text className="mt-1 text-xs" style={{ color: Colors.primary[500] }}>
-                  {searchTerm.trim() ? 'Thử tìm kiếm với từ khóa khác' : 'Danh sách bác sĩ sẽ xuất hiện ở đây'}
+                <Text className="mt-1 text-xs text-center px-4" style={{ color: Colors.primary[500] }}>
+                  {searchTerm.trim() ? 'Thử tìm kiếm với từ khóa khác' : 'Đặt lịch khám và chat với bác sĩ để bắt đầu cuộc trò chuyện'}
                 </Text>
               </View>
             ) : (
               <View className="space-y-0">
-                {filteredDoctors.map((doctor) => {
-                  const doctorId = doctor._id ?? doctor.id ?? 'unknown';
-                  const doctorName = doctor.fullName ?? doctor.name ?? 'Bác sĩ';
-                  const specialty = doctor.specialty ?? doctor.specialization ?? 'Chuyên khoa Răng Hàm Mặt';
-                  const rating = doctor.rating ?? 4.5;
-                  const experience = doctor.experienceYears ?? 5;
+                {filteredConversations.map((conversation) => {
+                  const doctor = conversation.doctorId;
+                  const doctorId = doctor._id;
+                  const doctorName = doctor.fullName;
+                  const specialty = doctor.specialty ?? 'Chuyên khoa Răng Hàm Mặt';
+                  
+                  // Get last message info
+                  const lastMessage = conversation.lastMessage?.content ?? 'Bắt đầu cuộc trò chuyện';
+                  const lastMessageTime = conversation.lastMessage?.createdAt 
+                    ? formatMessageTime(conversation.lastMessage.createdAt) 
+                    : undefined;
+                  const unreadCount = conversation.unreadPatientCount ?? 0;
 
                   return (
                     <ChatListItem
-                      key={doctorId}
+                      key={conversation._id}
                       id={doctorId}
                       name={doctorName}
-                      subtitle={`${specialty} • ${experience} năm kinh nghiệm • ⭐ ${rating.toFixed(1)}`}
+                      subtitle={specialty}
                       iconName="medical-outline"
                       iconBgColor={Colors.success[50]}
                       iconColor={Colors.success[600]}
-                      lastMessage={doctor.lastMessage}
-                      lastMessageTime={doctor.lastMessageTime}
-                      unreadCount={doctor.unreadCount}
-                      onPress={() => handleChatWithDoctor(doctor)}
+                      lastMessage={lastMessage}
+                      lastMessageTime={lastMessageTime}
+                      unreadCount={unreadCount}
+                      onPress={() => handleChatWithDoctor(conversation)}
                     />
                   );
                 })}
               </View>
             )}
           </View>
-
-          {/* Quick actions */}
-          <Card className="p-4">
-            <View className="flex-row items-center space-x-2">
-              <Ionicons name="information-circle-outline" size={20} color={Colors.primary[600]} />
-              <View className="flex-1">
-                <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
-                  Cần hỗ trợ ngay?
-                </Text>
-                <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
-                  Gọi hotline <Text className="font-semibold" style={{ color: Colors.primary[700] }}>1900-6363</Text> để được tư vấn trực tiếp.
-                </Text>
-              </View>
-            </View>
-          </Card>
         </View>
       </ScrollView>
       <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />

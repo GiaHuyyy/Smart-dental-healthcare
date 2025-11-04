@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -402,6 +402,7 @@ function DoctorSelectModal({
 
 export default function AppointmentsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ doctorId?: string; doctorName?: string; autoOpenBooking?: string }>();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const { session, isAuthenticated, isHydrating } = useAuth();
@@ -501,6 +502,19 @@ export default function AppointmentsScreen() {
     if (!isAuthenticated) return;
     void fetchDoctors();
   }, [isAuthenticated, fetchDoctors]);
+
+  // Auto-open booking modal when navigating from doctors page
+  useEffect(() => {
+    if (params.autoOpenBooking === 'true' && params.doctorId && doctors.length > 0 && !showBookingModal) {
+      const doctor = doctors.find((d) => (d._id ?? d.id) === params.doctorId);
+      if (doctor) {
+        setSelectedDoctorForBooking(doctor);
+        setShowBookingModal(true);
+        // Clear params to prevent reopening on subsequent renders
+        router.setParams({ autoOpenBooking: undefined, doctorId: undefined, doctorName: undefined });
+      }
+    }
+  }, [params.autoOpenBooking, params.doctorId, doctors, showBookingModal, router]);
 
   useFocusEffect(
     useCallback(() => {

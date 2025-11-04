@@ -15,7 +15,7 @@ type ApiResponse<T> = {
   raw: unknown;
 };
 
-const fallbackBaseUrl = 'http://localhost:8081';
+const fallbackBaseUrl = 'http://192.168.51.8:8081';
 
 const envBaseUrl = [
   process.env.EXPO_PUBLIC_BACKEND_URL,
