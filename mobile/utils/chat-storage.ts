@@ -22,11 +22,25 @@ export type StoredChatState = {
   lastUpdated: number;
 };
 
-const STORAGE_KEY = 'smart-dental-mobile-chat-state-v1';
+const AI_CHAT_STORAGE_KEY = 'smart-dental-mobile-chat-state-ai-v1';
 
-export async function loadChatState(): Promise<StoredChatState | null> {
+function getDoctorChatStorageKey(conversationId: string): string {
+  return `smart-dental-mobile-doctor-chat-${conversationId}-v1`;
+}
+
+export async function loadChatState(chatType: 'ai' | 'doctor' = 'ai', conversationId?: string): Promise<StoredChatState | null> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const storageKey = chatType === 'ai' 
+      ? AI_CHAT_STORAGE_KEY 
+      : conversationId 
+        ? getDoctorChatStorageKey(conversationId)
+        : null;
+    
+    if (!storageKey) {
+      return null;
+    }
+    
+    const raw = await AsyncStorage.getItem(storageKey);
     if (!raw) {
       return null;
     }
@@ -41,22 +55,43 @@ export async function loadChatState(): Promise<StoredChatState | null> {
   }
 }
 
-export async function persistChatState(state: StoredChatState): Promise<void> {
+export async function persistChatState(state: StoredChatState, chatType: 'ai' | 'doctor' = 'ai', conversationId?: string): Promise<void> {
   try {
+    const storageKey = chatType === 'ai' 
+      ? AI_CHAT_STORAGE_KEY 
+      : conversationId 
+        ? getDoctorChatStorageKey(conversationId)
+        : null;
+    
+    if (!storageKey) {
+      console.warn('Cannot persist chat state: missing storage key');
+      return;
+    }
+    
     const payload = JSON.stringify({
       ...state,
       messages: state.messages.slice(-40),
       lastUpdated: Date.now(),
     });
-    await AsyncStorage.setItem(STORAGE_KEY, payload);
+    await AsyncStorage.setItem(storageKey, payload);
   } catch (error) {
     console.warn('Failed to persist chat state', error);
   }
 }
 
-export async function clearChatState(): Promise<void> {
+export async function clearChatState(chatType: 'ai' | 'doctor' = 'ai', conversationId?: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    const storageKey = chatType === 'ai' 
+      ? AI_CHAT_STORAGE_KEY 
+      : conversationId 
+        ? getDoctorChatStorageKey(conversationId)
+        : null;
+    
+    if (!storageKey) {
+      return;
+    }
+    
+    await AsyncStorage.removeItem(storageKey);
   } catch (error) {
     console.warn('Failed to clear chat state', error);
   }

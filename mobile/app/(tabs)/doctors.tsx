@@ -37,18 +37,23 @@ type DoctorCardProps = {
   doctor: Doctor;
   onBook: (doctor: Doctor) => void;
   onChat: (doctor: Doctor) => void;
+  onView?: (doctor: Doctor) => void;
 };
 
 const FALLBACK_SPECIALTIES = ['Nha khoa tổng quát', 'Chỉnh nha', 'Điều trị tủy', 'Thẩm mỹ răng'];
 
-function DoctorCard({ doctor, onBook, onChat }: DoctorCardProps) {
+function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const hasHighRating = (doctor.rating ?? 4.5) >= 4.5;
   
   return (
     <Card shadow="md" className="mb-4">
-      <View className="flex-row items-start justify-between">
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onView?.(doctor)}
+        className="flex-row items-start justify-between"
+      >
         <View className="flex-1 pr-4">
           <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
             {doctor.fullName ?? doctor.name ?? 'Bác sĩ Smart Dental'}
@@ -75,7 +80,7 @@ function DoctorCard({ doctor, onBook, onChat }: DoctorCardProps) {
             </View>
           ) : null}
         </View>
-      </View>
+      </TouchableOpacity>
 
       <View className="mt-4 gap-2">
         <View className="flex-row items-center gap-2">
@@ -195,15 +200,82 @@ export default function DoctorsScreen() {
 
   const handleBook = useCallback((doctor: Doctor) => {
     const id = doctor._id ?? doctor.id;
+    if (!id) {
+      return;
+    }
     router.push({
       pathname: '/(tabs)/appointments',
-      params: id ? { doctorId: id, doctorName: doctor.fullName ?? doctor.name ?? '' } : undefined,
+      params: { 
+        doctorId: id, 
+        doctorName: doctor.fullName ?? doctor.name ?? '',
+        autoOpenBooking: 'true'
+      },
     });
   }, [router]);
 
-  const handleChat = useCallback((_doctor: Doctor) => {
-    router.push('/(tabs)/chat');
+  const handleView = useCallback((doctor: Doctor) => {
+    const id = doctor._id ?? doctor.id;
+    if (!id) return;
+    router.push({
+      pathname: '/(tabs)/doctors/[id]',
+      params: { id },
+    });
   }, [router]);
+
+  const handleChat = useCallback(async (doctor: Doctor) => {
+    const doctorId = doctor._id ?? doctor.id;
+    const doctorName = doctor.fullName ?? doctor.name ?? 'Bác sĩ';
+    if (!doctorId || !session?.token || !session?.user?._id) {
+      router.push('/(tabs)/chat');
+      return;
+    }
+
+    // Try to find existing conversation with this doctor
+    try {
+      const { apiRequest } = await import('@/utils/api');
+      const userId = session.user._id;
+      const userRole = session.user.role;
+      
+      const response = await apiRequest<any>(
+        `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${session.token}`,
+          },
+        }
+      );
+
+      const conversations: any[] = Array.isArray(response.data) ? response.data : [];
+      const existingConversation = conversations.find(
+        (conv) => (conv.doctorId?._id || conv.doctorId) === doctorId
+      );
+
+      const conversationId = existingConversation?._id;
+
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: doctorId,
+          name: doctorName,
+          type: 'doctor',
+          ...(conversationId ? { conversationId } : {}),
+        },
+      });
+    } catch (error) {
+      console.warn('Failed to fetch conversations, navigating without conversationId:', error);
+      // If fetch fails, still navigate but without conversationId
+      // Chat screen will create/find conversation automatically
+      router.push({
+        pathname: '/chat/[id]',
+        params: {
+          id: doctorId,
+          name: doctorName,
+          type: 'doctor',
+        },
+      });
+    }
+  }, [router, session]);
 
   return (
     <>
@@ -217,38 +289,47 @@ export default function DoctorsScreen() {
       <ScrollView
         className="flex-1"
         style={{ backgroundColor: theme.background }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, paddingTop: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, paddingTop: 16 }}
         showsVerticalScrollIndicator={false}
       >
         <View className="space-y-6">
           {/* Header Card */}
-          <Card shadow="md" className="p-6">
-            <View className="flex-row items-start space-x-4">
-              <View className="rounded-3xl p-4 shadow-lg" style={{ backgroundColor: Colors.primary[600] }}>
-                <Ionicons name="medical-outline" size={28} color="#ffffff" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-2xl font-semibold" style={{ color: theme.text.primary }}>
+          <Card className="mb-6">
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1 pr-4">
+                <Text className="text-2xl font-bold" style={{ color: theme.text.primary }}>
                   Đội ngũ bác sĩ
                 </Text>
                 <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>
                   Tìm kiếm bác sĩ phù hợp, xem chuyên khoa và đặt lịch khám nhanh chóng.
                 </Text>
               </View>
+              <View 
+                className="items-center justify-center rounded-2xl p-4"
+                style={{ backgroundColor: Colors.primary[100] }}
+              >
+                <Ionicons name="medical" size={28} color={Colors.primary[600]} />
+              </View>
             </View>
-
-            <View className="mt-5 rounded-2xl p-4" style={{ backgroundColor: Colors.primary[50] }}>
-              <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: Colors.primary[700] }}>
-                MẸO
-              </Text>
-              <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
-                Bạn có thể lọc theo chuyên khoa hoặc tìm nhanh bằng tên, email.
-              </Text>
-            </View>
+            {isAuthenticated ? (
+              <View className="mt-4 rounded-2xl p-4" style={{ backgroundColor: Colors.primary[50] }}>
+                <Text className="text-sm" style={{ color: Colors.primary[700] }}>
+                  Xin chào {session?.user?.fullName ?? session?.user?.email}, hãy chọn bác sĩ phù hợp để đặt lịch hoặc trao đổi.
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                className="mt-4 items-center justify-center rounded-2xl py-3"
+                style={{ backgroundColor: Colors.primary[600] }}
+                onPress={() => router.push('/(auth)/login' as const)}
+              >
+                <Text className="text-sm font-semibold text-white">Đăng nhập để xem danh sách bác sĩ</Text>
+              </TouchableOpacity>
+            )}
           </Card>
 
           {/* Search & Filter Card */}
-          <Card shadow="md" className="p-6">
+          <Card className="mb-6">
             <View className="space-y-4">
               <View
                 className="flex-row items-center rounded-2xl px-4 py-3"
@@ -359,6 +440,7 @@ export default function DoctorsScreen() {
                   doctor={doctor}
                   onBook={handleBook}
                   onChat={handleChat}
+                  onView={handleView}
                 />
               ))}
             </View>

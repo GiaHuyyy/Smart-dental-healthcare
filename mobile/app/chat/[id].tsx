@@ -1,39 +1,43 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Linking,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import CallButton from '@/components/call/CallButton';
+import CallMessageBubble from '@/components/call/CallMessageBubble';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { Card } from '@/components/ui/Card';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
+import { useCall } from '@/contexts/CallContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import realtimeChatService, { ChatMessage as RealtimeChatMessage } from '@/services/realtimeChatService';
+import uploadService from '@/services/uploadService';
 import {
-    AiAssistantResponse,
-    fetchAiAdvice,
-    fetchQuickSuggestions,
-    fetchSuggestedQuestions,
-    formatUrgencyLabel,
-    ImageAnalysisResult,
-    startChatSession,
-    SuggestedDoctor,
-    uploadAnalysisImage,
+  AiAssistantResponse,
+  fetchAiAdvice,
+  fetchQuickSuggestions,
+  fetchSuggestedQuestions,
+  formatUrgencyLabel,
+  ImageAnalysisResult,
+  startChatSession,
+  SuggestedDoctor,
+  uploadAnalysisImage,
 } from '@/utils/ai-chat';
 import { formatApiError } from '@/utils/api';
 import { clearChatState, loadChatState, persistChatState, StoredChatMessage } from '@/utils/chat-storage';
@@ -61,6 +65,11 @@ type ChatMessage = {
   analysisData?: ImageAnalysisResult | null;
   attachments?: ChatAttachment[];
   metadata?: Record<string, unknown>;
+  // Call message fields
+  isCallMessage?: boolean;
+  callType?: 'audio' | 'video';
+  callStatus?: 'missed' | 'answered' | 'rejected' | 'completed';
+  callDuration?: number; // in seconds
 };
 
 type QuickTopic = {
@@ -112,6 +121,42 @@ const FALLBACK_MESSAGE: ChatMessage = {
 };
 
 const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+// Detect if a message is a call message based on content
+function detectCallMessage(content: string): {
+  isCallMessage: boolean;
+  callType?: 'audio' | 'video';
+  callStatus?: 'missed' | 'answered' | 'rejected' | 'completed';
+} {
+  const lowerContent = content.toLowerCase();
+  
+  // Check if it's a call message
+  if (!lowerContent.includes('cuộc gọi') && !lowerContent.includes('call')) {
+    return { isCallMessage: false };
+  }
+
+  // Detect call type
+  const isVideo = lowerContent.includes('video') || lowerContent.includes('gọi video');
+  const callType: 'audio' | 'video' = isVideo ? 'video' : 'audio';
+
+  // Detect call status
+  let callStatus: 'missed' | 'answered' | 'rejected' | 'completed' = 'completed';
+  
+  if (lowerContent.includes('nhỡ') || lowerContent.includes('missed')) {
+    callStatus = 'missed';
+  } else if (lowerContent.includes('từ chối') || lowerContent.includes('rejected')) {
+    callStatus = 'rejected';
+  } else if (lowerContent.includes('hoàn thành') || lowerContent.includes('completed') || 
+             lowerContent.includes('kết thúc') || lowerContent.includes('ended')) {
+    callStatus = 'completed';
+  }
+
+  return {
+    isCallMessage: true,
+    callType,
+    callStatus,
+  };
+}
 
 function formatTime(value: string): string {
   const date = new Date(value);
@@ -319,6 +364,21 @@ function ChatBubble({
     confidence = message.analysisData.confidence;
   }
 
+  // Render call message bubble
+  if (message.isCallMessage && message.callType && message.callStatus) {
+    return (
+      <View className="mb-3 px-1">
+        <CallMessageBubble
+          callType={message.callType}
+          callStatus={message.callStatus}
+          callDuration={message.callDuration}
+          isOutgoing={isUser}
+          timestamp={statusLabel}
+        />
+      </View>
+    );
+  }
+
   return (
     <View className={`mb-3 flex-row px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
       <View
@@ -442,16 +502,19 @@ function ChatBubble({
 
 export default function ChatConversationScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string; name?: string; type?: string }>();
+  const params = useLocalSearchParams<{ id?: string; name?: string; type?: string; conversationId?: string }>();
   const { session } = useAuth();
+  const { setOnCallEnded } = useCall();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  // Use fixed tab bar height since this screen is not inside Bottom Tab Navigator
+  const tabBarHeight = 0; // Set to 0 or remove if not needed
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
 
   const chatId = params.id ?? 'ai-bot';
   const chatName = params.name ?? 'Smart Dental AI';
   const chatType = params.type ?? 'ai'; // 'ai' | 'doctor'
+  const existingConversationId = params.conversationId; // Get conversation ID from params
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -466,11 +529,24 @@ export default function ChatConversationScreen() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Real-time chat state (for doctor chat)
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isConnectingSocket, setIsConnectingSocket] = useState(false);
+  const [isDoctorTyping, setIsDoctorTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Load chat state
   useEffect(() => {
     let isMounted = true;
     (async () => {
-      const stored = await loadChatState();
+      // For doctor chat, DON'T load from storage - will load from backend via Socket.IO
+      if (chatType === 'doctor') {
+        setIsHydrated(true);
+        return;
+      }
+      
+      // For AI chat, load from local storage
+      const stored = await loadChatState(chatType as 'ai' | 'doctor', existingConversationId);
       if (!isMounted) return;
 
       if (stored?.messages?.length) {
@@ -509,6 +585,9 @@ export default function ChatConversationScreen() {
             ? (item.analysisData as ImageAnalysisResult)
             : null;
 
+          // Detect if this is a call message (for old messages without call fields)
+          const callDetection = detectCallMessage(item.content);
+
           return {
             id: item.id,
             role: item.role === 'assistant' ? 'assistant' : 'user',
@@ -523,14 +602,20 @@ export default function ChatConversationScreen() {
             analysisData,
             attachments,
             metadata: item.metadata ?? undefined,
+            // Add call message fields if detected
+            isCallMessage: callDetection.isCallMessage,
+            callType: callDetection.callType,
+            callStatus: callDetection.callStatus,
           };
         });
         setMessages(restored);
         messagesRef.current = restored;
-      } else {
+      } else if (chatType === 'ai') {
+        // Only show fallback message for AI chat
         setMessages([FALLBACK_MESSAGE]);
         messagesRef.current = [FALLBACK_MESSAGE];
       }
+      // For doctor chat without stored messages, keep empty []
 
       if (stored?.sessionId) {
         setSessionId(stored.sessionId);
@@ -542,7 +627,7 @@ export default function ChatConversationScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [chatType, existingConversationId]);
 
   // Start chat session
   useEffect(() => {
@@ -595,10 +680,51 @@ export default function ChatConversationScreen() {
     };
   }, [chatType]);
 
+  // Setup call ended callback
+  useEffect(() => {
+    if (chatType !== 'doctor') return; // Only for doctor chat
+    if (!setOnCallEnded) return;
+
+    const handleCallEnded = (callInfo: {
+      receiverId: string;
+      receiverName: string;
+      isVideoCall: boolean;
+      callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
+      callDuration?: number;
+      isOutgoing: boolean;
+    }) => {
+      // Only create message if this is the chat with the person we called/received call from
+      if (callInfo.receiverId !== chatId) return;
+
+      const callMessage: ChatMessage = {
+        id: createId(),
+        role: callInfo.isOutgoing ? 'user' : 'assistant',
+        content: callInfo.isVideoCall ? 'Cuộc gọi video' : 'Cuộc gọi thoại',
+        createdAt: new Date().toISOString(),
+        status: 'sent',
+        isCallMessage: true,
+        callType: callInfo.isVideoCall ? 'video' : 'audio',
+        callStatus: callInfo.callStatus,
+        callDuration: callInfo.callDuration,
+      };
+
+      setMessages((prev) => [...prev, callMessage]);
+    };
+
+    setOnCallEnded(handleCallEnded);
+
+    return () => {
+      setOnCallEnded(undefined);
+    };
+  }, [chatType, chatId, setOnCallEnded]);
+
   // Persist chat state
   useEffect(() => {
     messagesRef.current = messages;
     if (!isHydrated) return;
+    
+    // Only persist AI chat to local storage (doctor chat is stored on server)
+    if (chatType !== 'ai') return;
 
     const serialisableMessages: StoredChatMessage[] = messages.map((message) => ({
       id: message.id,
@@ -622,12 +748,16 @@ export default function ChatConversationScreen() {
       metadata: message.metadata ? { ...message.metadata } : undefined,
     }));
 
-    void persistChatState({
-      sessionId,
-      messages: serialisableMessages,
-      lastUpdated: Date.now(),
-    });
-  }, [messages, sessionId, isHydrated]);
+    void persistChatState(
+      {
+        sessionId,
+        messages: serialisableMessages,
+        lastUpdated: Date.now(),
+      },
+      chatType as 'ai' | 'doctor',
+      conversationId || existingConversationId
+    );
+  }, [messages, sessionId, isHydrated, chatType, conversationId, existingConversationId]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -637,6 +767,225 @@ export default function ChatConversationScreen() {
 
     return () => clearTimeout(timer);
   }, [messages.length]);
+
+  // Connect to realtime chat for doctor conversations
+  useEffect(() => {
+    if (chatType !== 'doctor' || !session?.token) return;
+    if (!chatId || chatId === 'ai-bot') return;
+
+    let isMounted = true;
+    const userId = (session.user as any)?._id || (session.user as any)?.id;
+    if (!userId) return;
+
+    const connectSocket = async () => {
+      try {
+        setIsConnectingSocket(true);
+        console.log('🔌 [Chat] Connecting to realtime chat...');
+        
+        await realtimeChatService.connect(session.token!, userId, 'patient');
+        
+        if (!isMounted) return;
+        
+        setIsConnectingSocket(false);
+        console.log('✅ [Chat] Connected to realtime chat');
+
+        // Use existing conversation ID if provided, otherwise create/find conversation
+        let targetConversationId = existingConversationId;
+        
+        if (!targetConversationId) {
+          // Try to create or find conversation
+          try {
+            const conversation = await realtimeChatService.createConversation(userId, chatId);
+            if (isMounted) {
+              targetConversationId = conversation._id;
+              console.log('✅ [Chat] Conversation created/found:', conversation._id);
+            }
+          } catch (error) {
+            console.error('❌ [Chat] Error creating conversation:', error);
+            // If createConversation fails, try to find conversation via REST API
+            try {
+              const { apiRequest } = await import('@/utils/api');
+              const convResponse = await apiRequest<any>(
+                `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=patient`,
+                {
+                  method: 'GET',
+                  headers: {
+                    Authorization: `Bearer ${session.token}`,
+                  },
+                }
+              );
+              const conversations: any[] = Array.isArray(convResponse.data) ? convResponse.data : [];
+              const existingConv = conversations.find(
+                (conv) => (conv.doctorId?._id || conv.doctorId) === chatId
+              );
+              if (existingConv && isMounted) {
+                targetConversationId = existingConv._id;
+                console.log('✅ [Chat] Found existing conversation via REST API:', targetConversationId);
+              }
+            } catch (findError) {
+              console.error('❌ [Chat] Error finding conversation via REST API:', findError);
+            }
+          }
+        }
+        
+        if (targetConversationId && isMounted) {
+          setConversationId(targetConversationId);
+          console.log('✅ [Chat] Using conversation:', targetConversationId);
+          
+          // Join conversation room
+          realtimeChatService.joinConversation(targetConversationId);
+          
+          // Load messages via REST API
+          try {
+            const { apiRequest } = await import('@/utils/api');
+            const response = await apiRequest<ChatMessage[]>(
+              `/api/v1/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&limit=100`,
+              {
+                method: 'GET',
+                headers: {
+                  Authorization: `Bearer ${session.token}`,
+                },
+              }
+            );
+            
+            if (isMounted && response.data) {
+              console.log(`✅ [Chat] Loaded ${response.data.length} messages via REST API`);
+              
+              const loadedMessages: ChatMessage[] = response.data.map((msg: any) => {
+                const senderId = msg.senderId?._id || msg.senderId;
+                const isMyMessage = senderId === userId;
+                
+                // Detect if this is a call message (for old messages without call fields)
+                const callDetection = detectCallMessage(msg.content || '');
+                
+                return {
+                  id: msg._id,
+                  role: isMyMessage ? 'user' : 'assistant',
+                  content: msg.content,
+                  createdAt: msg.createdAt,
+                  status: 'sent' as MessageStatus,
+                  attachments: msg.fileUrl ? [{
+                    id: msg._id,
+                    type: 'image' as const,
+                    uri: msg.fileUrl,
+                  }] : undefined,
+                  // Add call message fields if detected
+                  isCallMessage: callDetection.isCallMessage,
+                  callType: callDetection.callType,
+                  callStatus: callDetection.callStatus,
+                };
+              });
+              
+              // Only update if we have messages, or if this is a new conversation (empty is fine)
+              setMessages(loadedMessages);
+              messagesRef.current = loadedMessages;
+            } else if (isMounted) {
+              // No messages found, set empty array
+              console.log('ℹ️ [Chat] No messages found for conversation');
+              setMessages([]);
+              messagesRef.current = [];
+            }
+          } catch (error) {
+            console.error('❌ [Chat] Error loading messages via REST API:', error);
+            if (isMounted) {
+              setMessages([]);
+              messagesRef.current = [];
+            }
+          }
+        }
+
+        // Setup event listeners
+        const handleNewMessage = (data: { message: RealtimeChatMessage; conversationId: string }) => {
+          if (!isMounted) return;
+          
+          const senderId = data.message.senderId?._id || data.message.senderId;
+          const isMyMessage = senderId === userId;
+          
+          if (isMyMessage) {
+            // My message echoed back from server - update status to 'sent'
+            setMessages((prev) => {
+              // Find message by content and timestamp (within 5 seconds)
+              const msgTime = new Date(data.message.createdAt).getTime();
+              const matchingMsg = prev.find(m => 
+                m.role === 'user' && 
+                m.content === data.message.content &&
+                m.status === 'sending' &&
+                Math.abs(new Date(m.createdAt).getTime() - msgTime) < 5000
+              );
+              
+              if (matchingMsg) {
+                // Update existing message status
+                return prev.map(m => 
+                  m.id === matchingMsg.id 
+                    ? { ...m, status: 'sent' as MessageStatus, id: data.message._id }
+                    : m
+                );
+              }
+              return prev;
+            });
+          } else {
+            // Message from doctor
+            const newMsg: ChatMessage = {
+              id: data.message._id,
+              role: 'assistant',
+              content: data.message.content,
+              createdAt: data.message.createdAt,
+              status: 'sent',
+              attachments: data.message.fileUrl ? [{
+                id: data.message._id,
+                type: 'image',
+                uri: data.message.fileUrl,
+              }] : undefined,
+            };
+            setMessages((prev) => [...prev, newMsg]);
+          }
+        };
+
+        const handleTyping = (data: { conversationId: string; userId: string; isTyping: boolean }) => {
+          if (!isMounted) return;
+          if (data.userId === userId) return; // Ignore own typing
+          
+          setIsDoctorTyping(data.isTyping);
+          
+          // Auto-hide typing indicator after 3s
+          if (data.isTyping) {
+            if (typingTimeoutRef.current) {
+              clearTimeout(typingTimeoutRef.current);
+            }
+            typingTimeoutRef.current = setTimeout(() => {
+              setIsDoctorTyping(false);
+            }, 3000);
+          }
+        };
+
+        realtimeChatService.on('newMessage', handleNewMessage);
+        realtimeChatService.on('userTyping', handleTyping);
+
+        return () => {
+          realtimeChatService.off('newMessage', handleNewMessage);
+          realtimeChatService.off('userTyping', handleTyping);
+        };
+      } catch (error) {
+        console.error('❌ [Chat] Failed to connect:', error);
+        if (isMounted) {
+          setIsConnectingSocket(false);
+          Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ chat. Vui lòng thử lại sau.');
+        }
+      }
+    };
+
+    connectSocket();
+
+    return () => {
+      isMounted = false;
+      if (conversationId) {
+        realtimeChatService.leaveConversation(conversationId);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [chatType, chatId, session?.token, session?.user, existingConversationId]);
 
   const handleOpenWebChat = useCallback(async () => {
     try {
@@ -716,7 +1065,12 @@ export default function ChatConversationScreen() {
   const handleSend = useCallback(
     async (overrideText?: string) => {
       const text = (overrideText ?? input).trim();
-      if (!text || isSending) {
+      if (!text) {
+        return;
+      }
+
+      // For AI chat, block sending if already processing
+      if (chatType === 'ai' && isSending) {
         return;
       }
 
@@ -726,18 +1080,50 @@ export default function ChatConversationScreen() {
         role: 'user',
         content: text,
         createdAt: now,
-        status: 'sent',
+        status: 'sending',
       };
 
       setInput('');
       appendMessage(userMessage);
 
+      // Handle doctor chat via socket - Fast, no blocking
       if (chatType === 'doctor') {
-        // TODO: Implement doctor chat API
-        Alert.alert('Tính năng chat với bác sĩ', 'Tính năng này sẽ được cập nhật sớm.');
+        if (!conversationId) {
+          updateMessage(userMessage.id, {
+            status: 'failed',
+          });
+          Alert.alert('Lỗi', 'Không tìm thấy cuộc trò chuyện. Vui lòng thử lại.');
+          return;
+        }
+
+        // Check real-time connection status
+        if (!realtimeChatService.isConnected()) {
+          updateMessage(userMessage.id, {
+            status: 'failed',
+          });
+          Alert.alert('Lỗi kết nối', 'Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng và thử lại.');
+          console.error('❌ [Chat] Socket not connected');
+          return;
+        }
+
+        // Send message without blocking UI
+        // Status will be updated to 'sent' when we receive the message back from server via Socket.IO
+        realtimeChatService
+          .sendMessage(conversationId, text, 'text')
+          .then(() => {
+            console.log('✅ [Chat] Message sent to server');
+          })
+          .catch((error) => {
+            console.error('❌ [Chat] Failed to send message:', error);
+            updateMessage(userMessage.id, {
+              status: 'failed',
+            });
+            Alert.alert('Lỗi', formatApiError(error, 'Không thể gửi tin nhắn. Vui lòng thử lại.'));
+          });
         return;
       }
 
+      // Handle AI chat - Needs blocking for response
       setIsSending(true);
 
       const placeholder: ChatMessage = {
@@ -767,7 +1153,7 @@ export default function ChatConversationScreen() {
         setIsSending(false);
       }
     },
-    [appendMessage, buildChatHistory, handleAiResponse, input, isSending, sessionId, updateMessage, chatType],
+    [appendMessage, buildChatHistory, handleAiResponse, input, isSending, sessionId, updateMessage, chatType, conversationId],
   );
 
   const handleSelectTopic = useCallback(
@@ -787,12 +1173,7 @@ export default function ChatConversationScreen() {
 
   const handlePickImage = useCallback(async () => {
     if (!session?.token) {
-      Alert.alert('Cần đăng nhập', 'Vui lòng đăng nhập để sử dụng tính năng phân tích hình ảnh.');
-      return;
-    }
-
-    if (chatType !== 'ai') {
-      Alert.alert('Tính năng không khả dụng', 'Phân tích ảnh chỉ khả dụng với AI chatbot.');
+      Alert.alert('Cần đăng nhập', 'Vui lòng đăng nhập để sử dụng tính năng gửi hình ảnh.');
       return;
     }
 
@@ -821,18 +1202,64 @@ export default function ChatConversationScreen() {
     };
 
     const now = new Date().toISOString();
-    appendMessage({
+    const userMessage: ChatMessage = {
       id: createId(),
       role: 'user',
-      content: 'Mình vừa gửi hình ảnh để bác sĩ AI phân tích giúp.',
+      content: chatType === 'doctor' ? 'Đã gửi hình ảnh' : 'Mình vừa gửi hình ảnh để bác sĩ AI phân tích giúp.',
       createdAt: now,
-      status: 'sent',
+      status: 'sending',
       attachments: [attachment],
-    });
-
+    };
+    
+    appendMessage(userMessage);
     setIsUploadingImage(true);
 
     try {
+      // Handle doctor chat - upload via socket
+      if (chatType === 'doctor') {
+        if (!conversationId || !realtimeChatService.isConnected()) {
+          updateMessage(userMessage.id, {
+            status: 'failed',
+          });
+          Alert.alert('Lỗi kết nối', 'Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng.');
+          return;
+        }
+
+        // Upload image via socket
+        const uploadResult = await uploadService.uploadImage(
+          {
+            uri: asset.uri,
+            mimeType: asset.mimeType ?? 'image/jpeg',
+            fileName: asset.fileName ?? `image-${Date.now()}.jpg`,
+            fileSize: asset.fileSize,
+          },
+          conversationId
+        );
+
+        if (!uploadResult.success || !uploadResult.url) {
+          throw new Error(uploadResult.error ?? 'Upload thất bại');
+        }
+
+        // Send message with uploaded image URL
+        await realtimeChatService.sendMessage(
+          conversationId,
+          userMessage.content,
+          'image',
+          uploadResult.url,
+          asset.fileName ?? `image-${Date.now()}.jpg`,
+          asset.mimeType ?? 'image/jpeg',
+          asset.fileSize
+        );
+
+        updateMessage(userMessage.id, {
+          status: 'sent',
+        });
+        
+        setIsUploadingImage(false);
+        return;
+      }
+
+      // Handle AI chat - analyze image
       const response = await uploadAnalysisImage(
         {
           uri: asset.uri,
@@ -845,6 +1272,10 @@ export default function ChatConversationScreen() {
       if (!response.success || !response.data) {
         throw new Error(response.error ?? 'Phân tích ảnh thất bại');
       }
+
+      updateMessage(userMessage.id, {
+        status: 'sent',
+      });
 
       const analysisMessage: ChatMessage = {
         id: createId(),
@@ -873,17 +1304,26 @@ export default function ChatConversationScreen() {
         });
       }
     } catch (error) {
-      appendMessage({
-        id: createId(),
-        role: 'assistant',
-        content: formatApiError(error, 'Xin lỗi, hệ thống chưa thể phân tích hình ảnh. Bạn có thể thử lại sau.'),
-        createdAt: new Date().toISOString(),
+      console.error('❌ [Chat] Image upload/analysis error:', error);
+      updateMessage(userMessage.id, {
         status: 'failed',
       });
+      
+      if (chatType === 'doctor') {
+        Alert.alert('Lỗi', formatApiError(error, 'Không thể gửi hình ảnh. Vui lòng thử lại.'));
+      } else {
+        appendMessage({
+          id: createId(),
+          role: 'assistant',
+          content: formatApiError(error, 'Xin lỗi, hệ thống chưa thể phân tích hình ảnh. Bạn có thể thử lại sau.'),
+          createdAt: new Date().toISOString(),
+          status: 'failed',
+        });
+      }
     } finally {
       setIsUploadingImage(false);
     }
-  }, [appendMessage, session?.token, chatType]);
+  }, [appendMessage, updateMessage, session?.token, chatType, conversationId]);
 
   const handleQuickAction = useCallback(
     (text: string) => {
@@ -908,24 +1348,53 @@ export default function ChatConversationScreen() {
     ]);
   }, []);
 
-  const isBusy = isSending || isUploadingImage;
+  // Handle input change with typing indicator
+  const handleInputChange = useCallback(
+    (text: string) => {
+      setInput(text);
+      
+      // Send typing indicator for doctor chat
+      if (chatType === 'doctor' && conversationId && realtimeChatService.isConnected()) {
+        realtimeChatService.sendTypingStatus(conversationId, text.length > 0);
+      }
+    },
+    [chatType, conversationId]
+  );
+
+  const isBusy = isSending || isUploadingImage || isConnectingSocket;
 
   const helperNotice = useMemo(
-    () =>
-      isUploadingImage
-        ? 'Đang tải và phân tích hình ảnh của bạn...'
-        : isSending
-          ? 'Trợ lý đang chuẩn bị phản hồi...'
-          : chatType === 'doctor'
-            ? 'Nhắn tin trực tiếp với bác sĩ để được tư vấn chi tiết.'
-            : 'Mô tả chi tiết triệu chứng, thời gian xuất hiện và thói quen gần đây để trợ lý hiểu rõ hơn nhé!',
-    [isSending, isUploadingImage, chatType],
+    () => {
+      if (isConnectingSocket) {
+        return 'Đang kết nối đến máy chủ chat...';
+      }
+      if (chatType === 'doctor' && !realtimeChatService.isConnected()) {
+        return 'Không thể kết nối. Vui lòng kiểm tra kết nối mạng.';
+      }
+      if (isUploadingImage) {
+        return chatType === 'doctor' 
+          ? 'Đang tải hình ảnh...' 
+          : 'Đang tải và phân tích hình ảnh của bạn...';
+      }
+      if (isSending) {
+        return chatType === 'doctor' 
+          ? 'Đang gửi tin nhắn...' 
+          : 'Trợ lý đang chuẩn bị phản hồi...';
+      }
+      if (chatType === 'doctor') {
+        return realtimeChatService.isConnected()
+          ? `Đã kết nối • Nhắn tin trực tiếp với ${chatName}` 
+          : 'Nhắn tin trực tiếp với bác sĩ để được tư vấn chi tiết.';
+      }
+      return 'Mô tả chi tiết triệu chứng, thời gian xuất hiện và thói quen gần đây để trợ lý hiểu rõ hơn nhé!';
+    },
+    [isSending, isUploadingImage, chatType, isConnectingSocket, chatName],
   );
 
   const composerSafePadding = useMemo(() => Math.max(insets.bottom, 12), [insets.bottom]);
   const conversationPaddingBottom = useMemo(
-    () => composerHeight + tabBarHeight + composerSafePadding + 24,
-    [composerHeight, composerSafePadding, tabBarHeight],
+    () => 12,
+    [],
   );
 
   const renderListHeader = useCallback(
@@ -1027,7 +1496,7 @@ export default function ChatConversationScreen() {
   const renderListFooter = useCallback(
     () => (
       <View className="py-6 space-y-4">
-        {isBusy ? (
+        {isBusy && chatType === 'ai' ? (
           <View 
             className="flex-row items-center space-x-2 rounded-2xl border px-3 py-2"
             style={{ borderColor: Colors.primary[100], backgroundColor: theme.card }}
@@ -1038,38 +1507,6 @@ export default function ChatConversationScreen() {
             </Text>
           </View>
         ) : null}
-        <View 
-          className="flex-row items-start space-x-3 rounded-2xl border px-4 py-3"
-          style={{ 
-            borderColor: Colors.warning[100],
-            backgroundColor: `${Colors.warning[50]}E6`
-          }}
-        >
-          <Ionicons name="alert-circle-outline" size={20} color={Colors.warning[600]} />
-          <View className="flex-1">
-            <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
-              Lưu ý quan trọng
-            </Text>
-            <Text className="mt-1 text-xs" style={{ color: Colors.warning[700] }}>
-              {chatType === 'ai' 
-                ? 'Các câu trả lời của trợ lý AI mang tính chất tham khảo. Hãy đặt lịch khám tại Smart Dental để được chẩn đoán trực tiếp bởi bác sĩ chuyên khoa.'
-                : 'Chat này là tư vấn sơ bộ. Vui lòng đặt lịch khám để được chẩn đoán chính xác.'}
-            </Text>
-          </View>
-        </View>
-        <Card className="px-4 py-3">
-          <View className="flex-row items-start space-x-3">
-            <Ionicons name="headset-outline" size={20} color={Colors.primary[600]} />
-            <View className="flex-1">
-              <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
-                Cần hỗ trợ khẩn?
-              </Text>
-              <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
-                Gọi hotline <Text className="font-semibold" style={{ color: Colors.primary[700] }}>1900-6363</Text> hoặc đặt lịch khám trực tiếp ngay trong ứng dụng.
-              </Text>
-            </View>
-          </View>
-        </Card>
       </View>
     ),
     [isBusy, chatType, theme],
@@ -1077,13 +1514,64 @@ export default function ChatConversationScreen() {
 
   return (
     <>
-      <AppHeader 
-        title={chatName}
-        showBack
-        showNotification
-        showAvatar
-        notificationCount={0}
-      />
+      {/* Custom Header with Call Buttons for Doctor Chat */}
+      {chatType === 'doctor' ? (
+        <View 
+          className="flex-row items-center justify-between px-4 py-3 border-b"
+          style={{ 
+            paddingTop: insets.top + 12,
+            backgroundColor: theme.card,
+            borderBottomColor: theme.border
+          }}
+        >
+          <View className="flex-row items-center flex-1">
+            <TouchableOpacity onPress={() => router.back()} className="mr-3">
+              <Ionicons name="arrow-back" size={24} color={theme.text.primary} />
+            </TouchableOpacity>
+            <View className="flex-1">
+              <Text className="text-base font-semibold" style={{ color: theme.text.primary }} numberOfLines={1}>
+                {chatName}
+              </Text>
+              {realtimeChatService.isConnected() ? (
+                <View className="flex-row items-center mt-1">
+                  <View className="h-2 w-2 rounded-full bg-green-500 mr-1.5" />
+                  <Text className="text-xs" style={{ color: Colors.success[600] }}>
+                    Đang hoạt động
+                  </Text>
+                </View>
+              ) : (
+                <Text className="text-xs mt-1" style={{ color: theme.text.secondary }}>
+                  Ngoại tuyến
+                </Text>
+              )}
+            </View>
+          </View>
+          <View className="flex-row items-center space-x-2">
+            {/* Audio Call Button */}
+            <CallButton
+              receiverId={chatId}
+              receiverName={chatName}
+              receiverRole={chatType === 'doctor' ? 'doctor' : 'patient'}
+              isVideoCall={false}
+            />
+            {/* Video Call Button */}
+            <CallButton
+              receiverId={chatId}
+              receiverName={chatName}
+              receiverRole={chatType === 'doctor' ? 'doctor' : 'patient'}
+              isVideoCall={true}
+            />
+          </View>
+        </View>
+      ) : (
+        <AppHeader 
+          title={chatName}
+          showBack
+          showNotification
+          showAvatar
+          notificationCount={0}
+        />
+      )}
       <KeyboardAvoidingView
         className="flex-1"
         style={{ backgroundColor: theme.background }}
@@ -1104,6 +1592,24 @@ export default function ChatConversationScreen() {
             )}
             ListHeaderComponent={renderListHeader}
             ListFooterComponent={renderListFooter}
+            ListEmptyComponent={
+              chatType === 'doctor' && realtimeChatService.isConnected() ? (
+                <View className="flex-1 items-center justify-center py-20">
+                  <View 
+                    className="h-20 w-20 items-center justify-center rounded-full mb-4"
+                    style={{ backgroundColor: Colors.primary[100] }}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={40} color={Colors.primary[600]} />
+                  </View>
+                  <Text className="text-base font-semibold mb-2" style={{ color: theme.text.primary }}>
+                    Bắt đầu cuộc trò chuyện
+                  </Text>
+                  <Text className="text-sm text-center px-8" style={{ color: theme.text.secondary }}>
+                    Gửi tin nhắn đầu tiên cho bác sĩ {chatName}
+                  </Text>
+                </View>
+              ) : null
+            }
             contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: conversationPaddingBottom }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -1129,8 +1635,8 @@ export default function ChatConversationScreen() {
           >
             <TextInput
               value={input}
-              onChangeText={setInput}
-              placeholder="Mô tả triệu chứng hoặc câu hỏi của bạn..."
+              onChangeText={handleInputChange}
+              placeholder={chatType === 'doctor' ? 'Nhập tin nhắn...' : 'Mô tả triệu chứng hoặc câu hỏi của bạn...'}
               placeholderTextColor="#94a3b8"
               multiline
               className="max-h-32 text-sm"
@@ -1139,27 +1645,35 @@ export default function ChatConversationScreen() {
               returnKeyType="send"
               blurOnSubmit={false}
             />
+            {isDoctorTyping && chatType === 'doctor' ? (
+              <View className="mt-2 flex-row items-center space-x-2">
+                <ActivityIndicator size="small" color={Colors.primary[600]} />
+                <Text className="text-xs italic" style={{ color: theme.text.secondary }}>
+                  {chatName} đang gõ...
+                </Text>
+              </View>
+            ) : null}
             <View className="mt-3 flex-row items-center justify-between">
               <View className="flex-row items-center space-x-3">
-                {chatType === 'ai' ? (
-                  <TouchableOpacity
-                    onPress={handlePickImage}
-                    className="flex-row items-center rounded-2xl border px-3 py-2"
-                    style={{ 
-                      borderColor: Colors.primary[200],
-                      backgroundColor: Colors.primary[50]
-                    }}
-                  >
-                    {isUploadingImage ? (
-                      <ActivityIndicator size="small" color={Colors.primary[600]} />
-                    ) : (
-                      <Ionicons name="image-outline" size={16} color={Colors.primary[600]} />
-                    )}
-                    <Text className="ml-2 text-[11px] font-semibold" style={{ color: Colors.primary[700] }}>
-                      Phân tích ảnh
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
+                <TouchableOpacity
+                  onPress={handlePickImage}
+                  disabled={isUploadingImage || (chatType === 'doctor' && !realtimeChatService.isConnected())}
+                  className="flex-row items-center rounded-2xl border px-3 py-2"
+                  style={{ 
+                    borderColor: chatType === 'ai' ? Colors.primary[100] : Colors.success[100],
+                    backgroundColor: chatType === 'ai' ? Colors.primary[50] : Colors.success[50],
+                    opacity: isUploadingImage || (chatType === 'doctor' && !realtimeChatService.isConnected()) ? 0.5 : 1,
+                  }}
+                >
+                  {isUploadingImage ? (
+                    <ActivityIndicator size="small" color={chatType === 'ai' ? Colors.primary[600] : Colors.success[600]} />
+                  ) : (
+                    <Ionicons name="image-outline" size={16} color={chatType === 'ai' ? Colors.primary[600] : Colors.success[600]} />
+                  )}
+                  <Text className="ml-2 text-[11px] font-semibold" style={{ color: chatType === 'ai' ? Colors.primary[700] : Colors.success[700] }}>
+                    {chatType === 'ai' ? 'Phân tích ảnh' : 'Gửi ảnh'}
+                  </Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => Linking.openURL('tel:19006363')}
                   className="flex-row items-center rounded-2xl border px-3 py-2"
@@ -1176,17 +1690,28 @@ export default function ChatConversationScreen() {
               </View>
               <TouchableOpacity
                 onPress={() => void handleSend()}
-                disabled={!input.trim() || isSending}
+                disabled={
+                  !input.trim() || 
+                  (chatType === 'ai' && isSending) || 
+                  (chatType === 'doctor' && !realtimeChatService.isConnected())
+                }
                 className="h-10 min-w-[72px] items-center justify-center rounded-2xl px-4"
                 style={{ 
-                  backgroundColor: !input.trim() || isSending ? Colors.primary[200] : Colors.primary[600]
+                  backgroundColor: 
+                    !input.trim() || 
+                    (chatType === 'ai' && isSending) || 
+                    (chatType === 'doctor' && !realtimeChatService.isConnected())
+                      ? Colors.primary[200] 
+                      : Colors.primary[600]
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Gửi tin nhắn"
               >
-                <Text className="text-xs font-semibold text-white">
-                  {isSending ? 'Đang gửi...' : 'Gửi'}
-                </Text>
+                {(chatType === 'ai' && isSending) || isConnectingSocket ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text className="text-xs font-semibold text-white">Gửi</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
