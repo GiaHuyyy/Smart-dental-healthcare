@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await req.json();
     const token = req.headers.get("authorization")?.replace("Bearer ", "");
-    const { id } = params;
+    const { id } = await params;
 
     const response = await fetch(`${API_BASE_URL}/api/v1/reviews/${id}`, {
       method: "PATCH",

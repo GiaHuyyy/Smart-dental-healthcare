@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
 
-export async function GET(req: NextRequest, { params }: { params: { doctorId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ doctorId: string }> }) {
   try {
-    const { doctorId } = params;
+    const { doctorId } = await params;
     const searchParams = req.nextUrl.searchParams;
     const page = searchParams.get("page") || "1";
     const limit = searchParams.get("limit") || "10";

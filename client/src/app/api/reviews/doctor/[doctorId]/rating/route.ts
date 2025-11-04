@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
 
-export async function GET(req: NextRequest, { params }: { params: { doctorId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ doctorId: string }> }) {
   try {
-    const { doctorId } = params;
+    const { doctorId } = await params;
 
     const response = await fetch(`${API_BASE_URL}/api/v1/reviews/doctor/${doctorId}/rating`, {
       method: "GET",
