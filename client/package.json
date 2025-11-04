@@ -58,6 +58,7 @@
     "@types/simple-peer": "^9.11.8",
     "eslint": "^9",
     "eslint-config-next": "15.4.1",
+    "lightningcss": "^1.30.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

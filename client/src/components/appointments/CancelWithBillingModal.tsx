@@ -5,6 +5,7 @@ import { differenceInMinutes } from "date-fns";
 import appointmentService from "@/services/appointmentService";
 import { Appointment } from "@/types/appointment";
 import { X, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 interface CancelWithBillingModalProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export default function CancelWithBillingModal({
           message += "\nĐã tạo voucher giảm giá 5% cho bệnh nhân!";
         }
 
-        alert(message);
+        toast.success(message);
         onSuccess();
         onClose();
       } else {
@@ -101,8 +102,15 @@ export default function CancelWithBillingModal({
     }
   };
 
-  // Get patient name for display
-  const patientName = typeof appointment.patientId === "object" ? appointment.patientId.fullName : "bệnh nhân";
+  // Get display name based on user role
+  const displayName =
+    userRole === "doctor"
+      ? typeof appointment.patientId === "object"
+        ? appointment.patientId.fullName
+        : "bệnh nhân"
+      : typeof appointment.doctor === "object"
+      ? appointment.doctor.fullName
+      : "bác sĩ";
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -171,9 +179,23 @@ export default function CancelWithBillingModal({
           )}
 
           <p className="text-gray-600 mb-4">
-            Bạn có chắc chắn muốn hủy lịch hẹn với <strong>{patientName}</strong> vào{" "}
+            Bạn có chắc chắn muốn hủy lịch hẹn với {userRole === "doctor" ? "bệnh nhân " : ""}
+            <strong>{displayName}</strong> vào{" "}
             <strong>
-              {new Date(appointment.appointmentDate).toLocaleDateString("vi-VN")} lúc {appointment.startTime}
+              {(() => {
+                try {
+                  const date = new Date(appointment.appointmentDate);
+                  return date.toLocaleDateString("vi-VN", {
+                    weekday: "long",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  });
+                } catch {
+                  return "Invalid Date";
+                }
+              })()}{" "}
+              lúc {appointment.startTime}
             </strong>
             ?
           </p>

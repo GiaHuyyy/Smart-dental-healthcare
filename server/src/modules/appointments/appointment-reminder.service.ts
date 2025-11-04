@@ -273,7 +273,12 @@ export class AppointmentReminderService {
   private async rejectPendingAppointment(appointment: any) {
     const { patientId, doctorId } = appointment;
 
-    // 1. Cập nhật status thành 'cancelled'
+    // 1. Delete any pending bills for this appointment
+    await this.billingService.deletePendingBillsForAppointment(
+      appointment._id.toString(),
+    );
+
+    // 2. Cập nhật status thành 'cancelled'
     appointment.status = 'cancelled';
     appointment.cancelledBy = 'system';
     appointment.cancelReason = 'Bác sĩ không kịp xác nhận';
@@ -284,7 +289,7 @@ export class AppointmentReminderService {
       `Appointment ${appointment._id} marked as cancelled (auto-reject)`,
     );
 
-    // 2. Tạo voucher 5% cho bệnh nhân (tương tự như khi bác sĩ hủy)
+    // 3. Tạo voucher 5% cho bệnh nhân (tương tự như khi bác sĩ hủy)
     try {
       await this.vouchersService.createDoctorCancellationVoucher(
         patientId._id.toString(),

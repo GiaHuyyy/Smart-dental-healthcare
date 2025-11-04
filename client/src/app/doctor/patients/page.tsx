@@ -1,11 +1,13 @@
 "use client";
 
 import TreatmentModal from "@/components/appointments/TreatmentModal";
+import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 import MedicalRecordDetailModal from "@/components/medical-records/MedicalRecordDetailModal";
 import { useToast } from "@/hooks/use-toast";
 import {
   Activity,
   Calendar,
+  CalendarDays,
   Check,
   Eye,
   FileText,
@@ -25,7 +27,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getSession } from "next-auth/react";
 
 interface Patient {
   _id: string;
@@ -87,6 +88,18 @@ interface MedicalRecord {
   diagnosis: string;
   treatmentPlan: string;
   status: string;
+  appointmentId?:
+    | string
+    | {
+        _id: string;
+        patientId: string;
+        doctorId: string;
+        appointmentDate: string;
+        startTime: string;
+        endTime: string;
+        status: string;
+        [key: string]: any;
+      };
   doctorId?: {
     _id: string;
     fullName: string;
@@ -170,11 +183,7 @@ export default function DoctorPatients() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
-  const [followUpData, setFollowUpData] = useState({
-    suggestedDate: "",
-    suggestedTime: "",
-    notes: "",
-  });
+  const [selectedPatientForFollowUp, setSelectedPatientForFollowUp] = useState<MedicalRecord | null>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -306,109 +315,7 @@ export default function DoctorPatients() {
     setPatientMedicalRecords([]);
     setPatientPayments([]);
     setIsFollowUpModalOpen(false);
-    setFollowUpData({ suggestedDate: "", suggestedTime: "", notes: "" });
-  };
-
-  const handleCreateFollowUp = async () => {
-    console.log("=== Create Follow-Up Debug ===");
-    console.log("Selected patient:", selectedPatient);
-    console.log("Patient appointments:", patientAppointments);
-    if (!selectedPatient) {
-      toast({
-        title: "Thiếu thông tin",
-        description: "Vui lòng chọn bệnh nhân",
-        type: "error",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const session = await getSession();
-      const token = (session as { access_token?: string })?.access_token;
-
-      // Log all appointment statuses first
-      console.log("All appointments with status:");
-      patientAppointments.forEach((apt: any, idx: number) => {
-        console.log(`  [${idx}] ID: ${apt._id}, Status: "${apt.status}", Date: ${apt.appointmentDate}`);
-      });
-
-      // Find the most recent completed appointment for this patient
-      // Accept both "completed" and "confirmed" for follow-up suggestion
-      const completedAppointments = patientAppointments
-        .filter((apt: { status: string }) => {
-          const status = apt.status?.toLowerCase();
-          console.log("Checking appointment:", apt._id, "Status:", apt.status, "-> normalized:", status);
-          return status === "completed" || status === "confirmed";
-        })
-        .sort(
-          (a: { appointmentDate: string | number | Date }, b: { appointmentDate: string | number | Date }) =>
-            new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
-        );
-
-      console.log("Completed appointments found:", completedAppointments.length);
-      console.log("First completed appointment:", completedAppointments[0]);
-
-      if (completedAppointments.length === 0) {
-        toast({
-          title: "Lỗi",
-          description:
-            "Không tìm thấy lịch hẹn đã hoàn thành hoặc xác nhận. Vui lòng hoàn thành ít nhất một lịch hẹn trước.",
-          type: "error",
-        });
-        return;
-      }
-
-      const payload = {
-        parentAppointmentId: completedAppointments[0]._id,
-        notes: followUpData.notes,
-      };
-
-      console.log("Sending payload:", payload);
-
-      const apiUrl = `${
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
-      }/api/v1/appointments/follow-up/create-suggestion`;
-      console.log("API URL:", apiUrl);
-
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log("Response status:", response.status);
-      const result = await response.json();
-      console.log("Response data:", result);
-
-      if (!response.ok) {
-        throw new Error(result.message || "Không thể tạo đề xuất tái khám");
-      }
-
-      toast({
-        title: "Thành công",
-        description: "Đã gửi đề xuất tái khám cho bệnh nhân",
-        type: "success",
-      });
-
-      setIsFollowUpModalOpen(false);
-      setFollowUpData({ suggestedDate: "", suggestedTime: "", notes: "" });
-
-      // Refresh appointments
-      await fetchPatientAppointments(selectedPatient._id);
-    } catch (error) {
-      console.error("❌ Error creating follow-up:", error);
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể tạo đề xuất tái khám",
-        type: "error",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    setSelectedPatientForFollowUp(null);
   };
 
   const handlePrescriptionClick = (prescription: Prescription) => {
@@ -623,16 +530,6 @@ export default function DoctorPatients() {
 
   // Payment statistics
   const paymentStats = (() => {
-    // Check status values
-    const statusCounts = patientPayments.reduce((acc, p: Payment) => {
-      const status = p.status || "unknown";
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    console.log("Payment status counts:", statusCounts);
-
-    // Count completed payments từ payments table
-    // Backend trả về status: 'completed', 'pending', 'failed', 'refunded'
     const completedPayments = patientPayments.filter((p: Payment) => {
       const status = p.status?.toLowerCase() || "";
       return status === "completed";
@@ -669,8 +566,6 @@ export default function DoctorPatients() {
       totalFromAllPayments: patientPayments.reduce((sum, p) => sum + (p.amount || 0), 0),
       totalPayments: patientPayments.length,
     };
-
-    console.log("Final stats:", result);
 
     return result;
   })();
@@ -1666,6 +1561,23 @@ export default function DoctorPatients() {
                                           </p>
                                         </div>
                                       )}
+
+                                      {/* Nút Cần tái khám cho hồ sơ đã hoàn thành */}
+                                      {record.status === "completed" && record.appointmentId && (
+                                        <div className="pt-2">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedPatientForFollowUp(record);
+                                              setIsFollowUpModalOpen(true);
+                                            }}
+                                            className="w-full px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-md hover:from-green-700 hover:to-emerald-700 text-xs font-medium flex items-center justify-center gap-2 transition-all"
+                                          >
+                                            <CalendarDays className="w-3.5 h-3.5" />
+                                            Cần tái khám
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 ))
@@ -1979,62 +1891,22 @@ export default function DoctorPatients() {
             )}
 
             {/* Follow-up Appointment Modal */}
-            {isFollowUpModalOpen && selectedPatient && (
-              <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Đề xuất tái khám</h3>
-                    <button onClick={() => setIsFollowUpModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bệnh nhân</label>
-                      <input
-                        type="text"
-                        value={selectedPatient.fullName}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
-                      <textarea
-                        value={followUpData.notes}
-                        onChange={(e) => setFollowUpData({ ...followUpData, notes: e.target.value })}
-                        rows={4}
-                        placeholder="Lý do tái khám, lời dặn..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                      <p className="text-sm text-blue-700">
-                        💰 Bệnh nhân sẽ nhận được <strong>giảm giá 5%</strong> khi xác nhận lịch tái khám
-                      </p>
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <button
-                        onClick={() => setIsFollowUpModalOpen(false)}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        onClick={handleCreateFollowUp}
-                        disabled={isSubmitting}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isSubmitting ? "Đang gửi..." : "Gửi đề xuất"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {isFollowUpModalOpen && selectedPatientForFollowUp && selectedPatient && (
+              <CreateFollowUpModal
+                isOpen={isFollowUpModalOpen}
+                onClose={() => {
+                  setIsFollowUpModalOpen(false);
+                  setSelectedPatientForFollowUp(null);
+                }}
+                medicalRecord={selectedPatientForFollowUp}
+                patientName={selectedPatient.fullName}
+                onSuccess={() => {
+                  // Refresh medical records
+                  if (selectedPatient?._id) {
+                    fetchPatientMedicalRecords(selectedPatient._id);
+                  }
+                }}
+              />
             )}
           </div>
         </div>

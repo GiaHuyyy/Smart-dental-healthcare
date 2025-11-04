@@ -4,7 +4,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const body = await request.json();
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
+    const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;

@@ -31,31 +31,86 @@ export async function getPatientDashboardStats(
   token?: string
 ): Promise<{ success: boolean; data?: PatientDashboardStats; error?: string }> {
   try {
-    // Fetch upcoming appointments
-    const appointmentsResponse = await fetch(
-      `${API_URL}/api/v1/appointments/patient/${patientId}?status=confirmed&limit=1`,
-      {
+    // Fetch upcoming appointments - prioritize confirmed, then pending
+    let nextAppointment = null;
+
+    // First, try to get confirmed appointments that are upcoming (from now onwards)
+    const confirmedResponse = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}?status=confirmed`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (confirmedResponse.ok) {
+      const confirmedData = await confirmedResponse.json();
+      const confirmedAppointments = confirmedData.data || confirmedData;
+
+      if (Array.isArray(confirmedAppointments) && confirmedAppointments.length > 0) {
+        // Filter upcoming appointments and sort by date
+        const now = new Date();
+        const upcomingConfirmed = confirmedAppointments
+          .filter((apt: any) => {
+            const aptDate = new Date(apt.appointmentDate);
+            return aptDate >= now;
+          })
+          .sort((a: any, b: any) => {
+            const dateA = new Date(a.appointmentDate);
+            const dateB = new Date(b.appointmentDate);
+            return dateA.getTime() - dateB.getTime();
+          });
+
+        if (upcomingConfirmed.length > 0) {
+          const apt = upcomingConfirmed[0];
+          nextAppointment = {
+            id: apt._id || "",
+            date: new Date(apt.appointmentDate).toLocaleDateString("vi-VN"),
+            time: `${apt.startTime || ""}${apt.endTime ? " - " + apt.endTime : ""}`.trim() || "Chưa xác định",
+            doctor: apt.doctor?.fullName || apt.doctorId?.fullName || "",
+            type: apt.appointmentType || "Khám định kỳ",
+          };
+        }
+      }
+    }
+
+    // If no confirmed appointments found, try pending appointments
+    if (!nextAppointment) {
+      const pendingResponse = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}?status=pending`, {
         headers: {
           "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
         },
-      }
-    );
+      });
 
-    let nextAppointment = null;
-    if (appointmentsResponse.ok) {
-      const appointmentsData = await appointmentsResponse.json();
-      const appointments = appointmentsData.data || appointmentsData;
+      if (pendingResponse.ok) {
+        const pendingData = await pendingResponse.json();
+        const pendingAppointments = pendingData.data || pendingData;
 
-      if (Array.isArray(appointments) && appointments.length > 0) {
-        const apt = appointments[0];
-        nextAppointment = {
-          id: apt._id || "",
-          date: new Date(apt.appointmentDate).toLocaleDateString("vi-VN"),
-          time: apt.startTime || "N/A",
-          doctor: apt.doctor?.fullName || apt.doctorId?.fullName || "N/A",
-          type: apt.appointmentType || "Khám định kỳ",
-        };
+        if (Array.isArray(pendingAppointments) && pendingAppointments.length > 0) {
+          // Filter upcoming appointments and sort by date
+          const now = new Date();
+          const upcomingPending = pendingAppointments
+            .filter((apt: any) => {
+              const aptDate = new Date(apt.appointmentDate);
+              return aptDate >= now;
+            })
+            .sort((a: any, b: any) => {
+              const dateA = new Date(a.appointmentDate);
+              const dateB = new Date(b.appointmentDate);
+              return dateA.getTime() - dateB.getTime();
+            });
+
+          if (upcomingPending.length > 0) {
+            const apt = upcomingPending[0];
+            nextAppointment = {
+              id: apt._id || "",
+              date: new Date(apt.appointmentDate).toLocaleDateString("vi-VN"),
+              time: `${apt.startTime || ""}${apt.endTime ? " - " + apt.endTime : ""}`.trim() || "Chưa xác định",
+              doctor: apt.doctor?.fullName || apt.doctorId?.fullName || "",
+              type: apt.appointmentType || "Khám định kỳ",
+            };
+          }
+        }
       }
     }
 
@@ -74,8 +129,8 @@ export async function getPatientDashboardStats(
       completedAppointments = Array.isArray(appointments) ? appointments.length : 0;
     }
 
-    // Fetch medical records to check follow-up requirements
-    const medicalRecordsResponse = await fetch(`/api/medical-records/statistics/patient?patientId=${patientId}`, {
+    // Fetch follow-up suggestions count
+    const followUpResponse = await fetch(`${API_URL}/api/v1/appointments/follow-up/suggestions/${patientId}`, {
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -83,14 +138,18 @@ export async function getPatientDashboardStats(
     });
 
     let followUpRequired = 0;
-    let oralHealthScore = 74; // Default mock value
-
-    if (medicalRecordsResponse.ok) {
-      const recordsData = await medicalRecordsResponse.json();
-      // Extract follow-up count if available
-      followUpRequired = recordsData.data?.followUpRequired || 2;
-      oralHealthScore = recordsData.data?.oralHealthScore || 74;
+    if (followUpResponse.ok) {
+      const followUpData = await followUpResponse.json();
+      const suggestions = followUpData.data || followUpData;
+      if (Array.isArray(suggestions)) {
+        followUpRequired = suggestions.filter((s: any) => s.status === "pending").length;
+      }
+    } else {
+      console.error("❌ Failed to fetch follow-up suggestions:", followUpResponse.status);
     }
+
+    // Mock oral health score for now
+    const oralHealthScore = 74;
 
     return {
       success: true,

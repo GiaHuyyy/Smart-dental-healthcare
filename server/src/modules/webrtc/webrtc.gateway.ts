@@ -40,10 +40,10 @@ interface CallRequest {
   recipientId: string;
   callType: 'video' | 'audio';
 }
-
+// Deploy nhớ thay đổi origin cho đúng
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: ['http://localhost:3000'],
     methods: ['GET', 'POST'],
     credentials: true,
   },

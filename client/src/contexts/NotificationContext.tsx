@@ -176,6 +176,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     // Listen for new notifications
     const handleNewNotification = (notification: Notification) => {
+      console.log("🔔 [NotificationContext] Received notification:new event");
+      console.log("Notification data:", notification);
+
       // Add to list
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
@@ -196,6 +199,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               }
             : undefined,
       });
+
+      console.log("✅ [NotificationContext] Toast displayed");
     };
 
     // Listen for notification read
@@ -211,12 +216,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     // Register listeners
+    console.log("📡 [NotificationContext] Registering socket listeners");
+    console.log("Socket ID:", socket.id);
+    console.log("Socket connected:", socket.connected);
+
     socket.on("notification:new", handleNewNotification);
     socket.on("notification:read", handleNotificationRead);
     socket.on("notification:allRead", handleAllNotificationsRead);
 
+    console.log("✅ [NotificationContext] Listeners registered");
+
     // Cleanup
     return () => {
+      console.log("🧹 [NotificationContext] Cleaning up listeners");
       socket.off("notification:new", handleNewNotification);
       socket.off("notification:read", handleNotificationRead);
       socket.off("notification:allRead", handleAllNotificationsRead);

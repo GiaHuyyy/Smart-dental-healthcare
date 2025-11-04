@@ -2,6 +2,7 @@
 
 import { BookingFormData, ConsultType } from "@/types/appointment";
 import voucherService from "@/services/voucherService";
+import walletService from "@/services/walletService";
 import {
   AlertCircle,
   Building2,
@@ -21,7 +22,7 @@ import {
   Tag,
   Check,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -53,6 +54,30 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [applyingVoucher, setApplyingVoucher] = useState(false);
   const [voucherApplied, setVoucherApplied] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+
+  // Fetch wallet balance on component mount
+  useEffect(() => {
+    const fetchWalletBalance = async () => {
+      const accessToken = (session as { access_token?: string })?.access_token;
+      if (!accessToken) return;
+
+      setLoadingBalance(true);
+      try {
+        const result = await walletService.getBalance(accessToken);
+        if (result.success && result.data) {
+          setWalletBalance(result.data.balance);
+        }
+      } catch {
+        // Silently fail - wallet balance is not critical
+      } finally {
+        setLoadingBalance(false);
+      }
+    };
+
+    fetchWalletBalance();
+  }, [session]);
 
   const handleInputChange = (field: keyof BookingFormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -618,6 +643,58 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                 <div className="shrink-0">
                   {formData.paymentMethod === "momo" && (
                     <div className="w-6 h-6 bg-pink-600 rounded-full flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </label>
+
+          {/* Wallet Payment */}
+          <label className="relative cursor-pointer block">
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="wallet"
+              checked={formData.paymentMethod === "wallet"}
+              onChange={(e) => handleInputChange("paymentMethod", e.target.value)}
+              className="peer sr-only"
+              disabled={walletBalance < (formData.paymentAmount || 0)}
+            />
+            <div
+              className={`p-4 border-2 rounded-lg transition-all ${
+                walletBalance < (formData.paymentAmount || 0)
+                  ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                  : "border-gray-300 peer-checked:border-purple-500 peer-checked:bg-purple-50 hover:border-purple-300"
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
+                    walletBalance < (formData.paymentAmount || 0) ? "bg-gray-400" : "bg-purple-600"
+                  }`}
+                >
+                  <Wallet className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900">Thanh toán bằng ví</div>
+                  <div className="text-sm text-gray-600">
+                    {loadingBalance ? "Đang tải..." : `Số dư: ${walletBalance.toLocaleString("vi-VN")} đ`}
+                  </div>
+                  {walletBalance < (formData.paymentAmount || 0) && (
+                    <div className="text-xs text-red-600 mt-1">Số dư không đủ</div>
+                  )}
+                </div>
+                <div className="shrink-0">
+                  {formData.paymentMethod === "wallet" && walletBalance >= (formData.paymentAmount || 0) && (
+                    <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
                       <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path
                           fillRule="evenodd"

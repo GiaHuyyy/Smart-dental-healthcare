@@ -3,6 +3,7 @@
 import React from "react";
 import { useCallContext } from "@/contexts/CallProvider";
 import { X, Video, Phone, User, Stethoscope } from "lucide-react";
+import { toast } from "sonner";
 
 export default function IncomingCallModal() {
   const { callState, answerCall, rejectCall } = useCallContext();
@@ -13,7 +14,7 @@ export default function IncomingCallModal() {
     try {
       // Check browser compatibility first
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert("Trình duyệt không hỗ trợ cuộc gọi video/audio");
+        toast.error("Trình duyệt không hỗ trợ cuộc gọi video/audio");
         rejectCall();
         return;
       }
@@ -21,7 +22,7 @@ export default function IncomingCallModal() {
       answerCall();
     } catch (error) {
       console.error("Error answering call:", error);
-      alert("Không thể kết nối cuộc gọi");
+      toast.error("Không thể kết nối cuộc gọi");
       rejectCall();
     }
   };

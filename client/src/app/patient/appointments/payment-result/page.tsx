@@ -48,46 +48,45 @@ export default function PaymentResultPage() {
     }
 
     checkPaymentStatus();
-    
+
     // 🔥 CRITICAL: Poll payment status every 3 seconds for up to 30 seconds
     // This ensures we catch the payment update even if callback is slow
     let pollCount = 0;
     const maxPolls = 10; // 10 times * 3 seconds = 30 seconds
-    
+
     const pollInterval = setInterval(async () => {
       pollCount++;
       console.log(`🔄 Polling payment status... (${pollCount}/${maxPolls})`);
-      
+
       if (pollCount >= maxPolls) {
         clearInterval(pollInterval);
         console.log('⏹️ Stopped polling after 30 seconds');
         return;
       }
-      
+
       // Query payment status
       if (orderId) {
         try {
           const sessionAny = session as unknown as { access_token?: string; accessToken?: string };
           const accessToken = sessionAny?.access_token || sessionAny?.accessToken;
-          
+
           const result = await paymentService.queryMoMoPayment(orderId, accessToken);
-          
+
           if (result.success && result.data?.payment) {
             const backendPayment = result.data.payment as any;
             console.log(`📊 Poll ${pollCount}: Payment status =`, backendPayment.status);
-            
+
             // If payment is completed or failed, stop polling
             if (backendPayment.status === 'completed') {
               setPaymentStatus('success');
               setPaymentInfo(result.data);
               clearInterval(pollInterval);
-              
+
               toast.success("Thanh toán đã được xác nhận!", {
                 description: "Hệ thống đã ghi nhận thanh toán của bạn.",
                 duration: 3000,
               });
-              
-              console.log('✅ Payment completed, stopped polling');
+
             } else if (backendPayment.status === 'failed') {
               setPaymentStatus('failed');
               setPaymentInfo(result.data);
@@ -100,7 +99,7 @@ export default function PaymentResultPage() {
         }
       }
     }, 3000); // Poll every 3 seconds
-    
+
     // Cleanup
     return () => {
       if (pollInterval) {
@@ -146,15 +145,15 @@ export default function PaymentResultPage() {
       if (status === "success" && orderId) {
         const sessionAny = session as unknown as { access_token?: string; accessToken?: string };
         const accessToken = sessionAny?.access_token || sessionAny?.accessToken;
-        
+
         console.log("🔔 Manually triggering payment processing...");
-        
+
         try {
           // DEVELOPMENT: Simulate callback since localhost can't receive MoMo callback
           const simulateUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8081'}/api/v1/payments/simulate-callback/${orderId}`;
-          
+
           console.log("📞 Calling simulate-callback:", simulateUrl);
-          
+
           const simulateResponse = await fetch(simulateUrl, {
             method: 'POST',
             headers: {
@@ -162,12 +161,11 @@ export default function PaymentResultPage() {
             },
             body: JSON.stringify({ resultCode: 0 }),
           });
-          
+
           const simulateResult = await simulateResponse.json();
           console.log("💰 Simulate callback result:", simulateResult);
-          
+
           if (simulateResult.success) {
-            console.log("✅ Payment callback processed successfully");
             toast.success("Thanh toán đã được xử lý", {
               description: "Hệ thống đang cập nhật thông tin...",
               duration: 2000,

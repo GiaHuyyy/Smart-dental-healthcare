@@ -1,9 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Users, Star, Calendar, Phone, Mail, MapPin, ArrowLeft, Stethoscope, Clock, MessageSquare } from "lucide-react";
+import {
+  Users,
+  Star,
+  Calendar,
+  Phone,
+  Mail,
+  MapPin,
+  ArrowLeft,
+  Stethoscope,
+  Clock,
+  MessageSquare,
+  Edit2,
+} from "lucide-react";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
+import ReviewModal from "@/components/appointments/ReviewModal";
 
 interface Doctor {
   _id: string;
@@ -20,15 +35,41 @@ interface Doctor {
   avatarUrl?: string;
 }
 
+interface Review {
+  _id: string;
+  rating: number;
+  comment: string;
+  patientId?: {
+    _id?: string;
+    fullName?: string;
+    name?: string;
+  };
+  createdAt: string;
+  editCount?: number;
+  editedAt?: string;
+}
+
 export default function DoctorDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const doctorId = (params?.id as string) || "";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [related, setRelated] = useState<Doctor[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewStats, setReviewStats] = useState<{ averageRating: number; totalReviews: number } | null>(null);
+
+  // Edit review states
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  // Ref for scrolling to highlighted review
+  const reviewRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (!doctorId) return;
@@ -55,6 +96,29 @@ export default function DoctorDetailsPage() {
         } else {
           setRelated([]);
         }
+
+        // Load reviews
+        setLoadingReviews(true);
+        try {
+          const reviewsRes = await fetch(`/api/reviews/doctor/${doctorId}?page=1&limit=10`);
+          const reviewsData = await reviewsRes.json();
+          const reviewsList = reviewsData?.data?.data || reviewsData?.data || [];
+          setReviews(Array.isArray(reviewsList) ? reviewsList : []);
+
+          // Load rating stats
+          const statsRes = await fetch(`/api/reviews/doctor/${doctorId}/rating`);
+          const statsData = await statsRes.json();
+          if (statsData?.data) {
+            setReviewStats({
+              averageRating: statsData.data.averageRating || 0,
+              totalReviews: statsData.data.totalReviews || 0,
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to load reviews", e);
+        } finally {
+          setLoadingReviews(false);
+        }
       } catch (e) {
         console.error("load doctor failed", e);
         setError("Không tải được thông tin bác sĩ.");
@@ -65,6 +129,106 @@ export default function DoctorDetailsPage() {
 
     load();
   }, [doctorId]);
+
+  // Scroll to highlighted review
+  useEffect(() => {
+    const highlightReview = searchParams?.get("highlightReview");
+    const appointmentId = searchParams?.get("appointmentId");
+
+    if (highlightReview === "true" && appointmentId && reviews.length > 0) {
+      // Find the review for this appointment
+      const targetReview = reviews.find((r) => {
+        // We need to match by appointmentId stored in refId
+        // Since reviews don't directly include appointmentId in the list response,
+        // we'll scroll to the first review by the current user
+        const userId = (session?.user as { _id?: string })?._id;
+        return r.patientId?._id === userId;
+      });
+
+      if (targetReview && reviewRefs.current[targetReview._id]) {
+        setTimeout(() => {
+          reviewRefs.current[targetReview._id]?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+          // Add highlight animation
+          const element = reviewRefs.current[targetReview._id];
+          if (element) {
+            element.classList.add("ring-2", "ring-primary", "ring-offset-2");
+            setTimeout(() => {
+              element.classList.remove("ring-2", "ring-primary", "ring-offset-2");
+            }, 3000);
+          }
+        }, 500);
+      }
+    }
+  }, [reviews, searchParams, session]);
+
+  const handleEditReview = (review: Review) => {
+    if (review.editCount && review.editCount >= 1) {
+      toast.error("Bạn đã sửa đánh giá này rồi", {
+        description: "Mỗi đánh giá chỉ được phép sửa một lần",
+      });
+      return;
+    }
+    setEditingReview(review);
+    setEditModalOpen(true);
+  };
+
+  const handleSubmitEditReview = async (rating: number, comment: string) => {
+    if (!editingReview || !session?.user) return;
+
+    try {
+      const accessToken = (session as any)?.access_token;
+
+      const response = await fetch(`/api/reviews/${editingReview._id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify({
+          rating,
+          comment,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Update review error response:", errorData);
+        throw new Error(errorData.error || errorData.message || "Không thể cập nhật đánh giá");
+      }
+
+      toast.success("Đã cập nhật đánh giá!");
+      setEditModalOpen(false);
+      setEditingReview(null);
+
+      // Reload reviews
+      const reviewsRes = await fetch(`/api/reviews/doctor/${doctorId}?page=1&limit=10`);
+      const reviewsData = await reviewsRes.json();
+      const reviewsList = reviewsData?.data?.data || reviewsData?.data || [];
+      setReviews(Array.isArray(reviewsList) ? reviewsList : []);
+
+      // Reload rating stats
+      const statsRes = await fetch(`/api/reviews/doctor/${doctorId}/rating`);
+      const statsData = await statsRes.json();
+      if (statsData?.data) {
+        setReviewStats({
+          averageRating: statsData.data.averageRating || 0,
+          totalReviews: statsData.data.totalReviews || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Update review error:", error);
+      toast.error(error instanceof Error ? error.message : "Không thể cập nhật đánh giá");
+      throw error;
+    }
+  };
+
+  const canEditReview = (review: Review): boolean => {
+    const userId = (session?.user as { _id?: string })?._id;
+    return review.patientId?._id === userId && (!review.editCount || review.editCount < 1);
+  };
 
   const onBook = () => {
     if (!doctor) return;
@@ -202,6 +366,82 @@ export default function DoctorDetailsPage() {
           </div>
         </div>
 
+        {/* Reviews Section */}
+        <div className="healthcare-card-elevated p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="healthcare-subheading">Đánh giá từ bệnh nhân</h3>
+            {reviewStats && (
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                <span className="text-lg font-bold text-gray-900">{reviewStats.averageRating.toFixed(1)}</span>
+                <span className="text-sm text-gray-600">({reviewStats.totalReviews} đánh giá)</span>
+              </div>
+            )}
+          </div>
+
+          {loadingReviews ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-primary"></div>
+              <p className="text-gray-600 mt-2 text-sm">Đang tải đánh giá...</p>
+            </div>
+          ) : reviews.length > 0 ? (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div
+                  key={review._id}
+                  ref={(el) => {
+                    reviewRefs.current[review._id] = el;
+                  }}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-all"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-gray-900">
+                          {review.patientId?.fullName || review.patientId?.name || "Bệnh nhân"}
+                        </h4>
+                        {canEditReview(review) && (
+                          <button
+                            onClick={() => handleEditReview(review)}
+                            className="text-sm text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            Sửa
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(review.createdAt).toLocaleDateString("vi-VN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                        {review.editedAt && <span className="ml-2 text-gray-400">(đã chỉnh sửa)</span>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg ml-3">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="text-sm font-semibold text-yellow-700">{review.rating.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <p className="text-gray-700 text-sm leading-relaxed">{review.comment}</p>
+                  {review.editCount && review.editCount >= 1 ? (
+                    <p className="text-xs text-gray-400 mt-2 italic">
+                      * Đánh giá này đã được chỉnh sửa và không thể sửa lại
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
+              <Star className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-600 text-sm">Chưa có đánh giá nào</p>
+              <p className="text-gray-500 text-xs mt-1">Hãy là người đầu tiên đánh giá bác sĩ sau khi khám</p>
+            </div>
+          )}
+        </div>
+
         {/* Related doctors */}
         {related.length > 0 && (
           <div className="space-y-3">
@@ -231,6 +471,25 @@ export default function DoctorDetailsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Review Modal */}
+      {editModalOpen && editingReview && (
+        <ReviewModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setEditingReview(null);
+          }}
+          doctorName={doctor?.fullName || ""}
+          doctorId={doctorId}
+          appointmentId={editingReview._id}
+          onSubmit={handleSubmitEditReview}
+          initialRating={editingReview.rating}
+          initialComment={editingReview.comment}
+          isEditing={true}
+          warningMessage="⚠️ Lưu ý: Một khi đã gửi chỉnh sửa, bạn sẽ không thể sửa lại lần nữa."
+        />
+      )}
     </div>
   );
 }

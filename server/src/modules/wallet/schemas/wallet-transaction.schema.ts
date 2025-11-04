@@ -14,7 +14,10 @@ export class WalletTransaction {
   @Prop({ required: true, enum: ['topup', 'withdrawal', 'payment', 'refund'] })
   type: string;
 
-  @Prop({ required: true, enum: ['pending', 'completed', 'failed', 'cancelled'] })
+  @Prop({
+    required: true,
+    enum: ['pending', 'completed', 'failed', 'cancelled'],
+  })
   status: string;
 
   @Prop()
@@ -28,7 +31,10 @@ export class WalletTransaction {
 
   @Prop()
   notes: string;
+
+  @Prop()
+  appointmentId: string; // Link to appointment for payment transactions
 }
 
-export const WalletTransactionSchema = SchemaFactory.createForClass(WalletTransaction);
-
+export const WalletTransactionSchema =
+  SchemaFactory.createForClass(WalletTransaction);

@@ -3,7 +3,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { X, Calendar, Clock, User, Mail, Phone, MapPin, Plus, Download, CalendarDays, CheckCircle } from "lucide-react";
+import {
+  X,
+  Calendar,
+  Clock,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Plus,
+  Download,
+  CalendarDays,
+  CheckCircle,
+  DollarSign,
+  Search,
+} from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
 import DoctorCalendar from "@/components/Calendar/DoctorCalendar";
@@ -12,8 +26,8 @@ import Image from "next/image";
 import { toast } from "sonner";
 import appointmentService from "@/services/appointmentService";
 import TreatmentModal from "@/components/appointments/TreatmentModal";
-import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
+import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 
 // Appointment type
 interface Appointment {
@@ -32,6 +46,7 @@ interface Appointment {
   location: string;
   email?: string;
   phone?: string;
+  createdAt?: string;
 }
 
 // Session type with accessToken
@@ -64,6 +79,16 @@ function DoctorScheduleContent() {
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
 
+  // Date filter state
+  const [startFilterDate, setStartFilterDate] = useState<string>("");
+  const [endFilterDate, setEndFilterDate] = useState<string>("");
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date());
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Treatment modal states
   const [treatmentModalOpen, setTreatmentModalOpen] = useState(false);
   const [currentTreatmentAppointment, setCurrentTreatmentAppointment] = useState<Appointment | null>(null);
@@ -72,6 +97,11 @@ function DoctorScheduleContent() {
   // Follow-up and billing modal states
   const [followUpModalOpen, setFollowUpModalOpen] = useState(false);
   const [appointmentForFollowUp, setAppointmentForFollowUp] = useState<Appointment | null>(null);
+
+  // Payment modal states
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [pendingBill, setPendingBill] = useState<any>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
@@ -128,11 +158,9 @@ function DoctorScheduleContent() {
   // Register this page's refresh callback with global socket
   useEffect(() => {
     registerAppointmentCallback(fetchAppointments);
-    console.log("✅ Doctor schedule registered with global socket");
 
     return () => {
       unregisterAppointmentCallback();
-      console.log("🔇 Doctor schedule unregistered from global socket");
     };
   }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
 
@@ -161,13 +189,71 @@ function DoctorScheduleContent() {
     }
   }, [searchParams, appointments, detailModalOpen]);
 
+  // Auto-switch calendar view based on date filter selection
+  useEffect(() => {
+    if (startFilterDate && endFilterDate) {
+      // Both dates selected - calculate difference
+      const start = new Date(startFilterDate);
+      const end = new Date(endFilterDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // If range is <= 7 days, use week view, otherwise month view
+      if (diffDays <= 7) {
+        setView("week");
+      } else {
+        setView("month");
+      }
+      // Set calendar to show the start date
+      setCalendarDate(start);
+    } else if (startFilterDate) {
+      // Only start date selected - switch to day view
+      setView("day");
+      // Set calendar to show the selected date
+      setCalendarDate(new Date(startFilterDate));
+    }
+  }, [startFilterDate, endFilterDate]);
+
   // Filter appointments based on selected tab (for LIST view - shows ALL including cancelled)
   // Filter appointments for LIST view - shows all including cancelled
   const getFilteredAppointments = () => {
-    if (selectedTab === "all") {
-      return appointments;
+    let filtered = appointments;
+
+    // Filter by status tab
+    if (selectedTab !== "all") {
+      filtered = filtered.filter((apt) => apt.status === selectedTab);
     }
-    return appointments.filter((apt) => apt.status === selectedTab);
+
+    // Filter by search term (patient name, reason, phone)
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (apt) =>
+          apt.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          apt.reason?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          apt.phone?.includes(searchTerm)
+      );
+    }
+
+    // Filter by date range
+    if (startFilterDate && endFilterDate) {
+      // Both dates selected - filter by range
+      filtered = filtered.filter((apt) => {
+        const aptDate = new Date(apt.date);
+        const start = new Date(startFilterDate);
+        const end = new Date(endFilterDate);
+        return aptDate >= start && aptDate <= end;
+      });
+    } else if (startFilterDate) {
+      // Only start date - filter by single date
+      filtered = filtered.filter((apt) => apt.date === startFilterDate);
+    }
+
+    // Sort by createdAt descending (newest first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.createdAt || a.date);
+      const dateB = new Date(b.createdAt || b.date);
+      return dateB.getTime() - dateA.getTime();
+    });
   };
 
   // Filter appointments for CALENDAR view
@@ -187,6 +273,17 @@ function DoctorScheduleContent() {
 
   const filteredAppointments = getFilteredAppointments(); // For list view
   const calendarAppointments = getCalendarAppointments(); // For calendar view
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedTab, startFilterDate, endFilterDate, searchTerm]);
 
   // Handle stat card click
   const handleStatCardClick = (status: "all" | "pending" | "confirmed" | "cancelled" | "completed") => {
@@ -432,8 +529,6 @@ function DoctorScheduleContent() {
           notes: formData.notes,
         };
 
-        console.log("📝 Prescription Payload:", JSON.stringify(prescriptionPayload, null, 2));
-
         const prescriptionResponse = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/prescriptions`,
           {
@@ -568,6 +663,82 @@ function DoctorScheduleContent() {
     if (appointment) {
       setSelectedAppointment(appointment);
       setDetailModalOpen(true);
+      // Check for pending bill if appointment is completed
+      if (appointment.status === "completed") {
+        checkPendingBill(appointment._id || appointment.id);
+      }
+    }
+  };
+
+  // Check for pending bill
+  const checkPendingBill = async (appointmentId: string) => {
+    try {
+      const accessToken = (session as ExtendedSession).accessToken;
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
+        }/api/v1/payments/appointment/${appointmentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        // Check if payment is pending
+        if (result.success && result.data && result.data.status === "pending") {
+          setPendingBill(result.data);
+        } else {
+          setPendingBill(null);
+        }
+      } else {
+        setPendingBill(null);
+      }
+    } catch (error) {
+      console.error("Error checking pending bill:", error);
+      setPendingBill(null);
+    }
+  };
+
+  // Handle payment confirmation
+  const handlePaymentConfirm = async () => {
+    if (!pendingBill || !session?.user?._id) return;
+
+    setIsProcessingPayment(true);
+    try {
+      const accessToken = (session as ExtendedSession).accessToken;
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/payments/${
+          pendingBill._id
+        }/mark-paid`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            doctorId: session.user._id,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Không thể xác nhận thanh toán");
+      }
+
+      toast.success("Đã xác nhận thanh toán thành công");
+      setPendingBill(null);
+      setPaymentModalOpen(false);
+      fetchAppointments();
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      toast.error("Có lỗi xảy ra khi xử lý thanh toán");
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -580,6 +751,11 @@ function DoctorScheduleContent() {
   // Handle view change
   const handleViewChange = (newView: View) => {
     setView(newView);
+  };
+
+  // Handle calendar navigation
+  const handleNavigate = (newDate: Date) => {
+    setCalendarDate(newDate);
   };
 
   if (!session) {
@@ -616,6 +792,47 @@ function DoctorScheduleContent() {
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"}`} />
                 <span className="text-sm text-gray-600">{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
+              </div>
+
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm bệnh nhân, lý do khám..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary w-64"
+                />
+              </div>
+
+              {/* Date Filter */}
+              <div className="flex items-center gap-2">
+                {" "}
+                <span className="text-sm font-medium text-gray-700">Từ</span>
+                <input
+                  type="date"
+                  value={startFilterDate}
+                  onChange={(e) => setStartFilterDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <span className="text-sm font-medium text-gray-700">đến</span>
+                <input
+                  type="date"
+                  value={endFilterDate}
+                  onChange={(e) => setEndFilterDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  onClick={() => {
+                    setStartFilterDate("");
+                    setEndFilterDate("");
+                  }}
+                  disabled={!startFilterDate && !endFilterDate}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Xóa
+                </button>
               </div>
 
               {/* Action buttons */}
@@ -761,150 +978,217 @@ function DoctorScheduleContent() {
           <DoctorCalendar
             appointments={calendarAppointments}
             view={view}
+            date={calendarDate}
             onViewChange={handleViewChange}
+            onNavigate={handleNavigate}
             onSelectEvent={handleSelectEvent}
             onSelectSlot={handleSelectSlot}
           />
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            {/* List Header */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-              <div className="grid grid-cols-12 gap-4 text-sm font-semibold text-gray-700">
-                <div className="col-span-3">Bệnh nhân</div>
-                <div className="col-span-2">Ngày hẹn</div>
-                <div className="col-span-2">Giờ</div>
-                <div className="col-span-2">Lý do</div>
-                <div className="col-span-1">Loại</div>
-                <div className="col-span-2 text-center">Thao tác</div>
-              </div>
-            </div>
-
-            {/* List Body */}
-            <div className="divide-y divide-gray-200">
-              {filteredAppointments.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500">Không có lịch hẹn nào</p>
+          <>
+            {/* Pagination Controls - Above Table */}
+            {totalPages > 1 && filteredAppointments.length > 0 && (
+              <div className="bg-white rounded-lg border border-gray-200 px-6 py-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredAppointments.length)} trong tổng số{" "}
+                    {filteredAppointments.length} lịch hẹn
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Trước
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {[...Array(totalPages)].map((_, index) => {
+                        const pageNumber = index + 1;
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={pageNumber}
+                              onClick={() => setCurrentPage(pageNumber)}
+                              className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                                currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          );
+                        } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                          return (
+                            <span key={pageNumber} className="px-2 text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Tiếp
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                filteredAppointments.map((apt) => (
-                  <div
-                    key={apt.id}
-                    className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedAppointment(apt);
-                      setDetailModalOpen(true);
-                    }}
-                  >
-                    <div className="grid grid-cols-12 gap-4 items-center">
-                      {/* Patient Info */}
-                      <div className="col-span-3 flex items-center gap-3">
-                        <Image
-                          src={apt.patientAvatar}
-                          alt={apt.patientName}
-                          width={40}
-                          height={40}
-                          className="rounded-full"
-                        />
-                        <div>
-                          <p className="font-medium text-gray-900">{apt.patientName}</p>
-                          <p className="text-sm text-gray-500">
-                            {apt.gender} • {apt.location}
+              </div>
+            )}
+
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              {/* List Header */}
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                <div className="grid grid-cols-12 gap-4 text-sm font-semibold text-gray-700">
+                  <div className="col-span-3">Bệnh nhân</div>
+                  <div className="col-span-2">Ngày hẹn</div>
+                  <div className="col-span-2">Giờ</div>
+                  <div className="col-span-2">Lý do</div>
+                  <div className="col-span-1">Loại</div>
+                  <div className="col-span-2 text-center">Thao tác</div>
+                </div>
+              </div>
+
+              {/* List Body */}
+              <div className="divide-y divide-gray-200">
+                {filteredAppointments.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-500">Không có lịch hẹn nào</p>
+                  </div>
+                ) : (
+                  paginatedAppointments.map((apt) => (
+                    <div
+                      key={apt.id}
+                      className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        setSelectedAppointment(apt);
+                        setDetailModalOpen(true);
+                        // Check for pending bill if appointment is completed
+                        if (apt.status === "completed") {
+                          checkPendingBill(apt._id || apt.id);
+                        }
+                      }}
+                    >
+                      <div className="grid grid-cols-12 gap-4 items-center">
+                        {/* Patient Info */}
+                        <div className="col-span-3 flex items-center gap-3">
+                          <Image
+                            src={apt.patientAvatar}
+                            alt={apt.patientName}
+                            width={40}
+                            height={40}
+                            className="rounded-full"
+                          />
+                          <div>
+                            <p className="font-medium text-gray-900">{apt.patientName}</p>
+                            <p className="text-sm text-gray-500">
+                              {apt.gender} • {apt.location}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Date */}
+                        <div className="col-span-2">
+                          <p className="text-sm text-gray-900">{new Date(apt.date).toLocaleDateString("vi-VN")}</p>
+                        </div>
+
+                        {/* Time */}
+                        <div className="col-span-2">
+                          <p className="text-sm text-gray-900">
+                            {apt.startTime} - {apt.endTime}
                           </p>
                         </div>
-                      </div>
 
-                      {/* Date */}
-                      <div className="col-span-2">
-                        <p className="text-sm text-gray-900">{new Date(apt.date).toLocaleDateString("vi-VN")}</p>
-                      </div>
+                        {/* Reason */}
+                        <div className="col-span-2">
+                          <p className="text-sm text-gray-600 truncate">{apt.reason}</p>
+                        </div>
 
-                      {/* Time */}
-                      <div className="col-span-2">
-                        <p className="text-sm text-gray-900">
-                          {apt.startTime} - {apt.endTime}
-                        </p>
-                      </div>
+                        {/* Visit Type */}
+                        <div className="col-span-1">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              apt.visitType === "Home Visit"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-blue-100 text-blue-700"
+                            }`}
+                          >
+                            {apt.visitType === "Home Visit" ? "Tại nhà" : "Phòng khám"}
+                          </span>
+                        </div>
 
-                      {/* Reason */}
-                      <div className="col-span-2">
-                        <p className="text-sm text-gray-600 truncate">{apt.reason}</p>
-                      </div>
-
-                      {/* Visit Type */}
-                      <div className="col-span-1">
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            apt.visitType === "Home Visit"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-blue-100 text-blue-700"
-                          }`}
-                        >
-                          {apt.visitType === "Home Visit" ? "Tại nhà" : "Phòng khám"}
-                        </span>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="col-span-2 flex items-center justify-center gap-2">
-                        {apt.status === "pending" && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleConfirmAppointment(apt._id || apt.id);
-                              }}
-                              disabled={actionLoading}
-                              className="px-3 py-1 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {actionLoading ? "..." : "Xác nhận"}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openCancelDialog(apt._id || apt.id);
-                              }}
-                              disabled={actionLoading}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {actionLoading ? "..." : "Hủy"}
-                            </button>
-                          </>
-                        )}
-                        {apt.status === "confirmed" && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startTreatment(apt);
-                              }}
-                              disabled={actionLoading}
-                              className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {actionLoading ? "..." : "Điều Trị"}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openCancelDialog(apt._id || apt.id);
-                              }}
-                              disabled={actionLoading}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {actionLoading ? "..." : "Hủy"}
-                            </button>
-                          </>
-                        )}
-                        {apt.status === "completed" && (
-                          <span className="text-sm text-green-600 font-medium">Đã hoàn thành</span>
-                        )}
-                        {apt.status === "cancelled" && <span className="text-sm text-red-600 font-medium">Đã hủy</span>}
+                        {/* Actions */}
+                        <div className="col-span-2 flex items-center justify-center gap-2">
+                          {apt.status === "pending" && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleConfirmAppointment(apt._id || apt.id);
+                                }}
+                                disabled={actionLoading}
+                                className="px-3 py-1 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {actionLoading ? "..." : "Xác nhận"}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openCancelDialog(apt._id || apt.id);
+                                }}
+                                disabled={actionLoading}
+                                className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {actionLoading ? "..." : "Hủy"}
+                              </button>
+                            </>
+                          )}
+                          {apt.status === "confirmed" && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startTreatment(apt);
+                                }}
+                                disabled={actionLoading}
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {actionLoading ? "..." : "Điều Trị"}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openCancelDialog(apt._id || apt.id);
+                                }}
+                                disabled={actionLoading}
+                                className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {actionLoading ? "..." : "Hủy"}
+                              </button>
+                            </>
+                          )}
+                          {apt.status === "completed" && (
+                            <span className="text-sm text-green-600 font-medium">Đã hoàn thành</span>
+                          )}
+                          {apt.status === "cancelled" && (
+                            <span className="text-sm text-red-600 font-medium">Đã hủy</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -1061,17 +1345,30 @@ function DoctorScheduleContent() {
                   </button>
                 )}
                 {selectedAppointment.status === "completed" && (
-                  <button
-                    onClick={() => {
-                      setAppointmentForFollowUp(selectedAppointment);
-                      setFollowUpModalOpen(true);
-                      setDetailModalOpen(false);
-                    }}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
-                  >
-                    <CalendarDays className="w-4 h-4" />
-                    Tạo đề xuất tái khám
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setAppointmentForFollowUp(selectedAppointment);
+                        setFollowUpModalOpen(true);
+                        setDetailModalOpen(false);
+                      }}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
+                    >
+                      <CalendarDays className="w-4 h-4" />
+                      Tạo đề xuất tái khám
+                    </button>
+                    {pendingBill && (
+                      <button
+                        onClick={() => {
+                          setPaymentModalOpen(true);
+                        }}
+                        className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 flex items-center justify-center gap-2"
+                      >
+                        <DollarSign className="w-4 h-4" />
+                        Thanh toán ({new Intl.NumberFormat("vi-VN").format(pendingBill.amount)}đ)
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1107,13 +1404,82 @@ function DoctorScheduleContent() {
             setFollowUpModalOpen(false);
             setAppointmentForFollowUp(null);
           }}
-          appointment={appointmentForFollowUp as any}
+          appointment={appointmentForFollowUp}
+          patientName={appointmentForFollowUp.patientName}
           onSuccess={() => {
             setFollowUpModalOpen(false);
             setAppointmentForFollowUp(null);
-            fetchAppointments();
+            // fetchAppointments();
           }}
         />
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {paymentModalOpen && pendingBill && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Xác nhận thanh toán</h2>
+              <button
+                onClick={() => setPaymentModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+                disabled={isProcessingPayment}
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-2">Thông tin hóa đơn</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Mã hóa đơn:</span>
+                    <span className="text-sm font-medium text-gray-900">{pendingBill._id?.slice(-8)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Tổng tiền:</span>
+                    <span className="text-lg font-bold text-primary">
+                      {new Intl.NumberFormat("vi-VN").format(pendingBill.amount)}đ
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Trạng thái:</span>
+                    <span className="text-sm font-medium text-yellow-600">Chờ thanh toán</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  Bạn có chắc chắn muốn xác nhận thanh toán cho hóa đơn này? Hành động này sẽ:
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-blue-700 list-disc list-inside">
+                  <li>Đánh dấu hóa đơn đã thanh toán</li>
+                  <li>Gửi thông báo cho bệnh nhân</li>
+                  <li>Gửi email xác nhận</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => setPaymentModalOpen(false)}
+                  disabled={isProcessingPayment}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handlePaymentConfirm}
+                  disabled={isProcessingPayment}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isProcessingPayment ? "Đang xử lý..." : "Xác nhận thanh toán"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Treatment Modal */}

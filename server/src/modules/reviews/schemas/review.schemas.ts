@@ -25,6 +25,12 @@ export class Review {
 
   @Prop({ type: String, enum: ['Appointment', 'MedicalRecord'] })
   refModel: string;
+
+  @Prop({ type: Number, default: 0 })
+  editCount: number;
+
+  @Prop({ type: Date })
+  editedAt: Date;
 }
 
 export const ReviewSchema = SchemaFactory.createForClass(Review);

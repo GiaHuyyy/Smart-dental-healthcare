@@ -36,7 +36,7 @@ export function calculateConsultationFee(
     const multiplier = CONSULT_TYPE_MULTIPLIERS[consultType] || 1.0;
     return Math.round(doctorBaseFee * multiplier);
   }
-  
+
   // Otherwise use default fees
   return DEFAULT_FEES[consultType] || DEFAULT_BASE_FEE;
 }
@@ -94,13 +94,3 @@ export function getConsultTypeDescription(consultType: ConsultType): string {
       return "";
   }
 }
-
-
-
-
-
-
-
-
-
-

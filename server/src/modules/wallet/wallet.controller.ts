@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { Public } from 'src/decorator/customize';
 import { JwtAuthGuard } from '../../auth/passport/jwt-auth.guard';
 import { CreateWalletTransactionDto } from './dto/create-wallet-transaction.dto';
@@ -19,7 +29,10 @@ export class WalletController {
   // POST /api/v1/wallet/topup
   @Post('topup')
   @UseGuards(JwtAuthGuard)
-  async topUp(@Request() req: any, @Body() createWalletTransactionDto: CreateWalletTransactionDto) {
+  async topUp(
+    @Request() req: any,
+    @Body() createWalletTransactionDto: CreateWalletTransactionDto,
+  ) {
     const userId = req.user?.userId || req.user?._id;
     return this.walletService.topUpWallet(userId, createWalletTransactionDto);
   }
@@ -46,6 +59,29 @@ export class WalletController {
     return this.walletService.getWalletStats(userId);
   }
 
+  // POST /api/v1/wallet/pay-appointment - Pay for appointment using wallet
+  @Post('pay-appointment')
+  @UseGuards(JwtAuthGuard)
+  async payForAppointment(
+    @Request() req: any,
+    @Body() body: { appointmentId: string; amount: number },
+  ) {
+    const userId = req.user?.userId || req.user?._id;
+    return this.walletService.payForAppointment(
+      userId,
+      body.appointmentId,
+      body.amount,
+    );
+  }
+
+  // POST /api/v1/wallet/pay-bill - Pay existing pending bill using wallet
+  @Post('pay-bill')
+  @UseGuards(JwtAuthGuard)
+  async payBill(@Request() req: any, @Body() body: { billId: string }) {
+    const userId = req.user?.userId || req.user?._id;
+    return this.walletService.payPendingBill(userId, body.billId);
+  }
+
   // POST /api/v1/wallet/momo/callback - Public endpoint cho MoMo callback
   @Post('momo/callback')
   @Public()
@@ -54,10 +90,10 @@ export class WalletController {
     const logger = this.walletService['logger'];
     logger.log('🔔 ========== CALLBACK REACHED CONTROLLER ==========');
     logger.log('📦 Raw body:', JSON.stringify(callbackData, null, 2));
-    
+
     const result = await this.walletService.handleMomoCallback(callbackData);
     logger.log('✅ Callback processed result:', result);
-    
+
     return result;
   }
 
@@ -73,15 +109,11 @@ export class WalletController {
   @Public()
   @HttpCode(HttpStatus.OK)
   async testCallback(
-    @Body() body: {
-      userId: string;
-      amount: number;
-      orderId?: string;
-    }
+    @Body() body: { userId: string; amount: number; orderId?: string },
   ) {
     const logger = this.walletService['logger'];
     logger.log('🧪 ========== TEST CALLBACK ==========');
-    
+
     // Simulate MoMo callback data
     const testCallbackData = {
       partnerCode: 'MOMO',
@@ -100,15 +132,15 @@ export class WalletController {
         amount: body.amount,
         paymentMethod: 'momo',
         description: 'Test nạp tiền',
-        type: 'wallet_topup'
+        type: 'wallet_topup',
       }),
-      signature: 'test_signature'
+      signature: 'test_signature',
     };
 
     logger.log('🧪 Test callback data:', testCallbackData);
-    
-    const result = await this.walletService.handleMomoCallback(testCallbackData);
+
+    const result =
+      await this.walletService.handleMomoCallback(testCallbackData);
     return result;
   }
 }
-
