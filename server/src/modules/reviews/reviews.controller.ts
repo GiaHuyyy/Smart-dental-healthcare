@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
@@ -41,6 +51,18 @@ export class ReviewsController {
     @Query('limit') limit: string = '10',
   ) {
     return this.reviewsService.findByPatient(patientId, +page, +limit);
+  }
+
+  @Get('patient/:patientId/appointment/:appointmentId')
+  @Public()
+  findByPatientAndAppointment(
+    @Param('patientId') patientId: string,
+    @Param('appointmentId') appointmentId: string,
+  ) {
+    return this.reviewsService.findByPatientAndAppointment(
+      patientId,
+      appointmentId,
+    );
   }
 
   @Get('doctor/:doctorId/rating')

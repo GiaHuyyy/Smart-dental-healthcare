@@ -18,6 +18,7 @@ import {
   MapPin,
   MessageCircle,
   MoreVertical,
+  Star,
   User,
   Video,
   X,
@@ -30,6 +31,7 @@ import { toast } from "sonner";
 import RescheduleWithBillingModal from "@/components/appointments/RescheduleWithBillingModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
 import FollowUpSuggestions from "@/components/appointments/FollowUpSuggestions";
+import ReviewModal from "@/components/appointments/ReviewModal";
 
 // Helper function to check if appointment is past the consultation time + 15 minutes
 const isAppointmentPastConsultation = (appointment: Appointment): boolean => {
@@ -71,6 +73,13 @@ function MyAppointmentsContent() {
   const [startFilterDate, setStartFilterDate] = useState<string>("");
   const [endFilterDate, setEndFilterDate] = useState<string>("");
 
+  // Review modal states
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [appointmentToReview, setAppointmentToReview] = useState<Appointment | null>(null);
+  const [appointmentReviews, setAppointmentReviews] = useState<
+    Record<string, { _id: string; rating: number; comment: string } | null>
+  >({});
+
   // Memoized fetch function to prevent re-creation on every render
   const fetchAppointments = useCallback(async () => {
     // Guard: Check if session and user exist
@@ -89,7 +98,7 @@ function MyAppointmentsContent() {
       }
 
       // Call API to get patient appointments
-      const accessToken = (session as { accessToken?: string })?.accessToken;
+      const accessToken = (session as any)?.access_token;
       const result = await appointmentService.getPatientAppointments(userId, {}, accessToken);
 
       if (!result.success) {
@@ -97,6 +106,12 @@ function MyAppointmentsContent() {
       }
 
       setAppointments(result.data || []);
+
+      // Check reviews for completed appointments
+      if (result.data && result.data.length > 0) {
+        checkAppointmentReviews(result.data, userId, accessToken);
+        console.log("✅ Appointments loaded:", result.data.length, "records");
+      }
     } catch (error) {
       console.error("❌ Error fetching appointments:", error);
       toast.error("Không thể tải danh sách lịch hẹn");
@@ -160,7 +175,7 @@ function MyAppointmentsContent() {
 
     setActionLoading(true);
     try {
-      const accessToken = (session as { accessToken?: string })?.accessToken;
+      const accessToken = (session as any)?.access_token;
       const result = await appointmentService.cancelAppointment(
         selectedAppointment._id!,
         cancelReason,
@@ -231,6 +246,120 @@ function MyAppointmentsContent() {
   const handleOpenRescheduleDialog = (appointment: Appointment) => {
     setAppointmentToReschedule(appointment);
     setRescheduleDialogOpen(true);
+  };
+
+  // Check if appointments have reviews - OPTIMIZED VERSION
+  const checkAppointmentReviews = async (appointmentsList: Appointment[], patientId: string, accessToken?: string) => {
+    const completedAppointments = appointmentsList.filter((apt) => apt.status === AppointmentStatus.COMPLETED);
+
+    if (completedAppointments.length === 0) return;
+
+    try {
+      // Get ALL reviews of patient in ONE API call
+      const response = await fetch(`/api/reviews/patient/${patientId}?page=1&limit=200`, {
+        headers: {
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const reviewsList = data?.data?.data || data?.data || [];
+
+        // Create map: appointmentId -> review
+        const reviewsMap: Record<string, { _id: string; rating: number; comment: string } | null> = {};
+
+        if (Array.isArray(reviewsList)) {
+          reviewsList.forEach((review: any) => {
+            if (review.refId && review.refModel === "Appointment") {
+              reviewsMap[review.refId] = {
+                _id: review._id,
+                rating: review.rating,
+                comment: review.comment,
+              };
+            }
+          });
+        }
+
+        setAppointmentReviews(reviewsMap);
+      }
+    } catch (error) {
+      console.warn("Failed to check appointment reviews:", error);
+    }
+  };
+
+  const handleOpenReviewModal = (appointment: Appointment) => {
+    setAppointmentToReview(appointment);
+    setReviewModalOpen(true);
+  };
+
+  const handleViewReview = (appointment: Appointment) => {
+    const doctorId = appointment.doctor?._id;
+    if (doctorId) {
+      // Navigate to doctor details page with review highlight
+      router.push(`/patient/doctors/${doctorId}?highlightReview=true&appointmentId=${appointment._id}`);
+    }
+  };
+
+  const handleSubmitReview = async (rating: number, comment: string) => {
+    if (!appointmentToReview || !session?.user) {
+      return;
+    }
+
+    try {
+      const patientId = (session.user as { _id?: string })._id;
+      const doctorId = appointmentToReview.doctor?._id;
+      const accessToken = (session as any)?.access_token;
+
+      if (!patientId || !doctorId) {
+        toast.error("Thiếu thông tin cần thiết");
+        return;
+      }
+
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify({
+          patientId,
+          doctorId,
+          rating,
+          comment,
+          refId: appointmentToReview._id,
+          refModel: "Appointment",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Không thể gửi đánh giá");
+      }
+
+      const responseData = await response.json();
+      const newReview = responseData?.data;
+
+      toast.success("Cảm ơn bạn đã đánh giá!");
+
+      // Immediately update appointmentReviews state without reload
+      if (newReview && appointmentToReview._id) {
+        setAppointmentReviews((prev) => ({
+          ...prev,
+          [appointmentToReview._id!]: {
+            _id: newReview._id,
+            rating: newReview.rating,
+            comment: newReview.comment,
+          },
+        }));
+      }
+
+      setReviewModalOpen(false);
+      setAppointmentToReview(null);
+    } catch (error) {
+      console.error("Submit review error:", error);
+      toast.error("Không thể gửi đánh giá. Vui lòng thử lại.");
+      throw error;
+    }
   };
 
   const getStatusIcon = (status: AppointmentStatus) => {
@@ -691,9 +820,28 @@ function MyAppointmentsContent() {
                             </>
                           )}
                           {appointment.status === AppointmentStatus.COMPLETED && (
-                            <button className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium">
-                              Xem kết quả
-                            </button>
+                            <>
+                              {appointment._id && appointmentReviews[appointment._id] ? (
+                                <button
+                                  onClick={() => handleViewReview(appointment)}
+                                  className="px-4 py-2 text-sm border border-blue-400 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center gap-2"
+                                >
+                                  <Star className="w-4 h-4 fill-blue-500" />
+                                  Xem đánh giá
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleOpenReviewModal(appointment)}
+                                  className="px-4 py-2 text-sm border border-yellow-400 text-yellow-600 rounded-lg hover:bg-yellow-50 transition-colors font-medium flex items-center gap-2"
+                                >
+                                  <Star className="w-4 h-4" />
+                                  Đánh giá
+                                </button>
+                              )}
+                              <button className="px-4 py-2 text-sm border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors font-medium">
+                                Xem kết quả
+                              </button>
+                            </>
                           )}
                         </div>
                         <button
@@ -1039,6 +1187,19 @@ function MyAppointmentsContent() {
           }}
         />
       )}
+
+      {/* Review Modal */}
+      <ReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => {
+          setReviewModalOpen(false);
+          setAppointmentToReview(null);
+        }}
+        doctorName={appointmentToReview?.doctor?.fullName || ""}
+        doctorId={appointmentToReview?.doctor?._id || ""}
+        appointmentId={appointmentToReview?._id || ""}
+        onSubmit={handleSubmitReview}
+      />
     </div>
   );
 }
