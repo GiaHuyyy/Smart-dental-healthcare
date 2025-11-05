@@ -70,10 +70,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="prescriptions"
         options={{
-          title: 'Đơn thuốc',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="medical" size={size} color={color} />
-          ),
+          href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen

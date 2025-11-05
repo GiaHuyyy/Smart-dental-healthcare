@@ -1207,7 +1207,6 @@ export default function AppointmentsScreen() {
         title="Lịch hẹn"
         showNotification
         showAvatar
-        notificationCount={0}
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
 

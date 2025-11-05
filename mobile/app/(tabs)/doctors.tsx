@@ -2,14 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
+import DoctorDetailModal from '@/components/doctors/DoctorDetailModal';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { PolicyButton, PolicyModal } from '@/components/policy';
 import { Badge } from '@/components/ui/Badge';
@@ -139,6 +140,8 @@ export default function DoctorsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
 
   const loadDoctors = useCallback(async () => {
     if (!isAuthenticated) {
@@ -214,13 +217,9 @@ export default function DoctorsScreen() {
   }, [router]);
 
   const handleView = useCallback((doctor: Doctor) => {
-    const id = doctor._id ?? doctor.id;
-    if (!id) return;
-    router.push({
-      pathname: '/(tabs)/doctors/[id]',
-      params: { id },
-    });
-  }, [router]);
+    setSelectedDoctor(doctor);
+    setShowDoctorModal(true);
+  }, []);
 
   const handleChat = useCallback(async (doctor: Doctor) => {
     const doctorId = doctor._id ?? doctor.id;
@@ -283,7 +282,6 @@ export default function DoctorsScreen() {
         title="Bác sĩ" 
         showNotification 
         showAvatar 
-        notificationCount={0}
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
       <ScrollView
@@ -449,6 +447,17 @@ export default function DoctorsScreen() {
       </ScrollView>
 
       <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
+      
+      <DoctorDetailModal
+        visible={showDoctorModal}
+        doctor={selectedDoctor}
+        onClose={() => {
+          setShowDoctorModal(false);
+          setSelectedDoctor(null);
+        }}
+        onBook={handleBook}
+        onChat={handleChat}
+      />
     </>
   );
 }

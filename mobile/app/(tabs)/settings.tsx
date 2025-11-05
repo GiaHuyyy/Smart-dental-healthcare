@@ -2,16 +2,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   Bell,
-  BookOpen,
   ChevronRight,
   FileText,
-  Globe,
   HelpCircle,
+  Languages,
   Lock,
   LogOut,
   Mail,
+  Palette,
   ShieldCheck,
-  Smartphone,
+  Trash2,
   UserCircle,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
@@ -27,6 +27,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/auth-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { EditProfileModal } from '@/components/settings/EditProfileModal';
 
 const SUPPORT_LINK = 'https://smart-dental-healthcare.com/support';
 const PRIVACY_LINK = 'https://smart-dental-healthcare.com/privacy';
@@ -100,11 +102,15 @@ function ToggleRow({
 export default function SettingsScreen() {
   const router = useRouter();
   const { session, clearSession, updateUser } = useAuth();
+  const colorScheme = useColorScheme();
 
   const profile = useMemo(() => session?.user ?? null, [session?.user]);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [emailUpdatesEnabled, setEmailUpdatesEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [darkMode, setDarkMode] = useState(colorScheme === 'dark');
+  const [selectedLanguage, setSelectedLanguage] = useState('vi');
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
   const handleLogout = useCallback(() => {
     Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất khỏi tài khoản Smart Dental?', [
@@ -121,7 +127,7 @@ export default function SettingsScreen() {
   }, [clearSession, router]);
 
   const handleUpdateProfile = useCallback(() => {
-    Alert.alert('Cập nhật thông tin', 'Tính năng cập nhật hồ sơ sẽ sớm có mặt trên ứng dụng di động.');
+    setShowEditProfileModal(true);
   }, []);
 
   const handleChangePassword = useCallback(() => {
@@ -144,6 +150,57 @@ export default function SettingsScreen() {
     } else {
       Alert.alert('Không thể mở liên kết', url);
     }
+  }, []);
+
+  const handleClearCache = useCallback(() => {
+    Alert.alert(
+      'Xóa bộ nhớ cache', 
+      'Bạn có chắc muốn xóa bộ nhớ cache? Điều này sẽ đăng xuất bạn khỏi ứng dụng.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa cache',
+          style: 'destructive',
+          onPress: async () => {
+            await clearSession();
+            Alert.alert('Thành công', 'Đã xóa cache và đăng xuất.');
+            router.replace('/(auth)/login');
+          },
+        },
+      ]
+    );
+  }, [clearSession, router]);
+
+  const handleLanguageSelect = useCallback(() => {
+    Alert.alert(
+      'Chọn ngôn ngữ',
+      'Chọn ngôn ngữ hiển thị',
+      [
+        {
+          text: 'Tiếng Việt',
+          onPress: () => {
+            setSelectedLanguage('vi');
+            Alert.alert('Thành công', 'Đã chuyển sang Tiếng Việt');
+          },
+        },
+        {
+          text: 'English',
+          onPress: () => {
+            setSelectedLanguage('en');
+            Alert.alert('Success', 'Changed to English (Coming soon)');
+          },
+        },
+        { text: 'Hủy', style: 'cancel' },
+      ]
+    );
+  }, []);
+
+  const handleThemeToggle = useCallback(() => {
+    Alert.alert(
+      'Chế độ giao diện',
+      'Tính năng Dark Mode sẽ sớm được hỗ trợ.',
+      [{ text: 'OK' }]
+    );
   }, []);
 
   return (
@@ -174,6 +231,22 @@ export default function SettingsScreen() {
                   <Text className="text-xs font-semibold text-blue-700">Chỉnh sửa</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            <View className="space-y-4">
+              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Giao diện & ngôn ngữ</Text>
+              <SettingRow 
+                icon={Palette} 
+                title="Chế độ giao diện" 
+                description={darkMode ? 'Chế độ tối' : 'Chế độ sáng'}
+                onPress={handleThemeToggle} 
+              />
+              <SettingRow 
+                icon={Languages} 
+                title="Ngôn ngữ" 
+                description={selectedLanguage === 'vi' ? 'Tiếng Việt' : 'English'}
+                onPress={handleLanguageSelect} 
+              />
             </View>
 
             <View className="space-y-4">
@@ -213,37 +286,41 @@ export default function SettingsScreen() {
             <View className="space-y-4">
               <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tài khoản</Text>
               <SettingRow icon={Lock} title="Đổi mật khẩu" description="Bảo vệ tài khoản của bạn" onPress={handleChangePassword} />
-              <SettingRow
-                icon={Smartphone}
-                title="Ứng dụng phòng khám"
-                description="Xem hướng dẫn sử dụng ứng dụng"
-                onPress={() => handleOpenLink('https://smart-dental-healthcare.com/mobile-guide')}
-              />
-              <SettingRow
-                icon={BookOpen}
-                title="Tài liệu hướng dẫn"
-                description="Hướng dẫn chăm sóc răng miệng"
-                onPress={() => handleOpenLink('https://smart-dental-healthcare.com/resources')}
-              />
             </View>
 
             <View className="space-y-4">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hỗ trợ</Text>
+              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hỗ trợ & thông tin</Text>
               <SettingRow icon={HelpCircle} title="Liên hệ hỗ trợ" description="Đội ngũ Smart Dental" onPress={handleContactSupport} />
-              <SettingRow icon={Globe} title="Trung tâm trợ giúp" description="FAQ & hướng dẫn" onPress={() => handleOpenLink(SUPPORT_LINK)} />
               <SettingRow icon={ShieldCheck} title="Chính sách bảo mật" onPress={() => handleOpenLink(PRIVACY_LINK)} />
               <SettingRow icon={FileText} title="Điều khoản dịch vụ" onPress={() => handleOpenLink(TERMS_LINK)} />
             </View>
 
+            <View className="space-y-4">
+              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dữ liệu & lưu trữ</Text>
+              <SettingRow 
+                icon={Trash2} 
+                title="Xóa bộ nhớ cache" 
+                description="Giải phóng dung lượng lưu trữ"
+                onPress={handleClearCache} 
+              />
+            </View>
+
             <TouchableOpacity
-              className="mt-2 flex-row items-center justify-center rounded-3xl border border-red-200 bg-red-50 py-3"
+              className="mt-2 flex-row items-center justify-center rounded-3xl border border-red-200 bg-red-50 py-4"
+              activeOpacity={0.7}
               onPress={handleLogout}
             >
-              <LogOut color="#b91c1c" size={18} />
-              <Text className="ml-2 text-sm font-semibold text-red-700">Đăng xuất</Text>
+              <LogOut color="#b91c1c" size={20} />
+              <Text className="ml-2 text-base font-semibold text-red-700">Đăng xuất</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        {/* Edit Profile Modal */}
+        <EditProfileModal
+          visible={showEditProfileModal}
+          onClose={() => setShowEditProfileModal(false)}
+        />
       </SafeAreaView>
     </LinearGradient>
   );

@@ -6,12 +6,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/colors';
 import { Shadows } from '@/constants/shadows';
+import { useAuth } from '@/contexts/auth-context';
+import { useNotifications } from '@/contexts/notification-context';
+import { NotificationModal } from '@/components/notifications/NotificationModal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface AppHeaderProps {
@@ -47,6 +50,25 @@ export function AppHeader({
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+  const { session } = useAuth();
+  const { totalUnreadCount } = useNotifications();
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+
+  // Debug logging
+  React.useEffect(() => {
+    if (showNotification) {
+      console.log('🔔 AppHeader - Total unread count:', totalUnreadCount);
+      console.log('📱 AppHeader - Display count:', notificationCount ?? totalUnreadCount);
+    }
+  }, [totalUnreadCount, notificationCount, showNotification]);
+
+  const userInitial = React.useMemo(() => {
+    const userName = session?.user?.fullName || session?.user?.email || 'User';
+    return userName.charAt(0).toUpperCase();
+  }, [session?.user]);
+
+  // Use totalUnreadCount from context (notifications + messages) if notificationCount prop is not provided
+  const displayNotificationCount = notificationCount ?? totalUnreadCount;
 
   const handleBackPress = () => {
     if (onBackPress) {
@@ -60,7 +82,7 @@ export function AppHeader({
     if (onNotificationPress) {
       onNotificationPress();
     } else {
-      router.push('/notifications' as any);
+      setShowNotificationModal(true);
     }
   };
 
@@ -68,7 +90,7 @@ export function AppHeader({
     if (onAvatarPress) {
       onAvatarPress();
     } else {
-      router.push('/(tabs)/profile' as any);
+      router.push('/(tabs)/settings' as any);
     }
   };
 
@@ -118,10 +140,10 @@ export function AppHeader({
               className="w-10 h-10 items-center justify-center rounded-full active:bg-gray-100 relative"
             >
               <Ionicons name="notifications-outline" size={22} color={theme.text.secondary} />
-              {notificationCount > 0 && (
+              {displayNotificationCount > 0 && (
                 <View className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full items-center justify-center">
                   <Text className="text-white text-xs font-bold">
-                    {notificationCount > 9 ? '9+' : notificationCount}
+                    {displayNotificationCount > 9 ? '9+' : displayNotificationCount}
                   </Text>
                 </View>
               )}
@@ -131,9 +153,10 @@ export function AppHeader({
           {showAvatar && (
             <Pressable
               onPress={handleAvatarPress}
-              className="w-9 h-9 rounded-full bg-blue-500 items-center justify-center ml-1 active:opacity-80"
+              className="w-9 h-9 rounded-full items-center justify-center ml-1 active:opacity-80"
+              style={{ backgroundColor: Colors.primary[600] }}
             >
-              <Text className="text-white font-semibold text-sm">A</Text>
+              <Text className="text-white font-semibold text-sm">{userInitial}</Text>
             </Pressable>
           )}
 
@@ -145,38 +168,54 @@ export function AppHeader({
 
   if (gradient) {
     return (
-      <LinearGradient
-        colors={
-          colorScheme === 'dark'
-            ? ['rgba(31, 41, 55, 1)', 'rgba(31, 41, 55, 0.95)']
-            : ['rgba(255, 255, 255, 1)', 'rgba(255, 255, 255, 0.98)']
-        }
-        style={[
-          Shadows.sm,
-          {
-            borderBottomWidth: 1,
-            borderBottomColor: theme.border,
-          },
-        ]}
-      >
-        {HeaderContent}
-      </LinearGradient>
+      <>
+        <LinearGradient
+          colors={
+            colorScheme === 'dark'
+              ? ['rgba(31, 41, 55, 1)', 'rgba(31, 41, 55, 0.95)']
+              : ['rgba(255, 255, 255, 1)', 'rgba(255, 255, 255, 0.98)']
+          }
+          style={[
+            Shadows.sm,
+            {
+              borderBottomWidth: 1,
+              borderBottomColor: theme.border,
+            },
+          ]}
+        >
+          {HeaderContent}
+        </LinearGradient>
+        
+        {/* Notification Modal */}
+        <NotificationModal
+          visible={showNotificationModal}
+          onClose={() => setShowNotificationModal(false)}
+        />
+      </>
     );
   }
 
   return (
-    <View
-      style={[
-        {
-          backgroundColor: theme.surface,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.border,
-        },
-        Shadows.sm,
-      ]}
-    >
-      {HeaderContent}
-    </View>
+    <>
+      <View
+        style={[
+          {
+            backgroundColor: theme.surface,
+            borderBottomWidth: 1,
+            borderBottomColor: theme.border,
+          },
+          Shadows.sm,
+        ]}
+      >
+        {HeaderContent}
+      </View>
+      
+      {/* Notification Modal */}
+      <NotificationModal
+        visible={showNotificationModal}
+        onClose={() => setShowNotificationModal(false)}
+      />
+    </>
   );
 }
 
