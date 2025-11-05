@@ -61,9 +61,15 @@ export class NotificationsController {
     return this.notificationsService.markAsRead(id);
   }
 
-  @Patch('mark-all-read/:userId')
+  @Patch('user/:userId/read-all')
   @Public()
   markAllAsRead(@Param('userId') userId: string) {
+    return this.notificationsService.markAllAsRead(userId);
+  }
+
+  @Patch('mark-all-read/:userId')
+  @Public()
+  markAllAsReadLegacy(@Param('userId') userId: string) {
     return this.notificationsService.markAllAsRead(userId);
   }
 

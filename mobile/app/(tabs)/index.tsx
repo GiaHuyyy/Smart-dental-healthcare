@@ -254,7 +254,7 @@ export default function PatientDashboard() {
   if (!isHydrating && !isAuthenticated) {
     return (
       <>
-        <AppHeader title="Tổng quan" showNotification showAvatar notificationCount={0} />
+        <AppHeader title="Tổng quan" showNotification showAvatar />
         <ScrollView 
           className="flex-1"
           style={{ backgroundColor: theme.background }}
@@ -286,7 +286,7 @@ export default function PatientDashboard() {
   if (loading) {
     return (
       <>
-        <AppHeader title="Tổng quan" showNotification showAvatar notificationCount={3} />
+        <AppHeader title="Tổng quan" showNotification showAvatar />
         <ScrollView 
           className="flex-1"
           style={{ backgroundColor: theme.background }}
@@ -306,8 +306,7 @@ export default function PatientDashboard() {
       <AppHeader 
         title="Tổng quan" 
         showNotification 
-        showAvatar 
-        notificationCount={3}
+        showAvatar
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
       <ScrollView

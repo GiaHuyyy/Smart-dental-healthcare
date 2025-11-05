@@ -379,7 +379,6 @@ export default function PrescriptionsScreen() {
           title="Đơn thuốc" 
           showNotification 
           showAvatar 
-          notificationCount={0}
           rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
         />
         <View className="flex-1 items-center justify-center px-6" style={{ backgroundColor: theme.background }}>
@@ -412,7 +411,6 @@ export default function PrescriptionsScreen() {
         title="Đơn thuốc" 
         showNotification 
         showAvatar 
-        notificationCount={0}
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
       <ScrollView

@@ -41,7 +41,6 @@ type Payment = {
 };
 
 type StatusFilter = 'all' | 'pending' | 'completed' | 'failed' | 'refunded';
-type TypeFilter = 'all' | 'appointment' | 'treatment' | 'medicine' | 'other';
 
 const STATUS_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: 'all', label: 'Tất cả' },
@@ -49,14 +48,6 @@ const STATUS_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: 'completed', label: 'Đã thanh toán' },
   { id: 'failed', label: 'Thất bại' },
   { id: 'refunded', label: 'Đã hoàn' },
-];
-
-const TYPE_OPTIONS: { id: TypeFilter; label: string }[] = [
-  { id: 'all', label: 'Mọi loại' },
-  { id: 'appointment', label: 'Lịch hẹn' },
-  { id: 'treatment', label: 'Điều trị' },
-  { id: 'medicine', label: 'Thuốc' },
-  { id: 'other', label: 'Khác' },
 ];
 
 const STATUS_BADGES: Record<string, { label: string; color: string; background: string; iconName: keyof typeof Ionicons.glyphMap }> = {
@@ -200,7 +191,6 @@ export default function PaymentsScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showPolicyModal, setShowPolicyModal] = useState(false);
 
@@ -294,12 +284,8 @@ export default function PaymentsScreen() {
     const term = searchTerm.trim().toLowerCase();
     return payments.filter((payment) => {
       const status = (payment.status ?? '').toLowerCase();
-      const type = (payment.type ?? '').toLowerCase();
 
       if (statusFilter !== 'all' && status !== statusFilter) {
-        return false;
-      }
-      if (typeFilter !== 'all' && type !== typeFilter) {
         return false;
       }
       if (!term) {
@@ -310,7 +296,7 @@ export default function PaymentsScreen() {
       const transactionId = (payment.transactionId ?? '').toLowerCase();
       return doctorName.includes(term) || notes.includes(term) || transactionId.includes(term);
     });
-  }, [payments, statusFilter, typeFilter, searchTerm]);
+  }, [payments, statusFilter, searchTerm]);
 
   if (!isHydrating && !isAuthenticated) {
     return (
@@ -319,7 +305,6 @@ export default function PaymentsScreen() {
           title="Thanh toán" 
           showNotification 
           showAvatar 
-          notificationCount={0}
           rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
         />
         <ScrollView 
@@ -358,7 +343,6 @@ export default function PaymentsScreen() {
         title="Thanh toán" 
         showNotification 
         showAvatar 
-        notificationCount={0}
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
       <ScrollView
@@ -443,30 +427,6 @@ export default function PaymentsScreen() {
                       <Text 
                         className="text-xs font-semibold"
                         style={{ color: active ? '#ffffff' : Colors.primary[700] }}
-                      >
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <View className="flex-row flex-wrap gap-3">
-                {TYPE_OPTIONS.map((option) => {
-                  const active = option.id === typeFilter;
-                  return (
-                    <TouchableOpacity
-                      key={option.id}
-                      onPress={() => setTypeFilter(option.id)}
-                      className="rounded-2xl border px-4 py-2"
-                      style={{
-                        borderColor: active ? Colors.success[500] : '#e2e8f0',
-                        backgroundColor: active ? `${Colors.success[100]}CC` : '#ffffff'
-                      }}
-                    >
-                      <Text 
-                        className="text-xs font-semibold"
-                        style={{ color: active ? Colors.success[700] : '#475569' }}
                       >
                         {option.label}
                       </Text>

@@ -248,7 +248,6 @@ export default function ChatListScreen() {
           title="Tin nhắn" 
           showNotification 
           showAvatar 
-          notificationCount={0}
           rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
         />
         <ScrollView 
@@ -286,7 +285,6 @@ export default function ChatListScreen() {
         title="Tin nhắn" 
         showNotification 
         showAvatar 
-        notificationCount={0}
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
       <ScrollView
