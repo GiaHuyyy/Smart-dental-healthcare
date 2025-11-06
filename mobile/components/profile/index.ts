@@ -1,0 +1,2 @@
+export { ProfileModal } from './ProfileModal';
+

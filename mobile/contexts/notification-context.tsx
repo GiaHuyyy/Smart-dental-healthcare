@@ -1,7 +1,7 @@
+import { apiRequest } from '@/utils/api';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useAuth } from './auth-context';
 import { useChat } from './chat-context';
-import { apiRequest } from '@/utils/api';
 
 type Notification = {
   _id?: string;
