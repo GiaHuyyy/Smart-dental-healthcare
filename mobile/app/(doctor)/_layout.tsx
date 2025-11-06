@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Text, View } from 'react-native';
 
 import { Colors } from '@/constants/colors';
+import { useChat } from '@/contexts/chat-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function DoctorTabLayout() {
   const colorScheme = useColorScheme();
+  const { unreadMessagesCount } = useChat();
 
   return (
     <Tabs
@@ -50,6 +53,37 @@ export default function DoctorTabLayout() {
         }}
       />
       <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Tin nhắn',
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <Ionicons name="chatbubbles" size={size} color={color} />
+              {unreadMessagesCount > 0 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -8,
+                    backgroundColor: Colors.error[500],
+                    borderRadius: 10,
+                    minWidth: 18,
+                    height: 18,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 4,
+                  }}
+                >
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
+                    {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="revenue"
         options={{
           title: 'Doanh thu',
@@ -65,6 +99,14 @@ export default function DoctorTabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="menu" size={size} color={color} />
           ),
+        }}
+      />
+      
+      {/* Hide chat detail screen from tabs */}
+      <Tabs.Screen
+        name="chat/[id]"
+        options={{
+          href: null, // This hides the screen from tabs
         }}
       />
     </Tabs>

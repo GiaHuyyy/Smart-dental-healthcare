@@ -1,6 +1,6 @@
+import { apiRequest } from '@/utils/api';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useAuth } from './auth-context';
-import { apiRequest } from '@/utils/api';
 
 type Conversation = {
   _id: string;

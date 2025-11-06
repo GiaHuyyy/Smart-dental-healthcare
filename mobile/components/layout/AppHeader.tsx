@@ -1,8 +1,3 @@
-/**
- * AppHeader Component
- * Modern app header with title, back button, notifications, and avatar
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -10,11 +5,12 @@ import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { NotificationModal } from '@/components/notifications/NotificationModal';
+import { ProfileModal } from '@/components/profile/ProfileModal';
 import { Colors } from '@/constants/colors';
 import { Shadows } from '@/constants/shadows';
 import { useAuth } from '@/contexts/auth-context';
 import { useNotifications } from '@/contexts/notification-context';
-import { NotificationModal } from '@/components/notifications/NotificationModal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface AppHeaderProps {
@@ -53,6 +49,7 @@ export function AppHeader({
   const { session } = useAuth();
   const { totalUnreadCount } = useNotifications();
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Debug logging
   React.useEffect(() => {
@@ -90,7 +87,7 @@ export function AppHeader({
     if (onAvatarPress) {
       onAvatarPress();
     } else {
-      router.push('/(tabs)/settings' as any);
+      setShowProfileModal(true);
     }
   };
 
@@ -191,6 +188,12 @@ export function AppHeader({
           visible={showNotificationModal}
           onClose={() => setShowNotificationModal(false)}
         />
+        
+        {/* Profile Modal */}
+        <ProfileModal
+          visible={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+        />
       </>
     );
   }
@@ -214,6 +217,12 @@ export function AppHeader({
       <NotificationModal
         visible={showNotificationModal}
         onClose={() => setShowNotificationModal(false)}
+      />
+      
+      {/* Profile Modal */}
+      <ProfileModal
+        visible={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
       />
     </>
   );

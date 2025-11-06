@@ -1,34 +1,34 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  Bell,
-  ChevronRight,
-  FileText,
-  HelpCircle,
-  Languages,
-  Lock,
-  LogOut,
-  Mail,
-  Palette,
-  ShieldCheck,
-  Trash2,
-  UserCircle,
+    Bell,
+    ChevronRight,
+    FileText,
+    HelpCircle,
+    Languages,
+    Lock,
+    LogOut,
+    Mail,
+    Palette,
+    ShieldCheck,
+    Trash2,
+    UserCircle,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
-  Linking,
-  ScrollView,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Linking,
+    ScrollView,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EditProfileModal } from '@/components/settings/EditProfileModal';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { EditProfileModal } from '@/components/settings/EditProfileModal';
 
 const SUPPORT_LINK = 'https://smart-dental-healthcare.com/support';
 const PRIVACY_LINK = 'https://smart-dental-healthcare.com/privacy';
