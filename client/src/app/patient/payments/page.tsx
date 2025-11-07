@@ -17,6 +17,10 @@ import {
   Wallet,
   XCircle,
   X,
+  TrendingUp,
+  Plus,
+  DollarSign,
+  Minus,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
@@ -64,6 +68,14 @@ interface PaymentRecord {
   updatedAt: string;
 }
 
+interface Transaction {
+  _id: string;
+  amount: number;
+  createdAt: string;
+  status: string;
+  type: string;
+}
+
 export default function PatientPayments() {
   const { data: session } = useSession();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
@@ -75,6 +87,23 @@ export default function PatientPayments() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Wallet modal states
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [walletTransactions, setWalletTransactions] = useState<Transaction[]>([]);
+  const [walletStats, setWalletStats] = useState({
+    totalTopUp: 0,
+    successfulTransactions: 0,
+  });
+
+  // Top-up states
+  const [showTopUpForm, setShowTopUpForm] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState("");
+  const [topUpLoading, setTopUpLoading] = useState(false);
 
   const fetchWalletBalance = useCallback(async () => {
     const accessToken = (session as any)?.access_token;
@@ -474,6 +503,120 @@ export default function PatientPayments() {
     totalAmount: payments.filter((p) => p.status === "completed").reduce((sum, p) => sum + p.amount, 0),
   };
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedPayments = filteredPayments.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, startFilterDate, endFilterDate]);
+
+  // Handle wallet modal
+  const handleWalletModalOpen = async () => {
+    setShowWalletModal(true);
+    setShowTopUpForm(false); // Reset form state
+    const accessToken = (session as any)?.access_token;
+    if (!accessToken) return;
+
+    try {
+      // Fetch both balance and history
+      const [balanceRes, historyRes, statsRes] = await Promise.all([
+        walletService.getBalance(accessToken),
+        walletService.getHistory(accessToken),
+        walletService.getStats(accessToken),
+      ]);
+
+      if (balanceRes.success) {
+        setWalletBalance(balanceRes.data.balance);
+      }
+
+      if (historyRes.success) {
+        setWalletTransactions(historyRes.data.transactions);
+      }
+
+      if (statsRes.success) {
+        setWalletStats({
+          totalTopUp: statsRes.data.totalTopUp,
+          successfulTransactions: statsRes.data.successfulTransactions,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching wallet data:", error);
+      toast.error("Không thể tải thông tin ví");
+    }
+  };
+
+  // Handle top-up
+  const handleTopUp = async () => {
+    if (!topUpAmount || parseFloat(topUpAmount) < 10000) {
+      toast.error("Số tiền nạp tối thiểu là 10,000 VNĐ");
+      return;
+    }
+
+    const accessToken = (session as any)?.access_token;
+    if (!accessToken) {
+      toast.error("Vui lòng đăng nhập để nạp tiền");
+      return;
+    }
+
+    setTopUpLoading(true);
+    try {
+      toast.info("Đang tạo yêu cầu nạp tiền...");
+
+      const amount = parseFloat(topUpAmount);
+      const response = await walletService.topUp(accessToken, {
+        amount: amount,
+        paymentMethod: "momo",
+        description: `Nạp ${amount.toLocaleString("vi-VN")} VNĐ vào ví`,
+      });
+
+      if (response.success && response.data?.payUrl) {
+        // Store payment info for callback
+        const orderId = response.data.orderId;
+        const userId = (session as any)?.user?._id;
+
+        sessionStorage.setItem(
+          `momo_payment_${orderId}`,
+          JSON.stringify({
+            userId,
+            amount: amount,
+            paymentMethod: "momo",
+            description: `Nạp ${amount.toLocaleString("vi-VN")} VNĐ vào ví`,
+          })
+        );
+
+        // Open MoMo in new tab
+        window.open(response.data.payUrl, "_blank");
+
+        // Reset form and close
+        setTopUpAmount("");
+        setShowTopUpForm(false);
+        setTopUpLoading(false);
+        toast.success("Đã mở trang thanh toán MoMo");
+
+        // Refresh wallet data after a delay
+        setTimeout(async () => {
+          await fetchWalletBalance();
+          await handleWalletModalOpen();
+          toast.success("Số dư đã được cập nhật");
+        }, 3000);
+      } else if (response.success && response.data?.deeplinkMiniApp) {
+        // Redirect to MiniApp
+        window.location.href = response.data.deeplinkMiniApp;
+      } else {
+        toast.error("Không thể tạo yêu cầu thanh toán");
+        setTopUpLoading(false);
+      }
+    } catch (error) {
+      console.error("Error topping up:", error);
+      toast.error("Có lỗi xảy ra khi nạp tiền");
+      setTopUpLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -579,7 +722,7 @@ export default function PatientPayments() {
 
           {/* Wallet Balance Card */}
           <button
-            onClick={() => handleStatCardClick("all")}
+            onClick={handleWalletModalOpen}
             className="bg-white rounded-lg p-4 border-2 border-gray-200 transition-all hover:shadow-md text-left"
           >
             <div className="flex items-center justify-between">
@@ -648,9 +791,67 @@ export default function PatientPayments() {
               <div className="flex-1">
                 <h3 className="font-bold text-yellow-900 text-lg mb-1">Bạn có {stats.pending} thanh toán chờ xử lý</h3>
                 <p className="text-yellow-800">
-                  Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút <strong>"Thanh toán ngay"</strong>{" "}
-                  bên dưới để thanh toán qua Ví.
+                  Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút{" "}
+                  <strong>&quot;Thanh toán ngay&quot;</strong> bên dưới để thanh toán qua Ví.
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination Controls - Above List */}
+        {!loading && filteredPayments.length > 0 && totalPages > 1 && (
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredPayments.length)} trong tổng số{" "}
+                {filteredPayments.length} giao dịch
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Trước
+                </button>
+                <div className="flex items-center gap-1">
+                  {[...Array(totalPages)].map((_, index) => {
+                    const pageNumber = index + 1;
+                    // Show first page, last page, current page, and pages around current
+                    if (
+                      pageNumber === 1 ||
+                      pageNumber === totalPages ||
+                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => setCurrentPage(pageNumber)}
+                          className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                      return (
+                        <span key={pageNumber} className="px-2 text-gray-400">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Tiếp
+                </button>
               </div>
             </div>
           </div>
@@ -673,7 +874,7 @@ export default function PatientPayments() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredPayments.map((payment) => {
+            {paginatedPayments.map((payment) => {
               const appointment = typeof payment.refId === "object" ? payment.refId : null;
               const doctor = typeof payment.doctorId === "object" ? payment.doctorId : null;
               const appointmentDoctor = appointment?.doctorId;
@@ -958,6 +1159,212 @@ export default function PatientPayments() {
             {/* Footer */}
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl">
               <p className="text-xs text-gray-600 text-center">Vui lòng chọn phương thức thanh toán phù hợp</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet History Modal */}
+      {showWalletModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-primary text-white flex-shrink-0">
+              <div>
+                <h3 className="text-2xl font-bold flex items-center gap-2">
+                  <Wallet className="w-6 h-6" />
+                  Ví điện tử
+                </h3>
+                <p className="text-white/80 text-sm mt-1">Lịch sử giao dịch và thống kê</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowWalletModal(false);
+                  setShowTopUpForm(false);
+                  setTopUpAmount("");
+                }}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Wallet Balance */}
+              <div className="px-6 py-6 from-purple-50 to-indigo-50 border-b border-gray-200">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 font-medium mb-1">Số dư hiện tại</p>
+                  <p className="text-4xl font-bold text-purple-600">{formatCurrency(walletBalance)}</p>
+                </div>
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={() => setShowTopUpForm(!showTopUpForm)}
+                    className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium flex items-center gap-2 transition-colors"
+                  >
+                    {showTopUpForm ? (
+                     <>
+                        <Minus className="w-4 h-4" />
+                        Đóng form
+                     </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        Nạp tiền
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Top-up Form */}
+              {showTopUpForm && (
+                <div className="px-6 py-6 bg-white border-b border-gray-200">
+                  <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-primary" />
+                    Nạp tiền vào ví
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Số tiền nạp (VNĐ)</label>
+                      <input
+                        type="number"
+                        value={topUpAmount}
+                        onChange={(e) => setTopUpAmount(e.target.value)}
+                        placeholder="Nhập số tiền"
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-primary text-lg"
+                        disabled={topUpLoading}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">Số tiền tối thiểu: 10,000 VNĐ</p>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3">
+                      {[50000, 100000, 500000, 1000000].map((amt) => (
+                        <button
+                          key={amt}
+                          onClick={() => setTopUpAmount(amt.toString())}
+                          disabled={topUpLoading}
+                          className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                            topUpAmount === amt.toString()
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-gray-200 hover:border-primary hover:bg-primary/5"
+                          }`}
+                        >
+                          {(amt / 1000).toLocaleString("vi-VN")}k
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={() => {
+                          setShowTopUpForm(false);
+                          setTopUpAmount("");
+                        }}
+                        className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                        disabled={topUpLoading}
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={handleTopUp}
+                        disabled={topUpLoading || !topUpAmount}
+                        className="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {topUpLoading ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            Đang xử lý...
+                          </>
+                        ) : (
+                          <>
+                            <DollarSign className="w-4 h-4" />
+                            Nạp tiền
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Statistics */}
+              <div className="grid grid-cols-3 gap-4 px-6 py-6 border-b border-gray-200">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                  <p className="text-sm text-gray-600">Tổng đã nạp</p>
+                  <p className="text-lg font-bold text-gray-900">{formatCurrency(walletStats.totalTopUp)}</p>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  </div>
+                  <p className="text-sm text-gray-600">Giao dịch thành công</p>
+                  <p className="text-lg font-bold text-gray-900">{walletStats.successfulTransactions}</p>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <Clock className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <p className="text-sm text-gray-600">Lần nạp gần nhất</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {walletTransactions.length > 0 ? formatDate(walletTransactions[0].createdAt) : "Chưa có"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Transaction History */}
+              <div className="flex-1 overflow-y-auto px-6 py-4">
+                <h4 className="text-lg font-bold text-gray-900 mb-4">Lịch sử nạp tiền</h4>
+                {walletTransactions.length > 0 ? (
+                  <div className="space-y-3">
+                    {walletTransactions.map((transaction) => (
+                      <div
+                        key={transaction._id}
+                        className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              +{transaction.amount.toLocaleString("vi-VN")} VNĐ
+                            </p>
+                            <p className="text-sm text-gray-500">{formatDateTime(transaction.createdAt)}</p>
+                          </div>
+                        </div>
+                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                          Thành công
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">Chưa có lịch sử nạp tiền</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex-shrink-0">
+              <button
+                onClick={() => {
+                  setShowWalletModal(false);
+                  setShowTopUpForm(false);
+                  setTopUpAmount("");
+                }}
+                className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium transition-colors"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>
