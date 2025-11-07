@@ -727,11 +727,11 @@ export default function PatientPayments() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Số dư ví</p>
-                <p className="text-2xl font-bold text-purple-600">{formatCurrency(walletBalance)}</p>
+                <p className="text-sm text-gray-600">Ví của tôi</p>
+                <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">{formatCurrency(walletBalance)}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Wallet className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-white" />
               </div>
             </div>
           </button>
@@ -1023,7 +1023,7 @@ export default function PatientPayments() {
                       </div>
 
                       {/* Right: Amount & Action */}
-                      <div className="lg:w-72 flex flex-col items-center justify-center gap-4 p-6 bg-gradient-to-br from-gray-50 to-primary/5 rounded-xl border-2 border-gray-100">
+                      <div className="lg:w-72 flex flex-col items-center justify-center gap-4 p-6 bg-linear-to-br from-gray-50 to-primary/5 rounded-xl border-2 border-gray-100">
                         <div className="text-center">
                           <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
                           <p
@@ -1100,7 +1100,7 @@ export default function PatientPayments() {
             </div>
 
             {/* Amount */}
-            <div className="px-6 py-4 bg-gradient-to-br from-primary/10 to-purple-50 border-b border-gray-200">
+            <div className="px-6 py-4 bg-linear-to-br from-primary/10 to-purple-50 border-b border-gray-200">
               <p className="text-sm text-gray-600 mb-1">Số tiền cần thanh toán</p>
               <p className="text-3xl font-bold text-primary">{formatCurrency(Math.abs(selectedPayment.amount))}</p>
             </div>
@@ -1169,7 +1169,7 @@ export default function PatientPayments() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-primary text-white flex-shrink-0">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-linear-to-br from-purple-500 to-pink-500 text-white flex-shrink-0">
               <div>
                 <h3 className="text-2xl font-bold flex items-center gap-2">
                   <Wallet className="w-6 h-6" />
@@ -1195,12 +1195,12 @@ export default function PatientPayments() {
               <div className="px-6 py-6 from-purple-50 to-indigo-50 border-b border-gray-200">
                 <div className="text-center">
                   <p className="text-sm text-gray-600 font-medium mb-1">Số dư hiện tại</p>
-                  <p className="text-4xl font-bold text-purple-600">{formatCurrency(walletBalance)}</p>
+                  <p className="text-4xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">{formatCurrency(walletBalance)}</p>
                 </div>
                 <div className="mt-4 flex justify-center">
                   <button
                     onClick={() => setShowTopUpForm(!showTopUpForm)}
-                    className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium flex items-center gap-2 transition-colors"
+                    className="px-6 py-2 bg-linear-to-br from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-80 font-medium flex items-center gap-2 transition-colors"
                   >
                     {showTopUpForm ? (
                      <>
@@ -1221,7 +1221,7 @@ export default function PatientPayments() {
               {showTopUpForm && (
                 <div className="px-6 py-6 bg-white border-b border-gray-200">
                   <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-primary" />
+                    <Plus className="w-5 h-5 text-purple-500" />
                     Nạp tiền vào ví
                   </h4>
                   <div className="space-y-4">
@@ -1246,8 +1246,8 @@ export default function PatientPayments() {
                           disabled={topUpLoading}
                           className={`px-4 py-2 border-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
                             topUpAmount === amt.toString()
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-gray-200 hover:border-primary hover:bg-primary/5"
+                              ? "border-purple-500 bg-purple-500/10 text-purple-500"
+                              : "border-gray-200 hover:border-purple-500 hover:bg-purple-50 text-gray-700"
                           }`}
                         >
                           {(amt / 1000).toLocaleString("vi-VN")}k
@@ -1269,7 +1269,7 @@ export default function PatientPayments() {
                       <button
                         onClick={handleTopUp}
                         disabled={topUpLoading || !topUpAmount}
-                        className="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="flex-1 px-4 py-3 bg-linear-to-br from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-80 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {topUpLoading ? (
                           <>
@@ -1354,14 +1354,14 @@ export default function PatientPayments() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex-shrink-0">
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 shrink-0">
               <button
                 onClick={() => {
                   setShowWalletModal(false);
                   setShowTopUpForm(false);
                   setTopUpAmount("");
                 }}
-                className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-medium transition-colors"
+                className="w-full px-4 py-3 bg-linear-to-br from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-80 font-medium transition-colors"
               >
                 Đóng
               </button>
