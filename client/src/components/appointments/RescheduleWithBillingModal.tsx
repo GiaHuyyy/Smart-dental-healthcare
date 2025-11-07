@@ -45,7 +45,7 @@ export default function RescheduleWithBillingModal({
       const isNearTime = minutesUntil < 30 && minutesUntil > 0;
 
       setShowWarning(isNearTime);
-      setFeeAmount(isNearTime ? 100000 : 0);
+      setFeeAmount(isNearTime ? 50000 : 0);
     }
   }, [isOpen, appointment]);
 

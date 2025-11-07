@@ -317,7 +317,7 @@ export class AppointmentsService {
             await this.paymentModel.create({
               patientId,
               doctorId: docId,
-              amount: consultationFee,
+              amount: -consultationFee, // Số âm vì là bill trừ tiền
               status: 'pending', // Bill chưa thanh toán
               paymentMethod: 'pending', // Chưa chọn phương thức
               type: 'appointment',
@@ -1601,11 +1601,25 @@ export class AppointmentsService {
         voucherCreated = true;
       } else if (doctorReason === 'patient_late') {
         // Patient late: Create ONE pending bill for patient (Phí giữ chỗ)
-        await this.billingHelper.createPendingReservationCharge(
-          (appointment.patientId as any)._id.toString(),
-          (appointment.doctorId as any)._id.toString(),
-          appointment._id.toString(),
+        console.log(
+          `🚨 Creating pending reservation charge for patient_late cancellation`,
         );
+        console.log(
+          `  Patient ID: ${(appointment.patientId as any)._id.toString()}`,
+        );
+        console.log(
+          `  Doctor ID: ${(appointment.doctorId as any)._id.toString()}`,
+        );
+        console.log(`  Appointment ID: ${appointment._id.toString()}`);
+
+        const pendingBill =
+          await this.billingHelper.createPendingReservationCharge(
+            (appointment.patientId as any)._id.toString(),
+            (appointment.doctorId as any)._id.toString(),
+            appointment._id.toString(),
+          );
+
+        console.log(`✅ Pending bill created: ${JSON.stringify(pendingBill)}`);
 
         feeCharged = true;
 
@@ -1634,11 +1648,20 @@ export class AppointmentsService {
       }
     }
 
-    // Delete any pending bills for this appointment
+    // Delete any pending consultation fee bills for this appointment
+    // IMPORTANT: Only delete old consultation_fee bills, NOT the new cancellation_charge we just created
     // This applies when payment method was "cash" or "later" (pending payment)
-    await this.billingHelper.deletePendingBillsForAppointment(
-      appointment._id.toString(),
-    );
+    if (doctorReason !== 'patient_late') {
+      // For emergency cancellation or patient cancellation, delete all pending bills
+      await this.billingHelper.deletePendingBillsForAppointment(
+        appointment._id.toString(),
+      );
+    } else {
+      // For patient_late, only delete pending consultation_fee bills, keep the new cancellation_charge
+      await this.billingHelper.deletePendingConsultationFeeBills(
+        appointment._id.toString(),
+      );
+    }
 
     appointment.status = AppointmentStatus.CANCELLED;
     appointment.cancellationReason = reason;

@@ -40,7 +40,7 @@ export default function CancelWithBillingModal({
       const isNearTime = minutesUntil < 30 && minutesUntil > 0;
 
       setShowWarning(isNearTime);
-      setFeeAmount(isNearTime ? 100000 : 0);
+      setFeeAmount(isNearTime ? 50000 : 0);
     }
   }, [isOpen, appointment, userRole]);
 
@@ -224,7 +224,7 @@ export default function CancelWithBillingModal({
 
               {doctorReason === "patient_late" && (
                 <p className="mt-2 text-sm text-orange-700 bg-orange-50 p-2 rounded">
-                  ⚠ Bệnh nhân sẽ bị tính phí đặt chỗ 100,000 VND
+                  ⚠ Bệnh nhân sẽ bị tính phí đặt chỗ 50,000 VND
                 </p>
               )}
             </div>

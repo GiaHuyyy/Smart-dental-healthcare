@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { Payment } from './schemas/payment.schemas';
 import { User, UserDocument } from '../users/schemas/user.schemas';
 
-export const RESERVATION_FEE_AMOUNT = 100000; // 100,000 VND
+export const RESERVATION_FEE_AMOUNT = 50000; // 50,000 VND
 
 @Injectable()
 export class BillingHelperService {
@@ -82,6 +82,7 @@ export class BillingHelperService {
       status: 'completed',
       type: 'appointment',
       billType: 'refund',
+      paymentMethod: 'wallet_deduction',
       refundStatus: 'completed',
       relatedPaymentId: originalPaymentId,
       refId: appointmentId,
@@ -122,7 +123,7 @@ export class BillingHelperService {
     return this.paymentModel.create({
       patientId,
       doctorId,
-      amount: RESERVATION_FEE_AMOUNT, // Số dương - chưa trừ tiền
+      amount: -RESERVATION_FEE_AMOUNT, // Số âm - patient bị trừ tiền
       status: 'pending', // Chờ thanh toán
       paymentMethod: 'pending',
       type: 'appointment',
@@ -177,11 +178,22 @@ export class BillingHelperService {
       status: 'pending',
     });
 
-    if (result.deletedCount > 0) {
-      this.logger.log(
-        `✅ Deleted ${result.deletedCount} pending bill(s) for appointment ${appointmentId}`,
-      );
-    }
+    return result.deletedCount;
+  }
+
+  /**
+   * Xóa chỉ bill consultation_fee pending (không xóa cancellation_charge)
+   * Dùng khi doctor hủy do patient_late, cần giữ lại bill phí giữ chỗ
+   */
+  async deletePendingConsultationFeeBills(
+    appointmentId: string,
+  ): Promise<number> {
+    const result = await this.paymentModel.deleteMany({
+      refId: appointmentId,
+      refModel: 'Appointment',
+      status: 'pending',
+      billType: 'consultation_fee',
+    });
 
     return result.deletedCount;
   }
