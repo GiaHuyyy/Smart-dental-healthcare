@@ -80,6 +80,10 @@ body {
   font-family: "Inter", Arial, Helvetica, sans-serif;
 }
 
+button {
+  cursor: pointer !important;
+}
+
 /* Healthcare Card Components - Clean & minimal */
 .healthcare-card {
   background: var(--color-surface);

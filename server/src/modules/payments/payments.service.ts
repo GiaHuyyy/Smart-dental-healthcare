@@ -79,9 +79,10 @@ export class PaymentsService {
       });
 
       // Create MoMo payment request
+      // IMPORTANT: MoMo requires positive amount (1,000 - 50,000,000 VND)
       const momoResponse = await this.momoService.createPayment({
         orderId,
-        amount,
+        amount: Math.abs(amount), // Ensure positive amount for MoMo
         orderInfo: orderInfo || `Thanh toán lịch khám #${appointmentId}`,
         returnUrl,
         notifyUrl,
@@ -162,16 +163,19 @@ export class PaymentsService {
           : payment.refId
         : null;
 
-      // Update payment with new transactionId
+      // Update payment with new transactionId (but NOT paymentMethod yet)
+      // PaymentMethod will be updated only when payment is completed via callback
       payment.transactionId = orderId;
-      payment.paymentMethod = 'momo';
+      // payment.paymentMethod = 'momo'; // REMOVED - only set on successful payment
       payment.status = 'pending'; // Reset to pending for new payment attempt
       await payment.save();
 
       // Create MoMo payment request
+      // IMPORTANT: MoMo requires positive amount (1,000 - 50,000,000 VND)
+      // Our DB stores negative amounts for charges, so use Math.abs()
       const momoResponse = await this.momoService.createPayment({
         orderId,
-        amount: payment.amount,
+        amount: Math.abs(payment.amount), // Convert to positive for MoMo
         orderInfo: payment.notes || `Thanh toán #${paymentId}`,
         returnUrl,
         notifyUrl,
