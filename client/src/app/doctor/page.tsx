@@ -281,7 +281,7 @@ export default function DoctorDashboard() {
                 className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: "var(--color-primary-50)" }}
               >
-                <DollarSign className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
+                <DollarSign className="w-6 h-6 text-primary" />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-gray-500 mb-1">Tổng doanh thu</p>

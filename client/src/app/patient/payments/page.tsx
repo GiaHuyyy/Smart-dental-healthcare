@@ -662,7 +662,7 @@ export default function PatientPayments() {
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-primary" />
+                <DollarSign className="w-6 h-6 text-primary" />
               </div>
             </div>
           </button>
@@ -728,7 +728,9 @@ export default function PatientPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Ví của tôi</p>
-                <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">{formatCurrency(walletBalance)}</p>
+                <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
+                  {formatCurrency(walletBalance)}
+                </p>
               </div>
               <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                 <Wallet className="w-6 h-6 text-white" />
@@ -905,7 +907,7 @@ export default function PatientPayments() {
                                   : "bg-gray-50"
                               }`}
                             >
-                              <FileText className={`w-6 h-6 ${getIconColor(payment)}`} />
+                              <DollarSign className={`w-6 h-6 ${getIconColor(payment)}`} />
                             </div>
                             <div>
                               <h3 className="text-xl font-bold text-gray-900">
@@ -1195,7 +1197,9 @@ export default function PatientPayments() {
               <div className="px-6 py-6 from-purple-50 to-indigo-50 border-b border-gray-200">
                 <div className="text-center">
                   <p className="text-sm text-gray-600 font-medium mb-1">Số dư hiện tại</p>
-                  <p className="text-4xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">{formatCurrency(walletBalance)}</p>
+                  <p className="text-4xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
+                    {formatCurrency(walletBalance)}
+                  </p>
                 </div>
                 <div className="mt-4 flex justify-center">
                   <button
@@ -1203,10 +1207,10 @@ export default function PatientPayments() {
                     className="px-6 py-2 bg-linear-to-br from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-80 font-medium flex items-center gap-2 transition-colors"
                   >
                     {showTopUpForm ? (
-                     <>
+                      <>
                         <Minus className="w-4 h-4" />
                         Đóng form
-                     </>
+                      </>
                     ) : (
                       <>
                         <Plus className="w-4 h-4" />
