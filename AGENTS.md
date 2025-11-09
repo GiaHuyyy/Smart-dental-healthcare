@@ -52,4 +52,115 @@
 
 ## Decision Log
 
-- _None yet. Add open assumptions or blockers here._
+### November 8, 2025 - Payment & Revenue Realtime Updates
+
+**Issue:** Đặt lịch hẹn và thanh toán bằng ví luôn thì chưa tạo được bill cho bác sĩ (Revenue). Và cần cập nhật realtime cho 2 trang payment và revenue khi có thay đổi.
+
+**Solution:**
+
+1. ✅ Thêm `createRevenueFromPayment()` vào `payForAppointment()` method trong `wallet.service.ts`
+2. ✅ Tạo `PaymentGateway` (namespace: `/payments`) để emit realtime events cho patient
+3. ✅ Inject `PaymentGateway` vào `BillingHelperService` và `WalletService`
+4. ✅ Emit events:
+   - `payment:new` khi tạo payment mới (refund, cancellation_charge, wallet payment)
+   - `payment:delete` khi xóa pending bills
+   - Revenue events đã có sẵn qua `RevenueGateway` (namespace: `/revenue`)
+
+**Files Modified:**
+
+- `server/src/modules/payments/payment.gateway.ts` (NEW)
+- `server/src/modules/payments/payments.module.ts` (export PaymentGateway)
+- `server/src/modules/payments/billing-helper.service.ts` (inject & emit)
+- `server/src/modules/wallet/wallet.service.ts` (inject & emit, add revenue creation)
+
+**Frontend Action Required:**
+
+- Client cần connect socket tới namespace `/payments` với `auth: { userId }`
+- Listen events: `payment:new`, `payment:update`, `payment:delete`
+- Đã có sẵn `/revenue` socket cho doctor (listen `revenue:new`)
+
+See: `BILLING_FIX_SUMMARY.md` for complete billing system fixes.
+
+### November 9, 2025 - Doctor Cancellation & Platform Fee Fix
+
+**Issue:**
+
+1. Khi bác sĩ hủy lịch thì trang payment chưa được auto reload dữ liệu mới
+2. Bill phí giữ chỗ của bác sĩ KHÔNG bị trừ 5% platform fee (sai logic - phải trừ 5%)
+3. Bill hoàn tiền bị trừ 5% platform fee (sai logic - không được trừ phí khi refund)
+
+**Root Causes:**
+
+1. ❌ Method `deletePendingConsultationFeeBills()` xóa pending bills nhưng KHÔNG emit socket events
+2. ❌ Filter quá strict với `paymentId: { $in: consultationFeePaymentIds }` → không xóa được revenue khi array rỗng
+3. ❌ `createPendingReservationCharge()` set `platformFee: 0` → SAI, phải trừ 5%
+4. ❌ `createRevenueFromPayment()` tính 5% cho TẤT CẢ bills (kể cả refund) → SAI, refund không trừ phí
+
+**Solution:**
+
+1. ✅ Fix `deletePendingConsultationFeeBills()` trong `billing-helper.service.ts`:
+
+   - Xóa TẤT CẢ pending revenues (trừ cancellation_charge) dùng `$nin`
+   - Emit `payment:delete` và `revenue:delete` events
+
+2. ✅ Fix `createPendingReservationCharge()` trong `billing-helper.service.ts`:
+
+   - Tính `platformFee: -2,500` (5% của 50,000)
+   - `netAmount: 47,500` (bác sĩ thực nhận sau trừ phí)
+
+3. ✅ Fix `createRevenueFromPayment()` trong `revenue.service.ts`:
+   - Check `billType === 'refund'` → platformFee = 0
+   - Tất cả bill khác (consultation_fee, cancellation_charge, reservation_fee) → trừ 5%
+
+**Platform Fee Logic:**
+
+- ✅ Consultation fee (phí khám): TRỪ 5%
+- ✅ Cancellation charge (phí giữ chỗ): TRỪ 5%
+- ✅ Reservation fee (phí đặt chỗ): TRỪ 5%
+- ❌ Refund (hoàn tiền): KHÔNG TRỪ phí (bác sĩ trả lại tiền)
+
+**Files Modified:**
+
+- `server/src/modules/payments/billing-helper.service.ts` (fix delete logic + platform fee)
+- `server/src/modules/revenue/revenue.service.ts` (skip platform fee for refunds only)
+
+**Impact:**
+
+- ✅ Bác sĩ bị trừ 5% cho phí giữ chỗ (đúng logic kinh doanh)
+- ✅ Bác sĩ KHÔNG bị trừ phí khi hoàn tiền cho patient
+- ✅ Payment/Revenue pages auto-reload với socket events
+
+See: `DOCTOR_CANCELLATION_FIX.md` for complete analysis.
+
+### November 9, 2025 - Doctor Cancellation Auto-Reload Fix
+
+**Issue:** Khi bác sĩ hủy lịch thì trang payment chưa được auto reload dữ liệu mới. Và bác sĩ hủy với trường hợp bệnh nhân đến muộn chưa tạo được bill +50,000 cho bác sĩ.
+
+**Root Causes:**
+
+1. ❌ Method `deletePendingConsultationFeeBills()` xóa pending bills nhưng KHÔNG emit socket events
+2. ❌ Filter quá strict với `paymentId: { $in: consultationFeePaymentIds }` → không xóa được revenue khi array rỗng
+3. ✅ Bill +50k cho bác sĩ ĐÃ được tạo trong `createPendingReservationCharge()` (không phải bug)
+
+**Solution:**
+
+1. ✅ Fix `deletePendingConsultationFeeBills()` trong `billing-helper.service.ts`:
+   - Lấy danh sách payments và revenues TRƯỚC KHI XÓA
+   - **NEW APPROACH**: Xóa TẤT CẢ pending revenues (trừ cancellation_charge revenues)
+   - Dùng `$nin` để exclude revenues có `paymentId` link đến cancellation_charge payments
+   - Emit `payment:delete` events → Patient
+   - Emit `revenue:delete` events → Doctor
+
+**Files Modified:**
+
+- `server/src/modules/payments/billing-helper.service.ts` (improved filtering logic + socket emissions)
+
+**Impact:**
+
+- ✅ Xóa được TẤT CẢ pending revenues của consultation_fee (kể cả khi không có billType field)
+- ✅ Không xóa nhầm cancellation_charge revenue vừa tạo
+- ✅ Payment page auto-reload khi doctor hủy lịch (emergency hoặc patient_late)
+- ✅ Revenue page auto-reload khi doctor hủy lịch
+- ✅ Đồng nhất với patient cancellation flow (đã hoạt động tốt)
+
+See: `DOCTOR_CANCELLATION_FIX.md` for complete analysis and test cases.

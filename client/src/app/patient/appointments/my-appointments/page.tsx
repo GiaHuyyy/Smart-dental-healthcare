@@ -546,73 +546,81 @@ function MyAppointmentsContent() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Lịch hẹn của tôi</h1>
-          <p className="text-gray-600">Quản lý và theo dõi các lịch hẹn khám bệnh của bạn</p>
-        </div>
-        {/* Header with socket status */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => router.push("/patient/appointments")}
-            className="flex cursor-pointer items-center gap-2 text-gray-600 hover:text-primary transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Quay lại</span>
-          </button>
-
-          <div className="flex items-center gap-2">
-            <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-                isConnected ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
-              }`}
-            >
-              <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
-              <span>{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
+        {/* Header with Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+          <div className="space-y-4">
+            {/* Title and Back Button Row */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Lịch hẹn của tôi</h1>
+                  <p className="text-sm text-gray-600">Quản lý và theo dõi các lịch hẹn</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                    isConnected ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  <div
+                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
+                  />
+                  <span>{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
+                </div>
+                <button
+                  onClick={() => router.push("/patient/appointments")}
+                  className="flex cursor-pointer items-center gap-2 text-gray-600 hover:text-primary transition-colors px-3 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                  <span className="font-medium">Quay lại</span>
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Search and Calendar Filter */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex flex-col md:flex-row items-center gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 w-full md:w-auto">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            {/* Filters Row */}
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              {/* Search Input */}
+              <div className="relative flex-1 w-full md:w-auto">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm bác sĩ, chuyên khoa, lý do khám..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+                />
+              </div>
+
+              <span className="text-sm font-medium text-gray-700">Từ</span>
               <input
-                type="text"
-                placeholder="Tìm kiếm bác sĩ, chuyên khoa, lý do khám..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                type="date"
+                value={startFilterDate}
+                onChange={(e) => setStartFilterDate(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
               />
+              <span className="text-sm font-medium text-gray-700">đến</span>
+              <input
+                type="date"
+                value={endFilterDate}
+                onChange={(e) => setEndFilterDate(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+              />
+              <button
+                onClick={() => {
+                  setStartFilterDate("");
+                  setEndFilterDate("");
+                  setSearchTerm("");
+                }}
+                disabled={!startFilterDate && !endFilterDate && !searchTerm}
+                className="px-4 py-2.5 text-sm bg-white text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-gray-300"
+              >
+                Xóa
+              </button>
             </div>
-
-            <span className="text-sm font-medium text-gray-700">Từ</span>
-            <input
-              type="date"
-              value={startFilterDate}
-              onChange={(e) => setStartFilterDate(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-            <span className="text-sm font-medium text-gray-700">đến</span>
-            <input
-              type="date"
-              value={endFilterDate}
-              onChange={(e) => setEndFilterDate(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-            <button
-              onClick={() => {
-                setStartFilterDate("");
-                setEndFilterDate("");
-                setSearchTerm("");
-              }}
-              disabled={!startFilterDate && !endFilterDate && !searchTerm}
-              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Xóa
-            </button>
           </div>
         </div>
 

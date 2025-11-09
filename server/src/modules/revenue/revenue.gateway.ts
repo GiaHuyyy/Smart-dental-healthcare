@@ -41,12 +41,17 @@ export class RevenueGateway
 
     if (doctorId) {
       this.connectedDoctors.set(doctorId, client.id);
-      client.join(`doctor_${doctorId}`);
+      const roomName = `doctor_${doctorId}`;
+      client.join(roomName);
       this.logger.log(
-        `Doctor ${doctorId} connected to revenue updates (socket: ${client.id})`,
+        `✅ Doctor ${doctorId} connected to revenue updates (socket: ${client.id})`,
+      );
+      this.logger.log(`   - Joined room: ${roomName}`);
+      this.logger.log(
+        `   - Total doctors connected: ${this.connectedDoctors.size}`,
       );
     } else {
-      this.logger.warn(`Client ${client.id} connected without doctorId`);
+      this.logger.warn(`⚠️ Client ${client.id} connected without doctorId`);
     }
   }
 
@@ -75,8 +80,16 @@ export class RevenueGateway
       }
 
       const roomName = `doctor_${doctorId}`;
-      this.logger.log(`🔔 Emitting to room: ${roomName}`);
-      
+      this.logger.log(`🔔 Emitting revenue:new to room: ${roomName}`);
+      this.logger.log(`   - Revenue ID: ${revenue._id}`);
+      this.logger.log(`   - Amount: ${revenue.amount}`);
+      this.logger.log(
+        `   - Connected doctors: ${Array.from(this.connectedDoctors.keys()).join(', ')}`,
+      );
+      this.logger.log(
+        `   - Doctor ${doctorId} connected: ${this.connectedDoctors.has(doctorId)}`,
+      );
+
       this.server.to(roomName).emit('revenue:new', {
         revenue,
         timestamp: new Date(),
@@ -115,6 +128,29 @@ export class RevenueGateway
   }
 
   /**
+   * Emit revenue delete to doctor (when pending revenue is cancelled)
+   */
+  emitRevenueDelete(doctorId: string, revenueId: string) {
+    try {
+      const roomName = `doctor_${doctorId}`;
+      this.logger.log(`🗑️ Emitting revenue:delete to room: ${roomName}`);
+      this.logger.log(`   - Revenue ID: ${revenueId}`);
+
+      this.server.to(roomName).emit('revenue:delete', {
+        revenueId,
+        timestamp: new Date(),
+      });
+
+      this.logger.log(`✅ Revenue delete event emitted to doctor ${doctorId}`);
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to emit revenue delete to doctor ${doctorId}:`,
+        error,
+      );
+    }
+  }
+
+  /**
    * Emit revenue summary update to doctor
    */
   emitSummaryUpdate(doctorId: string, summary: any) {
@@ -124,9 +160,7 @@ export class RevenueGateway
         timestamp: new Date(),
       });
 
-      this.logger.log(
-        `✅ Emitted summary update to doctor ${doctorId}`,
-      );
+      this.logger.log(`✅ Emitted summary update to doctor ${doctorId}`);
     } catch (error) {
       this.logger.error(
         `❌ Failed to emit summary update to doctor ${doctorId}:`,

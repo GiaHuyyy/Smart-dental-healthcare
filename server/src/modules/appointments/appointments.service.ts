@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -22,10 +23,15 @@ import {
   FollowUpSuggestionStatus,
 } from './schemas/follow-up-suggestion.schema';
 import { Payment } from '../payments/schemas/payment.schemas';
+import { Revenue } from '../revenue/schemas/revenue.schemas';
 import { NotificationGateway } from '../notifications/notification.gateway';
+import { PaymentGateway } from '../payments/payment.gateway';
+import { RevenueGateway } from '../revenue/revenue.gateway';
 
 @Injectable()
 export class AppointmentsService {
+  private readonly logger = new Logger(AppointmentsService.name);
+
   constructor(
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
     @InjectModel(MedicalRecord.name)
@@ -34,11 +40,15 @@ export class AppointmentsService {
     private readonly followUpSuggestionModel: Model<FollowUpSuggestion>,
     @InjectModel(Payment.name)
     private readonly paymentModel: Model<Payment>,
+    @InjectModel(Revenue.name)
+    private readonly revenueModel: Model<Revenue>,
     private readonly appointmentNotificationGateway: AppointmentNotificationGateway,
     private readonly notificationGateway: NotificationGateway,
     private readonly emailService: AppointmentEmailService,
     private readonly billingHelper: BillingHelperService,
     private readonly vouchersService: VouchersService,
+    private readonly paymentGateway: PaymentGateway,
+    private readonly revenueGateway: RevenueGateway,
   ) {}
 
   // Convert "HH:MM" or ISO datetime string -> minutes since midnight (UTC for ISO)
@@ -207,9 +217,7 @@ export class AppointmentsService {
       // Basic required fields validation
       if (!doctorId) {
         throw new BadRequestException('Thiếu doctorId');
-      }
-
-      // Normalize and validate appointmentDate -> store as UTC midnight date
+      } // Normalize and validate appointmentDate -> store as UTC midnight date
       const apptDateRaw =
         appointmentDate instanceof Date
           ? appointmentDate
@@ -284,21 +292,25 @@ export class AppointmentsService {
       const docId = (populatedAppointment.doctorId as any)._id;
       const paymentMethod = (createAppointmentDto as any).paymentMethod;
 
-      console.log('💳 Checking if payment bill needed:', {
-        appointmentId: appointment._id,
-        patientId,
-        doctorId: docId,
-        amount: consultationFee,
-        paymentMethod,
-      });
+      console.log('💳 ========== CHECKING PAYMENT BILL CREATION ==========');
+      console.log('   - Appointment ID:', appointment._id);
+      console.log('   - Patient ID:', patientId);
+      console.log('   - Doctor ID:', docId);
+      console.log('   - Consultation Fee:', consultationFee);
+      console.log('   - Payment Method:', paymentMethod);
 
       // Only create pending bill for "cash" or "later" payment methods
       const shouldCreatePendingBill =
         paymentMethod === 'cash' || paymentMethod === 'later';
 
+      console.log('   - Should create pending bill?', shouldCreatePendingBill);
+
       if (!shouldCreatePendingBill) {
         console.log(
-          `⏭️ Skipping pending bill creation - payment method is "${paymentMethod}" (immediate payment)`,
+          `⏭️ ========== SKIPPING PENDING BILL - Payment method is "${paymentMethod}" ==========`,
+        );
+        console.log(
+          '   💡 For wallet/momo payments, revenue should be created by payment service',
         );
       } else {
         try {
@@ -309,27 +321,70 @@ export class AppointmentsService {
           });
 
           if (existingBill) {
-            console.log(
-              '✅ Payment bill already exists (created by wallet payment), skipping...',
-            );
+            this.logger.log('Payment bill already exists, skipping...');
           } else {
-            // Create pending bill for later payment
-            await this.paymentModel.create({
+            // 1. Create pending bill for PATIENT (trừ tiền)
+            const pendingPayment = await this.paymentModel.create({
               patientId,
               doctorId: docId,
-              amount: -consultationFee, // Số âm vì là bill trừ tiền
-              status: 'pending', // Bill chưa thanh toán
-              paymentMethod: 'pending', // Chưa chọn phương thức
+              amount: -consultationFee, // Số ÂM - patient bị trừ tiền
+              status: 'pending',
+              paymentMethod: 'pending',
               type: 'appointment',
               billType: 'consultation_fee',
               refId: appointment._id,
               refModel: 'Appointment',
-              description: `Phí khám bệnh - Lịch hẹn #${appointment._id}`,
+              description: `Phí khám bệnh - Lịch hẹn #${appointment._id.toString()}`,
             });
-            console.log('✅ Pending payment bill created successfully');
+
+            // 2. 🆕 Create pending REVENUE record for DOCTOR (vào bảng revenues riêng)
+            const platformFee = -Math.round(consultationFee * 0.05); // Âm (trừ 5%)
+            const netAmount = consultationFee + platformFee; // amount + platformFee (platformFee âm nên trừ đi)
+
+            const pendingRevenue = await this.revenueModel.create({
+              doctorId: docId,
+              patientId,
+              amount: consultationFee, // Số DƯƠNG - doctor nhận tiền
+              platformFee, // ÂM - phí nền tảng (5%)
+              netAmount, // Thực nhận sau khi trừ phí
+              revenueDate: new Date(),
+              status: 'pending', // Chờ thanh toán
+              refId: appointment._id,
+              refModel: 'Appointment',
+              type: 'appointment',
+              notes: `Doanh thu dự kiến từ lịch hẹn #${appointment._id.toString()}`,
+            });
+
+            // 🆕 Emit realtime events
+            try {
+              // Populate trước khi emit
+              const populatedPayment = await this.paymentModel
+                .findById(pendingPayment._id)
+                .populate('doctorId', 'fullName email')
+                .exec();
+              const populatedRevenue = await this.revenueModel
+                .findById(pendingRevenue._id)
+                .populate('patientId', 'fullName email phone')
+                .exec();
+
+              // Emit to patient's payment page
+              if (this.paymentGateway && populatedPayment) {
+                this.paymentGateway.emitNewPayment(patientId, populatedPayment);
+              }
+
+              // Emit to doctor's revenue page
+              if (this.revenueGateway && populatedRevenue) {
+                this.revenueGateway.emitNewRevenue(
+                  docId.toString(),
+                  populatedRevenue,
+                );
+              }
+            } catch (emitError) {
+              this.logger.error('Failed to emit realtime events:', emitError);
+            }
           }
         } catch (billError) {
-          console.error('⚠️ Failed to create pending bill:', billError);
+          this.logger.error('Failed to create pending bills:', billError);
           // Don't fail the appointment creation if bill creation fails
         }
       }
@@ -1221,11 +1276,9 @@ export class AppointmentsService {
       endDate,
       bookedAppointmentsCount: bookedAppointments.length,
     });
-    console.log('📋 Booked appointments:', bookedAppointments);
 
     // Extract booked time slots
     const bookedSlots = bookedAppointments.map((appt) => appt.startTime);
-    console.log('🚫 Booked slots array:', bookedSlots);
 
     // Generate all possible time slots based on duration
     const allSlots = this.generateTimeSlots(durationMinutes);
@@ -1526,12 +1579,13 @@ export class AppointmentsService {
       // Patient cancellation logic
       if (nearTime) {
         // < 30 min: Create pending reservation charge (Phí giữ chỗ)
-        await this.billingHelper.createPendingReservationCharge(
+        const result = await this.billingHelper.createPendingReservationCharge(
           (appointment.patientId as any)._id.toString(),
           (appointment.doctorId as any)._id.toString(),
           appointment._id.toString(),
         );
 
+        // Emit events are already handled inside billingHelper.createPendingReservationCharge
         feeCharged = true;
       }
 
@@ -1553,6 +1607,7 @@ export class AppointmentsService {
             (appointment.doctorId as any)._id.toString(),
             appointment._id.toString(),
           );
+          // Emit events are already handled inside billingHelper.refundConsultationFee
 
           refundIssued = true;
         }
@@ -1587,6 +1642,7 @@ export class AppointmentsService {
               (appointment.doctorId as any)._id.toString(),
               appointment._id.toString(),
             );
+            // Emit events are already handled inside billingHelper.refundConsultationFee
 
             refundIssued = true;
           }
@@ -1601,25 +1657,16 @@ export class AppointmentsService {
         voucherCreated = true;
       } else if (doctorReason === 'patient_late') {
         // Patient late: Create ONE pending bill for patient (Phí giữ chỗ)
-        console.log(
-          `🚨 Creating pending reservation charge for patient_late cancellation`,
+        this.logger.log(
+          `Creating pending reservation charge for patient_late cancellation`,
         );
-        console.log(
-          `  Patient ID: ${(appointment.patientId as any)._id.toString()}`,
-        );
-        console.log(
-          `  Doctor ID: ${(appointment.doctorId as any)._id.toString()}`,
-        );
-        console.log(`  Appointment ID: ${appointment._id.toString()}`);
 
-        const pendingBill =
-          await this.billingHelper.createPendingReservationCharge(
-            (appointment.patientId as any)._id.toString(),
-            (appointment.doctorId as any)._id.toString(),
-            appointment._id.toString(),
-          );
-
-        console.log(`✅ Pending bill created: ${JSON.stringify(pendingBill)}`);
+        const result = await this.billingHelper.createPendingReservationCharge(
+          (appointment.patientId as any)._id.toString(),
+          (appointment.doctorId as any)._id.toString(),
+          appointment._id.toString(),
+        );
+        // Emit events are already handled inside billingHelper.createPendingReservationCharge
 
         feeCharged = true;
 
@@ -1641,6 +1688,7 @@ export class AppointmentsService {
               (appointment.doctorId as any)._id.toString(),
               appointment._id.toString(),
             );
+            // Emit events are already handled inside billingHelper.refundConsultationFee
 
             refundIssued = true;
           }
@@ -1649,6 +1697,7 @@ export class AppointmentsService {
     }
 
     // Delete any pending consultation fee bills for this appointment
+    // BillingHelper will emit revenue:delete events for deleted pending revenues
     // IMPORTANT: Only delete old consultation_fee bills, NOT the new cancellation_charge we just created
     // This applies when payment method was "cash" or "later" (pending payment)
     if (doctorReason !== 'patient_late') {

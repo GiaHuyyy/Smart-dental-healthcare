@@ -504,7 +504,7 @@ export class UsersService {
     try {
       const { search, status, current = 1, pageSize = 10 } = query;
 
-      let filter: any = { role: 'patient' };
+      const filter: any = { role: 'patient' };
 
       if (search) {
         filter.$or = [

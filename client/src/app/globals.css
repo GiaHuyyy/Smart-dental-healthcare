@@ -413,6 +413,10 @@ button {
   border-color: rgba(var(--color-primary-rgb), 0.3) !important;
 }
 
+.ring-primary {
+  --tw-ring-color: var(--color-primary) !important;
+}
+
 .hover\:bg-primary:hover {
   background-color: var(--color-primary) !important;
 }

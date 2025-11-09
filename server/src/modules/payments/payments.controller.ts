@@ -23,7 +23,13 @@ export class PaymentsController {
   @Post()
   @Public()
   create(@Body() createPaymentDto: CreatePaymentDto) {
-    return this.paymentsService.create(createPaymentDto);
+    console.log(
+      '🎯 ========== PAYMENTS CONTROLLER: CREATE ENDPOINT HIT ==========',
+    );
+    console.log('   - CreatePaymentDto:', createPaymentDto);
+    const result = this.paymentsService.create(createPaymentDto);
+    console.log('   - Create payment called');
+    return result;
   }
 
   /**
@@ -42,7 +48,13 @@ export class PaymentsController {
       orderInfo?: string;
     },
   ) {
-    return this.paymentsService.createMomoPayment(body);
+    console.log(
+      '🎯 ========== PAYMENTS CONTROLLER: MOMO/CREATE ENDPOINT HIT ==========',
+    );
+    console.log('   - Body:', body);
+    const result = this.paymentsService.createMomoPayment(body);
+    console.log('   - Create MoMo payment called');
+    return result;
   }
 
   /**

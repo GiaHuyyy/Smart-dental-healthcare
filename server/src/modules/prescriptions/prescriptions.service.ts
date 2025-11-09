@@ -158,7 +158,7 @@ export class PrescriptionsService {
     try {
       const { current = 1, pageSize = 10, status } = query;
       
-      let filter: any = { patientId };
+      const filter: any = { patientId };
       
       if (status && status !== 'all') {
         if (status === 'dispensed') {

@@ -66,12 +66,28 @@ export class WalletController {
     @Request() req: any,
     @Body() body: { appointmentId: string; amount: number },
   ) {
+    console.log(
+      '🎯 ========== WALLET CONTROLLER: PAY-APPOINTMENT ENDPOINT HIT ==========',
+    );
+    console.log('   - Request user:', req.user);
+    console.log('   - Body:', body);
+    console.log('   - appointmentId:', body.appointmentId);
+    console.log('   - amount:', body.amount);
+
     const userId = req.user?.userId || req.user?._id;
-    return this.walletService.payForAppointment(
+    console.log('   - Resolved userId:', userId);
+
+    const result = await this.walletService.payForAppointment(
       userId,
       body.appointmentId,
       body.amount,
     );
+
+    console.log(
+      '   - Payment result:',
+      result.success ? '✅ SUCCESS' : '❌ FAILED',
+    );
+    return result;
   }
 
   // POST /api/v1/wallet/pay-bill - Pay existing pending bill using wallet

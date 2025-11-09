@@ -1,15 +1,14 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
 interface RevenueSocketHook {
   socket: Socket | null;
   isConnected: boolean;
-  onNewRevenue: (callback: (data: any) => void) => void;
-  onRevenueUpdated: (callback: (data: any) => void) => void;
-  onSummaryUpdated: (callback: (data: any) => void) => void;
+  registerRefreshCallback: (callback: () => void) => void;
+  unregisterRefreshCallback: () => void;
 }
 
 export function useRevenueSocket(): RevenueSocketHook {
@@ -17,15 +16,7 @@ export function useRevenueSocket(): RevenueSocketHook {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
-  const callbacksRef = useRef<{
-    newRevenue: Array<(data: any) => void>;
-    revenueUpdated: Array<(data: any) => void>;
-    summaryUpdated: Array<(data: any) => void>;
-  }>({
-    newRevenue: [],
-    revenueUpdated: [],
-    summaryUpdated: [],
-  });
+  const refreshCallbackRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     // Only connect when user is authenticated and is a doctor
@@ -73,20 +64,33 @@ export function useRevenueSocket(): RevenueSocketHook {
       setIsConnected(false);
     });
 
-    // Revenue events
+    // Revenue events - trigger refresh callback
     newSocket.on("revenue:new", (data) => {
-      console.log("💰 New revenue received:", data);
-      callbacksRef.current.newRevenue.forEach((callback) => callback(data));
+      console.log("💰 [Revenue] New revenue:", data);
+      if (refreshCallbackRef.current) {
+        refreshCallbackRef.current();
+      }
     });
 
     newSocket.on("revenue:updated", (data) => {
-      console.log("🔄 Revenue updated:", data);
-      callbacksRef.current.revenueUpdated.forEach((callback) => callback(data));
+      console.log("🔄 [Revenue] Updated:", data);
+      if (refreshCallbackRef.current) {
+        refreshCallbackRef.current();
+      }
+    });
+
+    newSocket.on("revenue:delete", (data) => {
+      console.log("🗑️ [Revenue] Deleted:", data);
+      if (refreshCallbackRef.current) {
+        refreshCallbackRef.current();
+      }
     });
 
     newSocket.on("revenue:summaryUpdated", (data) => {
-      console.log("📊 Summary updated:", data);
-      callbacksRef.current.summaryUpdated.forEach((callback) => callback(data));
+      console.log("📊 [Revenue] Summary updated:", data);
+      if (refreshCallbackRef.current) {
+        refreshCallbackRef.current();
+      }
     });
 
     setSocket(newSocket);
@@ -100,6 +104,7 @@ export function useRevenueSocket(): RevenueSocketHook {
         socketRef.current.off("connect_error");
         socketRef.current.off("revenue:new");
         socketRef.current.off("revenue:updated");
+        socketRef.current.off("revenue:delete");
         socketRef.current.off("revenue:summaryUpdated");
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -107,29 +112,18 @@ export function useRevenueSocket(): RevenueSocketHook {
     };
   }, [session, status]);
 
-  const onNewRevenue = (callback: (data: any) => void) => {
-    if (!callbacksRef.current.newRevenue.includes(callback)) {
-      callbacksRef.current.newRevenue.push(callback);
-    }
-  };
+  const registerRefreshCallback = useCallback((callback: () => void) => {
+    refreshCallbackRef.current = callback;
+  }, []);
 
-  const onRevenueUpdated = (callback: (data: any) => void) => {
-    if (!callbacksRef.current.revenueUpdated.includes(callback)) {
-      callbacksRef.current.revenueUpdated.push(callback);
-    }
-  };
-
-  const onSummaryUpdated = (callback: (data: any) => void) => {
-    if (!callbacksRef.current.summaryUpdated.includes(callback)) {
-      callbacksRef.current.summaryUpdated.push(callback);
-    }
-  };
+  const unregisterRefreshCallback = useCallback(() => {
+    refreshCallbackRef.current = null;
+  }, []);
 
   return {
     socket,
     isConnected,
-    onNewRevenue,
-    onRevenueUpdated,
-    onSummaryUpdated,
+    registerRefreshCallback,
+    unregisterRefreshCallback,
   };
 }

@@ -212,7 +212,7 @@ export class MedicalRecordsService {
         followUpDate = rawDate === null ? null : new Date(rawDate as any);
       }
       if (rawTime !== undefined) {
-        followUpTime = rawTime === null ? null : this.normalizeTimeInput(rawTime as string);
+        followUpTime = rawTime === null ? null : this.normalizeTimeInput(rawTime);
       }
       if (typeof rawFlag === 'boolean') {
         isFollowUpRequired = rawFlag;

@@ -1,9 +1,17 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MoMoService } from '../payments/services/momo.service';
 import { BillingHelperService } from '../payments/billing-helper.service';
+import { RevenueService } from '../revenue/revenue.service';
+import { PaymentGateway } from '../payments/payment.gateway';
 import { User, UserDocument } from '../users/schemas/user.schemas';
 import { Payment } from '../payments/schemas/payment.schemas';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
@@ -26,6 +34,10 @@ export class WalletService {
     private readonly momoService: MoMoService,
     private readonly configService: ConfigService,
     private readonly billingHelper: BillingHelperService,
+    @Inject(forwardRef(() => RevenueService))
+    private readonly revenueService: RevenueService,
+    @Inject(forwardRef(() => PaymentGateway))
+    private readonly paymentGateway: PaymentGateway,
   ) {}
 
   // Lấy số dư ví
@@ -312,7 +324,6 @@ export class WalletService {
       .populate('patientId')
       .populate('doctorId')
       .exec();
-
     if (!appointment) {
       this.logger.error(`❌ Appointment not found: ${appointmentId}`);
       return {
@@ -452,6 +463,48 @@ export class WalletService {
       });
 
       this.logger.log('✅ Appointment payment status updated to: paid');
+
+      // 🔔 Emit realtime event to patient
+      try {
+        const populatedBill = await this.paymentModel
+          .findById(paymentBill._id)
+          .populate('doctorId', 'fullName email')
+          .exec();
+
+        const emitPatientId =
+          typeof patientId === 'string' ? patientId : String(patientId);
+        this.paymentGateway.emitNewPayment(emitPatientId, populatedBill);
+        this.logger.log(`✅ Payment event emitted to patient ${emitPatientId}`);
+      } catch (error) {
+        this.logger.error('❌ Error emitting payment event:', error);
+      }
+
+      // 🆕 Create revenue record for doctor when payment is completed via wallet
+      this.logger.log('💰 Creating revenue record for doctor...');
+      try {
+        const revenueResult =
+          await this.revenueService.createRevenueFromPayment(
+            paymentBill._id.toString(),
+          );
+
+        if (revenueResult.success) {
+          this.logger.log('✅ Revenue record created:', {
+            revenueId: revenueResult.data?._id,
+            doctorId: paymentBill.doctorId,
+            amount: revenueResult.data?.amount,
+            netAmount: revenueResult.data?.netAmount,
+          });
+        } else {
+          this.logger.error(
+            '❌ Failed to create revenue record:',
+            revenueResult.message,
+          );
+        }
+      } catch (error) {
+        this.logger.error('❌ Error creating revenue record:', error);
+        // Don't fail the payment if revenue creation fails
+      }
+
       this.logger.log('💰 ========== WALLET PAYMENT SUCCESS ==========');
 
       return {
@@ -637,6 +690,32 @@ export class WalletService {
           paymentStatus: 'paid',
         });
         this.logger.log('✅ Appointment payment status updated to: paid');
+      }
+
+      // 🆕 Create revenue record for doctor when payment is completed via wallet
+      this.logger.log('💰 Creating revenue record for doctor...');
+      try {
+        const revenueResult =
+          await this.revenueService.createRevenueFromPayment(
+            bill._id.toString(),
+          );
+
+        if (revenueResult.success) {
+          this.logger.log('✅ Revenue record created:', {
+            revenueId: revenueResult.data?._id,
+            doctorId: bill.doctorId,
+            amount: revenueResult.data?.amount,
+            netAmount: revenueResult.data?.netAmount,
+          });
+        } else {
+          this.logger.error(
+            '❌ Failed to create revenue record:',
+            revenueResult.message,
+          );
+        }
+      } catch (error) {
+        this.logger.error('❌ Error creating revenue record:', error);
+        // Don't fail the payment if revenue creation fails
       }
 
       this.logger.log('💰 ========== PAY PENDING BILL SUCCESS ==========');

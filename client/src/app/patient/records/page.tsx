@@ -301,71 +301,65 @@ export default function PatientRecordsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Hồ sơ điều trị</h1>
-            <p className="text-gray-600">Quản lý và theo dõi lịch sử điều trị của bạn</p>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-6 space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Filter className="w-5 h-5 text-primary" />
-              Bộ lọc
-            </h2>
-          </div>
-
-          <div className="flex flex-col lg:flex-row gap-4 items-center">
-            {/* Search */}
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
+        {/* Header with Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="space-y-4">
+            {/* Title Row */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Hồ sơ điều trị</h1>
+                <p className="text-sm text-gray-600">Quản lý và theo dõi lịch sử điều trị của bạn</p>
+              </div>
             </div>
 
-            <span className="text-gray-600 text-sm hidden lg:block">Từ</span>
+            {/* Filters Row */}
+            <div className="flex flex-col lg:flex-row gap-4 items-center">
+              {/* Search */}
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+                />
+              </div>
 
-            {/* Start Date */}
-            <div className="w-full lg:w-48">
+              <span className="text-sm font-medium text-gray-700">Từ</span>
+
+              {/* Start Date */}
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 placeholder="Từ ngày"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
               />
-            </div>
 
-            <span className="text-gray-600 text-sm hidden lg:block">đến</span>
+              <span className="text-sm font-medium text-gray-700">đến</span>
 
-            {/* End Date */}
-            <div className="w-full lg:w-48">
+              {/* End Date */}
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 placeholder="Đến ngày"
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
               />
-            </div>
 
-            {/* Clear Filter Button - Always visible, disabled when no filters */}
-            <button
-              onClick={clearFilters}
-              disabled={!searchTerm && !startDate && !endDate && statusFilter === "all"}
-              className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100"
-            >
-              <X className="w-4 h-4" />
-              Xóa bộ lọc
-            </button>
+              {/* Clear Filter Button */}
+              <button
+                onClick={clearFilters}
+                disabled={!searchTerm && !startDate && !endDate && statusFilter === "all"}
+                className="px-4 py-2.5 text-sm bg-white text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-gray-300"
+              >
+                Xóa
+              </button>
+            </div>
           </div>
         </div>
 

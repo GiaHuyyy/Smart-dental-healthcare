@@ -6,6 +6,7 @@ import {
   AppointmentSchema,
 } from '../appointments/schemas/appointment.schemas';
 import { User, UserSchema } from '../users/schemas/user.schemas';
+import { Revenue, RevenueSchema } from '../revenue/schemas/revenue.schemas';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RevenueModule } from '../revenue/revenue.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
@@ -14,6 +15,7 @@ import { PaymentsService } from './payments.service';
 import { Payment, PaymentSchema } from './schemas/payment.schemas';
 import { MoMoService } from './services/momo.service';
 import { BillingHelperService } from './billing-helper.service';
+import { PaymentGateway } from './payment.gateway';
 
 @Module({
   imports: [
@@ -22,13 +24,19 @@ import { BillingHelperService } from './billing-helper.service';
       { name: Payment.name, schema: PaymentSchema },
       { name: Appointment.name, schema: AppointmentSchema },
       { name: User.name, schema: UserSchema },
+      { name: Revenue.name, schema: RevenueSchema },
     ]),
     NotificationsModule,
     forwardRef(() => RevenueModule),
     VouchersModule,
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, MoMoService, BillingHelperService],
-  exports: [PaymentsService, MoMoService, BillingHelperService],
+  providers: [
+    PaymentsService,
+    MoMoService,
+    BillingHelperService,
+    PaymentGateway,
+  ],
+  exports: [PaymentsService, MoMoService, BillingHelperService, PaymentGateway],
 })
 export class PaymentsModule {}
