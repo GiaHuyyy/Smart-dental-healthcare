@@ -186,17 +186,18 @@ export default function RevenuePage() {
   const pendingTotal = pendingRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0);
 
   // Completed revenues (bills đã thanh toán) - Lấy từ netAmount (thực nhận)
-  const completedRevenues = allRevenues.filter((r) => r.status === "completed");
+  const completedRevenues = allRevenues.filter((r) => r.status === "completed" && (r.netAmount || 0) >= 0);
   const completedTotal = completedRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0);
 
-  // Refund revenues (bills hoàn tiền) - Lấy từ netAmount (thực trừ, đã âm)
-  const refundRevenues = allRevenues.filter((r) => (r.netAmount || 0) < 0 && r.status !== "pending");
-  const refundTotal = Math.abs(refundRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0));
+  // Refund revenues (bills hoàn tiền) - Lấy từ netAmount (ĐÃ ÂM từ database)
+  const refundRevenues = allRevenues.filter((r) => (r.netAmount || 0) < 0);
+  const refundTotal = refundRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0); // GIỮ NGUYÊN SỐ ÂM
 
-  // Total = pending + completed - refund
-  const totalAmount = pendingTotal + completedTotal - refundTotal;
+  // Total = pending + completed + refund (refund đã âm nên cộng vào sẽ tự trừ)
+  // Ví dụ: 190,000 + (-190,000) = 0 ✅
+  const totalAmount = pendingTotal + completedTotal + refundTotal;
 
-  // Platform fee total - Lấy từ cả pending và completed
+  // Platform fee total - Lấy từ cả pending và completed (KHÔNG tính phí cho refund)
   const platformFee = [...pendingRevenues, ...completedRevenues].reduce((sum, r) => sum + (r.platformFee || 0), 0);
 
   const totalAppointments = allRevenues.length;
@@ -338,7 +339,7 @@ export default function RevenuePage() {
                 <div className="flex-1">
                   <p className="text-sm mb-1 text-gray-600">Tổng doanh thu</p>
                   <div className="text-2xl font-bold text-primary">+{formatCurrency(totalAmount)}</div>
-                  <p className="text-xs mt-2 text-gray-600">{totalAppointments} giao dịch (đã trừ phí 5%)</p>
+                  <p className="text-xs mt-2 text-gray-600">{totalAppointments} giao dịch (trừ 5% phí)</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <DollarSignIcon className="w-6 h-6 text-primary" />
@@ -359,7 +360,7 @@ export default function RevenuePage() {
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">Doanh thu chờ</p>
                   <div className="text-2xl font-bold text-yellow-600">+{formatCurrency(pendingTotal)}</div>
-                  <p className="text-xs text-gray-500 mt-2">{pendingRevenues.length} giao dịch (đã trừ phí 5%)</p>
+                  <p className="text-xs text-gray-500 mt-2">{pendingRevenues.length} giao dịch (trừ 5% phí)</p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
                   <WalletIcon className="w-6 h-6 text-yellow-600" />
@@ -380,7 +381,7 @@ export default function RevenuePage() {
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">Doanh thu thực nhận</p>
                   <div className="text-2xl font-bold text-green-600">+{formatCurrency(completedTotal)}</div>
-                  <p className="text-xs text-gray-500 mt-2">{completedRevenues.length} giao dịch (đã trừ phí 5%)</p>
+                  <p className="text-xs text-gray-500 mt-2">{completedRevenues.length} giao dịch (trừ 5% phí)</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <WalletIcon className="w-6 h-6 text-green-600" />
@@ -401,7 +402,7 @@ export default function RevenuePage() {
                 <div className="flex-1">
                   <p className="text-sm text-gray-600 mb-1">Đã hoàn tiền</p>
                   <div className="text-2xl font-bold text-red-600">{formatCurrency(refundTotal)}</div>
-                  <p className="text-xs text-gray-500 mt-2">{refundRevenues.length} giao dịch (không trừ phí)</p>
+                  <p className="text-xs text-gray-500 mt-2">{refundRevenues.length} giao dịch (trừ 5% phí)</p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                   <TrendingUpIcon className="w-6 h-6 text-red-600" />

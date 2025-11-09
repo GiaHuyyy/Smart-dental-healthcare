@@ -88,6 +88,7 @@ See: `BILLING_FIX_SUMMARY.md` for complete billing system fixes.
 1. Khi bác sĩ hủy lịch thì trang payment chưa được auto reload dữ liệu mới
 2. Bill phí giữ chỗ của bác sĩ KHÔNG bị trừ 5% platform fee (sai logic - phải trừ 5%)
 3. Bill hoàn tiền bị trừ 5% platform fee (sai logic - không được trừ phí khi refund)
+4. Khi hoàn tiền, bác sĩ bị trừ FULL amount (200k) thay vì netAmount (190k) → Doctor lỗ 10k!
 
 **Root Causes:**
 
@@ -95,6 +96,7 @@ See: `BILLING_FIX_SUMMARY.md` for complete billing system fixes.
 2. ❌ Filter quá strict với `paymentId: { $in: consultationFeePaymentIds }` → không xóa được revenue khi array rỗng
 3. ❌ `createPendingReservationCharge()` set `platformFee: 0` → SAI, phải trừ 5%
 4. ❌ `createRevenueFromPayment()` tính 5% cho TẤT CẢ bills (kể cả refund) → SAI, refund không trừ phí
+5. ❌ `refundConsultationFee()` trừ `refundAmount` từ doctor wallet thay vì `netAmount` → Doctor lỗ platform fee
 
 **Solution:**
 
@@ -109,8 +111,15 @@ See: `BILLING_FIX_SUMMARY.md` for complete billing system fixes.
    - `netAmount: 47,500` (bác sĩ thực nhận sau trừ phí)
 
 3. ✅ Fix `createRevenueFromPayment()` trong `revenue.service.ts`:
+
    - Check `billType === 'refund'` → platformFee = 0
    - Tất cả bill khác (consultation_fee, cancellation_charge, reservation_fee) → trừ 5%
+
+4. ✅ Fix `refundConsultationFee()` trong `billing-helper.service.ts`:
+   - Tìm original revenue để lấy `netAmount` (số tiền doctor thực nhận)
+   - Patient nhận lại FULL `refundAmount` (200k)
+   - Doctor chỉ bị trừ `netAmount` (190k) - không bị lỗ platform fee
+   - Tạo negative revenue với `amount: -netAmount` thay vì `-refundAmount`
 
 **Platform Fee Logic:**
 
@@ -119,15 +128,26 @@ See: `BILLING_FIX_SUMMARY.md` for complete billing system fixes.
 - ✅ Reservation fee (phí đặt chỗ): TRỪ 5%
 - ❌ Refund (hoàn tiền): KHÔNG TRỪ phí (bác sĩ trả lại tiền)
 
+**Refund Flow (FIXED):**
+
+- Patient trả: 200,000đ
+- Doctor nhận: 190,000đ (sau trừ 5% = 10,000đ)
+- Platform nhận: 10,000đ
+- **Khi refund:**
+  - Patient nhận lại: 200,000đ ✅
+  - Doctor bị trừ: 190,000đ ✅ (chỉ trả số tiền đã nhận)
+  - Platform giữ: 10,000đ ✅ (không hoàn lại phí)
+
 **Files Modified:**
 
-- `server/src/modules/payments/billing-helper.service.ts` (fix delete logic + platform fee)
+- `server/src/modules/payments/billing-helper.service.ts` (fix delete logic + platform fee + refund logic)
 - `server/src/modules/revenue/revenue.service.ts` (skip platform fee for refunds only)
 
 **Impact:**
 
 - ✅ Bác sĩ bị trừ 5% cho phí giữ chỗ (đúng logic kinh doanh)
 - ✅ Bác sĩ KHÔNG bị trừ phí khi hoàn tiền cho patient
+- ✅ Bác sĩ chỉ trả lại netAmount (190k) thay vì full amount (200k) - KHÔNG BỊ LỖ
 - ✅ Payment/Revenue pages auto-reload với socket events
 
 See: `DOCTOR_CANCELLATION_FIX.md` for complete analysis.

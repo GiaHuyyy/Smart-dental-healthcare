@@ -114,14 +114,44 @@ export class BillingHelperService {
     const refundAmount = Math.abs(originalAmount);
 
     this.logger.log(
-      `💰 Creating refund bill: patientId=${patientId}, amount=${refundAmount}`,
+      `💰 Creating refund bill: patientId=${patientId}, refundAmount=${refundAmount}`,
+    );
+
+    // 🔍 Find the original revenue to get netAmount (actual amount doctor received after platform fee)
+    let doctorNetAmount = refundAmount; // Default: same as refund (in case revenue not found)
+
+    try {
+      const originalRevenue = await this.revenueModel.findOne({
+        paymentId: originalPaymentId,
+        doctorId,
+        status: 'completed',
+      });
+
+      if (originalRevenue) {
+        // Doctor only received netAmount (after 5% platform fee deduction)
+        doctorNetAmount = Math.abs(originalRevenue.netAmount);
+        this.logger.log(
+          `✅ Found original revenue: amount=${originalRevenue.amount}, platformFee=${originalRevenue.platformFee}, netAmount=${doctorNetAmount}`,
+        );
+      } else {
+        this.logger.warn(
+          `⚠️ Original revenue not found for payment ${originalPaymentId}, using refundAmount as doctorNetAmount`,
+        );
+      }
+    } catch (error) {
+      this.logger.error('❌ Error finding original revenue:', error);
+      // Continue with refundAmount as fallback
+    }
+
+    this.logger.log(
+      `💵 Refund calculation: Patient receives ${refundAmount}, Doctor pays back ${doctorNetAmount}`,
     );
 
     // Create refund bill
     const refundBill = await this.paymentModel.create({
       patientId,
       doctorId,
-      amount: refundAmount, // Always positive - patient receives money
+      amount: refundAmount, // Always positive - patient receives FULL money back
       status: 'completed',
       type: 'appointment',
       billType: 'refund',
@@ -132,7 +162,7 @@ export class BillingHelperService {
       refModel: 'Appointment',
     });
 
-    // Add money back to patient's wallet
+    // Add money back to patient's wallet (FULL amount)
     try {
       const updatedPatient = await this.userModel.findByIdAndUpdate(
         patientId,
@@ -151,16 +181,16 @@ export class BillingHelperService {
       // Don't throw - bill is created, wallet update can be retried
     }
 
-    // Subtract money from doctor's wallet
+    // Subtract money from doctor's wallet (NET amount only - what doctor actually received)
     try {
       const updatedDoctor = await this.userModel.findByIdAndUpdate(
         doctorId,
-        { $inc: { walletBalance: -refundAmount } },
+        { $inc: { walletBalance: -doctorNetAmount } },
         { new: true },
       );
 
       this.logger.log(
-        `✅ Doctor refund deduction: Subtracted ${refundAmount} from doctor wallet. New balance: ${updatedDoctor?.walletBalance}`,
+        `✅ Doctor refund deduction: Subtracted ${doctorNetAmount} from doctor wallet (netAmount). New balance: ${updatedDoctor?.walletBalance}`,
       );
     } catch (error) {
       this.logger.error(`❌ Failed to update doctor wallet for refund:`, error);
@@ -175,22 +205,25 @@ export class BillingHelperService {
       );
 
       // Refund KHÔNG tính phí platformFee
+      // Doctor chỉ mất số tiền netAmount đã nhận (không phải full refundAmount)
       negativeRevenue = await this.revenueModel.create({
         patientId,
         doctorId,
         paymentId: refundBill._id,
-        amount: -refundAmount, // ÂM - doctor mất tiền
+        amount: -doctorNetAmount, // ÂM - doctor mất số tiền đã thực nhận
         platformFee: 0, // KHÔNG tính phí khi refund
-        netAmount: -refundAmount, // ÂM - doctor mất toàn bộ
+        netAmount: -doctorNetAmount, // ÂM - doctor mất netAmount (không phải full amount)
         revenueDate: new Date(),
         status: 'completed',
         type: 'appointment',
         refId: appointmentId,
         refModel: 'Appointment',
-        notes: `Hoàn tiền cho bệnh nhân - Trừ doanh thu (Payment #${originalPaymentId})`,
+        notes: `Hoàn tiền cho bệnh nhân - Trừ doanh thu netAmount (Payment #${originalPaymentId})`,
       });
 
-      this.logger.log('✅ Refund revenue record created successfully');
+      this.logger.log(
+        `✅ Refund revenue record created: amount=${-doctorNetAmount}, netAmount=${-doctorNetAmount}`,
+      );
     } catch (error) {
       this.logger.error('❌ Error creating refund revenue record:', error);
       // Don't throw - refund is already processed

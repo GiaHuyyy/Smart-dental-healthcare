@@ -194,38 +194,6 @@ function MyAppointmentsContent() {
     }
   }, [isConnected]);
 
-  const handleCancelAppointment = async () => {
-    if (!selectedAppointment || !cancelReason.trim()) {
-      toast.error("Vui lòng nhập lý do hủy lịch");
-      return;
-    }
-
-    setActionLoading(true);
-    try {
-      const accessToken = (session as any)?.access_token;
-      const result = await appointmentService.cancelAppointment(
-        selectedAppointment._id!,
-        cancelReason,
-        accessToken,
-        "patient" // Specify that patient is cancelling
-      );
-
-      if (!result.success) {
-        throw new Error(result.error || "Không thể hủy lịch hẹn");
-      }
-
-      toast.success("Đã hủy lịch hẹn thành công");
-      setCancelDialogOpen(false);
-      setCancelReason("");
-      setSelectedAppointment(null);
-      fetchAppointments();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không thể hủy lịch hẹn");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleContactDoctor = async (appointment: Appointment) => {
     const doctorId = typeof appointment.doctorId === "string" ? appointment.doctorId : appointment.doctorId?._id;
 
@@ -1055,70 +1023,6 @@ function MyAppointmentsContent() {
           </>
         )}
       </div>
-
-      {/* Cancel Confirmation Dialog */}
-      {cancelDialogOpen && selectedAppointment && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-900">Xác nhận hủy lịch</h3>
-              <button
-                onClick={() => {
-                  setCancelDialogOpen(false);
-                  setCancelReason("");
-                  setSelectedAppointment(null);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-gray-600 mb-4">
-                Bạn có chắc chắn muốn hủy lịch hẹn với <strong>{selectedAppointment.doctor?.fullName}</strong> vào{" "}
-                <strong>
-                  {new Date(selectedAppointment.appointmentDate).toLocaleDateString("vi-VN")} lúc{" "}
-                  {selectedAppointment.startTime}
-                </strong>
-                ?
-              </p>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lý do hủy <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="Vui lòng cho biết lý do bạn muốn hủy lịch hẹn này..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                rows={4}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setCancelDialogOpen(false);
-                  setCancelReason("");
-                  setSelectedAppointment(null);
-                }}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                disabled={actionLoading}
-              >
-                Đóng
-              </button>
-              <button
-                onClick={handleCancelAppointment}
-                disabled={!cancelReason.trim() || actionLoading}
-                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {actionLoading ? "Đang hủy..." : "Xác nhận hủy"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Detail Dialog */}
       {detailDialogOpen && selectedAppointment && (

@@ -273,10 +273,55 @@ export class AppointmentReminderService {
   private async rejectPendingAppointment(appointment: any) {
     const { patientId, doctorId } = appointment;
 
-    // 1. Delete any pending bills for this appointment
-    await this.billingService.deletePendingBillsForAppointment(
-      appointment._id.toString(),
-    );
+    // 1. Kiểm tra và xử lý bills (completed hoặc pending)
+    let refundIssued = false;
+    let refundAmount = 0;
+
+    try {
+      // Tìm payment đã thanh toán cho appointment này
+      const existingPayment = await this.paymentModel.findOne({
+        refId: appointment._id.toString(),
+        refModel: 'Appointment',
+        type: 'appointment',
+        status: 'completed',
+      });
+
+      if (existingPayment) {
+        // ✅ ĐÃ THANH TOÁN → Tạo refund bill cho patient + negative revenue cho doctor
+        this.logger.log(
+          `💰 Payment found (${existingPayment.amount} VND) - Creating refund for patient & negative revenue for doctor...`,
+        );
+
+        await this.billingService.refundConsultationFee(
+          existingPayment._id.toString(),
+          existingPayment.amount,
+          patientId._id.toString(),
+          doctorId._id.toString(),
+          appointment._id.toString(),
+        );
+
+        refundIssued = true;
+        refundAmount = existingPayment.amount;
+        this.logger.log(
+          `✅ Refunded ${existingPayment.amount} VND to patient & created negative revenue for doctor`,
+        );
+      } else {
+        // ❌ CHƯA THANH TOÁN → Xóa pending bills (payment + revenue)
+        this.logger.log(
+          `💸 No completed payment found - Deleting pending bills (patient payment + doctor revenue)...`,
+        );
+
+        await this.billingService.deletePendingBillsForAppointment(
+          appointment._id.toString(),
+        );
+
+        this.logger.log(
+          `✅ Deleted pending bills for appointment ${appointment._id}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error('❌ Failed to process bills:', error);
+    }
 
     // 2. Cập nhật status thành 'cancelled'
     appointment.status = 'cancelled';
@@ -301,42 +346,6 @@ export class AppointmentReminderService {
       );
     } catch (error) {
       this.logger.error('Failed to create voucher:', error);
-    }
-
-    // 2.5. Kiểm tra và hoàn tiền 100% nếu đã thanh toán
-    let refundIssued = false;
-    let refundAmount = 0;
-    try {
-      // Tìm payment đã thanh toán cho appointment này
-      const existingPayment = await this.paymentModel.findOne({
-        refId: appointment._id.toString(),
-        refModel: 'Appointment',
-        type: 'appointment',
-        status: 'completed',
-      });
-
-      if (existingPayment) {
-        // Tạo bill hoàn tiền 100%
-        await this.billingService.refundConsultationFee(
-          existingPayment._id.toString(),
-          existingPayment.amount,
-          patientId._id.toString(),
-          doctorId._id.toString(),
-          appointment._id.toString(),
-        );
-
-        refundIssued = true;
-        refundAmount = existingPayment.amount;
-        this.logger.log(
-          `Refunded ${existingPayment.amount} VND to patient ${patientId._id} for appointment ${appointment._id}`,
-        );
-      } else {
-        this.logger.log(
-          `No payment found for appointment ${appointment._id}, skip refund`,
-        );
-      }
-    } catch (error) {
-      this.logger.error('Failed to process refund:', error);
     }
 
     // 3. Gửi email cho bệnh nhân
