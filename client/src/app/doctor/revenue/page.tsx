@@ -1,243 +1,92 @@
 "use client";
 
-import RevenueByTypeChart from "@/components/revenue/RevenueByTypeChart";
-import RevenueChart from "@/components/revenue/RevenueChart";
-import RevenueDetailDialog from "@/components/revenue/RevenueDetailDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRevenueSocket } from "@/hooks/useRevenueSocket";
 import revenueService, { RevenueRecord } from "@/services/revenueService";
 import {
-    ArrowUpIcon,
-    CalendarIcon,
-    CreditCardIcon,
-    DollarSignIcon,
-    DownloadIcon,
-    FilterIcon,
-    Loader2Icon,
-    ReceiptIcon,
-    TrendingUpIcon,
-    WalletIcon,
-    WifiIcon,
-    WifiOffIcon,
+  Calendar,
+  CalendarDays,
+  Clock,
+  CreditCardIcon,
+  DollarSignIcon,
+  DownloadIcon,
+  Loader2Icon,
+  Mail,
+  Phone,
+  ReceiptIcon,
+  Search,
+  TrendingUpIcon,
+  User,
+  WalletIcon,
+  X,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-// Translations
-const translations = {
-  vi: {
-    title: "Doanh thu",
-    description: "Quản lý và theo dõi doanh thu từ các dịch vụ khám chữa bệnh",
-    filters: "Bộ lọc",
-    period: "Khoảng thời gian",
-    status: "Trạng thái",
-    revenueType: "Loại doanh thu",
-    all: "Tất cả",
-    today: "Hôm nay",
-    week: "Tuần này",
-    month: "Tháng này",
-    year: "Năm nay",
-    custom: "Tùy chỉnh",
-    totalRevenue: "Tổng doanh thu",
-    comparedToPrevious: "0 giao dịch",
-    platformFee: "Phí nền tảng",
-    feeRate: "5% mỗi giao dịch",
-    netRevenue: "Doanh thu thực nhận",
-    afterFees: "Sau khi trừ phí",
-    growth: "Tăng trưởng",
-    comparedToLastMonth: "➜ So với tháng trước",
-    revenueChart: "Biểu đồ doanh thu",
-    monthlyTrend: "Theo dõi xu hướng doanh thu theo tháng",
-    revenueByType: "Doanh thu theo loại",
-    revenueDistribution: "Phân bổ doanh thu theo từng loại dịch vụ",
-    recentTransactions: "Giao dịch gần đây",
-    latestPayments: "Danh sách các khoản thanh toán mới nhất",
-    noData: "Chưa có dữ liệu",
-    patient: "Bệnh nhân",
-    date: "Ngày",
-    type: "Loại",
-    amount: "Số tiền",
-    fee: "Phí",
-    netAmount: "Thực nhận",
-    statusLabel: "Trạng thái",
-    actions: "Thao tác",
-    viewDetails: "Xem chi tiết",
-    exportReport: "Xuất báo cáo",
-    requestWithdraw: "Yêu cầu rút tiền",
-    loading: "Đang tải...",
-    error: "Có lỗi xảy ra khi tải dữ liệu",
-    statusCompleted: "Hoàn thành",
-    statusPending: "Chờ xử lý",
-    statusWithdrawn: "Đã rút",
-    statusCancelled: "Đã hủy",
-    typeAppointment: "Lịch khám",
-    typeTreatment: "Điều trị",
-    typeMedicine: "Thuốc",
-    typeOther: "Khác",
-    transactions: "giao dịch",
-  },
-  en: {
-    title: "Revenue",
-    description: "Manage and track revenue from medical services",
-    filters: "Filters",
-    period: "Time Period",
-    status: "Status",
-    revenueType: "Revenue Type",
-    all: "All",
-    today: "Today",
-    week: "This Week",
-    month: "This Month",
-    year: "This Year",
-    custom: "Custom",
-    totalRevenue: "Total Revenue",
-    comparedToPrevious: "0 transactions",
-    platformFee: "Platform Fee",
-    feeRate: "5% per transaction",
-    netRevenue: "Net Revenue",
-    afterFees: "After fees",
-    growth: "Growth",
-    comparedToLastMonth: "➜ Compared to last month",
-    revenueChart: "Revenue Chart",
-    monthlyTrend: "Track monthly revenue trends",
-    revenueByType: "Revenue by Type",
-    revenueDistribution: "Revenue distribution by service type",
-    recentTransactions: "Recent Transactions",
-    latestPayments: "Latest payment records",
-    noData: "No data available",
-    patient: "Patient",
-    date: "Date",
-    type: "Type",
-    amount: "Amount",
-    fee: "Fee",
-    netAmount: "Net Amount",
-    statusLabel: "Status",
-    actions: "Actions",
-    viewDetails: "View Details",
-    exportReport: "Export Report",
-    requestWithdraw: "Request Withdraw",
-    loading: "Loading...",
-    error: "Error loading data",
-    statusCompleted: "Completed",
-    statusPending: "Pending",
-    statusWithdrawn: "Withdrawn",
-    statusCancelled: "Cancelled",
-    typeAppointment: "Appointment",
-    typeTreatment: "Treatment",
-    typeMedicine: "Medicine",
-    typeOther: "Other",
-    transactions: "transactions",
-  },
-};
+interface Transaction {
+  _id: string;
+  amount: number;
+  platformFee?: number;
+  revenueAmount?: number;
+  paymentDate?: string;
+  createdAt: string;
+  status: string;
+  revenueRecorded?: boolean;
+  patientId?: {
+    fullName: string;
+  };
+  refId?: {
+    appointmentType?: string;
+  };
+}
 
 export default function RevenuePage() {
   const { data: session } = useSession();
-  const language = "vi"; // Fixed to Vietnamese
-  const t = translations[language];
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [revenueData, setRevenueData] = useState<any>(null);
+  const [revenueData, setRevenueData] = useState<{
+    summary?: {
+      totalAmount: number;
+      totalPlatformFee: number;
+      totalRevenue: number;
+      totalAppointments: number;
+      averageRevenue: number;
+    };
+    results?: RevenueRecord[];
+    recentTransactions?: Transaction[];
+  } | null>(null);
   const [selectedRevenue, setSelectedRevenue] = useState<RevenueRecord | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [revenueAnimation, setRevenueAnimation] = useState(false);
 
   // WebSocket connection
-  const { socket, isConnected, onNewRevenue, onRevenueUpdated, onSummaryUpdated } = useRevenueSocket();
+  const { isConnected, registerRefreshCallback, unregisterRefreshCallback } = useRevenueSocket();
 
   // Filters
-  const [period, setPeriod] = useState("month");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [startFilterDate, setStartFilterDate] = useState<string>("");
+  const [endFilterDate, setEndFilterDate] = useState<string>("");
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
 
   const doctorId = session?.user?._id;
 
-  // WebSocket event handlers
-  useEffect(() => {
-    if (!isConnected) return;
-
-    console.log("🔔 Setting up revenue socket listeners...");
-
-    // Listen for new revenue
-    onNewRevenue((data) => {
-      console.log("💰 New revenue received via socket:", data);
-      
-      // Trigger animation
-      setRevenueAnimation(true);
-      setTimeout(() => setRevenueAnimation(false), 2000);
-
-      // Show notification
-      toast({
-        title: "💰 Doanh thu mới!",
-        description: `Nhận được ${formatCurrency(data.revenue?.netAmount || 0)} từ thanh toán`,
-        duration: 5000,
-      });
-
-      // Refresh data to get updated statistics
-      fetchRevenueData();
-    });
-
-    // Listen for revenue updates
-    onRevenueUpdated((data) => {
-      console.log("🔄 Revenue updated via socket:", data);
-      fetchRevenueData();
-    });
-
-    // Listen for summary updates
-    onSummaryUpdated((data) => {
-      console.log("📊 Summary updated via socket:", data);
-      fetchRevenueData();
-    });
-  }, [isConnected]);
-
-  useEffect(() => {
-    if (doctorId) {
-      fetchRevenueData();
-    }
-  }, [doctorId, period, statusFilter, typeFilter]);
-
-  const fetchRevenueData = async () => {
+  const fetchRevenueData = useCallback(async () => {
     if (!doctorId) return;
 
     setLoading(true);
     try {
-      // Build query params
-      const params = new URLSearchParams({
-        period,
-        current: "1",
-        pageSize: "50",
-      });
-
-      if (statusFilter !== "all") {
-        params.append("status", statusFilter);
-      }
-
-      if (typeFilter !== "all") {
-        params.append("type", typeFilter);
-      }
-
       const response = await revenueService.getDoctorRevenues(
         doctorId,
         1,
-        50,
-        statusFilter !== "all" ? { status: statusFilter } : undefined
+        100,
+        undefined // Fetch ALL revenues, filter will be done on frontend
       );
 
       if (response.success) {
@@ -245,10 +94,41 @@ export default function RevenuePage() {
       }
     } catch (error) {
       console.error("Error fetching revenue data:", error);
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi tải dữ liệu",
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [doctorId, toast]); // Removed statusFilter from dependency
+
+  // Register refresh callback for socket events (like appointment pattern)
+  useEffect(() => {
+    console.log("🔍 Revenue page effect - isConnected:", isConnected, "doctorId:", doctorId);
+
+    if (!isConnected) {
+      console.log("⚠️ Revenue socket not connected yet");
+      return;
+    }
+
+    console.log("✅ Registering refresh callback for doctor:", doctorId);
+
+    // Register callback to refresh data when any revenue event occurs
+    registerRefreshCallback(() => {
+      console.log("🔄 Revenue socket event triggered - refreshing data...");
+      fetchRevenueData();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log("🧹 Unregistering refresh callback");
+      unregisterRefreshCallback();
+    };
+  }, [isConnected, doctorId, fetchRevenueData, registerRefreshCallback, unregisterRefreshCallback]);
+  useEffect(() => {
+    fetchRevenueData();
+  }, [fetchRevenueData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -262,29 +142,21 @@ export default function RevenuePage() {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      completed: { label: t.statusCompleted, className: "bg-green-100 text-green-800" },
-      pending: { label: t.statusPending, className: "bg-yellow-100 text-yellow-800" },
-      withdrawn: { label: t.statusWithdrawn, className: "bg-blue-100 text-blue-800" },
-      cancelled: { label: t.statusCancelled, className: "bg-red-100 text-red-800" },
+      completed: { label: "Hoàn thành", className: "bg-green-100 text-green-800" },
+      pending: { label: "Chờ xử lý", className: "bg-yellow-100 text-yellow-800" },
+      withdrawn: { label: "Đã rút", className: "bg-blue-100 text-blue-800" },
+      cancelled: { label: "Đã hủy", className: "bg-red-100 text-red-800" },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     return <Badge className={config.className}>{config.label}</Badge>;
-  };
-
-  const getTypeLabel = (type: string) => {
-    const typeLabels: Record<string, string> = {
-      appointment: t.typeAppointment,
-      treatment: t.typeTreatment,
-      medicine: t.typeMedicine,
-      other: t.typeOther,
-    };
-    return typeLabels[type] || t.typeOther;
   };
 
   const handleViewDetails = (revenue: RevenueRecord) => {
@@ -292,352 +164,597 @@ export default function RevenuePage() {
     setIsDetailDialogOpen(true);
   };
 
-  const handleUpdateRevenue = async (revenueId: string, data: any) => {
-    try {
-      await revenueService.updateRevenue(revenueId, data);
-      await fetchRevenueData(); // Refresh data
-    } catch (error) {
-      console.error("Error updating revenue:", error);
-    }
-  };
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, startFilterDate, endFilterDate, searchTerm]);
 
   if (loading && !revenueData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2Icon className="w-8 h-8 animate-spin" />
-        <span className="ml-2">{t.loading}</span>
+        <Loader2Icon className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-2">Đang tải...</span>
       </div>
     );
   }
 
-  const summary = revenueData?.summary || {
-    totalAmount: 0,
-    totalPlatformFee: 0,
-    totalRevenue: 0,
-    totalAppointments: 0,
-    averageRevenue: 0,
+  // Calculate totals from revenues directly (new 3-bill structure)
+  const allRevenues = revenueData?.results || [];
+
+  // Pending revenues (bills chờ thanh toán) - Lấy từ netAmount (thực nhận)
+  const pendingRevenues = allRevenues.filter((r) => r.status === "pending");
+  const pendingTotal = pendingRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0);
+
+  // Completed revenues (bills đã thanh toán) - Lấy từ netAmount (thực nhận)
+  const completedRevenues = allRevenues.filter((r) => r.status === "completed");
+  const completedTotal = completedRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0);
+
+  // Refund revenues (bills hoàn tiền) - Lấy từ netAmount (thực trừ, đã âm)
+  const refundRevenues = allRevenues.filter((r) => (r.netAmount || 0) < 0 && r.status !== "pending");
+  const refundTotal = Math.abs(refundRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0));
+
+  // Total = pending + completed - refund
+  const totalAmount = pendingTotal + completedTotal - refundTotal;
+
+  // Platform fee total - Lấy từ cả pending và completed
+  const platformFee = [...pendingRevenues, ...completedRevenues].reduce((sum, r) => sum + (r.platformFee || 0), 0);
+
+  const totalAppointments = allRevenues.length;
+
+  // Filter revenues with search, date range, and status
+  const filteredTransactions = allRevenues.filter((revenue) => {
+    // Status filter
+    let statusMatch = true;
+    if (statusFilter === "all") {
+      statusMatch = true;
+    } else if (statusFilter === "refund") {
+      statusMatch = (revenue.amount || 0) < 0;
+    } else {
+      statusMatch = revenue.status === statusFilter;
+    }
+
+    // Search filter
+    const searchMatch =
+      !searchTerm ||
+      (typeof revenue.patientId === "object" &&
+        revenue.patientId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (typeof revenue.patientId === "object" &&
+        revenue.patientId?.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Date range filter
+    if (startFilterDate && endFilterDate && statusMatch && searchMatch) {
+      const revenueDate = new Date(revenue.createdAt);
+      const start = new Date(startFilterDate);
+      const end = new Date(endFilterDate);
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      revenueDate.setHours(0, 0, 0, 0);
+
+      return revenueDate >= start && revenueDate <= end;
+    } else if (startFilterDate && statusMatch && searchMatch) {
+      const revenueDate = new Date(revenue.createdAt);
+      const filterDate = new Date(startFilterDate);
+
+      return (
+        revenueDate.getFullYear() === filterDate.getFullYear() &&
+        revenueDate.getMonth() === filterDate.getMonth() &&
+        revenueDate.getDate() === filterDate.getDate()
+      );
+    }
+
+    return statusMatch && searchMatch;
+  });
+
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize);
+  const paginatedTransactions = filteredTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Handler for card clicks
+  const handleCardClick = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
   };
 
-  // Sử dụng data từ server (đã tính sẵn)
-  const totalAmount = summary.totalAmount || 0; // Tổng số tiền gốc
-  const platformFee = summary.totalPlatformFee || 0; // Tổng phí nền tảng
-  const netRevenue = summary.totalRevenue || 0; // Tổng thực nhận (đã trừ phí)
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="space-y-4">
+          {/* Title and Buttons Row - All in one line */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <DollarSignIcon className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Doanh thu</h1>
+                <p className="text-sm text-gray-600">Quản lý và theo dõi doanh thu</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="gap-2 text-white">
+                <DownloadIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Xuất báo cáo</span>
+              </Button>
+              <Button size="sm" className="gap-2 text-white">
+                <WalletIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Yêu cầu rút tiền</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Filters Row */}
+          <div className="flex flex-col md:flex-row items-center gap-3">
+            <div className="relative flex-1 w-full md:w-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm bệnh nhân, email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+              />
+            </div>
+
+            <span className="text-sm font-medium text-gray-700">Từ</span>
+            <input
+              type="date"
+              value={startFilterDate}
+              onChange={(e) => setStartFilterDate(e.target.value)}
+              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+            />
+            <span className="text-sm font-medium text-gray-700">đến</span>
+            <input
+              type="date"
+              value={endFilterDate}
+              onChange={(e) => setEndFilterDate(e.target.value)}
+              className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+            />
+            <button
+              onClick={() => {
+                setStartFilterDate("");
+                setEndFilterDate("");
+                setSearchTerm("");
+              }}
+              disabled={!startFilterDate && !endFilterDate && !searchTerm}
+              className="px-4 py-2.5 text-sm bg-white text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-gray-300"
+            >
+              Xóa
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Total Revenue - Click to show all */}
+        <button
+          onClick={() => handleCardClick("all")}
+          className={`bg-white ${statusFilter === "all" ? "ring-2 ring-primary rounded-xl" : ""}`}
+        >
+          <Card className="text-left h-full">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm mb-1 text-gray-600">Tổng doanh thu</p>
+                  <div className="text-2xl font-bold text-primary">+{formatCurrency(totalAmount)}</div>
+                  <p className="text-xs mt-2 text-gray-600">{totalAppointments} giao dịch (đã trừ phí 5%)</p>
+                </div>
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <DollarSignIcon className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </button>
+
+        {/* Pending Revenue - Click to show pending */}
+        <button
+          onClick={() => handleCardClick("pending")}
+          className={`bg-white ${statusFilter === "pending" ? "ring-2 ring-yellow-500 rounded-xl" : ""}`}
+        >
+          <Card className="text-left h-full">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Doanh thu chờ</p>
+                  <div className="text-2xl font-bold text-yellow-600">+{formatCurrency(pendingTotal)}</div>
+                  <p className="text-xs text-gray-500 mt-2">{pendingRevenues.length} giao dịch (đã trừ phí 5%)</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <WalletIcon className="w-6 h-6 text-yellow-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </button>
+
+        {/* Completed Revenue - Click to show completed */}
+        <button
+          onClick={() => handleCardClick("completed")}
+          className={`bg-white ${statusFilter === "completed" ? "ring-2 ring-green-500 rounded-xl" : ""}`}
+        >
+          <Card className="text-left h-full">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Doanh thu thực nhận</p>
+                  <div className="text-2xl font-bold text-green-600">+{formatCurrency(completedTotal)}</div>
+                  <p className="text-xs text-gray-500 mt-2">{completedRevenues.length} giao dịch (đã trừ phí 5%)</p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <WalletIcon className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </button>
+
+        {/* Refunds - Click to show refunds */}
+        <button
+          onClick={() => handleCardClick("refund")}
+          className={`bg-white ${statusFilter === "refund" ? "ring-2 ring-red-500 rounded-xl" : ""}`}
+        >
+          <Card className="text-left h-full">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Đã hoàn tiền</p>
+                  <div className="text-2xl font-bold text-red-600">{formatCurrency(refundTotal)}</div>
+                  <p className="text-xs text-gray-500 mt-2">{refundRevenues.length} giao dịch (không trừ phí)</p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <TrendingUpIcon className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </button>
+
+        {/* Platform Fee */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-1">Phí nền tảng</p>
+                <div className="text-2xl font-bold text-orange-600">{formatCurrency(platformFee)}</div>
+                <p className="text-xs text-gray-500 mt-2">5% mỗi giao dịch</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <CreditCardIcon className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Transactions Table */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        {filteredTransactions.length === 0 ? (
+          <div className="text-center py-12">
+            <ReceiptIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">Chưa có dữ liệu</p>
+          </div>
+        ) : (
+          <>
+            {/* Table Header */}
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+              <div className="grid grid-cols-12 gap-6 text-sm font-semibold text-gray-700">
+                <div className="col-span-3">Bệnh nhân</div>
+                <div className="col-span-2">Ngày tạo</div>
+                <div className="col-span-2">Ngày thanh toán</div>
+                <div className="col-span-1 text-right">Số tiền</div>
+                <div className="col-span-1 text-right">Phí</div>
+                <div className="col-span-2 text-right">Thực nhận</div>
+                <div className="col-span-1 text-center">Thao tác</div>
+              </div>
+            </div>
+
+            {/* Table Body */}
+            <div className="divide-y divide-gray-200">
+              {paginatedTransactions.map((revenue: RevenueRecord) => {
+                // Lấy giá trị trực tiếp từ database
+                const amount = revenue.amount || 0;
+                const platformFee = revenue.platformFee || 0;
+                const netAmount = revenue.netAmount || 0;
+                const patientName = (typeof revenue.patientId === "object" && revenue.patientId?.fullName) || "N/A";
+                const patientEmail = (typeof revenue.patientId === "object" && revenue.patientId?.email) || "";
+
+                return (
+                  <div
+                    key={revenue._id}
+                    className="px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => handleViewDetails(revenue)}
+                  >
+                    <div className="grid grid-cols-12 gap-4 items-center">
+                      {/* Patient with Avatar */}
+                      <div className="col-span-3 flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <User className="w-6 h-6 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[15px] font-medium text-gray-900 truncate">{patientName}</p>
+                          {patientEmail && <p className="text-xs text-gray-500 truncate mt-0.5">{patientEmail}</p>}
+                        </div>
+                      </div>
+
+                      {/* Created Date */}
+                      <div className="col-span-2 flex items-center">
+                        <p className="text-[15px] text-gray-900">{formatDate(revenue.createdAt)}</p>
+                      </div>
+
+                      {/* Payment Date */}
+                      <div className="col-span-2 flex items-center">
+                        <p className="text-[15px] text-gray-900">
+                          {revenue.status === "completed" && revenue.revenueDate ? formatDate(revenue.revenueDate) : ""}
+                        </p>
+                      </div>
+
+                      {/* Amount */}
+                      <div className="col-span-1 text-right flex items-center justify-end">
+                        <p className="text-[15px] font-semibold text-primary">
+                          {amount >= 0 ? "+" : ""}
+                          {formatCurrency(amount)}
+                        </p>
+                      </div>
+
+                      {/* Platform Fee */}
+                      <div className="col-span-1 text-right flex items-center justify-end">
+                        <p className="text-[15px] text-orange-600">{formatCurrency(platformFee)}</p>
+                      </div>
+
+                      {/* Net Amount */}
+                      <div className="col-span-2 text-right flex items-center justify-end">
+                        <p className={`text-[15px] font-bold ${netAmount >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {netAmount >= 0 ? "+" : ""}
+                          {formatCurrency(netAmount)}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="col-span-1 flex items-center justify-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (revenue.refId) {
+                              const refIdString =
+                                typeof revenue.refId === "object"
+                                  ? revenue.refId._id || revenue.refId.toString()
+                                  : revenue.refId.toString();
+                              window.location.href = `/doctor/schedule?appointmentId=${refIdString}`;
+                            }
+                          }}
+                          className="gap-1.5 hover:bg-primary/10 text-primary text-sm font-medium"
+                        >
+                          <CalendarDays className="w-4 h-4" />
+                          <span className="hidden sm:inline">Xem lịch</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Hiển thị {(currentPage - 1) * pageSize + 1} -{" "}
+                    {Math.min(currentPage * pageSize, filteredTransactions.length)} trong tổng số{" "}
+                    {filteredTransactions.length} giao dịch
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Trước
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {[...Array(totalPages)].map((_, index) => {
+                        const pageNumber = index + 1;
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={pageNumber}
+                              onClick={() => setCurrentPage(pageNumber)}
+                              className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                                currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          );
+                        } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                          return (
+                            <span key={pageNumber} className="px-2 text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Tiếp
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Revenue Detail Modal */}
+      {isDetailDialogOpen && selectedRevenue && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Chi Tiết Hóa Đơn</h2>
+              <button onClick={() => setIsDetailDialogOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Patient info */}
               <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
-                  <ReceiptIcon className="w-8 h-8 text-white" />
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <User className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    {t.title}
-                  </h1>
-                  <p className="text-slate-600 mt-1">{t.description}</p>
-                </div>
-                {/* WebSocket Status Indicator */}
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-sm transition-all ${
-                  isConnected 
-                    ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' 
-                    : 'bg-gradient-to-r from-red-400 to-rose-500 text-white'
-                }`}>
-                  {isConnected ? (
-                    <>
-                      <WifiIcon className="w-4 h-4 animate-pulse" />
-                      <span>Realtime</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOffIcon className="w-4 h-4" />
-                      <span>Offline</span>
-                    </>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {(typeof selectedRevenue.patientId === "object" && selectedRevenue.patientId?.fullName) || "N/A"}
+                  </h3>
+                  {typeof selectedRevenue.patientId === "object" && selectedRevenue.patientId?.email && (
+                    <p className="text-sm text-gray-600">{selectedRevenue.patientId.email}</p>
                   )}
                 </div>
               </div>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" className="gap-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-all">
-                <DownloadIcon className="w-4 h-4" />
-                {t.exportReport}
-              </Button>
-              <Button className="gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/30">
-                <WalletIcon className="w-4 h-4" />
-                {t.requestWithdraw}
-              </Button>
+
+              {/* Revenue details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-600">Ngày tạo</p>
+                    <p className="font-medium text-gray-900">{formatDate(selectedRevenue.createdAt)}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-600">Ngày thanh toán</p>
+                    {selectedRevenue.status === "completed" && selectedRevenue.revenueDate && (
+                      <p className="font-medium text-gray-900">{formatDate(selectedRevenue.revenueDate)}</p>
+                    )}
+                  </div>
+                </div>
+
+                {typeof selectedRevenue.patientId === "object" && selectedRevenue.patientId?.email && (
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-600">Email</p>
+                      <p className="font-medium text-gray-900">{selectedRevenue.patientId.email}</p>
+                    </div>
+                  </div>
+                )}
+
+                {typeof selectedRevenue.patientId === "object" && selectedRevenue.patientId?.phone && (
+                  <div className="flex items-start gap-3">
+                    <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-600">Điện thoại</p>
+                      <p className="font-medium text-gray-900">{selectedRevenue.patientId.phone}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-3">
+                  <ReceiptIcon className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-600">Loại</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedRevenue.type === "appointment" ? "Lịch khám" : "Khác"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-5 h-5 rounded-full mt-0.5 ${
+                      selectedRevenue.status === "completed"
+                        ? "bg-green-500"
+                        : selectedRevenue.status === "pending"
+                        ? "bg-yellow-500"
+                        : "bg-red-500"
+                    }`}
+                  />
+                  <div>
+                    <p className="text-sm text-gray-600">Trạng thái</p>
+                    <p className="font-medium text-gray-900">
+                      {selectedRevenue.status === "completed"
+                        ? "Đã thanh toán"
+                        : selectedRevenue.status === "pending"
+                        ? "Chờ xử lý"
+                        : "Đã hủy"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Amount details */}
+              <div className="border-t border-gray-200 pt-6 space-y-3">
+                <h3 className="font-semibold text-gray-900 mb-4">Thông tin thanh toán</h3>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Số tiền gốc:</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(selectedRevenue.amount || 0)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Phí nền tảng (5%):</span>
+                  <span className="font-semibold text-orange-600">
+                    {formatCurrency(selectedRevenue.platformFee || 0)}
+                  </span>
+                </div>
+
+                <div className="border-t border-gray-200 pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-gray-900">Thực nhận:</span>
+                    <span className="text-xl font-bold text-green-600">
+                      {formatCurrency(selectedRevenue.netAmount || 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedRevenue.notes && (
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="font-semibold text-gray-900 mb-2">Ghi chú</h3>
+                  <p className="text-gray-600">{selectedRevenue.notes}</p>
+                </div>
+              )}
+
+              {/* Action button to view appointment */}
+              {selectedRevenue.refId && (
+                <div className="border-t border-gray-200 pt-6">
+                  <Button
+                    onClick={() => {
+                      const refIdString =
+                        typeof selectedRevenue.refId === "object"
+                          ? selectedRevenue.refId._id || selectedRevenue.refId.toString()
+                          : selectedRevenue.refId.toString();
+                      window.location.href = `/doctor/schedule?appointmentId=${refIdString}`;
+                    }}
+                    className="w-full gap-2"
+                  >
+                    <CalendarDays className="w-4 h-4" />
+                    Xem lịch hẹn liên quan
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-      {/* Filters */}
-      <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-lg">
-        <CardHeader className="border-b border-slate-100">
-          <CardTitle className="flex items-center gap-2 text-slate-700">
-            <div className="bg-gradient-to-br from-purple-500 to-pink-500 p-2 rounded-lg">
-              <FilterIcon className="w-4 h-4 text-white" />
-            </div>
-            {t.filters}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Period Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-blue-500" />
-                {t.period}
-              </label>
-              <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">{t.all}</SelectItem>
-                  <SelectItem value="today">{t.today}</SelectItem>
-                  <SelectItem value="week">{t.week}</SelectItem>
-                  <SelectItem value="month">{t.month}</SelectItem>
-                  <SelectItem value="year">{t.year}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">{t.status}</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">{t.all}</SelectItem>
-                  <SelectItem value="completed">{t.statusCompleted}</SelectItem>
-                  <SelectItem value="pending">{t.statusPending}</SelectItem>
-                  <SelectItem value="withdrawn">{t.statusWithdrawn}</SelectItem>
-                  <SelectItem value="cancelled">{t.statusCancelled}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Type Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700">{t.revenueType}</label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="border-slate-200 focus:border-blue-400 focus:ring-blue-400">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="all">{t.all}</SelectItem>
-                  <SelectItem value="appointment">{t.typeAppointment}</SelectItem>
-                  <SelectItem value="treatment">{t.typeTreatment}</SelectItem>
-                  <SelectItem value="medicine">{t.typeMedicine}</SelectItem>
-                  <SelectItem value="other">{t.typeOther}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{/*Total Revenue */}
-        <Card className={`relative overflow-hidden transition-all duration-500 border-0 shadow-lg hover:shadow-xl ${
-          revenueAnimation ? 'scale-105 shadow-2xl ring-2 ring-blue-400' : ''
-        }`}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 rounded-bl-full opacity-10"></div>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <div className="bg-gradient-to-br from-blue-400 to-blue-600 p-2 rounded-lg shadow-md">
-                <DollarSignIcon className="w-4 h-4 text-white" />
-              </div>
-              {t.totalRevenue}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent transition-all ${
-              revenueAnimation ? 'scale-110' : ''
-            }`}>
-              {formatCurrency(totalAmount)}
-            </div>
-            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-              {summary.totalAppointments} {t.transactions}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Platform Fee */}
-        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-400 to-red-500 rounded-bl-full opacity-10"></div>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <div className="bg-gradient-to-br from-orange-400 to-red-500 p-2 rounded-lg shadow-md">
-                <CreditCardIcon className="w-4 h-4 text-white" />
-              </div>
-              {t.platformFee}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-              -{formatCurrency(platformFee)}
-            </div>
-            <p className="text-xs text-slate-500 mt-2">{t.feeRate}</p>
-          </CardContent>
-        </Card>
-
-        {/* Net Revenue */}
-        <Card className={`relative overflow-hidden transition-all duration-500 border-0 shadow-lg hover:shadow-xl ${
-          revenueAnimation ? 'scale-105 shadow-2xl ring-2 ring-emerald-400' : ''
-        }`}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-400 to-green-600 rounded-bl-full opacity-10"></div>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <div className="bg-gradient-to-br from-emerald-400 to-green-600 p-2 rounded-lg shadow-md">
-                <WalletIcon className="w-4 h-4 text-white" />
-              </div>
-              {t.netRevenue}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-3xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent transition-all ${
-              revenueAnimation ? 'scale-110' : ''
-            }`}>
-              {formatCurrency(netRevenue)}
-            </div>
-            <p className="text-xs text-slate-500 mt-2">{t.afterFees}</p>
-          </CardContent>
-        </Card>
-
-        {/* Growth */}
-        <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400 to-pink-500 rounded-bl-full opacity-10"></div>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-              <div className="bg-gradient-to-br from-purple-400 to-pink-500 p-2 rounded-lg shadow-md">
-                <TrendingUpIcon className="w-4 h-4 text-white" />
-              </div>
-              {t.growth}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold flex items-center gap-2 text-purple-600">
-              +0.0%
-              <ArrowUpIcon className="w-6 h-6 text-emerald-500" />
-            </div>
-            <p className="text-xs text-slate-500 mt-2">{t.comparedToLastMonth}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
-        <div className="transform transition-all hover:scale-[1.02]">
-          <RevenueChart data={revenueData?.monthlyRevenue || []} />
-        </div>
-
-        {/* Revenue by Type */}
-        <div className="transform transition-all hover:scale-[1.02]">
-          <RevenueByTypeChart revenues={revenueData?.results || []} />
-        </div>
-      </div>
-
-      {/* Recent Transactions */}
-      <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-lg">
-        <CardHeader className="border-b border-slate-100">
-          <CardTitle className="flex items-center gap-2 text-slate-700">
-            <div className="bg-gradient-to-br from-cyan-500 to-blue-500 p-2 rounded-lg">
-              <CalendarIcon className="w-4 h-4 text-white" />
-            </div>
-            {t.recentTransactions}
-          </CardTitle>
-          <CardDescription>{t.latestPayments}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!revenueData?.recentTransactions || revenueData.recentTransactions.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">{t.noData}</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t.patient}</TableHead>
-                    <TableHead>{t.date}</TableHead>
-                    <TableHead>{t.type}</TableHead>
-                    <TableHead className="text-right">{t.amount}</TableHead>
-                    <TableHead className="text-right">{t.fee}</TableHead>
-                    <TableHead className="text-right">{t.netAmount}</TableHead>
-                    <TableHead>{t.statusLabel}</TableHead>
-                    <TableHead className="text-right">{t.actions}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {revenueData.recentTransactions
-                    .filter((transaction: any) => transaction.revenueRecorded) // Chỉ hiển thị transactions có revenue
-                    .map((transaction: any) => {
-                      // Tính phí nếu không có trong data
-                      const platformFee = transaction.platformFee || Math.round(transaction.amount * 0.05);
-                      const revenueAmount = transaction.revenueAmount || (transaction.amount - platformFee);
-                      
-                      return (
-                        <TableRow key={transaction._id}>
-                          <TableCell className="font-medium">
-                            {transaction.patientId?.fullName || "N/A"}
-                          </TableCell>
-                          <TableCell>{formatDate(transaction.paymentDate || transaction.createdAt)}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {getTypeLabel(transaction.refId?.appointmentType || "appointment")}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {formatCurrency(transaction.amount)}
-                          </TableCell>
-                          <TableCell className="text-right text-orange-600">
-                            -{formatCurrency(platformFee)}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-green-600">
-                            {formatCurrency(revenueAmount)}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                // Find the corresponding revenue record
-                                const revenue = revenueData.results?.find(
-                                  (r: RevenueRecord) => r.paymentId?._id === transaction._id
-                                );
-                                if (revenue) {
-                                  handleViewDetails(revenue);
-                                }
-                              }}
-                            >
-                              {t.viewDetails}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Revenue Detail Dialog */}
-      <RevenueDetailDialog
-        revenue={selectedRevenue}
-        isOpen={isDetailDialogOpen}
-        onClose={() => setIsDetailDialogOpen(false)}
-        onUpdate={handleUpdateRevenue}
-      />
-      </div>
+      )}
     </div>
   );
 }

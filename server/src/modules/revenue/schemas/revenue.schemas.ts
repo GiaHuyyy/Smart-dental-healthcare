@@ -12,8 +12,12 @@ export class Revenue {
   @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   doctorId: mongoose.Schema.Types.ObjectId;
 
-  @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: 'Payment' })
-  paymentId: mongoose.Schema.Types.ObjectId;
+  @Prop({
+    required: false,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment',
+  })
+  paymentId: mongoose.Schema.Types.ObjectId; // Optional - will be linked after payment is created
 
   @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: 'User' })
   patientId: mongoose.Schema.Types.ObjectId;
@@ -30,7 +34,10 @@ export class Revenue {
   @Prop({ required: true })
   revenueDate: Date; // Ngày phát sinh doanh thu
 
-  @Prop({ required: true, enum: ['pending', 'completed', 'withdrawn', 'cancelled'] })
+  @Prop({
+    required: true,
+    enum: ['pending', 'completed', 'withdrawn', 'cancelled'],
+  })
   status: string; // Trạng thái: pending (chờ xử lý), completed (hoàn thành), withdrawn (đã rút), cancelled (hủy)
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, refPath: 'refModel' })

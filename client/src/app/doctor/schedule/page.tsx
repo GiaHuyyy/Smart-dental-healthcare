@@ -775,78 +775,89 @@ function DoctorScheduleContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Calendar className="w-8 h-8 text-primary" />
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Lịch Hẹn</h1>
-                <p className="text-sm text-gray-500">Quản lý lịch hẹn của bạn</p>
+      {/* Header Card */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="space-y-4">
+            {/* Title and Buttons Row */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Lịch Hẹn</h1>
+                  <p className="text-sm text-gray-600">Quản lý lịch hẹn của bạn</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Socket status */}
+                <div
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                    isConnected ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  <div
+                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
+                  />
+                  <span>{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
+                </div>
+
+                {/* Action buttons */}
+                <button
+                  onClick={handleExportExcel}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Xuất Excel</span>
+                </button>
+
+                <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Thêm Lịch Hẹn</span>
+                </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Socket status */}
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"}`} />
-                <span className="text-sm text-gray-600">{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
-              </div>
-
+            {/* Filters Row */}
+            <div className="flex flex-col md:flex-row items-center gap-3">
               {/* Search Input */}
-              <div className="relative">
+              <div className="relative flex-1 w-full md:w-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Tìm kiếm bệnh nhân, lý do khám..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary w-64"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
                 />
               </div>
 
-              {/* Date Filter */}
-              <div className="flex items-center gap-2">
-                {" "}
-                <span className="text-sm font-medium text-gray-700">Từ</span>
-                <input
-                  type="date"
-                  value={startFilterDate}
-                  onChange={(e) => setStartFilterDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <span className="text-sm font-medium text-gray-700">đến</span>
-                <input
-                  type="date"
-                  value={endFilterDate}
-                  onChange={(e) => setEndFilterDate(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <button
-                  onClick={() => {
-                    setStartFilterDate("");
-                    setEndFilterDate("");
-                  }}
-                  disabled={!startFilterDate && !endFilterDate}
-                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Xóa
-                </button>
-              </div>
-
-              {/* Action buttons */}
+              <span className="text-sm font-medium text-gray-700">Từ</span>
+              <input
+                type="date"
+                value={startFilterDate}
+                onChange={(e) => setStartFilterDate(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+              />
+              <span className="text-sm font-medium text-gray-700">đến</span>
+              <input
+                type="date"
+                value={endFilterDate}
+                onChange={(e) => setEndFilterDate(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+              />
               <button
-                onClick={handleExportExcel}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                onClick={() => {
+                  setStartFilterDate("");
+                  setEndFilterDate("");
+                  setSearchTerm("");
+                }}
+                disabled={!startFilterDate && !endFilterDate && !searchTerm}
+                className="px-4 py-2.5 text-sm bg-white text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-gray-300"
               >
-                <Download className="w-4 h-4" />
-                Xuất Excel
-              </button>
-
-              <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Thêm Lịch Hẹn
+                Xóa
               </button>
             </div>
           </div>

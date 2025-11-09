@@ -449,7 +449,7 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
       ],
     };
 
-    let suggestions = Object.keys(baseSuggestions).reduce(
+    const suggestions = Object.keys(baseSuggestions).reduce(
       (acc, key) => {
         if (symptom.toLowerCase().includes(key)) {
           return baseSuggestions[key];

@@ -2,6 +2,7 @@
 
 import paymentService from "@/services/paymentService";
 import walletService from "@/services/walletService";
+import { usePaymentSocket } from "@/hooks/usePaymentSocket";
 import {
   AlertCircle,
   ArrowRight,
@@ -186,6 +187,82 @@ export default function PatientPayments() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // 🔔 Realtime payment updates via WebSocket
+  const { isConnected, onNewPayment, onPaymentUpdate, onPaymentDelete } = usePaymentSocket();
+
+  useEffect(() => {
+    if (!isConnected) return;
+
+    // Listen for new payment events
+    const cleanupNew = onNewPayment((payment) => {
+      console.log("🔔 New payment received:", payment);
+
+      // Add to payments list
+      setPayments((prev) => {
+        // Check if payment already exists to avoid duplicates
+        const exists = prev.some((p) => p._id === payment._id);
+        if (exists) return prev;
+
+        // Normalize payment structure
+        const sessionUser = (session as { user?: { fullName?: string; name?: string; email?: string } })?.user;
+        const normalized: PaymentRecord = {
+          ...payment,
+          patientId:
+            typeof payment.patientId === "string"
+              ? {
+                  _id: payment.patientId,
+                  fullName: sessionUser?.fullName || sessionUser?.name || "",
+                  email: sessionUser?.email || "",
+                }
+              : payment.patientId,
+        } as PaymentRecord;
+
+        return [normalized, ...prev];
+      });
+    });
+
+    // Listen for payment update events
+    const cleanupUpdate = onPaymentUpdate((payment) => {
+      console.log("🔔 Payment updated:", payment);
+
+      setPayments((prev) =>
+        prev.map((p) => {
+          if (p._id === payment._id) {
+            const sessionUser = (session as { user?: { fullName?: string; name?: string; email?: string } })?.user;
+            return {
+              ...payment,
+              patientId:
+                typeof payment.patientId === "string"
+                  ? {
+                      _id: payment.patientId,
+                      fullName: sessionUser?.fullName || sessionUser?.name || "",
+                      email: sessionUser?.email || "",
+                    }
+                  : payment.patientId,
+            } as PaymentRecord;
+          }
+          return p;
+        })
+      );
+    });
+
+    // Listen for payment delete events
+    const cleanupDelete = onPaymentDelete((paymentId) => {
+      console.log("🔔 Payment deleted:", paymentId);
+
+      setPayments((prev) => {
+        return prev.filter((p) => p._id !== paymentId);
+      });
+    });
+
+    // Cleanup listeners on unmount
+    return () => {
+      cleanupNew();
+      cleanupUpdate();
+      cleanupDelete();
+    };
+  }, [isConnected, onNewPayment, onPaymentUpdate, onPaymentDelete, session, fetchWalletBalance]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -635,16 +712,60 @@ export default function PatientPayments() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <div className="p-3 bg-primary rounded-2xl shadow-lg">
-                <Wallet className="w-8 h-8 text-white" />
+        {/* Header with Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="space-y-4">
+            {/* Title Row */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Wallet className="w-5 h-5 text-primary" />
               </div>
-              Lịch sử thanh toán
-            </h1>
-            <p className="text-gray-600 mt-2">Quản lý và theo dõi các giao dịch của bạn</p>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Lịch sử thanh toán</h1>
+                <p className="text-sm text-gray-600">Quản lý và theo dõi các giao dịch của bạn</p>
+              </div>
+            </div>
+
+            {/* Filters Row */}
+            <div className="flex flex-col lg:flex-row items-center gap-4">
+              {/* Search */}
+              <div className="flex-1 w-full relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm theo bác sĩ, loại khám, mã giao dịch..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+                />
+              </div>
+
+              <span className="text-sm font-medium text-gray-700">Từ</span>
+              <input
+                type="date"
+                value={startFilterDate}
+                onChange={(e) => setStartFilterDate(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+              />
+              <span className="text-sm font-medium text-gray-700">đến</span>
+              <input
+                type="date"
+                value={endFilterDate}
+                onChange={(e) => setEndFilterDate(e.target.value)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+              />
+              <button
+                onClick={() => {
+                  setStartFilterDate("");
+                  setEndFilterDate("");
+                  setSearchTerm("");
+                }}
+                disabled={!startFilterDate && !endFilterDate && !searchTerm}
+                className="px-4 py-2.5 text-sm bg-white text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium border border-gray-300"
+              >
+                Xóa
+              </button>
+            </div>
           </div>
         </div>
 
@@ -662,7 +783,7 @@ export default function PatientPayments() {
                 <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-primary" />
+                <DollarSign className="w-6 h-6 text-primary" />
               </div>
             </div>
           </button>
@@ -728,57 +849,15 @@ export default function PatientPayments() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Ví của tôi</p>
-                <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">{formatCurrency(walletBalance)}</p>
+                <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
+                  {formatCurrency(walletBalance)}
+                </p>
               </div>
               <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                 <Wallet className="w-6 h-6 text-white" />
               </div>
             </div>
           </button>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-100">
-          <div className="flex flex-col lg:flex-row items-center gap-4">
-            {/* Search */}
-            <div className="flex-1 w-full relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo bác sĩ, loại khám, mã giao dịch..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors"
-              />
-            </div>
-
-            {/* Date Range Filter */}
-            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Từ</span>
-            <input
-              type="date"
-              value={startFilterDate}
-              onChange={(e) => setStartFilterDate(e.target.value)}
-              className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors"
-            />
-            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">đến</span>
-            <input
-              type="date"
-              value={endFilterDate}
-              onChange={(e) => setEndFilterDate(e.target.value)}
-              className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-primary transition-colors"
-            />
-            <button
-              onClick={() => {
-                setStartFilterDate("");
-                setEndFilterDate("");
-                setSearchTerm("");
-              }}
-              disabled={!startFilterDate && !endFilterDate && !searchTerm}
-              className="px-4 py-3 text-sm bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-            >
-              Xóa
-            </button>
-          </div>
         </div>
 
         {/* Pending Payments Alert */}
@@ -905,7 +984,7 @@ export default function PatientPayments() {
                                   : "bg-gray-50"
                               }`}
                             >
-                              <FileText className={`w-6 h-6 ${getIconColor(payment)}`} />
+                              <DollarSign className={`w-6 h-6 ${getIconColor(payment)}`} />
                             </div>
                             <div>
                               <h3 className="text-xl font-bold text-gray-900">
@@ -1195,7 +1274,9 @@ export default function PatientPayments() {
               <div className="px-6 py-6 from-purple-50 to-indigo-50 border-b border-gray-200">
                 <div className="text-center">
                   <p className="text-sm text-gray-600 font-medium mb-1">Số dư hiện tại</p>
-                  <p className="text-4xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">{formatCurrency(walletBalance)}</p>
+                  <p className="text-4xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
+                    {formatCurrency(walletBalance)}
+                  </p>
                 </div>
                 <div className="mt-4 flex justify-center">
                   <button
@@ -1203,10 +1284,10 @@ export default function PatientPayments() {
                     className="px-6 py-2 bg-linear-to-br from-purple-500 to-pink-500 text-white rounded-lg hover:opacity-80 font-medium flex items-center gap-2 transition-colors"
                   >
                     {showTopUpForm ? (
-                     <>
+                      <>
                         <Minus className="w-4 h-4" />
                         Đóng form
-                     </>
+                      </>
                     ) : (
                       <>
                         <Plus className="w-4 h-4" />

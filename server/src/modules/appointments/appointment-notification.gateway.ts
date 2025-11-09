@@ -189,7 +189,7 @@ export class AppointmentNotificationGateway
     }
 
     if (feeCharged) {
-      message += '. Phí đặt chỗ 100,000 VND được áp dụng';
+      message += '. Phí đặt chỗ 50,000 VND được áp dụng';
     }
     if (voucherCreated) {
       message += '. Bạn đã nhận voucher giảm giá 5%';
@@ -274,7 +274,7 @@ export class AppointmentNotificationGateway
 
     if (feeCharged) {
       message +=
-        '. Phí đặt chỗ 100,000 VND được áp dụng do đổi lịch trong vòng 30 phút';
+        '. Phí đặt chỗ 50,000 VND được áp dụng do đổi lịch trong vòng 30 phút';
     }
 
     // Send real-time socket notification

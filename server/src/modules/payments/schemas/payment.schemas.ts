@@ -73,6 +73,21 @@ export class Payment {
 
   @Prop()
   notes: string;
+
+  @Prop()
+  description: string;
+
+  @Prop({ default: 0 })
+  platformFee: number; // Âm - phí nền tảng (5%)
+
+  @Prop({ default: 0 })
+  netAmount: number; // Thực nhận sau khi trừ phí
+
+  @Prop({ default: false })
+  isRevenue: boolean; // true = revenue bill của doctor, false = payment bill của patient
+
+  @Prop({ default: false })
+  revenueRecorded: boolean; // Đã tạo revenue record chưa (legacy)
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

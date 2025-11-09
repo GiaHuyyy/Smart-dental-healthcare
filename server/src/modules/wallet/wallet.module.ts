@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PaymentsModule } from '../payments/payments.module';
+import { RevenueModule } from '../revenue/revenue.module';
 import { User, UserSchema } from '../users/schemas/user.schemas';
 import { Payment, PaymentSchema } from '../payments/schemas/payment.schemas';
 import {
@@ -23,6 +24,7 @@ import { WalletService } from './wallet.service';
       { name: Appointment.name, schema: AppointmentSchema },
     ]),
     PaymentsModule,
+    forwardRef(() => RevenueModule),
   ],
   controllers: [WalletController],
   providers: [WalletService],
