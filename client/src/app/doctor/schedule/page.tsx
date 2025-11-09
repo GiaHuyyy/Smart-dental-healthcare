@@ -745,18 +745,6 @@ function DoctorScheduleContent() {
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Socket status */}
-                <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-                    isConnected ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
-                  />
-                  <span>{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
-                </div>
-
                 {/* Action buttons */}
                 <button
                   onClick={handleExportExcel}
@@ -1140,7 +1128,7 @@ function DoctorScheduleContent() {
                             </>
                           )}
                           {apt.status === "completed" && (
-                            <span className="text-sm text-green-600 font-medium">Đã hoàn thành</span>
+                            <span className="text-sm text-primary font-medium">Đã hoàn thành</span>
                           )}
                           {apt.status === "cancelled" && (
                             <span className="text-sm text-red-600 font-medium">Đã hủy</span>
