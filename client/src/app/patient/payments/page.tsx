@@ -220,27 +220,6 @@ export default function PatientPayments() {
 
         return [normalized, ...prev];
       });
-
-      // Show toast notification
-      const amount = Math.abs(payment.amount);
-      if (payment.billType === "refund") {
-        toast.success("Hoàn tiền thành công", {
-          description: `Bạn đã nhận lại ${amount.toLocaleString("vi-VN")}đ vào ví`,
-          duration: 5000,
-        });
-        // Update wallet balance
-        fetchWalletBalance();
-      } else if (payment.billType === "cancellation_charge") {
-        toast.warning("Phí giữ chỗ", {
-          description: `Bạn cần thanh toán ${amount.toLocaleString("vi-VN")}đ phí hủy lịch`,
-          duration: 5000,
-        });
-      } else if (payment.status === "completed") {
-        toast.success("Thanh toán thành công", {
-          description: `Đã thanh toán ${amount.toLocaleString("vi-VN")}đ`,
-          duration: 5000,
-        });
-      }
     });
 
     // Listen for payment update events
@@ -273,13 +252,6 @@ export default function PatientPayments() {
       console.log("🔔 Payment deleted:", paymentId);
 
       setPayments((prev) => {
-        const deletedPayment = prev.find((p) => p._id === paymentId);
-        if (deletedPayment && deletedPayment.status === "pending") {
-          toast.info("Hóa đơn đã bị hủy", {
-            description: "Hóa đơn chờ thanh toán đã được hủy",
-            duration: 3000,
-          });
-        }
         return prev.filter((p) => p._id !== paymentId);
       });
     });
