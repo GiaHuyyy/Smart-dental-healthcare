@@ -1,20 +1,21 @@
-import { Input } from "./input"
+import { Input } from "./input";
 
 interface DatePickerProps {
-  value?: string
-  onChange?: (value: string) => void
-  className?: string
-  placeholder?: string
+  value?: string;
+  onChange?: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+  type?: "date" | "month"; // Add type option
 }
 
-export function DatePicker({ value, onChange, className, placeholder }: DatePickerProps) {
+export function DatePicker({ value, onChange, className, placeholder, type = "date" }: DatePickerProps) {
   return (
     <Input
-      type="date"
+      type={type}
       value={value}
       onChange={(e) => onChange?.(e.target.value)}
       className={className}
       placeholder={placeholder}
     />
-  )
+  );
 }
