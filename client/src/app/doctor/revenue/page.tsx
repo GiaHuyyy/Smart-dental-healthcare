@@ -524,7 +524,7 @@ export default function RevenuePage() {
                       if (active && payload && payload.length) {
                         return (
                           <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg">
-                            <p className="text-xs text-gray-500 mb-2">Ngày: {label}</p>
+                            <p className="text-xs text-gray-500 mb-2">{label}</p>
                             <div className="space-y-1">
                               <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
