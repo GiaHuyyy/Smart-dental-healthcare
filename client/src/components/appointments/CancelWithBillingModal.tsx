@@ -80,15 +80,27 @@ export default function CancelWithBillingModal({
           message += `\nPhí đặt chỗ: ${result.data.feeAmount.toLocaleString("vi-VN")} VND`;
         }
 
-        if (result.data?.refundIssued) {
-          message += "\nPhí khám đã được hoàn lại.";
-        }
-
         if (result.data?.voucherCreated) {
           message += "\nĐã tạo voucher giảm giá 5% cho bệnh nhân!";
         }
 
         toast.success(message);
+
+        // Show refund toast if refund was issued
+        if (result.data?.refundIssued) {
+          setTimeout(() => {
+            if (userRole === "patient") {
+              toast.success("💰 Đã hoàn lại tiền khám", {
+                duration: 4000,
+              });
+            } else if (userRole === "doctor") {
+              toast.success("💰 Đã hoàn tiền cho bệnh nhân", {
+                duration: 4000,
+              });
+            }
+          }, 500);
+        }
+
         onSuccess();
         onClose();
       } else {

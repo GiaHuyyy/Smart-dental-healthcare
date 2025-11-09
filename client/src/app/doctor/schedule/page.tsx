@@ -343,59 +343,12 @@ function DoctorScheduleContent() {
     }
   };
 
-  // Handle cancel appointment
-  const handleCancelAppointment = async (appointmentId: string, reason: string = "Bác sĩ hủy lịch hẹn") => {
-    if (!session || actionLoading) return;
-
-    try {
-      setActionLoading(true);
-      const accessToken = (session as ExtendedSession).accessToken;
-      const result = await appointmentService.cancelAppointment(
-        appointmentId,
-        reason,
-        accessToken,
-        "doctor" // Specify that doctor is cancelling
-      );
-
-      if (result.success) {
-        toast.success("Đã hủy lịch hẹn");
-        // Refresh appointments to reflect changes
-        await fetchAppointments();
-        if (detailModalOpen && selectedAppointment?.id === appointmentId) {
-          setDetailModalOpen(false);
-          setSelectedAppointment(null);
-        }
-        // Close cancel dialog
-        setCancelDialogOpen(false);
-        setAppointmentToCancel(null);
-        setCancelReason("");
-      } else {
-        toast.error(result.error || "Không thể hủy lịch hẹn");
-      }
-    } catch (error) {
-      console.error("Cancel appointment error:", error);
-      toast.error("Có lỗi xảy ra khi hủy lịch hẹn");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   // Open cancel dialog
   const openCancelDialog = (appointmentId: string) => {
     const appointment = appointments.find((apt) => apt.id === appointmentId || apt._id === appointmentId);
     setAppointmentToCancel(appointment || null);
     setCancelReason("");
     setCancelDialogOpen(true);
-  };
-
-  // Confirm cancel with reason
-  const confirmCancel = () => {
-    if (!appointmentToCancel) return;
-    if (!cancelReason.trim()) {
-      toast.error("Vui lòng nhập lý do hủy");
-      return;
-    }
-    handleCancelAppointment(appointmentToCancel._id || appointmentToCancel.id, cancelReason);
   };
 
   // Treatment modal handlers
