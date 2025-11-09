@@ -9,6 +9,7 @@ import revenueService, { RevenueRecord } from "@/services/revenueService";
 import {
   Calendar,
   CalendarDays,
+  CheckCircle,
   Clock,
   CreditCardIcon,
   DollarSignIcon,
@@ -17,14 +18,16 @@ import {
   Mail,
   Phone,
   ReceiptIcon,
+  RefreshCw,
   Search,
-  TrendingUpIcon,
   User,
+  Wallet,
   WalletIcon,
   X,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 interface Transaction {
   _id: string;
@@ -147,18 +150,6 @@ export default function RevenuePage() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      completed: { label: "Hoàn thành", className: "bg-green-100 text-green-800" },
-      pending: { label: "Chờ xử lý", className: "bg-yellow-100 text-yellow-800" },
-      withdrawn: { label: "Đã rút", className: "bg-blue-100 text-blue-800" },
-      cancelled: { label: "Đã hủy", className: "bg-red-100 text-red-800" },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    return <Badge className={config.className}>{config.label}</Badge>;
-  };
-
   const handleViewDetails = (revenue: RevenueRecord) => {
     setSelectedRevenue(revenue);
     setIsDetailDialogOpen(true);
@@ -169,17 +160,8 @@ export default function RevenuePage() {
     setCurrentPage(1);
   }, [statusFilter, startFilterDate, endFilterDate, searchTerm]);
 
-  if (loading && !revenueData) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2Icon className="w-8 h-8 animate-spin text-primary" />
-        <span className="ml-2">Đang tải...</span>
-      </div>
-    );
-  }
-
   // Calculate totals from revenues directly (new 3-bill structure)
-  const allRevenues = revenueData?.results || [];
+  const allRevenues = useMemo(() => revenueData?.results || [], [revenueData?.results]);
 
   // Pending revenues (bills chờ thanh toán) - Lấy từ netAmount (thực nhận)
   const pendingRevenues = allRevenues.filter((r) => r.status === "pending");
@@ -201,6 +183,67 @@ export default function RevenuePage() {
   const platformFee = [...pendingRevenues, ...completedRevenues].reduce((sum, r) => sum + (r.platformFee || 0), 0);
 
   const totalAppointments = allRevenues.length;
+
+  // Prepare chart data - Group revenues by day (last 7 days) and calculate net amount
+  const chartData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      date.setHours(0, 0, 0, 0); // Reset to start of day
+      return date;
+    });
+
+    return last7Days.map((date) => {
+      const dayName = date.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+
+      // Get date string in local timezone (not UTC)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+
+      // Helper function to check if revenue belongs to this day
+      const isSameDay = (revenue: RevenueRecord) => {
+        const sourceDate = revenue.revenueDate ? new Date(revenue.revenueDate) : new Date(revenue.createdAt);
+        const revYear = sourceDate.getFullYear();
+        const revMonth = String(sourceDate.getMonth() + 1).padStart(2, "0");
+        const revDay = String(sourceDate.getDate()).padStart(2, "0");
+        const revDateStr = `${revYear}-${revMonth}-${revDay}`;
+        return revDateStr === dateStr;
+      };
+
+      // Completed revenues (positive netAmount)
+      const completedRevenues = allRevenues.filter(
+        (r) => r.status === "completed" && (r.netAmount || 0) > 0 && isSameDay(r)
+      );
+      const completedAmount = completedRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0);
+
+      // Pending revenues
+      const pendingRevenues = allRevenues.filter((r) => r.status === "pending" && isSameDay(r));
+      const pendingAmount = pendingRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0);
+
+      // Refund revenues (negative netAmount, display as positive for chart)
+      const refundRevenues = allRevenues.filter((r) => (r.netAmount || 0) < 0 && isSameDay(r));
+      const refundAmount = Math.abs(refundRevenues.reduce((sum, r) => sum + (r.netAmount || 0), 0));
+
+      return {
+        day: dayName,
+        completed: completedAmount,
+        pending: pendingAmount,
+        refund: refundAmount,
+        date: dateStr,
+      };
+    });
+  }, [allRevenues]);
+
+  if (loading && !revenueData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2Icon className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-2">Đang tải...</span>
+      </div>
+    );
+  }
 
   // Filter revenues with search, date range, and status
   const filteredTransactions = allRevenues.filter((revenue) => {
@@ -265,7 +308,7 @@ export default function RevenuePage() {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <DollarSignIcon className="w-5 h-5 text-primary" />
+                <Wallet className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Doanh thu</h1>
@@ -331,7 +374,7 @@ export default function RevenuePage() {
         {/* Total Revenue - Click to show all */}
         <button
           onClick={() => handleCardClick("all")}
-          className={`bg-white ${statusFilter === "all" ? "ring-2 ring-primary rounded-xl" : ""}`}
+          className={`bg-white rounded-xl ring-2 ${statusFilter === "all" ? "ring-primary" : "ring-transparent"}`}
         >
           <Card className="text-left h-full">
             <CardContent className="pt-6">
@@ -352,7 +395,9 @@ export default function RevenuePage() {
         {/* Pending Revenue - Click to show pending */}
         <button
           onClick={() => handleCardClick("pending")}
-          className={`bg-white ${statusFilter === "pending" ? "ring-2 ring-yellow-500 rounded-xl" : ""}`}
+          className={`bg-white rounded-xl ring-2 ${
+            statusFilter === "pending" ? " ring-yellow-500" : "ring-transparent "
+          }`}
         >
           <Card className="text-left h-full">
             <CardContent className="pt-6">
@@ -363,7 +408,7 @@ export default function RevenuePage() {
                   <p className="text-xs text-gray-500 mt-2">{pendingRevenues.length} giao dịch (trừ 5% phí)</p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <WalletIcon className="w-6 h-6 text-yellow-600" />
+                  <Clock className="w-6 h-6 text-yellow-600" />
                 </div>
               </div>
             </CardContent>
@@ -373,7 +418,9 @@ export default function RevenuePage() {
         {/* Completed Revenue - Click to show completed */}
         <button
           onClick={() => handleCardClick("completed")}
-          className={`bg-white ${statusFilter === "completed" ? "ring-2 ring-green-500 rounded-xl" : ""}`}
+          className={`bg-white rounded-xl ring-2 ${
+            statusFilter === "completed" ? "ring-green-500" : "ring-transparent"
+          }`}
         >
           <Card className="text-left h-full">
             <CardContent className="pt-6">
@@ -384,7 +431,7 @@ export default function RevenuePage() {
                   <p className="text-xs text-gray-500 mt-2">{completedRevenues.length} giao dịch (trừ 5% phí)</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <WalletIcon className="w-6 h-6 text-green-600" />
+                  <CheckCircle className="w-6 h-6 text-green-600" />
                 </div>
               </div>
             </CardContent>
@@ -394,7 +441,7 @@ export default function RevenuePage() {
         {/* Refunds - Click to show refunds */}
         <button
           onClick={() => handleCardClick("refund")}
-          className={`bg-white ${statusFilter === "refund" ? "ring-2 ring-red-500 rounded-xl" : ""}`}
+          className={`bg-white rounded-xl ring-2  ${statusFilter === "refund" ? " ring-red-500" : "ring-transparent "}`}
         >
           <Card className="text-left h-full">
             <CardContent className="pt-6">
@@ -405,7 +452,7 @@ export default function RevenuePage() {
                   <p className="text-xs text-gray-500 mt-2">{refundRevenues.length} giao dịch (trừ 5% phí)</p>
                 </div>
                 <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <TrendingUpIcon className="w-6 h-6 text-red-600" />
+                  <RefreshCw className="w-6 h-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
@@ -429,6 +476,125 @@ export default function RevenuePage() {
         </Card>
       </div>
 
+      {/* Revenue Chart */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Biểu đồ doanh thu</h3>
+              <p className="text-sm text-gray-600">Theo dõi xu hướng doanh thu 7 ngày qua (đã trừ phí nền tảng)</p>
+            </div>
+
+            {/* Chart */}
+            <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    {/* Gradient for Completed */}
+                    <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                    </linearGradient>
+                    {/* Gradient for Pending */}
+                    <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#eab308" stopOpacity={0.05} />
+                    </linearGradient>
+                    {/* Gradient for Refund */}
+                    <linearGradient id="colorRefund" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="day" stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    stroke="#6b7280"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                      return value.toString();
+                    }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      padding: "8px 12px",
+                    }}
+                    formatter={(value: number, name: string) => {
+                      const labels: Record<string, string> = {
+                        completed: "Đã thanh toán",
+                        pending: "Chờ xử lý",
+                        refund: "Đã hoàn tiền",
+                      };
+                      return [formatCurrency(value), labels[name] || name];
+                    }}
+                    labelFormatter={(label) => `${label}`}
+                  />
+                  {/* Completed Revenue - Green */}
+                  <Area
+                    type="monotone"
+                    dataKey="completed"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorCompleted)"
+                    dot={{ fill: "#10b981", strokeWidth: 2, r: 4, stroke: "white" }}
+                    activeDot={{ r: 6 }}
+                  />
+                  {/* Pending Revenue - Yellow */}
+                  <Area
+                    type="monotone"
+                    dataKey="pending"
+                    stroke="#eab308"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorPending)"
+                    dot={{ fill: "#eab308", strokeWidth: 2, r: 4, stroke: "white" }}
+                    activeDot={{ r: 6 }}
+                  />
+                  {/* Refund Revenue - Red */}
+                  <Area
+                    type="monotone"
+                    dataKey="refund"
+                    stroke="#ef4444"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorRefund)"
+                    dot={{ fill: "#ef4444", strokeWidth: 2, r: 4, stroke: "white" }}
+                    activeDot={{ r: 6 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-sm text-gray-600">Doanh thu thực nhận:</span>
+                <span className="text-sm font-semibold text-green-600">{formatCurrency(completedTotal)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <span className="text-sm text-gray-600">Doanh thu chờ:</span>
+                <span className="text-sm font-semibold text-yellow-600">{formatCurrency(pendingTotal)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span className="text-sm text-gray-600">Đã hoàn tiền:</span>
+                <span className="text-sm font-semibold text-red-600">{formatCurrency(Math.abs(refundTotal))}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Transactions Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {filteredTransactions.length === 0 ? (
@@ -441,12 +607,13 @@ export default function RevenuePage() {
             {/* Table Header */}
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
               <div className="grid grid-cols-12 gap-6 text-sm font-semibold text-gray-700">
-                <div className="col-span-3">Bệnh nhân</div>
+                <div className="col-span-2">Bệnh nhân</div>
                 <div className="col-span-2">Ngày tạo</div>
                 <div className="col-span-2">Ngày thanh toán</div>
                 <div className="col-span-1 text-right">Số tiền</div>
                 <div className="col-span-1 text-right">Phí</div>
                 <div className="col-span-2 text-right">Thực nhận</div>
+                <div className="col-span-1 text-center">Trạng thái</div>
                 <div className="col-span-1 text-center">Thao tác</div>
               </div>
             </div>
@@ -469,7 +636,7 @@ export default function RevenuePage() {
                   >
                     <div className="grid grid-cols-12 gap-4 items-center">
                       {/* Patient with Avatar */}
-                      <div className="col-span-3 flex items-center gap-3">
+                      <div className="col-span-2 flex items-center gap-3">
                         <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                           <User className="w-6 h-6 text-primary" />
                         </div>
@@ -506,10 +673,30 @@ export default function RevenuePage() {
 
                       {/* Net Amount */}
                       <div className="col-span-2 text-right flex items-center justify-end">
-                        <p className={`text-[15px] font-bold ${netAmount >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        <p
+                          className={`text-[15px] font-bold ${
+                            revenue.status === "pending"
+                              ? "text-yellow-600"
+                              : netAmount >= 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
                           {netAmount >= 0 ? "+" : ""}
                           {formatCurrency(netAmount)}
                         </p>
+                      </div>
+
+                      {/* Status */}
+                      <div className="col-span-1 flex items-center justify-center">
+                        {/* Refund: netAmount < 0 */}
+                        {netAmount < 0 ? (
+                          <span className="px-2 py-1 rounded-md text-xs bg-red-100 text-red-700">Refund</span>
+                        ) : revenue.status === "completed" ? (
+                          <span className="px-2 py-1 rounded-md text-xs bg-green-100 text-green-700">Completed</span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-md text-xs bg-yellow-100 text-yellow-700">Pending</span>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -680,17 +867,21 @@ export default function RevenuePage() {
                 <div className="flex items-start gap-3">
                   <div
                     className={`w-5 h-5 rounded-full mt-0.5 ${
-                      selectedRevenue.status === "completed"
+                      (selectedRevenue.netAmount || 0) < 0
+                        ? "bg-red-500"
+                        : selectedRevenue.status === "completed"
                         ? "bg-green-500"
                         : selectedRevenue.status === "pending"
                         ? "bg-yellow-500"
-                        : "bg-red-500"
+                        : "bg-gray-500"
                     }`}
                   />
                   <div>
                     <p className="text-sm text-gray-600">Trạng thái</p>
                     <p className="font-medium text-gray-900">
-                      {selectedRevenue.status === "completed"
+                      {(selectedRevenue.netAmount || 0) < 0
+                        ? "Hoàn tiền"
+                        : selectedRevenue.status === "completed"
                         ? "Đã thanh toán"
                         : selectedRevenue.status === "pending"
                         ? "Chờ xử lý"
@@ -706,7 +897,11 @@ export default function RevenuePage() {
 
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Số tiền gốc:</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(selectedRevenue.amount || 0)}</span>
+                  <span
+                    className={`font-semibold ${(selectedRevenue.amount || 0) >= 0 ? "text-gray-900" : "text-red-600"}`}
+                  >
+                    {formatCurrency(selectedRevenue.amount || 0)}
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center">
@@ -719,7 +914,15 @@ export default function RevenuePage() {
                 <div className="border-t border-gray-200 pt-3 mt-3">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-gray-900">Thực nhận:</span>
-                    <span className="text-xl font-bold text-green-600">
+                    <span
+                      className={`text-xl font-bold ${
+                        (selectedRevenue.netAmount || 0) < 0
+                          ? "text-red-600"
+                          : selectedRevenue.status === "pending"
+                          ? "text-yellow-600"
+                          : "text-green-600"
+                      }`}
+                    >
                       {formatCurrency(selectedRevenue.netAmount || 0)}
                     </span>
                   </div>

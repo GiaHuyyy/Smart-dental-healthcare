@@ -19,8 +19,9 @@ import {
   XCircle,
   X,
   TrendingUp,
-  Plus,
+  DollarSignIcon,
   DollarSign,
+  Plus,
   Minus,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -573,11 +574,32 @@ export default function PatientPayments() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
+  // Calculate stats with proper logic (similar to revenue page)
+  const allPayments = payments;
+
+  // Completed payments (charges/fees) - NOT including refunds
+  const completedCharges = allPayments.filter((p) => p.status === "completed" && p.billType !== "refund");
+  const completedTotal = completedCharges.reduce((sum, p) => sum + p.amount, 0);
+
+  // Pending payments (bills chờ thanh toán)
+  const pendingPayments = allPayments.filter((p) => p.status === "pending");
+  const pendingTotal = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  // Refunded payments (bills hoàn tiền)
+  const refundedPayments = allPayments.filter((p) => p.billType === "refund");
+  const refundedTotal = Math.abs(refundedPayments.reduce((sum, p) => sum + p.amount, 0));
+
+  // Total spending = completed charges + pending (NOT including refunds)
+  const totalSpending = completedTotal + pendingTotal + refundedTotal;
+
   const stats = {
-    total: payments.length,
-    completed: payments.filter((p) => p.status === "completed" && p.billType !== "refund").length,
-    pending: payments.filter((p) => p.status === "pending").length,
-    totalAmount: payments.filter((p) => p.status === "completed").reduce((sum, p) => sum + p.amount, 0),
+    totalSpending,
+    completedTotal,
+    completedCount: completedCharges.length,
+    pendingTotal,
+    pendingCount: pendingPayments.length,
+    refundedTotal,
+    refundedCount: refundedPayments.length,
   };
 
   // Pagination calculations
@@ -771,33 +793,37 @@ export default function PatientPayments() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {/* Card 1: Tổng chi tiêu */}
           <button
             onClick={() => handleStatCardClick("all")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
-              statusFilter === "all" ? "border-primary shadow-md" : "border-gray-200"
+              statusFilter === "all" ? "border-red-500 shadow-md" : "border-gray-200"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Tổng giao dịch</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-1">Tổng chi tiêu</p>
+                <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalSpending)}</div>
+                <p className="text-xs text-gray-500 mt-2">{stats.completedCount + stats.pendingCount} giao dịch</p>
               </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-primary" />
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <DollarSignIcon className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </button>
 
+          {/* Card 2: Chờ thanh toán */}
           <button
             onClick={() => handleStatCardClick("pending")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
               statusFilter === "pending" ? "border-yellow-500 shadow-md" : "border-gray-200"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Chờ thanh toán</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-1">Chờ thanh toán</p>
+                <div className="text-2xl font-bold text-yellow-600">{formatCurrency(stats.pendingTotal)}</div>
+                <p className="text-xs text-gray-500 mt-2">{stats.pendingCount} giao dịch</p>
               </div>
               <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
                 <Clock className="w-6 h-6 text-yellow-600" />
@@ -805,16 +831,18 @@ export default function PatientPayments() {
             </div>
           </button>
 
+          {/* Card 3: Đã thanh toán */}
           <button
             onClick={() => handleStatCardClick("completed")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
               statusFilter === "completed" ? "border-green-500 shadow-md" : "border-gray-200"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Đã thanh toán</p>
-                <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-1">Đã thanh toán</p>
+                <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.completedTotal)}</div>
+                <p className="text-xs text-gray-500 mt-2">{stats.completedCount} giao dịch</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-green-600" />
@@ -822,18 +850,18 @@ export default function PatientPayments() {
             </div>
           </button>
 
+          {/* Card 4: Đã hoàn tiền */}
           <button
             onClick={() => handleStatCardClick("refunded")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
               statusFilter === "refunded" ? "border-primary shadow-md" : "border-gray-200"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Đã hoàn tiền</p>
-                <p className="text-2xl font-bold text-primary">
-                  {payments.filter((p) => p.billType === "refund").length}
-                </p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-1">Đã hoàn tiền</p>
+                <div className="text-2xl font-bold text-primary">+{formatCurrency(stats.refundedTotal)}</div>
+                <p className="text-xs text-gray-500 mt-2">{stats.refundedCount} giao dịch</p>
               </div>
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                 <RefreshCw className="w-6 h-6 text-primary" />
@@ -846,11 +874,14 @@ export default function PatientPayments() {
             onClick={handleWalletModalOpen}
             className="bg-white rounded-lg p-4 border-2 border-gray-200 transition-all hover:shadow-md text-left"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-gray-600">Ví của tôi</p>
                 <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
                   {formatCurrency(walletBalance)}
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  Nhấp để xem chi tiết ví
                 </p>
               </div>
               <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
@@ -861,14 +892,16 @@ export default function PatientPayments() {
         </div>
 
         {/* Pending Payments Alert */}
-        {stats.pending > 0 && (
+        {stats.pendingCount > 0 && (
           <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 shadow-md">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-yellow-100 rounded-xl">
                 <AlertCircle className="w-6 h-6 text-yellow-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-yellow-900 text-lg mb-1">Bạn có {stats.pending} thanh toán chờ xử lý</h3>
+                <h3 className="font-bold text-yellow-900 text-lg mb-1">
+                  Bạn có {stats.pendingCount} thanh toán chờ xử lý
+                </h3>
                 <p className="text-yellow-800">
                   Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút{" "}
                   <strong>&quot;Thanh toán ngay&quot;</strong> bên dưới để thanh toán qua Ví.
