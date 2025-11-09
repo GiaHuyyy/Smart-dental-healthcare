@@ -520,21 +520,45 @@ export default function RevenuePage() {
                     }}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "8px",
-                      padding: "8px 12px",
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg">
+                            <p className="text-xs text-gray-500 mb-2">Ngày: {label}</p>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  <span className="text-xs text-gray-600">Đã thanh toán</span>
+                                </div>
+                                <span className="text-sm font-semibold text-green-600">
+                                  {formatCurrency((payload[0]?.value as number) || 0)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                  <span className="text-xs text-gray-600">Chờ xử lý</span>
+                                </div>
+                                <span className="text-sm font-semibold text-yellow-600">
+                                  {formatCurrency((payload[1]?.value as number) || 0)}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                  <span className="text-xs text-gray-600">Đã hoàn tiền</span>
+                                </div>
+                                <span className="text-sm font-semibold text-red-600">
+                                  {formatCurrency((payload[2]?.value as number) || 0)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
-                    formatter={(value: number, name: string) => {
-                      const labels: Record<string, string> = {
-                        completed: "Đã thanh toán",
-                        pending: "Chờ xử lý",
-                        refund: "Đã hoàn tiền",
-                      };
-                      return [formatCurrency(value), labels[name] || name];
-                    }}
-                    labelFormatter={(label) => `${label}`}
                   />
                   {/* Completed Revenue - Green */}
                   <Area
@@ -604,6 +628,64 @@ export default function RevenuePage() {
           </div>
         ) : (
           <>
+            {/* Pagination - Top */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Hiển thị {(currentPage - 1) * pageSize + 1} -{" "}
+                    {Math.min(currentPage * pageSize, filteredTransactions.length)} trong tổng số{" "}
+                    {filteredTransactions.length} giao dịch
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Trước
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {[...Array(totalPages)].map((_, index) => {
+                        const pageNumber = index + 1;
+                        if (
+                          pageNumber === 1 ||
+                          pageNumber === totalPages ||
+                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={pageNumber}
+                              onClick={() => setCurrentPage(pageNumber)}
+                              className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                                currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                              }`}
+                            >
+                              {pageNumber}
+                            </button>
+                          );
+                        } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                          return (
+                            <span key={pageNumber} className="px-2 text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Tiếp
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Table Header */}
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
               <div className="grid grid-cols-12 gap-6 text-sm font-semibold text-gray-700">
@@ -725,64 +807,6 @@ export default function RevenuePage() {
                 );
               })}
             </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    Hiển thị {(currentPage - 1) * pageSize + 1} -{" "}
-                    {Math.min(currentPage * pageSize, filteredTransactions.length)} trong tổng số{" "}
-                    {filteredTransactions.length} giao dịch
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Trước
-                    </button>
-                    <div className="flex items-center gap-1">
-                      {[...Array(totalPages)].map((_, index) => {
-                        const pageNumber = index + 1;
-                        if (
-                          pageNumber === 1 ||
-                          pageNumber === totalPages ||
-                          (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                        ) {
-                          return (
-                            <button
-                              key={pageNumber}
-                              onClick={() => setCurrentPage(pageNumber)}
-                              className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-                                currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
-                              }`}
-                            >
-                              {pageNumber}
-                            </button>
-                          );
-                        } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
-                          return (
-                            <span key={pageNumber} className="px-2 text-gray-400">
-                              ...
-                            </span>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Tiếp
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

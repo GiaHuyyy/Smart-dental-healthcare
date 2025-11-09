@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Users, Calendar, DollarSign, FileText, TrendingUp, Loader2, AlertCircle, Check, Clock } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { DatePicker } from "@/components/ui/date-picker";
 import doctorDashboardService, {
   TodayAppointment,
@@ -352,10 +352,11 @@ export default function DoctorDashboard() {
               </div>
               <div className="flex items-center gap-2">
                 <DatePicker
-                  value={selectedDate}
-                  onChange={(value) => setSelectedDate(value)}
+                  type="month"
+                  value={selectedDate.substring(0, 7)}
+                  onChange={(value) => setSelectedDate(value + "-01")}
                   className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors cursor-pointer"
-                  placeholder="Chọn ngày"
+                  placeholder="Chọn tháng"
                 />
               </div>
             </div>
@@ -363,21 +364,21 @@ export default function DoctorDashboard() {
             {/* Legend */}
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "var(--color-primary)" }}></div>
+                <div className="w-3 h-3 rounded-sm bg-primary"></div>
                 <span className="text-sm text-gray-600">Lịch hẹn hoàn thành</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-gray-400"></div>
-                <span className="text-sm text-gray-600">Lịch hẹn hủy</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-sm bg-orange-400"></div>
                 <span className="text-sm text-gray-600">Lịch hẹn chờ xử lý</span>
               </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-red-500"></div>
+                <span className="text-sm text-gray-600">Lịch hẹn hủy</span>
+              </div>
             </div>
 
             {/* === SỬA: Thêm relative và loading overlay === */}
-            <div className="relative h-[280px]">
+            <div className="relative h-[320px]">
               {chartLoading && (
                 <div
                   className="absolute inset-0 z-10 flex items-center justify-center rounded-lg"
@@ -388,16 +389,34 @@ export default function DoctorDashboard() {
               )}
 
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                  <XAxis dataKey="period" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                    domain={[0, "auto"]}
-                  />
+                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    {/* Gradient for Hoàn thành - Blue */}
+                    <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00a6f4" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#00a6f4" stopOpacity={0.05} />
+                    </linearGradient>
+                    {/* Gradient for Chờ xử lý */}
+                    <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#fb923c" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#fb923c" stopOpacity={0.05} />
+                    </linearGradient>
+                    {/* Gradient for Hủy - Red */}
+                    <linearGradient id="colorCancelled" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="period" stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#6b7280" fontSize={12} tickLine={false} axisLine={false} domain={[0, "auto"]} />
                   <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                      padding: "8px 12px",
+                    }}
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
@@ -417,7 +436,6 @@ export default function DoctorDashboard() {
                           "Tháng 12",
                         ];
 
-                        // Label hiển thị ngày trong tháng
                         const period = data.period;
                         const label = `${period} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
 
@@ -427,22 +445,10 @@ export default function DoctorDashboard() {
                             <div className="space-y-1">
                               <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-2 h-2 rounded-full"
-                                    style={{ backgroundColor: "var(--color-primary)" }}
-                                  ></div>
+                                  <div className="w-2 h-2 rounded-full bg-primary"></div>
                                   <span className="text-xs text-gray-600">Hoàn thành</span>
                                 </div>
-                                <span className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
-                                  {data.hoanthanh}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                                  <span className="text-xs text-gray-600">Hủy</span>
-                                </div>
-                                <span className="text-sm font-semibold text-gray-600">{data.huy}</span>
+                                <span className="text-sm font-semibold text-primary">{data.hoanthanh}</span>
                               </div>
                               <div className="flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-2">
@@ -451,6 +457,13 @@ export default function DoctorDashboard() {
                                 </div>
                                 <span className="text-sm font-semibold text-orange-600">{data.choXuLy}</span>
                               </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                  <span className="text-xs text-gray-600">Hủy</span>
+                                </div>
+                                <span className="text-sm font-semibold text-red-600">{data.huy}</span>
+                              </div>
                             </div>
                           </div>
                         );
@@ -458,31 +471,40 @@ export default function DoctorDashboard() {
                       return null;
                     }}
                   />
-                  <Line
+                  {/* Hoàn thành - Blue */}
+                  <Area
                     type="monotone"
                     dataKey="hoanthanh"
-                    stroke="var(--color-primary)"
+                    stroke="#00a6f4"
                     strokeWidth={2.5}
-                    dot={false}
-                    activeDot={{ r: 6, fill: "var(--color-primary)", strokeWidth: 2, stroke: "#fff" }}
+                    fillOpacity={1}
+                    fill="url(#colorCompleted)"
+                    dot={{ fill: "#00a6f4", strokeWidth: 2, r: 4, stroke: "white" }}
+                    activeDot={{ r: 6 }}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="huy"
-                    stroke="#9ca3af"
-                    strokeWidth={2.5}
-                    dot={false}
-                    activeDot={{ r: 6, fill: "#9ca3af", strokeWidth: 2, stroke: "#fff" }}
-                  />
-                  <Line
+                  {/* Chờ xử lý - Orange */}
+                  <Area
                     type="monotone"
                     dataKey="choXuLy"
                     stroke="#fb923c"
                     strokeWidth={2.5}
-                    dot={false}
-                    activeDot={{ r: 6, fill: "#fb923c", strokeWidth: 2, stroke: "#fff" }}
+                    fillOpacity={1}
+                    fill="url(#colorPending)"
+                    dot={{ fill: "#fb923c", strokeWidth: 2, r: 4, stroke: "white" }}
+                    activeDot={{ r: 6 }}
                   />
-                </LineChart>
+                  {/* Hủy - Red */}
+                  <Area
+                    type="monotone"
+                    dataKey="huy"
+                    stroke="#ef4444"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorCancelled)"
+                    dot={{ fill: "#ef4444", strokeWidth: 2, r: 4, stroke: "white" }}
+                    activeDot={{ r: 6 }}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
