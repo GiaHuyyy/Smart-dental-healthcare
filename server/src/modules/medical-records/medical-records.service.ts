@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model, Types } from 'mongoose';
 import { CreateMedicalRecordDto } from './dto/create-medical-record.dto';
 import { UpdateMedicalRecordDto } from './dto/update-medical-record.dto';
-import { MedicalRecord, MedicalRecordDocument } from './schemas/medical-record.schemas';
+import {
+  MedicalRecord,
+  MedicalRecordDocument,
+} from './schemas/medical-record.schemas';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { CreateAppointmentDto } from '../appointments/dto/create-appointment.dto';
 import { AppointmentStatus } from '../appointments/schemas/appointment.schemas';
@@ -16,17 +23,22 @@ export class MedicalRecordsService {
     private readonly appointmentsService: AppointmentsService,
   ) {}
 
-  async create(createMedicalRecordDto: CreateMedicalRecordDto): Promise<MedicalRecord> {
-    console.log('📝 Creating medical record with data:', JSON.stringify(createMedicalRecordDto, null, 2));
-    
+  async create(
+    createMedicalRecordDto: CreateMedicalRecordDto,
+  ): Promise<MedicalRecord> {
+    console.log(
+      '📝 Creating medical record with data:',
+      JSON.stringify(createMedicalRecordDto, null, 2),
+    );
+
     // Process and normalize the data for backward compatibility
     const processedData = this.processCreateData(createMedicalRecordDto);
-    
+
     console.log('📝 Processed data:', JSON.stringify(processedData, null, 2));
-    
+
     const newRecord = new this.medicalRecordModel(processedData);
     const savedRecord = await newRecord.save();
-    
+
     console.log('✅ Medical record created successfully:', savedRecord._id);
     return savedRecord;
   }
@@ -35,23 +47,41 @@ export class MedicalRecordsService {
     const processedData = { ...dto };
 
     // Ensure chiefComplaint exists (backward compatibility)
-    if (!processedData.chiefComplaint && processedData.chiefComplaints && processedData.chiefComplaints.length > 0) {
+    if (
+      !processedData.chiefComplaint &&
+      processedData.chiefComplaints &&
+      processedData.chiefComplaints.length > 0
+    ) {
       processedData.chiefComplaint = processedData.chiefComplaints.join(', ');
     }
 
     // Ensure diagnosis exists (backward compatibility)
-    if (!processedData.diagnosis && processedData.diagnoses && processedData.diagnoses.length > 0) {
+    if (
+      !processedData.diagnosis &&
+      processedData.diagnoses &&
+      processedData.diagnoses.length > 0
+    ) {
       processedData.diagnosis = processedData.diagnoses.join(', ');
     }
 
     // Ensure treatmentPlan exists (backward compatibility)
-    if (!processedData.treatmentPlan && processedData.treatmentPlans && processedData.treatmentPlans.length > 0) {
+    if (
+      !processedData.treatmentPlan &&
+      processedData.treatmentPlans &&
+      processedData.treatmentPlans.length > 0
+    ) {
       processedData.treatmentPlan = processedData.treatmentPlans.join(', ');
     }
 
     // Process medications - prefer detailed but fallback to simple
-    if (!processedData.medications && processedData.detailedMedications && processedData.detailedMedications.length > 0) {
-      processedData.medications = processedData.detailedMedications.map((med: any) => med.name);
+    if (
+      !processedData.medications &&
+      processedData.detailedMedications &&
+      processedData.detailedMedications.length > 0
+    ) {
+      processedData.medications = processedData.detailedMedications.map(
+        (med: any) => med.name,
+      );
     }
 
     return processedData;
@@ -94,7 +124,10 @@ export class MedicalRecordsService {
     return record;
   }
 
-  async update(id: string, updateMedicalRecordDto: UpdateMedicalRecordDto): Promise<MedicalRecord> {
+  async update(
+    id: string,
+    updateMedicalRecordDto: UpdateMedicalRecordDto,
+  ): Promise<MedicalRecord> {
     const updatedRecord = await this.medicalRecordModel
       .findByIdAndUpdate(id, updateMedicalRecordDto, { new: true })
       .exec();
@@ -107,7 +140,9 @@ export class MedicalRecordsService {
   }
 
   async remove(id: string): Promise<MedicalRecord> {
-    const deletedRecord = await this.medicalRecordModel.findByIdAndDelete(id).exec();
+    const deletedRecord = await this.medicalRecordModel
+      .findByIdAndDelete(id)
+      .exec();
 
     if (!deletedRecord) {
       throw new NotFoundException(`Không tìm thấy hồ sơ bệnh án với ID: ${id}`);
@@ -126,7 +161,11 @@ export class MedicalRecordsService {
       .limit(limit)
       .skip(skip)
       .sort({ recordDate: -1 })
-      .populate('doctorId', 'fullName email specialty')
+      .populate(
+        'patientId',
+        'fullName email phone phoneNumber dateOfBirth gender',
+      )
+      .populate('doctorId', 'fullName email specialty phoneNumber')
       .populate('appointmentId')
       .exec();
   }
@@ -157,7 +196,10 @@ export class MedicalRecordsService {
     return record.save();
   }
 
-  async updateDentalChart(id: string, dentalChartItem: any): Promise<MedicalRecord> {
+  async updateDentalChart(
+    id: string,
+    dentalChartItem: any,
+  ): Promise<MedicalRecord> {
     const record = await this.medicalRecordModel.findById(id).exec();
 
     if (!record) {
@@ -203,16 +245,25 @@ export class MedicalRecordsService {
     let followUpTime: string | null | undefined = undefined;
     let isFollowUpRequired: boolean | undefined = undefined;
 
-    if (payload instanceof Date || typeof payload === 'string' || payload === null) {
+    if (
+      payload instanceof Date ||
+      typeof payload === 'string' ||
+      payload === null
+    ) {
       followUpDate = payload ? new Date(payload as any) : null;
       isFollowUpRequired = !!followUpDate;
     } else if (typeof payload === 'object' && payload !== null) {
-      const { followUpDate: rawDate, followUpTime: rawTime, isFollowUpRequired: rawFlag } = payload;
+      const {
+        followUpDate: rawDate,
+        followUpTime: rawTime,
+        isFollowUpRequired: rawFlag,
+      } = payload;
       if (rawDate !== undefined) {
         followUpDate = rawDate === null ? null : new Date(rawDate as any);
       }
       if (rawTime !== undefined) {
-        followUpTime = rawTime === null ? null : this.normalizeTimeInput(rawTime);
+        followUpTime =
+          rawTime === null ? null : this.normalizeTimeInput(rawTime);
       }
       if (typeof rawFlag === 'boolean') {
         isFollowUpRequired = rawFlag;
@@ -227,7 +278,9 @@ export class MedicalRecordsService {
     }
 
     if (record.isFollowUpRequired && followUpDate === null) {
-      throw new BadRequestException('followUpDate không được bỏ trống khi yêu cầu tái khám');
+      throw new BadRequestException(
+        'followUpDate không được bỏ trống khi yêu cầu tái khám',
+      );
     }
 
     // Determine final follow-up time
@@ -259,12 +312,23 @@ export class MedicalRecordsService {
     if (!trimmed) return undefined;
     const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
     if (!match) {
-      throw new BadRequestException('followUpTime không hợp lệ (định dạng HH:MM)');
+      throw new BadRequestException(
+        'followUpTime không hợp lệ (định dạng HH:MM)',
+      );
     }
     const hours = Number(match[1]);
     const minutes = Number(match[2]);
-    if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-      throw new BadRequestException('followUpTime không hợp lệ (giờ hoặc phút vượt phạm vi)');
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      throw new BadRequestException(
+        'followUpTime không hợp lệ (giờ hoặc phút vượt phạm vi)',
+      );
     }
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   }
@@ -288,20 +352,28 @@ export class MedicalRecordsService {
     return `${finalHours.toString().padStart(2, '0')}:${finalMinutes.toString().padStart(2, '0')}`;
   }
 
-  private async syncFollowUpAppointment(record: MedicalRecordDocument): Promise<void> {
+  private async syncFollowUpAppointment(
+    record: MedicalRecordDocument,
+  ): Promise<void> {
     const wantsFollowUp = !!record.isFollowUpRequired && !!record.followUpDate;
 
     if (!wantsFollowUp) {
       if (record.followUpAppointmentId) {
         try {
-          await this.appointmentsService.cancel(record.followUpAppointmentId.toString(), 'Hủy lịch tái khám');
+          await this.appointmentsService.cancel(
+            record.followUpAppointmentId.toString(),
+            'Hủy lịch tái khám',
+          );
         } catch (error) {
           // swallow cancellation errors to avoid blocking record update
-          console.warn('⚠️ Không thể hủy lịch tái khám:', error?.message || error);
+          console.warn(
+            '⚠️ Không thể hủy lịch tái khám:',
+            error?.message || error,
+          );
         }
-  record.followUpAppointmentId = null;
-  record.followUpDate = null;
-  record.followUpTime = null;
+        record.followUpAppointmentId = null;
+        record.followUpDate = null;
+        record.followUpTime = null;
         record.isFollowUpRequired = false;
       }
       return;
@@ -336,14 +408,18 @@ export class MedicalRecordsService {
       medicalRecordId: record._id.toString(),
     } as CreateAppointmentDto;
 
-    const appointment = await this.appointmentsService.create(appointmentPayload);
+    const appointment =
+      await this.appointmentsService.create(appointmentPayload);
     const appointmentIdRaw = appointment?._id;
     if (!appointmentIdRaw) {
-      throw new BadRequestException('Không thể tạo lịch tái khám: thiếu ID lịch hẹn');
+      throw new BadRequestException(
+        'Không thể tạo lịch tái khám: thiếu ID lịch hẹn',
+      );
     }
-    const normalizedAppointmentId = appointmentIdRaw instanceof mongoose.Types.ObjectId
-      ? appointmentIdRaw
-      : new mongoose.Types.ObjectId(String(appointmentIdRaw));
+    const normalizedAppointmentId =
+      appointmentIdRaw instanceof mongoose.Types.ObjectId
+        ? appointmentIdRaw
+        : new mongoose.Types.ObjectId(String(appointmentIdRaw));
     record.followUpAppointmentId = normalizedAppointmentId;
   }
 
@@ -359,13 +435,17 @@ export class MedicalRecordsService {
       throw new NotFoundException('Attachment is required');
     }
 
-    const att = typeof attachment === 'string' ? { url: attachment } : attachment;
+    const att =
+      typeof attachment === 'string' ? { url: attachment } : attachment;
     record.attachments = record.attachments || [];
     record.attachments.push(att.url || att);
     return record.save();
   }
 
-  async removeAttachment(id: string, attachmentId: string): Promise<MedicalRecord> {
+  async removeAttachment(
+    id: string,
+    attachmentId: string,
+  ): Promise<MedicalRecord> {
     const record = await this.medicalRecordModel.findById(id).exec();
 
     if (!record) {
@@ -378,7 +458,9 @@ export class MedicalRecordsService {
     if (!Number.isNaN(idx)) {
       record.attachments.splice(idx, 1);
     } else {
-      record.attachments = record.attachments.filter((att) => att !== attachmentId);
+      record.attachments = record.attachments.filter(
+        (att) => att !== attachmentId,
+      );
     }
     return record.save();
   }
@@ -398,43 +480,60 @@ export class MedicalRecordsService {
     // Nếu doctorId là 'general', trả về thống kê tổng quát
     if (doctorId === 'general') {
       const totalRecords = await this.medicalRecordModel.countDocuments({});
-      const completedRecords = await this.medicalRecordModel.countDocuments({ status: 'completed' });
-      const pendingRecords = await this.medicalRecordModel.countDocuments({ status: 'pending' });
-      const followUpRecords = await this.medicalRecordModel.countDocuments({ isFollowUpRequired: true });
+      const completedRecords = await this.medicalRecordModel.countDocuments({
+        status: 'completed',
+      });
+      const pendingRecords = await this.medicalRecordModel.countDocuments({
+        status: 'pending',
+      });
+      const followUpRecords = await this.medicalRecordModel.countDocuments({
+        isFollowUpRequired: true,
+      });
 
       return {
         totalRecords,
         completedRecords,
         pendingRecords,
         followUpRecords,
-        completionRate: totalRecords > 0 ? (completedRecords / totalRecords) * 100 : 0,
-        type: 'general'
+        completionRate:
+          totalRecords > 0 ? (completedRecords / totalRecords) * 100 : 0,
+        type: 'general',
       };
     }
 
     const { startDate, endDate } = query;
     const filter: any = { doctorId };
-    
+
     if (startDate && endDate) {
       filter.recordDate = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $lte: new Date(endDate),
       };
     }
 
     const totalRecords = await this.medicalRecordModel.countDocuments(filter);
-    const completedRecords = await this.medicalRecordModel.countDocuments({ ...filter, status: 'completed' });
-    const pendingRecords = await this.medicalRecordModel.countDocuments({ ...filter, status: 'pending' });
-    const followUpRecords = await this.medicalRecordModel.countDocuments({ ...filter, isFollowUpRequired: true });
+    const completedRecords = await this.medicalRecordModel.countDocuments({
+      ...filter,
+      status: 'completed',
+    });
+    const pendingRecords = await this.medicalRecordModel.countDocuments({
+      ...filter,
+      status: 'pending',
+    });
+    const followUpRecords = await this.medicalRecordModel.countDocuments({
+      ...filter,
+      isFollowUpRequired: true,
+    });
 
     return {
       totalRecords,
       completedRecords,
       pendingRecords,
       followUpRecords,
-      completionRate: totalRecords > 0 ? (completedRecords / totalRecords) * 100 : 0,
+      completionRate:
+        totalRecords > 0 ? (completedRecords / totalRecords) * 100 : 0,
       type: 'specific',
-      doctorId
+      doctorId,
     };
   }
 
@@ -442,23 +541,40 @@ export class MedicalRecordsService {
     // Nếu patientId là 'general', trả về thống kê tổng quát
     if (patientId === 'general') {
       const totalRecords = await this.medicalRecordModel.countDocuments({});
-      const completedRecords = await this.medicalRecordModel.countDocuments({ status: 'completed' });
-      const pendingRecords = await this.medicalRecordModel.countDocuments({ status: 'pending' });
-      const followUpRecords = await this.medicalRecordModel.countDocuments({ isFollowUpRequired: true });
+      const completedRecords = await this.medicalRecordModel.countDocuments({
+        status: 'completed',
+      });
+      const pendingRecords = await this.medicalRecordModel.countDocuments({
+        status: 'pending',
+      });
+      const followUpRecords = await this.medicalRecordModel.countDocuments({
+        isFollowUpRequired: true,
+      });
 
       return {
         totalRecords,
         completedRecords,
         pendingRecords,
         followUpRecords,
-        type: 'general'
+        type: 'general',
       };
     }
 
-    const totalRecords = await this.medicalRecordModel.countDocuments({ patientId });
-    const completedRecords = await this.medicalRecordModel.countDocuments({ patientId, status: 'completed' });
-    const pendingRecords = await this.medicalRecordModel.countDocuments({ patientId, status: 'pending' });
-    const followUpRecords = await this.medicalRecordModel.countDocuments({ patientId, isFollowUpRequired: true });
+    const totalRecords = await this.medicalRecordModel.countDocuments({
+      patientId,
+    });
+    const completedRecords = await this.medicalRecordModel.countDocuments({
+      patientId,
+      status: 'completed',
+    });
+    const pendingRecords = await this.medicalRecordModel.countDocuments({
+      patientId,
+      status: 'pending',
+    });
+    const followUpRecords = await this.medicalRecordModel.countDocuments({
+      patientId,
+      isFollowUpRequired: true,
+    });
 
     const latestRecord = await this.medicalRecordModel
       .findOne({ patientId })
@@ -473,18 +589,18 @@ export class MedicalRecordsService {
       followUpRecords,
       latestRecord,
       type: 'specific',
-      patientId
+      patientId,
     };
   }
 
   async exportMedicalRecord(id: string, exportOptions: any): Promise<any> {
     const record = await this.findOne(id);
-    
+
     // Tạo dữ liệu để xuất
     const exportData = {
       recordId: record._id.toString(),
-  patientName: (record.patientId as any)?.['fullName'] || null,
-  doctorName: (record.doctorId as any)?.['fullName'] || null,
+      patientName: (record.patientId as any)?.['fullName'] || null,
+      doctorName: (record.doctorId as any)?.['fullName'] || null,
       recordDate: record.recordDate,
       chiefComplaint: record.chiefComplaint,
       diagnosis: record.diagnosis,
@@ -493,13 +609,13 @@ export class MedicalRecordsService {
       medications: record.medications,
       notes: record.notes,
       status: record.status,
-      followUpDate: record.followUpDate
+      followUpDate: record.followUpDate,
     };
 
     return {
       success: true,
       data: exportData,
-      format: exportOptions.format || 'json'
+      format: exportOptions.format || 'json',
     };
   }
 
@@ -514,8 +630,8 @@ export class MedicalRecordsService {
             { chiefComplaint: { $regex: trimmed, $options: 'i' } },
             { diagnosis: { $regex: trimmed, $options: 'i' } },
             { treatmentPlan: { $regex: trimmed, $options: 'i' } },
-            { notes: { $regex: trimmed, $options: 'i' } }
-          ]
+            { notes: { $regex: trimmed, $options: 'i' } },
+          ],
         }
       : {};
 
@@ -542,13 +658,13 @@ export class MedicalRecordsService {
   async getFollowUpRecords(query: any): Promise<MedicalRecord[]> {
     const { limit = 10, page = 1, ...rest } = query;
     const skip = (page - 1) * limit;
-    
-    const filter = { 
+
+    const filter = {
       ...rest,
       isFollowUpRequired: true,
-      followUpDate: { $exists: true, $ne: null }
+      followUpDate: { $exists: true, $ne: null },
     };
-    
+
     return this.medicalRecordModel
       .find(filter)
       .limit(limit)

@@ -35,7 +35,8 @@ export default function ExportMedicalRecord({ recordId, onClose }: ExportMedical
   const handleExport = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/medical-records/${recordId}/export`, {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const response = await fetch(`${API_URL}/api/v1/medical-records/${recordId}/export`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

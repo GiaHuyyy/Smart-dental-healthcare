@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { Public, ResponseMessage } from 'src/decorator/customize';
 import { CreateMedicalRecordDto } from './dto/create-medical-record.dto';
 import { UpdateMedicalRecordDto } from './dto/update-medical-record.dto';
@@ -32,14 +42,20 @@ export class MedicalRecordsController {
   @Patch(':id')
   @Public()
   @ResponseMessage('Cập nhật hồ sơ bệnh án thành công')
-  update(@Param('id') id: string, @Body() updateMedicalRecordDto: UpdateMedicalRecordDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateMedicalRecordDto: UpdateMedicalRecordDto,
+  ) {
     return this.medicalRecordsService.update(id, updateMedicalRecordDto);
   }
 
   @Put(':id')
   @Public()
   @ResponseMessage('Cập nhật hồ sơ bệnh án thành công')
-  updatePut(@Param('id') id: string, @Body() updateMedicalRecordDto: UpdateMedicalRecordDto) {
+  updatePut(
+    @Param('id') id: string,
+    @Body() updateMedicalRecordDto: UpdateMedicalRecordDto,
+  ) {
     return this.medicalRecordsService.update(id, updateMedicalRecordDto);
   }
 
@@ -48,6 +64,14 @@ export class MedicalRecordsController {
   @ResponseMessage('Xóa hồ sơ bệnh án thành công')
   remove(@Param('id') id: string) {
     return this.medicalRecordsService.remove(id);
+  }
+
+  // NEW: Direct route with path parameter (RESTful style)
+  @Get('patient/:patientId')
+  @Public()
+  @ResponseMessage('Lấy danh sách hồ sơ bệnh án của bệnh nhân thành công')
+  findByPatientId(@Param('patientId') patientId: string, @Query() query: any) {
+    return this.medicalRecordsService.findByPatient(patientId, query);
   }
 
   @Get('patient/records')
@@ -91,7 +115,11 @@ export class MedicalRecordsController {
   @Patch(':id/follow-up')
   @Public()
   @ResponseMessage('Cập nhật lịch tái khám thành công')
-  scheduleFollowUp(@Param('id') id: string, @Body() body: { followUpDate?: Date | string | null; isFollowUpRequired?: boolean }) {
+  scheduleFollowUp(
+    @Param('id') id: string,
+    @Body()
+    body: { followUpDate?: Date | string | null; isFollowUpRequired?: boolean },
+  ) {
     return this.medicalRecordsService.scheduleFollowUp(id, body);
   }
 
@@ -105,7 +133,10 @@ export class MedicalRecordsController {
   @Delete(':id/attachments/:attachmentId')
   @Public()
   @ResponseMessage('Xóa tệp đính kèm thành công')
-  removeAttachment(@Param('id') id: string, @Param('attachmentId') attachmentId: string) {
+  removeAttachment(
+    @Param('id') id: string,
+    @Param('attachmentId') attachmentId: string,
+  ) {
     return this.medicalRecordsService.removeAttachment(id, attachmentId);
   }
 
