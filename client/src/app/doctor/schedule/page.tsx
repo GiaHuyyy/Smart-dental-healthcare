@@ -47,6 +47,7 @@ interface Appointment {
   email?: string;
   phone?: string;
   createdAt?: string;
+  followUpParentId?: string; // ID of parent appointment if this is a follow-up
 }
 
 // Session type with accessToken
@@ -114,12 +115,26 @@ function DoctorScheduleContent() {
       const result = await appointmentService.getDoctorAppointments(userId, {}, accessToken);
 
       if (result.success && result.data) {
+        // DEBUG: Log raw appointments to check followUpParentId
+        const followUpAppointments = result.data.filter((apt: any) => apt.followUpParentId);
+        if (followUpAppointments.length > 0) {
+          console.log(
+            `🔗 [Doctor Schedule] Found ${followUpAppointments.length} follow-up appointments:`,
+            followUpAppointments.map((apt: any) => ({
+              id: apt._id,
+              patient: apt.patientId?.fullName,
+              followUpParentId: apt.followUpParentId,
+            }))
+          );
+        }
+
         // Transform API data to match our Appointment interface
         const transformedData: Appointment[] = result.data
           .filter((apt) => apt._id) // Only include appointments with valid _id
           .map((apt) => ({
             _id: apt._id!,
             id: apt._id!,
+            patientId: apt.patientId,
             patientName: (apt.patientId as { fullName?: string })?.fullName || "N/A",
             patientAvatar:
               (apt.patientId as { avatar?: string; fullName?: string })?.avatar ||
@@ -136,6 +151,8 @@ function DoctorScheduleContent() {
             location: (apt.patientId as { address?: string })?.address || "N/A",
             email: (apt.patientId as { email?: string })?.email,
             phone: (apt.patientId as { phone?: string })?.phone,
+            followUpParentId: (apt as any).followUpParentId, // CRITICAL: Include follow-up parent ID
+            createdAt: apt.createdAt,
           }));
 
         setAppointments(transformedData);
@@ -421,11 +438,58 @@ function DoctorScheduleContent() {
         throw new Error("Không tìm thấy thông tin bệnh nhân");
       }
 
+      // Check if this is a follow-up appointment
+      let parentRecordId = null;
+      if (currentTreatmentAppointment.followUpParentId) {
+        console.log("📋 This is a follow-up appointment, finding parent medical record...");
+        console.log("🔍 Parent appointment ID:", currentTreatmentAppointment.followUpParentId);
+
+        try {
+          const queryUrl = `${
+            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
+          }/api/v1/medical-records?appointmentId=${currentTreatmentAppointment.followUpParentId}`;
+          console.log("🌐 Querying URL:", queryUrl);
+
+          // Find medical record of parent appointment
+          const parentMedicalRecordResponse = await fetch(queryUrl, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          console.log("📡 Response status:", parentMedicalRecordResponse.status);
+
+          if (parentMedicalRecordResponse.ok) {
+            const parentMedicalRecordData = await parentMedicalRecordResponse.json();
+            console.log("📦 Full API response:", parentMedicalRecordData);
+
+            // API returns array directly, not wrapped in data/results
+            const parentRecords = Array.isArray(parentMedicalRecordData)
+              ? parentMedicalRecordData
+              : parentMedicalRecordData?.data || parentMedicalRecordData?.results || [];
+            console.log("📋 Parent records found:", parentRecords.length);
+
+            if (parentRecords.length > 0) {
+              parentRecordId = parentRecords[0]._id;
+              console.log("✅ Found parent medical record:", parentRecordId);
+            } else {
+              console.warn("⚠️ No medical records found for parent appointment");
+            }
+          } else {
+            console.error("❌ API response not OK:", parentMedicalRecordResponse.statusText);
+          }
+        } catch (error) {
+          console.error("❌ Failed to find parent medical record:", error);
+          // Continue without parent record ID
+        }
+      }
+
       const medicalRecordPayload = {
         patientId: patientId,
         doctorId: userId,
         recordDate: new Date().toISOString(),
         appointmentId: currentTreatmentAppointment._id || currentTreatmentAppointment.id,
+        parentRecordId: parentRecordId, // Link to parent medical record for follow-up
         chiefComplaints: formData.chiefComplaints,
         presentIllness: formData.presentIllness,
         physicalExamination: formData.physicalExamination,
@@ -434,6 +498,12 @@ function DoctorScheduleContent() {
         notes: formData.notes,
         status: "active",
       };
+
+      console.log("📤 Sending medical record payload:", {
+        appointmentId: medicalRecordPayload.appointmentId,
+        parentRecordId: medicalRecordPayload.parentRecordId,
+        hasParentRecord: !!parentRecordId,
+      });
 
       const medicalRecordResponse = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/medical-records`,
@@ -1040,7 +1110,14 @@ function DoctorScheduleContent() {
                             className="rounded-full"
                           />
                           <div>
-                            <p className="font-medium text-gray-900">{apt.patientName}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900">{apt.patientName}</p>
+                              {(apt as any).followUpParentId && (
+                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200">
+                                  🔄
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-gray-500">
                               {apt.gender} • {apt.location}
                             </p>
@@ -1149,7 +1226,9 @@ function DoctorScheduleContent() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Chi Tiết Lịch Hẹn</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {(selectedAppointment as any).followUpParentId ? "Chi Tiết Lịch Hẹn Tái Khám" : "Chi Tiết Lịch Hẹn"}
+              </h2>
               <button onClick={() => setDetailModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5 text-gray-500" />
               </button>

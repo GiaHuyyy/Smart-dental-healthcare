@@ -79,4 +79,8 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsMongoId()
   voucherId: string;
+
+  @IsOptional()
+  @IsMongoId()
+  followUpParentId: string;
 }

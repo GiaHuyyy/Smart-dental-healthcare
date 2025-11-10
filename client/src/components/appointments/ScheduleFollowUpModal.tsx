@@ -142,6 +142,27 @@ export default function ScheduleFollowUpModal({ isOpen, onClose, appointment, on
       const endM = totalMinutes % 60;
       const endTime = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
 
+      // DEBUG: Log entire appointment object to see structure
+      console.log("🔍 [DEBUG] Full appointment/suggestion object:", appointment);
+      console.log("🔍 [DEBUG] appointment.parentAppointmentId:", (appointment as any).parentAppointmentId);
+      console.log("🔍 [DEBUG] appointment._id:", appointment._id);
+
+      // CRITICAL: Get parent appointment ID for follow-up linking
+      const parentAppointmentIdRaw = (appointment as any).parentAppointmentId || appointment._id;
+      const parentAppointmentId =
+        typeof parentAppointmentIdRaw === "object"
+          ? parentAppointmentIdRaw?._id || parentAppointmentIdRaw?.id || ""
+          : (parentAppointmentIdRaw as string) || "";
+
+      console.log("🔗 Creating follow-up appointment with parent:", {
+        suggestionId: appointment._id,
+        parentAppointmentIdRaw,
+        parentAppointmentId,
+        hasParentId: !!parentAppointmentId,
+        patientId,
+        doctorId,
+      });
+
       const payload = {
         patientId,
         doctorId,
@@ -152,7 +173,10 @@ export default function ScheduleFollowUpModal({ isOpen, onClose, appointment, on
         consultationFee: (doctor as any)?.consultationFee || 0,
         appointmentType: (appointment.appointmentType as string) || "Khám tái",
         notes: appointment.notes || "",
+        followUpParentId: parentAppointmentId, // LINK TO PARENT APPOINTMENT
       };
+
+      console.log("📤 Sending appointment payload:", payload);
 
       const accessToken = session?.access_token || (session as any)?.accessToken;
 

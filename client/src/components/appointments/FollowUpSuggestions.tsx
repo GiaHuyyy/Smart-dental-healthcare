@@ -231,6 +231,19 @@ export default function FollowUpSuggestions() {
         endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
       }
 
+      // Extract parentAppointmentId from suggestion for follow-up linking
+      const parentAppointmentIdRaw = (selectedSuggestion as any).parentAppointmentId;
+      const parentAppointmentId =
+        typeof parentAppointmentIdRaw === "object"
+          ? parentAppointmentIdRaw?._id || parentAppointmentIdRaw?.id || ""
+          : (parentAppointmentIdRaw as string) || "";
+
+      console.log("🔗 [Wallet Payment] Creating follow-up appointment:", {
+        suggestionId: selectedSuggestion._id,
+        parentAppointmentId,
+        hasParentId: !!parentAppointmentId,
+      });
+
       const appointmentPayload = {
         patientId: userId,
         doctorId: dataToSubmit.doctorId,
@@ -248,9 +261,12 @@ export default function FollowUpSuggestions() {
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.CONFIRMED,
         paymentMethod: "wallet", // Wallet payment
+        followUpParentId: parentAppointmentId, // LINK TO PARENT APPOINTMENT
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
+
+      console.log("📤 [Wallet Payment] Appointment payload:", appointmentPayload);
 
       // Create appointment first
       const result = await appointmentService.createAppointment(appointmentPayload, accessToken);
@@ -373,6 +389,19 @@ export default function FollowUpSuggestions() {
         endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
       }
 
+      // Extract parentAppointmentId from suggestion for follow-up linking
+      const parentAppointmentIdRaw = (selectedSuggestion as any).parentAppointmentId;
+      const parentAppointmentId =
+        typeof parentAppointmentIdRaw === "object"
+          ? parentAppointmentIdRaw?._id || parentAppointmentIdRaw?.id || ""
+          : (parentAppointmentIdRaw as string) || "";
+
+      console.log("🔗 [MoMo Payment] Creating follow-up appointment:", {
+        suggestionId: selectedSuggestion._id,
+        parentAppointmentId,
+        hasParentId: !!parentAppointmentId,
+      });
+
       const appointmentPayload = {
         patientId: userId,
         doctorId: dataToSubmit.doctorId,
@@ -390,9 +419,12 @@ export default function FollowUpSuggestions() {
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.PENDING,
         paymentMethod: "momo", // MoMo payment
+        followUpParentId: parentAppointmentId, // LINK TO PARENT APPOINTMENT
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
+
+      console.log("📤 [MoMo Payment] Appointment payload:", appointmentPayload);
 
       const appointmentResult = await appointmentService.createAppointment(appointmentPayload, accessToken);
 
@@ -491,6 +523,19 @@ export default function FollowUpSuggestions() {
         endTime = `${endHours.toString().padStart(2, "0")}:${endMinutes.toString().padStart(2, "0")}`;
       }
 
+      // Extract parentAppointmentId from suggestion for follow-up linking
+      const parentAppointmentIdRaw = (selectedSuggestion as any).parentAppointmentId;
+      const parentAppointmentId =
+        typeof parentAppointmentIdRaw === "object"
+          ? parentAppointmentIdRaw?._id || parentAppointmentIdRaw?.id || ""
+          : (parentAppointmentIdRaw as string) || "";
+
+      console.log("🔗 [Pay Later] Creating follow-up appointment:", {
+        suggestionId: selectedSuggestion._id,
+        parentAppointmentId,
+        hasParentId: !!parentAppointmentId,
+      });
+
       const appointmentPayload = {
         patientId: userId,
         doctorId: dataToSubmit.doctorId,
@@ -508,9 +553,12 @@ export default function FollowUpSuggestions() {
         notes: dataToSubmit.chiefComplaint || "",
         status: AppointmentStatus.CONFIRMED,
         paymentMethod: dataToSubmit.paymentMethod || "later", // Add payment method
+        followUpParentId: parentAppointmentId, // LINK TO PARENT APPOINTMENT
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
       };
+
+      console.log("📤 [Pay Later] Appointment payload:", appointmentPayload);
 
       const result = await appointmentService.createAppointment(appointmentPayload, accessToken);
 

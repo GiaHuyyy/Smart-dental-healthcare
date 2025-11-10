@@ -48,6 +48,7 @@ interface Appointment {
   startTime: string;
   phone?: string;
   email?: string;
+  followUpParentId?: string; // ID of parent appointment if this is a follow-up
 }
 
 interface TreatmentModalProps {
@@ -692,6 +693,14 @@ export default function TreatmentModal({
               <span className="text-gray-600">Giờ khám:</span>{" "}
               <span className="font-medium text-gray-900">{appointment?.startTime || "N/A"}</span>
             </div>
+            {appointment?.followUpParentId && (
+              <div className="col-span-2">
+                <span className="text-gray-600">Hồ sơ gốc:</span>{" "}
+                <span className="font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                  🔗 {appointment.followUpParentId}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

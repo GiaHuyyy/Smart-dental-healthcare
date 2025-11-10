@@ -214,6 +214,20 @@ export class AppointmentsService {
       // Kiểm tra xem bác sĩ có lịch trùng không
       const { doctorId, appointmentDate, startTime } = createAppointmentDto;
 
+      // DEBUG: Log entire payload to check followUpParentId
+      this.logger.log('🔍 [DEBUG] Creating appointment with payload:');
+      this.logger.log(JSON.stringify(createAppointmentDto, null, 2));
+
+      // DEBUG: Log follow-up parent ID if present
+      const followUpParentId = (createAppointmentDto as any).followUpParentId;
+      if (followUpParentId) {
+        this.logger.log(
+          `🔗 Creating follow-up appointment with parent: ${followUpParentId}`,
+        );
+      } else {
+        this.logger.log('❌ No followUpParentId in payload');
+      }
+
       // Basic required fields validation
       if (!doctorId) {
         throw new BadRequestException('Thiếu doctorId');
@@ -1790,7 +1804,14 @@ export class AppointmentsService {
       });
 
       await suggestion.save();
-      console.log('Suggestion saved:', suggestion._id);
+      console.log('✅ Suggestion saved:', suggestion._id);
+      console.log(
+        '🔗 Suggestion has parentAppointmentId:',
+        parentAppointmentId,
+      );
+      this.logger.log(
+        `🔔 Created follow-up suggestion ${String(suggestion._id)} for appointment ${String(parentAppointmentId)}`,
+      );
 
       // Populate suggestion for notification and email
       const populatedSuggestion = await this.followUpSuggestionModel
@@ -1854,6 +1875,22 @@ export class AppointmentsService {
       .populate('parentAppointmentId')
       .populate('voucherId')
       .sort({ createdAt: -1 });
+
+    this.logger.log(
+      `📋 Found ${suggestions.length} follow-up suggestions for patient ${patientId}`,
+    );
+
+    if (suggestions.length > 0) {
+      suggestions.forEach((s) => {
+        const parentId =
+          typeof s.parentAppointmentId === 'object'
+            ? (s.parentAppointmentId as any)?._id
+            : s.parentAppointmentId;
+        this.logger.log(
+          `  🔗 Suggestion ${String(s._id)} → parent: ${String(parentId)}`,
+        );
+      });
+    }
 
     return suggestions;
   }

@@ -8,10 +8,18 @@ export type MedicalRecordDocument = HydratedDocument<MedicalRecord>;
 export class MedicalRecord {
   _id: mongoose.Schema.Types.ObjectId;
 
-  @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: User.name })
+  @Prop({
+    required: true,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: User.name,
+  })
   patientId: mongoose.Schema.Types.ObjectId;
 
-  @Prop({ required: true, type: mongoose.Schema.Types.ObjectId, ref: User.name })
+  @Prop({
+    required: true,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: User.name,
+  })
   doctorId: mongoose.Schema.Types.ObjectId;
 
   @Prop({ required: true })
@@ -105,8 +113,19 @@ export class MedicalRecord {
   @Prop({ type: String, default: null })
   followUpTime?: string | null;
 
-  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Appointment', default: null })
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointment',
+    default: null,
+  })
   followUpAppointmentId?: mongoose.Types.ObjectId | null;
+
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'MedicalRecord',
+    default: null,
+  })
+  parentRecordId?: mongoose.Types.ObjectId | null;
 
   @Prop({ default: 'active' })
   status: string;
