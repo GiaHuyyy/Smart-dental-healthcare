@@ -2,8 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Plus, Eye, Calendar, User, Pill, Printer, X, AlertCircle, Activity } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import {
+  FileText,
+  Plus,
+  Eye,
+  Calendar,
+  User,
+  Pill,
+  Printer,
+  X,
+  AlertCircle,
+  Activity,
+  Stethoscope,
+} from "lucide-react";
+import { toast } from "sonner";
 import TreatmentModal from "@/components/appointments/TreatmentModal";
 import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 
@@ -101,7 +113,6 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const router = useRouter();
-  const { toast } = useToast();
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("vi-VN");
@@ -130,7 +141,6 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
       const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
       const response = await fetch(`${API_URL}/api/v1/medical-records/${record._id}`);
       const data = await response.json();
-      console.log("Fetched medical record details:", data);
       if (data && !data.error) {
         setMedicalRecordDetails(data.data || data);
       } else {
@@ -146,19 +156,20 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
     setIsMedicalRecordModalOpen(false);
     setSelectedMedicalRecord(null);
     setMedicalRecordDetails(null);
+
+    // Refresh list when closing modal (after updates)
+    if (onRefresh) {
+      onRefresh();
+    }
   };
 
   const handleEditMedicalRecord = () => {
-    setIsMedicalRecordModalOpen(false);
     setIsEditModalOpen(true);
   };
 
   const closeEditModal = () => {
     setIsEditModalOpen(false);
-    // Refetch medical records after edit
-    if (onRefresh) {
-      onRefresh();
-    }
+    // Don't do anything else - modal detail stays open
   };
 
   const handleSubmitTreatment = async (formData: {
@@ -170,48 +181,49 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
     setIsSubmitting(true);
     try {
       const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+      const requestBody = {
+        chiefComplaint: formData.chiefComplaints?.join(", ") || medicalRecordDetails?.chiefComplaint,
+        diagnosis: formData.diagnosisGroups?.map((g) => g.diagnosis).join(", ") || medicalRecordDetails?.diagnosis,
+        treatmentPlan:
+          formData.diagnosisGroups?.map((g) => g.treatmentPlans.join(", ")).join("; ") ||
+          medicalRecordDetails?.treatmentPlan,
+        // Thêm diagnosisGroups để lưu format mới
+        diagnosisGroups: formData.diagnosisGroups || medicalRecordDetails?.diagnosisGroups,
+        // Thêm detailedMedications để lưu format mới
+        detailedMedications: formData.medications || medicalRecordDetails?.detailedMedications,
+        // Giữ medications cũ để backwards compatibility
+        medications:
+          formData.medications?.map((m) => `${m.name} - ${m.dosage} - ${m.frequency}`) ||
+          medicalRecordDetails?.medications,
+        notes: formData.notes || medicalRecordDetails?.notes,
+      };
+
       const response = await fetch(`${API_URL}/api/v1/medical-records/${selectedMedicalRecord?._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chiefComplaint: formData.chiefComplaints?.join(", ") || medicalRecordDetails?.chiefComplaint,
-          diagnosis: formData.diagnosisGroups?.map((g) => g.diagnosis).join(", ") || medicalRecordDetails?.diagnosis,
-          treatmentPlan:
-            formData.diagnosisGroups?.map((g) => g.treatmentPlans.join(", ")).join("; ") ||
-            medicalRecordDetails?.treatmentPlan,
-          medications:
-            formData.medications?.map((m) => `${m.name} - ${m.dosage} - ${m.frequency}`) ||
-            medicalRecordDetails?.medications,
-          notes: formData.notes || medicalRecordDetails?.notes,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      const result = await response.json();
-
       if (response.ok) {
-        toast({
-          title: "Thành công",
-          description: "Cập nhật hồ sơ bệnh án thành công",
-        });
-        closeEditModal();
-        // Refetch to update list
-        if (onRefresh) {
-          onRefresh();
-        }
+        const result = await response.json();
+
+        // Update modal detail with new data
+        setMedicalRecordDetails(result);
+
+        // Close edit modal only (keep detail modal open)
+        setIsEditModalOpen(false);
+
+        // Show success toast
+        toast.success("Cập nhật hồ sơ bệnh án thành công");
       } else {
-        toast({
-          title: "Lỗi",
-          description: result.message || "Không thể cập nhật hồ sơ",
-          type: "error",
-        });
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Update failed:", response.status, errorData);
+        throw new Error(errorData.message || "Failed to update medical record");
       }
     } catch (error) {
       console.error("Error updating medical record:", error);
-      toast({
-        title: "Lỗi",
-        description: "Có lỗi xảy ra khi cập nhật hồ sơ",
-        type: "error",
-      });
+      toast.error("Cập nhật hồ sơ bệnh án thất bại. Vui lòng thử lại.");
     } finally {
       setIsSubmitting(false);
     }
@@ -278,7 +290,7 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                   {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
                     <div className="bg-blue-50 rounded p-2">
                       <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
-                        <Activity className="w-3 h-3" />
+                        <Stethoscope className="w-3 h-3" />
                         Chuẩn đoán
                       </p>
                       <div className="space-y-1">
@@ -354,11 +366,11 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
           `}</style>
 
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-50 animate-fade-in"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-50"
             onClick={closeMedicalRecordModal}
           >
             <div
-              className="print-medical-record bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-xl border border-gray-200 animate-scale-in"
+              className="print-medical-record bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-xl border border-gray-200"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
@@ -477,7 +489,7 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                   {/* Diagnosis Info */}
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <h3 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
+                      <AlertCircle className="w-4 h-4" />
                       Triệu chứng chính
                     </h3>
                     <p className="text-gray-800">{medicalRecordDetails.chiefComplaint}</p>
@@ -487,7 +499,7 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                   {medicalRecordDetails.diagnosisGroups && medicalRecordDetails.diagnosisGroups.length > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
+                        <Stethoscope className="w-4 h-4" />
                         Chuẩn đoán
                       </h3>
                       <div className="space-y-3">
@@ -694,7 +706,11 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
             patientName: patient.fullName,
             patientAvatar: patient.avatarUrl,
             date: medicalRecordDetails.recordDate,
-            startTime: "",
+            // Extract startTime from appointmentId if it's an object
+            startTime:
+              typeof medicalRecordDetails.appointmentId === "object" && medicalRecordDetails.appointmentId?.startTime
+                ? medicalRecordDetails.appointmentId.startTime
+                : "09:00",
             phone: patient.phone,
             email: patient.email,
           }}
@@ -707,30 +723,40 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                 ?.split(/[,，]/)
                 .map((c) => c.trim())
                 .filter(Boolean) || [],
-            diagnosisGroups: medicalRecordDetails.diagnosis
-              ? [
-                  {
-                    diagnosis: medicalRecordDetails.diagnosis,
-                    treatmentPlans: medicalRecordDetails.treatmentPlan
-                      ?.split(/[;，]/)
-                      .map((t) => t.trim())
-                      .filter(Boolean) || [""],
-                  },
-                ]
-              : [{ diagnosis: "", treatmentPlans: [""] }],
+            // Ưu tiên diagnosisGroups, fallback sang diagnosis cũ
+            diagnosisGroups:
+              medicalRecordDetails.diagnosisGroups && medicalRecordDetails.diagnosisGroups.length > 0
+                ? medicalRecordDetails.diagnosisGroups
+                : medicalRecordDetails.diagnosis
+                ? [
+                    {
+                      diagnosis: medicalRecordDetails.diagnosis,
+                      treatmentPlans: medicalRecordDetails.treatmentPlan
+                        ?.split(/[;，]/)
+                        .map((t) => t.trim())
+                        .filter(Boolean) || [""],
+                    },
+                  ]
+                : [{ diagnosis: "", treatmentPlans: [""] }],
+            // Ưu tiên detailedMedications, fallback sang medications cũ
             medications:
-              medicalRecordDetails.medications?.map((med) => {
-                const parts = med.includes(" - ") ? med.split(" - ") : [med, "", "", ""];
-                return {
-                  name: parts[0] || "",
-                  dosage: parts[1] || "",
-                  frequency: parts[2] || "",
-                  duration: parts[3] || "",
-                  instructions: "",
-                };
-              }) || [],
+              medicalRecordDetails.detailedMedications && medicalRecordDetails.detailedMedications.length > 0
+                ? medicalRecordDetails.detailedMedications.map((med) => ({
+                    ...med,
+                    instructions: med.instructions || "",
+                  }))
+                : medicalRecordDetails.medications?.map((med) => {
+                    const parts = med.includes(" - ") ? med.split(" - ") : [med, "", "", ""];
+                    return {
+                      name: parts[0] || "",
+                      dosage: parts[1] || "",
+                      frequency: parts[2] || "",
+                      duration: parts[3] || "",
+                      instructions: "",
+                    };
+                  }) || [],
             notes: medicalRecordDetails.notes || "",
-            status: medicalRecordDetails.status || "active",
+            // BỎ status field
           }}
         />
       )}
@@ -744,12 +770,23 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
           }}
           medicalRecord={medicalRecordDetails}
           patientName={patient.fullName}
-          onSuccess={() => {
-            // Refresh medical records after creating follow-up
-            if (onRefresh) {
-              onRefresh();
-            }
+          onSuccess={async () => {
+            // Close follow-up modal only (keep detail modal open)
             setIsFollowUpModalOpen(false);
+
+            // Refetch medical record detail to show updated follow-up info
+            if (selectedMedicalRecord) {
+              try {
+                const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+                const response = await fetch(`${API_URL}/api/v1/medical-records/${selectedMedicalRecord._id}`);
+                if (response.ok) {
+                  const updatedRecord = await response.json();
+                  setMedicalRecordDetails(updatedRecord);
+                }
+              } catch (error) {
+                console.error("Error refetching medical record:", error);
+              }
+            }
           }}
         />
       )}

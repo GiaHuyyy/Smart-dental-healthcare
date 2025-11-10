@@ -1,7 +1,7 @@
 "use client";
 
 import { Lightbulb, X } from "lucide-react";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 
 // Types
@@ -71,17 +71,23 @@ export default function TreatmentModal({
   mode = "create", // Default to create mode
   initialData, // Initial data for update mode
 }: TreatmentModalProps) {
-  const [treatmentForm, setTreatmentForm] = useState<TreatmentFormData>({
+  // Store initial data for reset
+  const initialFormData: TreatmentFormData = {
     chiefComplaints: initialData?.chiefComplaints || [],
     presentIllness: initialData?.presentIllness || "",
     physicalExamination: initialData?.physicalExamination || "",
     diagnosisGroups: initialData?.diagnosisGroups || [{ diagnosis: "", treatmentPlans: [""] }],
     notes: initialData?.notes || "",
     medications: initialData?.medications || [],
-    status: initialData?.status || "active", // Default to active
-  });
+    status: initialData?.status || "active",
+  };
+
+  const [treatmentForm, setTreatmentForm] = useState<TreatmentFormData>(initialFormData);
 
   const [chiefComplaintInput, setChiefComplaintInput] = useState("");
+
+  // Refs for click outside detection
+  const suggestionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const [suggestions, setSuggestions] = useState<Suggestions>({
     chiefComplaints: [],
@@ -142,6 +148,41 @@ export default function TreatmentModal({
       }
     }
   }, [isOpen, fetchSuggestions, mode, initialData]);
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      // Check if click is on a Lightbulb button
+      const isLightbulbClick = target.closest("button")?.querySelector('svg[class*="lucide-lightbulb"]');
+      if (isLightbulbClick) {
+        return; // Don't close if clicking lightbulb
+      }
+
+      // Check if click is inside any suggestion dropdown
+      const isInsideSuggestion = Object.values(suggestionRefs.current).some((ref) => {
+        return ref && ref.contains(target);
+      });
+
+      if (!isInsideSuggestion) {
+        // Close all suggestions
+        setShowSuggestions({
+          chiefComplaint: false,
+          diagnosis: {},
+          treatmentPlan: {},
+          medication: {},
+        });
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [isOpen]);
 
   // Chief complaints management
   const addChiefComplaint = (complaint: string) => {
@@ -291,7 +332,12 @@ export default function TreatmentModal({
 
   const handleDiagnosisKeyDown = (e: React.KeyboardEvent, groupIndex: number) => {
     const currentDiagnosis = treatmentForm.diagnosisGroups[groupIndex]?.diagnosis || "";
-    if (e.key === "Tab" && filteredSuggestions.diagnoses[groupIndex] && filteredSuggestions.diagnoses[groupIndex].length > 0 && currentDiagnosis.trim()) {
+    if (
+      e.key === "Tab" &&
+      filteredSuggestions.diagnoses[groupIndex] &&
+      filteredSuggestions.diagnoses[groupIndex].length > 0 &&
+      currentDiagnosis.trim()
+    ) {
       e.preventDefault();
       selectDiagnosisSuggestion(groupIndex, filteredSuggestions.diagnoses[groupIndex][0]);
     }
@@ -404,7 +450,12 @@ export default function TreatmentModal({
   const handleTreatmentPlanKeyDown = (e: React.KeyboardEvent, groupIndex: number, planIndex: number) => {
     const key = `${groupIndex}-${planIndex}`;
     const currentPlan = treatmentForm.diagnosisGroups[groupIndex]?.treatmentPlans[planIndex] || "";
-    if (e.key === "Tab" && filteredSuggestions.treatmentPlans[key] && filteredSuggestions.treatmentPlans[key].length > 0 && currentPlan.trim()) {
+    if (
+      e.key === "Tab" &&
+      filteredSuggestions.treatmentPlans[key] &&
+      filteredSuggestions.treatmentPlans[key].length > 0 &&
+      currentPlan.trim()
+    ) {
       e.preventDefault();
       selectTreatmentPlanSuggestion(groupIndex, planIndex, filteredSuggestions.treatmentPlans[key][0]);
     }
@@ -554,6 +605,13 @@ export default function TreatmentModal({
     }
   };
 
+  // Handle reset form
+  const handleReset = () => {
+    setTreatmentForm(initialFormData);
+    setChiefComplaintInput("");
+    toast.info("Đã hoàn lại dữ liệu ban đầu");
+  };
+
   // Handle submit
   const handleSubmit = async () => {
     // Validation
@@ -567,7 +625,23 @@ export default function TreatmentModal({
       return;
     }
 
-    await onSubmit(treatmentForm);
+    // Validate treatmentPlans - mỗi diagnosis phải có ít nhất 1 treatment plan
+    const invalidGroup = treatmentForm.diagnosisGroups.find((g) => {
+      return g.diagnosis.trim() && (!g.treatmentPlans || g.treatmentPlans.every((p) => !p.trim()));
+    });
+
+    if (invalidGroup) {
+      toast.error("Vui lòng nhập kế hoạch điều trị cho mỗi chẩn đoán");
+      return;
+    }
+
+    try {
+      await onSubmit(treatmentForm);
+      // Toast will be handled by PatientMedicalRecords component
+    } catch (error) {
+      console.error("Error submitting treatment:", error);
+      toast.error("Có lỗi xảy ra khi cập nhật. Vui lòng thử lại.");
+    }
   };
 
   if (!isOpen) return null;
@@ -672,7 +746,12 @@ export default function TreatmentModal({
 
               {/* Suggestions Dropdown */}
               {showSuggestions.chiefComplaint && filteredSuggestions.chiefComplaints.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20">
+                <div
+                  ref={(el) => {
+                    suggestionRefs.current["chiefComplaint"] = el;
+                  }}
+                  className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20"
+                >
                   {filteredSuggestions.chiefComplaints.map((suggestion, index) => (
                     <button
                       key={index}
@@ -750,7 +829,12 @@ export default function TreatmentModal({
                         {showSuggestions.diagnosis[groupIndex] &&
                           filteredSuggestions.diagnoses[groupIndex] &&
                           filteredSuggestions.diagnoses[groupIndex].length > 0 && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20">
+                            <div
+                              ref={(el) => {
+                                suggestionRefs.current[`diagnosis-${groupIndex}`] = el;
+                              }}
+                              className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20"
+                            >
                               {filteredSuggestions.diagnoses[groupIndex].map((suggestion, index) => (
                                 <button
                                   key={index}
@@ -782,6 +866,7 @@ export default function TreatmentModal({
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-medium text-gray-600">Kế hoạch điều trị</label>
+
                       <button
                         type="button"
                         onClick={() => addTreatmentPlan(groupIndex)}
@@ -811,7 +896,12 @@ export default function TreatmentModal({
                               {showSuggestions.treatmentPlan[`${groupIndex}-${planIndex}`] &&
                                 filteredSuggestions.treatmentPlans[`${groupIndex}-${planIndex}`] &&
                                 filteredSuggestions.treatmentPlans[`${groupIndex}-${planIndex}`].length > 0 && (
-                                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20">
+                                  <div
+                                    ref={(el) => {
+                                      suggestionRefs.current[`treatmentPlan-${groupIndex}-${planIndex}`] = el;
+                                    }}
+                                    className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20"
+                                  >
                                     {filteredSuggestions.treatmentPlans[`${groupIndex}-${planIndex}`].map(
                                       (suggestion, index) => (
                                         <button
@@ -918,7 +1008,12 @@ export default function TreatmentModal({
                             {showSuggestions.medication[index] &&
                               filteredSuggestions.medications[index] &&
                               filteredSuggestions.medications[index].length > 0 && (
-                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20">
+                                <div
+                                  ref={(el) => {
+                                    suggestionRefs.current[`medication-${index}`] = el;
+                                  }}
+                                  className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-20"
+                                >
                                   {filteredSuggestions.medications[index].map((suggestion, idx) => (
                                     <button
                                       key={idx}
@@ -999,24 +1094,6 @@ export default function TreatmentModal({
             )}
           </div>
 
-          {/* Status - Only show in update mode */}
-          {mode === "update" && (
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Trạng thái</label>
-              <select
-                value={treatmentForm.status || "active"}
-                onChange={(e) => setTreatmentForm({ ...treatmentForm, status: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm"
-                disabled={isSubmitting}
-              >
-                <option value="active">Đang điều trị</option>
-                <option value="completed">Hoàn thành</option>
-                <option value="pending">Chờ xử lý</option>
-                <option value="cancelled">Đã hủy</option>
-              </select>
-            </div>
-          )}
-
           {/* Notes */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">Ghi chú</label>
@@ -1032,32 +1109,49 @@ export default function TreatmentModal({
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3 rounded-b-2xl">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Hủy
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSubmitting || treatmentForm.chiefComplaints.length === 0}
-            className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Đang xử lý...
-              </>
-            ) : mode === "update" ? (
-              "Cập nhật"
-            ) : (
-              "Hoàn thành"
+        <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between rounded-b-2xl">
+          {/* Left side - Reset button (only show in update mode) */}
+          <div>
+            {mode === "update" && (
+              <button
+                type="button"
+                onClick={handleReset}
+                disabled={isSubmitting}
+                className="px-4 py-2.5 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Hoàn lại
+              </button>
             )}
-          </button>
+          </div>
+
+          {/* Right side - Action buttons */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || treatmentForm.chiefComplaints.length === 0}
+              className="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : mode === "update" ? (
+                "Cập nhật"
+              ) : (
+                "Hoàn thành"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

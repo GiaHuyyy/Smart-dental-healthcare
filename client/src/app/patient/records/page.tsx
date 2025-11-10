@@ -17,8 +17,6 @@ import {
   Eye,
   FileSearch,
   Printer,
-  Phone,
-  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -484,7 +482,7 @@ export default function PatientRecordsPage() {
                     {/* Lý do khám */}
                     {record.chiefComplaint && (
                       <div className="flex gap-2">
-                        <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                        <AlertCircle className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-700 mb-1">Lý do khám:</p>
                           <p className="text-sm text-gray-600">{record.chiefComplaint}</p>
@@ -591,12 +589,9 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
         }
       `}</style>
 
-      <div
-        className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-50 animate-fade-in"
-        onClick={onClose}
-      >
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-50" onClick={onClose}>
         <div
-          className="print-medical-record bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-xl border border-gray-200 animate-scale-in"
+          className="print-medical-record bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-xl border border-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal Header */}
@@ -701,8 +696,8 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
               {record.chiefComplaint && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <h3 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Triệu chứng chính
+                    <AlertCircle className="w-4 h-4" />
+                    Triệu chứng
                   </h3>
                   <p className="text-gray-800">{record.chiefComplaint}</p>
                 </div>
@@ -712,7 +707,7 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
               {record.diagnosisGroups && record.diagnosisGroups.length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
+                    <Stethoscope className="w-4 h-4" />
                     Chuẩn đoán
                   </h3>
                   <div className="space-y-3">
