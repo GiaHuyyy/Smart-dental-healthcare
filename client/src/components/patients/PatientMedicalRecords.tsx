@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -14,6 +14,9 @@ import {
   AlertCircle,
   Activity,
   Stethoscope,
+  ChevronDown,
+  ChevronRight,
+  CornerDownRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import TreatmentModal from "@/components/appointments/TreatmentModal";
@@ -113,7 +116,52 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set()); // Track expanded parent records
   const router = useRouter();
+
+  // Build hierarchy: separate parent records and child records
+  const { parentRecords, childRecordsMap } = useMemo(() => {
+    const parents: MedicalRecord[] = [];
+    const childrenMap = new Map<string, MedicalRecord[]>();
+
+    medicalRecords.forEach((record) => {
+      const parentId = typeof record.parentRecordId === "string" ? record.parentRecordId : record.parentRecordId?._id;
+
+      if (parentId) {
+        // This is a child record
+        if (!childrenMap.has(parentId)) {
+          childrenMap.set(parentId, []);
+        }
+        childrenMap.get(parentId)!.push(record);
+      } else {
+        // This is a parent record
+        parents.push(record);
+      }
+    });
+
+    // Sort children by date (oldest first)
+    childrenMap.forEach((children) => {
+      children.sort((a, b) => new Date(a.recordDate).getTime() - new Date(b.recordDate).getTime());
+    });
+
+    // Sort parents by date (newest first)
+    parents.sort((a, b) => new Date(b.recordDate).getTime() - new Date(a.recordDate).getTime());
+
+    return { parentRecords: parents, childRecordsMap: childrenMap };
+  }, [medicalRecords]);
+
+  // Toggle expand/collapse for parent records
+  const toggleExpand = (recordId: string) => {
+    setExpandedRecords((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(recordId)) {
+        newSet.delete(recordId);
+      } else {
+        newSet.add(recordId);
+      }
+      return newSet;
+    });
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("vi-VN");
@@ -248,81 +296,202 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
             Tạo hồ sơ mới
           </button>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {medicalRecords.length > 0 ? (
-            medicalRecords.map((record) => (
-              <div
-                key={record._id}
-                className="bg-white rounded-md p-3 border border-gray-200 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
-                onClick={() => handleMedicalRecordClick(record)}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="w-10 h-10 rounded-md bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center shrink-0 transition-colors">
-                      <FileText className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900 text-sm">{formatDate(record.recordDate)}</h4>
-                        <Eye className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+            parentRecords.map((record) => {
+              const childRecords = childRecordsMap.get(record._id) || [];
+              const isExpanded = expandedRecords.has(record._id);
+              const hasChildren = childRecords.length > 0;
+
+              return (
+                <div key={record._id} className="space-y-2">
+                  {/* Parent Record */}
+                  <div
+                    className={`bg-white rounded-md p-3 border-2 transition-all ${
+                      hasChildren
+                        ? "border-primary/40 shadow-sm"
+                        : "border-gray-200 hover:border-primary/30 hover:bg-primary/5"
+                    } ${hasChildren ? "" : "cursor-pointer group"}`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start gap-3 flex-1">
+                        {/* Expand/Collapse Button for Parent with Children */}
+                        {hasChildren && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(record._id);
+                            }}
+                            className="shrink-0 w-10 h-10 rounded-md bg-primary/10 hover:bg-primary/20 flex items-center justify-center transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="w-5 h-5 text-primary" />
+                            ) : (
+                              <ChevronRight className="w-5 h-5 text-primary" />
+                            )}
+                          </button>
+                        )}
+
+                        {/* Icon for Parent without Children */}
+                        {!hasChildren && (
+                          <div
+                            className="w-10 h-10 rounded-md bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                            onClick={() => handleMedicalRecordClick(record)}
+                          >
+                            <FileText className="w-5 h-5 text-primary" />
+                          </div>
+                        )}
+
+                        <div className="flex-1 cursor-pointer" onClick={() => handleMedicalRecordClick(record)}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-gray-900 text-sm">{formatDate(record.recordDate)}</h4>
+                            {hasChildren && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary text-white">
+                                📋 Gốc ({childRecords.length} tái khám)
+                              </span>
+                            )}
+                            {!hasChildren && (
+                              <Eye className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
+                          </div>
+                          {record.doctorId && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                              <User className="w-3 h-3" />
+                              <span>BS. {record.doctorId.fullName}</span>
+                              <span className="text-gray-400">•</span>
+                              <span>{record.doctorId.specialty}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      {record.doctorId && (
-                        <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
-                          <User className="w-3 h-3" />
-                          <span>BS. {record.doctorId.fullName}</span>
-                          <span className="text-gray-400">•</span>
-                          <span>{record.doctorId.specialty}</span>
+                    </div>
+
+                    <div className="ml-13 space-y-2 text-sm">
+                      <div className="bg-amber-50 rounded p-2">
+                        <p className="text-xs font-medium text-amber-800 mb-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Triệu chứng
+                        </p>
+                        <p className="text-gray-700 line-clamp-2">{record.chiefComplaint}</p>
+                      </div>
+
+                      {/* Show diagnosisGroups or fallback to diagnosis */}
+                      {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
+                        <div className="bg-blue-50 rounded p-2">
+                          <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                            <Stethoscope className="w-3 h-3" />
+                            Chuẩn đoán
+                          </p>
+                          <div className="space-y-1">
+                            {record.diagnosisGroups.map((group, idx) => (
+                              <p key={idx} className="text-gray-700 text-xs line-clamp-1">
+                                • {group.diagnosis}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        record.diagnosis && (
+                          <div className="bg-blue-50 rounded p-2">
+                            <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                              <Activity className="w-3 h-3" />
+                              Chẩn đoán
+                            </p>
+                            <p className="text-gray-700 line-clamp-2">{record.diagnosis}</p>
+                          </div>
+                        )
+                      )}
+
+                      {record.isFollowUpRequired && record.followUpDate && (
+                        <div className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded">
+                          <Calendar className="w-3 h-3" />
+                          <span>Tái khám: {formatDate(record.followUpDate)}</span>
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
 
-                <div className="ml-13 space-y-2 text-sm">
-                  <div className="bg-amber-50 rounded p-2">
-                    <p className="text-xs font-medium text-amber-800 mb-1 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Triệu chứng
-                    </p>
-                    <p className="text-gray-700 line-clamp-2">{record.chiefComplaint}</p>
-                  </div>
+                  {/* Child Records (Follow-ups) - Show when expanded */}
+                  {hasChildren && isExpanded && (
+                    <div className="ml-8 space-y-2 border-l-2 border-primary/30 pl-4">
+                      {childRecords.map((childRecord, index) => (
+                        <div
+                          key={childRecord._id}
+                          className="bg-white rounded-md p-3 border border-amber-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer group relative"
+                          onClick={() => handleMedicalRecordClick(childRecord)}
+                        >
+                          {/* Child Indicator Line */}
+                          <div className="absolute -left-4 top-5 w-4 h-0.5 bg-primary/30"></div>
 
-                  {/* Show diagnosisGroups or fallback to diagnosis */}
-                  {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
-                    <div className="bg-blue-50 rounded p-2">
-                      <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
-                        <Stethoscope className="w-3 h-3" />
-                        Chuẩn đoán
-                      </p>
-                      <div className="space-y-1">
-                        {record.diagnosisGroups.map((group, idx) => (
-                          <p key={idx} className="text-gray-700 text-xs line-clamp-1">
-                            • {group.diagnosis}
-                          </p>
-                        ))}
-                      </div>
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-start gap-3 flex-1">
+                              <div className="w-10 h-10 rounded-md bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 transition-colors">
+                                <CornerDownRight className="w-5 h-5 text-amber-700" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold text-gray-900 text-sm">
+                                    {formatDate(childRecord.recordDate)}
+                                  </h4>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-600 text-white">
+                                    🔄 Tái khám {index + 1}
+                                  </span>
+                                  <Eye className="w-4 h-4 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                                {childRecord.doctorId && (
+                                  <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                                    <User className="w-3 h-3" />
+                                    <span>BS. {childRecord.doctorId.fullName}</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span>{childRecord.doctorId.specialty}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="ml-13 space-y-2 text-sm">
+                            <div className="bg-amber-50 rounded p-2">
+                              <p className="text-xs font-medium text-amber-800 mb-1 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                Triệu chứng
+                              </p>
+                              <p className="text-gray-700 line-clamp-2">{childRecord.chiefComplaint}</p>
+                            </div>
+
+                            {childRecord.diagnosisGroups && childRecord.diagnosisGroups.length > 0 ? (
+                              <div className="bg-blue-50 rounded p-2">
+                                <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                                  <Stethoscope className="w-3 h-3" />
+                                  Chuẩn đoán
+                                </p>
+                                <div className="space-y-1">
+                                  {childRecord.diagnosisGroups.map((group, idx) => (
+                                    <p key={idx} className="text-gray-700 text-xs line-clamp-1">
+                                      • {group.diagnosis}
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              childRecord.diagnosis && (
+                                <div className="bg-blue-50 rounded p-2">
+                                  <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                                    <Activity className="w-3 h-3" />
+                                    Chẩn đoán
+                                  </p>
+                                  <p className="text-gray-700 line-clamp-2">{childRecord.diagnosis}</p>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    record.diagnosis && (
-                      <div className="bg-blue-50 rounded p-2">
-                        <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
-                          <Activity className="w-3 h-3" />
-                          Chẩn đoán
-                        </p>
-                        <p className="text-gray-700 line-clamp-2">{record.diagnosis}</p>
-                      </div>
-                    )
-                  )}
-
-                  {record.isFollowUpRequired && record.followUpDate && (
-                    <div className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded">
-                      <Calendar className="w-3 h-3" />
-                      <span>Tái khám: {formatDate(record.followUpDate)}</span>
-                    </div>
                   )}
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="text-center py-8">
               <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
