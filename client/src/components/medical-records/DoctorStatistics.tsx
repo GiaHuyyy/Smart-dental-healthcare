@@ -27,12 +27,13 @@ export default function DoctorStatistics({ doctorId }: DoctorStatisticsProps) {
   const fetchStatistics = useCallback(async () => {
     setLoading(true);
     try {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
       const params = new URLSearchParams();
       params.append("doctorId", doctorId);
       if (startDate) params.append("startDate", startDate.toISOString());
       if (endDate) params.append("endDate", endDate.toISOString());
 
-      const response = await fetch(`/api/medical-records/statistics/doctor?${params}`, {
+      const response = await fetch(`${API_URL}/api/v1/medical-records/statistics/doctor?${params}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },

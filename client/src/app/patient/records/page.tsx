@@ -10,13 +10,15 @@ import {
   Pill,
   ChevronRight,
   X,
-  Filter,
   Search,
   Clock,
   AlertCircle,
   CheckCircle,
   Eye,
   FileSearch,
+  Printer,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,12 +29,16 @@ interface MedicalRecord {
     fullName?: string;
     email?: string;
     phone?: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;
+    gender?: string;
   };
   doctorId?: {
     _id?: string;
     fullName?: string;
     email?: string;
     specialty?: string;
+    phoneNumber?: string;
   };
   recordDate: string;
   chiefComplaint: string;
@@ -63,6 +69,10 @@ interface MedicalRecord {
     duration: string;
     instructions?: string;
   }>;
+  diagnosisGroups?: Array<{
+    diagnosis: string;
+    treatmentPlans: string[];
+  }>;
   notes?: string;
 }
 
@@ -87,8 +97,8 @@ export default function PatientRecordsPage() {
     try {
       const userId = (session.user as { _id?: string })._id;
       const accessToken = (session as any)?.access_token;
-
-      const response = await fetch(`/api/medical-records/patient/${userId}`, {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const response = await fetch(`${API_URL}/api/v1/medical-records/patient/${userId}`, {
         headers: {
           ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         },
@@ -97,6 +107,7 @@ export default function PatientRecordsPage() {
       if (response.ok) {
         const data = await response.json();
         const recordsList = data?.data || data || [];
+        console.log("Fetched medical records:", recordsList);
         setRecords(Array.isArray(recordsList) ? recordsList : []);
         setFilteredRecords(Array.isArray(recordsList) ? recordsList : []);
       } else {
@@ -130,20 +141,15 @@ export default function PatientRecordsPage() {
       const params = new URLSearchParams(window.location.search);
       const appointmentId = params.get("appointmentId");
 
-      console.log("🔍 Checking appointmentId param:", {
-        appointmentId,
-        recordsLength: records.length,
-        hasSession: !!session?.user,
-      });
-
       if (appointmentId && records.length > 0) {
         try {
           const accessToken = (session as any)?.access_token;
+          const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
           console.log("📡 Fetching medical record for appointmentId:", appointmentId);
 
           // Fetch medical record by appointmentId
-          const response = await fetch(`/api/medical-records/appointment/${appointmentId}`, {
+          const response = await fetch(`${API_URL}/api/v1/medical-records/appointment/${appointmentId}`, {
             headers: {
               ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
             },
@@ -251,17 +257,11 @@ export default function PatientRecordsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
+      case "completed":
         return (
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
             <CheckCircle className="w-3 h-3" />
-            Đang điều trị
-          </span>
-        );
-      case "completed":
-        return (
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-            <CheckCircle className="w-3 h-3" />
-            Hoàn thành
+            Đã điều trị
           </span>
         );
       case "pending":
@@ -444,7 +444,7 @@ export default function PatientRecordsPage() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-4 flex-1">
                       {/* Doctor Avatar */}
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <User className="w-8 h-8 text-primary" />
                       </div>
 
@@ -481,34 +481,42 @@ export default function PatientRecordsPage() {
 
                   {/* Record Details Preview */}
                   <div className="space-y-3 mb-4">
+                    {/* Lý do khám */}
                     {record.chiefComplaint && (
-                      <div className="flex items-start gap-2">
-                        <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-gray-700">Lý do khám:</span>
-                          <p className="text-sm text-gray-600 mt-1">{record.chiefComplaint}</p>
+                      <div className="flex gap-2">
+                        <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-700 mb-1">Lý do khám:</p>
+                          <p className="text-sm text-gray-600">{record.chiefComplaint}</p>
                         </div>
                       </div>
                     )}
 
-                    {record.diagnosis && (
-                      <div className="flex items-start gap-2">
-                        <Stethoscope className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-gray-700">Chẩn đoán:</span>
-                          <p className="text-sm text-gray-600 mt-1">{record.diagnosis}</p>
+                    {/* Chuẩn đoán - ưu tiên diagnosisGroups */}
+                    {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
+                      <div className="flex gap-2">
+                        <Stethoscope className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-700 mb-1">Chuẩn đoán:</p>
+                          <div className="space-y-1">
+                            {record.diagnosisGroups.map((group, idx) => (
+                              <p key={idx} className="text-sm text-gray-600">
+                                • {group.diagnosis}
+                              </p>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    )}
-
-                    {record.medications && record.medications.length > 0 && (
-                      <div className="flex items-start gap-2">
-                        <Pill className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-gray-700">Thuốc:</span>
-                          <p className="text-sm text-gray-600 mt-1">{record.medications.join(", ")}</p>
+                    ) : (
+                      record.diagnosis && (
+                        <div className="flex gap-2">
+                          <Stethoscope className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-700 mb-1">Chuẩn đoán:</p>
+                            <p className="text-sm text-gray-600">{record.diagnosis}</p>
+                          </div>
                         </div>
-                      </div>
+                      )
                     )}
                   </div>
 
@@ -546,211 +554,354 @@ export default function PatientRecordsPage() {
 
 // Detail Modal Component
 function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose: () => void }) {
+  const calculateAge = (dateOfBirth: string) => {
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    return age;
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full my-8">
-        {/* Modal Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Chi tiết hồ sơ điều trị</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {new Date(record.recordDate).toLocaleDateString("vi-VN", {
-                weekday: "long",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              })}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-6 h-6 text-gray-600" />
-          </button>
-        </div>
+    <>
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .print-medical-record,
+          .print-medical-record * {
+            visibility: visible;
+          }
+          .print-medical-record {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
 
-        {/* Modal Content */}
-        <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-          {/* Doctor Info */}
-          <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin bác sĩ</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <span className="text-sm text-gray-600">Họ và tên:</span>
-                <p className="font-medium text-gray-900">{record.doctorId?.fullName || "N/A"}</p>
-              </div>
-              {record.doctorId?.specialty && (
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 z-50 animate-fade-in"
+        onClick={onClose}
+      >
+        <div
+          className="print-medical-record bg-white rounded-lg max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-xl border border-gray-200 animate-scale-in"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Modal Header */}
+          <div className="px-6 py-4 border-b border-gray-200 bg-linear-to-r from-primary/5 to-primary/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-primary" />
+                </div>
                 <div>
-                  <span className="text-sm text-gray-600">Chuyên khoa:</span>
-                  <p className="font-medium text-gray-900">{record.doctorId.specialty}</p>
+                  <h2 className="text-xl font-bold text-gray-900">Chi tiết hồ sơ điều trị</h2>
+                  <p className="text-gray-600 text-sm">
+                    Bệnh nhân: {record.patientId?.fullName || "N/A"} • Ngày khám:{" "}
+                    {new Date(record.recordDate).toLocaleDateString("vi-VN")}
+                  </p>
                 </div>
-              )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => window.print()}
+                  className="no-print inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Printer className="w-4 h-4" />
+                  In
+                </button>
+                <button onClick={onClose} className="no-print p-2 hover:bg-gray-100 rounded-lg" aria-label="Đóng">
+                  <X className="w-5 h-5 text-gray-700" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Clinical Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Thông tin lâm sàng</h3>
-
-            {record.chiefComplaint && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Lý do khám</h4>
-                <p className="text-gray-700">{record.chiefComplaint}</p>
-              </div>
-            )}
-
-            {record.diagnosis && (
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Chẩn đoán</h4>
-                <p className="text-gray-700">{record.diagnosis}</p>
-              </div>
-            )}
-
-            {record.treatmentPlan && (
-              <div className="bg-green-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-2">Kế hoạch điều trị</h4>
-                <p className="text-gray-700">{record.treatmentPlan}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Medications */}
-          {((record.detailedMedications && record.detailedMedications.length > 0) ||
-            (record.medications && record.medications.length > 0)) && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Pill className="w-5 h-5 text-primary" />
-                Thuốc được kê
-              </h3>
-
-              {record.detailedMedications && record.detailedMedications.length > 0 ? (
-                <div className="grid gap-3">
-                  {record.detailedMedications.map((med, index) => (
-                    <div key={index} className="bg-purple-50 rounded-lg p-4 border border-purple-100">
-                      <h4 className="font-semibold text-gray-900 mb-3">{med.name}</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        <div>
-                          <span className="text-gray-600">Liều lượng:</span>
-                          <p className="font-medium text-gray-900">{med.dosage}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Tần suất:</span>
-                          <p className="font-medium text-gray-900">{med.frequency}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Thời gian:</span>
-                          <p className="font-medium text-gray-900">{med.duration}</p>
-                        </div>
-                        {med.instructions && (
-                          <div className="col-span-2 md:col-span-4">
-                            <span className="text-gray-600">Hướng dẫn:</span>
-                            <p className="font-medium text-gray-900">{med.instructions}</p>
-                          </div>
-                        )}
-                      </div>
+          {/* Modal Content */}
+          <div className="p-6 max-h-[calc(95vh-120px)] overflow-y-auto">
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    Thông tin bệnh nhân
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">Họ tên:</span>{" "}
+                      <span className="text-gray-900">{record.patientId?.fullName || "N/A"}</span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {record.medications?.map((med, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium"
-                    >
-                      {med}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Dental Chart */}
-          {record.dentalChart && record.dentalChart.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Sơ đồ răng</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {record.dentalChart.map((tooth, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-900">Răng {tooth.toothNumber}</span>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
-                        {tooth.condition}
+                    <div>
+                      <span className="font-medium text-gray-700">Tuổi:</span>{" "}
+                      <span className="text-gray-900">
+                        {record.patientId?.dateOfBirth ? calculateAge(record.patientId.dateOfBirth) : "N/A"} tuổi
                       </span>
                     </div>
-                    {tooth.treatment && (
-                      <p className="text-sm text-gray-600 mb-1">
-                        <span className="font-medium">Điều trị:</span> {tooth.treatment}
-                      </p>
-                    )}
-                    {tooth.notes && (
-                      <p className="text-sm text-gray-600">
-                        <span className="font-medium">Ghi chú:</span> {tooth.notes}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Procedures */}
-          {record.procedures && record.procedures.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Thủ thuật đã thực hiện</h3>
-              <div className="space-y-3">
-                {record.procedures.map((procedure, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-gray-900">{procedure.name}</h4>
-                      <span className="text-primary font-semibold">{procedure.cost.toLocaleString("vi-VN")} VNĐ</span>
+                    <div>
+                      <span className="font-medium text-gray-700">Giới tính:</span>{" "}
+                      <span className="text-gray-900">
+                        {record.patientId?.gender === "male"
+                          ? "Nam"
+                          : record.patientId?.gender === "female"
+                          ? "Nữ"
+                          : "N/A"}
+                      </span>
                     </div>
-                    {procedure.description && <p className="text-sm text-gray-600 mb-2">{procedure.description}</p>}
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span>Ngày: {new Date(procedure.date).toLocaleDateString("vi-VN")}</span>
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">{procedure.status}</span>
+                    <div>
+                      <span className="font-medium text-gray-700">SĐT:</span>{" "}
+                      <span className="text-gray-900">{record.patientId?.phone || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Email:</span>{" "}
+                      <span className="text-gray-900">{record.patientId?.email || "N/A"}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
 
-          {/* Notes */}
-          {record.notes && (
-            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-              <h4 className="font-medium text-gray-900 mb-2">Ghi chú</h4>
-              <p className="text-gray-700">{record.notes}</p>
-            </div>
-          )}
-
-          {/* Follow-up */}
-          {record.isFollowUpRequired && (
-            <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-red-900 mb-1">Cần tái khám</h4>
-                  {record.followUpDate && (
-                    <p className="text-sm text-red-700">
-                      Ngày tái khám: {new Date(record.followUpDate).toLocaleDateString("vi-VN")}
-                    </p>
-                  )}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    Thông tin bác sĩ
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    {record.doctorId && (
+                      <>
+                        <div>
+                          <span className="font-medium text-gray-700">Bác sĩ:</span>{" "}
+                          <span className="text-gray-900">{record.doctorId.fullName}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-700">Chuyên khoa:</span>{" "}
+                          <span className="text-gray-900">{record.doctorId.specialty}</span>
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <span className="font-medium text-gray-700">Ngày khám:</span>{" "}
+                      <span className="text-gray-900">{new Date(record.recordDate).toLocaleDateString("vi-VN")}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
 
-        {/* Modal Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-          >
-            Đóng
-          </button>
+              {/* Diagnosis Info */}
+              {record.chiefComplaint && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Triệu chứng chính
+                  </h3>
+                  <p className="text-gray-800">{record.chiefComplaint}</p>
+                </div>
+              )}
+
+              {/* Diagnosis Groups */}
+              {record.diagnosisGroups && record.diagnosisGroups.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Chuẩn đoán
+                  </h3>
+                  <div className="space-y-3">
+                    {record.diagnosisGroups.map((group, index) => (
+                      <div key={index} className="bg-white rounded-md p-3 border border-blue-100">
+                        <div className="flex items-start gap-2">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold shrink-0">
+                            {index + 1}
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-gray-900 font-medium">{group.diagnosis}</p>
+                            {group.treatmentPlans && group.treatmentPlans.length > 0 && (
+                              <div className="mt-2 text-sm text-gray-600">
+                                <span className="font-medium">Phương pháp điều trị:</span>
+                                <ul className="mt-1 ml-4 list-disc">
+                                  {group.treatmentPlans.map((plan, planIndex) => (
+                                    <li key={planIndex}>{plan}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Medications - Enhanced Design */}
+              {((record.detailedMedications && record.detailedMedications.length > 0) ||
+                (record.medications && record.medications.length > 0)) && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <Pill className="w-5 h-5 text-primary" />
+                      Danh sách thuốc
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-gray-200">
+                    {/* Priority: Use detailedMedications if available, fallback to medications */}
+                    {record.detailedMedications && record.detailedMedications.length > 0 ? (
+                      // Render detailedMedications (NEW format with full info)
+                      record.detailedMedications.map((med, index) => (
+                        <div key={index} className="px-4 py-4 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-start gap-4">
+                            {/* Number Badge */}
+                            <div className="shrink-0 w-8 h-8 rounded bg-primary/10 flex items-center justify-center">
+                              <span className="text-sm font-semibold text-primary">#{index + 1}</span>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900 text-base mb-3">{med.name}</h4>
+
+                              {/* Details Grid */}
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                                <div>
+                                  <span className="text-gray-500 block mb-0.5">Liều lượng:</span>
+                                  <span className="text-gray-900 font-medium">{med.dosage}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500 block mb-0.5">Tần suất:</span>
+                                  <span className="text-gray-900 font-medium">{med.frequency}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-500 block mb-0.5">Thời gian:</span>
+                                  <span className="text-gray-900 font-medium">{med.duration}</span>
+                                </div>
+                              </div>
+
+                              {/* Instructions */}
+                              {med.instructions && (
+                                <div className="mt-3 p-2 bg-blue-50 rounded text-sm border border-blue-100">
+                                  <span className="text-blue-700 font-medium">💊 Hướng dẫn:</span>{" "}
+                                  <span className="text-gray-900">{med.instructions}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      // Fallback: Simple medications list (OLD format)
+                      <div className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          {record.medications?.map((med, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium"
+                            >
+                              {med}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Dental Chart */}
+              {record.dentalChart && record.dentalChart.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Sơ đồ răng</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {record.dentalChart.map((tooth, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-gray-900">Răng {tooth.toothNumber}</span>
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                            {tooth.condition}
+                          </span>
+                        </div>
+                        {tooth.treatment && (
+                          <p className="text-sm text-gray-600 mb-1">
+                            <span className="font-medium">Điều trị:</span> {tooth.treatment}
+                          </p>
+                        )}
+                        {tooth.notes && (
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Ghi chú:</span> {tooth.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Procedures */}
+              {record.procedures && record.procedures.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Thủ thuật đã thực hiện</h3>
+                  <div className="space-y-3">
+                    {record.procedures.map((procedure, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-gray-900">{procedure.name}</h4>
+                          <span className="text-primary font-semibold">
+                            {procedure.cost.toLocaleString("vi-VN")} VNĐ
+                          </span>
+                        </div>
+                        {procedure.description && <p className="text-sm text-gray-600 mb-2">{procedure.description}</p>}
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <span>Ngày: {new Date(procedure.date).toLocaleDateString("vi-VN")}</span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                            {procedure.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Info */}
+              {(record.notes || record.followUpDate) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {record.notes && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-yellow-900 mb-2">Ghi chú</h3>
+                      <p className="text-gray-800 text-sm">{record.notes}</p>
+                    </div>
+                  )}
+
+                  {record.isFollowUpRequired && record.followUpDate && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        Lịch tái khám
+                      </h3>
+                      <p className="text-gray-800 text-sm font-medium">
+                        {new Date(record.followUpDate).toLocaleDateString("vi-VN")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
+                <p className="text-sm text-gray-600">Hồ sơ này được tạo bởi hệ thống quản lý nha khoa thông minh</p>
+                <p className="text-xs text-gray-500 mt-1">Xem lúc: {new Date().toLocaleString("vi-VN")}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

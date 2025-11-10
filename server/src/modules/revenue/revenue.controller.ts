@@ -1,13 +1,13 @@
 import {
-    BadRequestException,
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query,
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
 } from '@nestjs/common';
 import { Public } from 'src/decorator/customize';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
@@ -56,12 +56,14 @@ export class RevenueController {
     @Query() query: string,
     @Query('current') current?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('patientId') patientId?: string,
   ) {
     return this.revenueService.getDoctorRevenues(
       doctorId,
       query,
       current ? +current : 1,
       pageSize ? +pageSize : 10,
+      patientId,
     );
   }
 

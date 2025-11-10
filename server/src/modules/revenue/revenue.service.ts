@@ -448,6 +448,7 @@ export class RevenueService {
     query: string,
     current: number = 1,
     pageSize: number = 10,
+    patientId?: string,
   ) {
     try {
       if (!mongoose.isValidObjectId(doctorId)) {
@@ -455,11 +456,19 @@ export class RevenueService {
       }
 
       this.logger.log('📋 Getting revenues for doctor:', doctorId);
+      if (patientId) {
+        this.logger.log('🔍 Filtering by patient:', patientId);
+      }
 
       const { filter, sort } = aqp(query);
 
       // Add doctorId to filter
       filter.doctorId = new mongoose.Types.ObjectId(doctorId);
+
+      // Add patientId to filter if provided
+      if (patientId && mongoose.isValidObjectId(patientId)) {
+        filter.patientId = new mongoose.Types.ObjectId(patientId);
+      }
 
       if (filter.current) delete filter.current;
       if (filter.pageSize) delete filter.pageSize;
