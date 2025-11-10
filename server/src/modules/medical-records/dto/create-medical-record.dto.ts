@@ -1,15 +1,15 @@
 import { Type } from 'class-transformer';
 import {
-    IsArray,
-    IsBoolean,
-    IsDate,
-    IsMongoId,
-    IsNotEmpty,
-    IsNumber,
-    IsObject,
-    IsOptional,
-    IsString,
-    ValidateNested,
+  IsArray,
+  IsBoolean,
+  IsDate,
+  IsMongoId,
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  ValidateNested,
 } from 'class-validator';
 
 class VitalSignsDto {
@@ -200,6 +200,10 @@ export class CreateMedicalRecordDto {
   @IsMongoId()
   @IsOptional()
   appointmentId?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  parentRecordId?: string;
 
   @IsBoolean()
   @IsOptional()

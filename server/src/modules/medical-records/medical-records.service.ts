@@ -31,6 +31,15 @@ export class MedicalRecordsService {
       JSON.stringify(createMedicalRecordDto, null, 2),
     );
 
+    // DEBUG: Log parent record ID if present
+    if (createMedicalRecordDto.parentRecordId) {
+      console.log(
+        `🔗 Medical record has parent: ${createMedicalRecordDto.parentRecordId}`,
+      );
+    } else {
+      console.log('❌ No parentRecordId in payload');
+    }
+
     // Process and normalize the data for backward compatibility
     const processedData = this.processCreateData(createMedicalRecordDto);
 

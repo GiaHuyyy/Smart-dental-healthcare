@@ -819,9 +819,16 @@ function MyAppointmentsContent() {
 
                         {/* Appointment Info */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                            {appointment.doctor?.fullName || "Bác sĩ"}
-                          </h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {appointment.doctor?.fullName || "Bác sĩ"}
+                            </h3>
+                            {(appointment as any).followUpParentId && (
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200">
+                                🔄 Tái khám
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-primary mb-2">{appointment.doctor?.specialty || "Nha khoa"}</p>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
@@ -1030,7 +1037,9 @@ function MyAppointmentsContent() {
           <div className="bg-white rounded-2xl max-w-2xl w-full my-8">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-semibold text-gray-900">Chi tiết lịch hẹn</h3>
+                <h3 className="text-2xl font-semibold text-gray-900">
+                  {(selectedAppointment as any).followUpParentId ? "Chi tiết lịch hẹn tái khám" : "Chi tiết lịch hẹn"}
+                </h3>
                 <button
                   onClick={() => {
                     setDetailDialogOpen(false);

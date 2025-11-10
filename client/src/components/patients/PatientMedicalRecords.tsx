@@ -65,6 +65,7 @@ interface MedicalRecord {
   };
   isFollowUpRequired?: boolean;
   followUpDate?: string;
+  parentRecordId?: string | { _id: string }; // ID of parent medical record (for follow-up records)
   medications?: string[];
   detailedMedications?: Array<{
     name: string;

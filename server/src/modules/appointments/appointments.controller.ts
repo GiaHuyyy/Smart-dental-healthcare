@@ -302,11 +302,24 @@ export class AppointmentsController {
   @Post('follow-up/create-suggestion')
   @Public()
   @ResponseMessage('Tạo đề xuất tái khám thành công')
-  createFollowUpSuggestion(@Body() dto: CreateFollowUpDto) {
-    return this.appointmentsService.createFollowUpSuggestion(
+  async createFollowUpSuggestion(@Body() dto: CreateFollowUpDto) {
+    console.log('🔔 [Controller] Creating follow-up suggestion:', {
+      parentAppointmentId: dto.parentAppointmentId,
+      notes: dto.notes || '(no notes)',
+    });
+
+    const result = await this.appointmentsService.createFollowUpSuggestion(
       dto.parentAppointmentId,
       dto.notes || '',
     );
+
+    console.log('✅ [Controller] Follow-up suggestion created:', {
+      suggestionId: result.suggestion._id,
+      parentAppointmentId: result.suggestion.parentAppointmentId,
+      voucherId: (result.voucher as any)._id,
+    });
+
+    return result;
   }
 
   @Get('follow-up/suggestions/:patientId')
