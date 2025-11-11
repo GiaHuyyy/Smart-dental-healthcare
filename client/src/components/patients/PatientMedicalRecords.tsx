@@ -307,11 +307,12 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                 <div key={record._id} className="space-y-2">
                   {/* Parent Record */}
                   <div
-                    className={`bg-white rounded-md p-3 border-2 transition-all ${
+                    className={`bg-white cursor-pointer rounded-md p-3 border-2 transition-all ${
                       hasChildren
-                        ? "border-primary/40 shadow-sm"
+                        ? "border-primary/20 shadow-sm hover:border-primary/30 hover:bg-primary/5"
                         : "border-gray-200 hover:border-primary/30 hover:bg-primary/5"
                     } ${hasChildren ? "" : "cursor-pointer group"}`}
+                    onClick={() => handleMedicalRecordClick(record)}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-start gap-3 flex-1">
@@ -336,30 +337,29 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                         {!hasChildren && (
                           <div
                             className="w-10 h-10 rounded-md bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                            onClick={() => handleMedicalRecordClick(record)}
                           >
                             <FileText className="w-5 h-5 text-primary" />
                           </div>
                         )}
 
-                        <div className="flex-1 cursor-pointer" onClick={() => handleMedicalRecordClick(record)}>
+                        <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <h4 className="font-semibold text-gray-900 text-sm">{formatDate(record.recordDate)}</h4>
                             {hasChildren && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary text-white">
-                                📋 Gốc ({childRecords.length} tái khám)
+                                📋 Hồ sơ gốc ({childRecords.length} tái khám)
                               </span>
                             )}
                             {!hasChildren && (
                               <Eye className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                             )}
                           </div>
-                          {record.doctorId && (
+                          {record.patientId && (
                             <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
                               <User className="w-3 h-3" />
-                              <span>BS. {record.doctorId.fullName}</span>
+                              <span>BN. {record.patientId.fullName}</span>
                               <span className="text-gray-400">•</span>
-                              <span>{record.doctorId.specialty}</span>
+                              <span>{record.patientId.email}</span>
                             </div>
                           )}
                         </div>
@@ -438,12 +438,12 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                                   </span>
                                   <Eye className="w-4 h-4 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
-                                {childRecord.doctorId && (
+                                {childRecord.patientId && (
                                   <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
                                     <User className="w-3 h-3" />
-                                    <span>BS. {childRecord.doctorId.fullName}</span>
+                                    <span>BN. {childRecord.patientId.fullName}</span>
                                     <span className="text-gray-400">•</span>
-                                    <span>{childRecord.doctorId.specialty}</span>
+                                    <span>{childRecord.patientId.email}</span>
                                   </div>
                                 )}
                               </div>

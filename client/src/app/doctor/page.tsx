@@ -3,7 +3,18 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Users, Calendar, DollarSign, FileText, TrendingUp, Loader2, AlertCircle, Check, Clock } from "lucide-react";
+import {
+  Users,
+  Calendar,
+  DollarSign,
+  FileText,
+  TrendingUp,
+  Loader2,
+  AlertCircle,
+  Check,
+  Clock,
+  BarChart2,
+} from "lucide-react";
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { DatePicker } from "@/components/ui/date-picker";
 import doctorDashboardService, {
@@ -186,26 +197,34 @@ export default function DoctorDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
-              <p className="text-sm text-gray-500 mt-1">Chào mừng trở lại, {session?.user?.username || "Bác sĩ"}</p>
-            </div>
-            <div className="text-sm text-gray-500">
-              {currentTime.toLocaleDateString("vi-VN", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BarChart2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Tổng quan</h1>
+                  <p className="text-sm text-gray-600">Chào mừng trở lại, {session?.user?.fullName || "Bác sĩ"}</p>
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-500">
+                {currentTime.toLocaleDateString("vi-VN", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         {/* Stats Cards - Horizontal Layout */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Tổng bệnh nhân */}

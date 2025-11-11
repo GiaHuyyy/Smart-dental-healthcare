@@ -199,21 +199,18 @@ export default function PatientDoctorsPage() {
 
   return (
     <div className="min-h-screen p-6 bg-gray-50">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         {/* Header */}
-        <div className="healthcare-card-elevated p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center gap-4">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
-              style={{
-                backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
-              }}
+              className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"
             >
-              <Stethoscope className="w-8 h-8 text-white" />
+              <Stethoscope className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="healthcare-heading text-3xl">Bác sĩ</h1>
-              <p className="healthcare-body mt-1">Xem hồ sơ và đặt lịch với bác sĩ phù hợp</p>
+              <h1 className="text-xl font-bold text-gray-900">Bác sĩ</h1>
+              <p className="text-sm text-gray-600">Xem hồ sơ và đặt lịch với bác sĩ phù hợp</p>
             </div>
           </div>
         </div>
