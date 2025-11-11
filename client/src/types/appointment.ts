@@ -142,6 +142,7 @@ export interface BookingFormData {
   guardianPhone?: string;
   guardianEmail?: string;
   chiefComplaint?: string;
+  symptoms?: string; // Symptoms from AI chat (editable)
   notes?: string;
   paymentMethod?: "momo" | "cash" | "later" | "wallet";
   paymentAmount?: number;

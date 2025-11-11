@@ -101,8 +101,8 @@ export default function PatientAppointmentsPage() {
         setBookingData({
           doctorId: matchingDoctor._id,
           consultType: ConsultType.ON_SITE,
-          // Pre-fill chief complaint with AI symptoms
-          chiefComplaint: appointmentData.symptoms || "",
+          // ❌ REMOVED: Don't pre-fill chiefComplaint - let user enter manually
+          // chiefComplaint: appointmentData.symptoms || "",
         });
         setBookingStep("time-slot");
         setIsBookingModalOpen(true);

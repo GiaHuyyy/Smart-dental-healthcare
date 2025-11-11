@@ -2,10 +2,8 @@
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-  addChatMessage,
   clearAppointmentData,
   setAppointmentData,
-  setNotes,
   setSelectedDoctor,
   setSymptoms,
   setUrgencyLevel,
@@ -1001,72 +999,87 @@ export default function ChatInterface({
 
   // Navigation
   const navigateToAppointments = (doctor?: DoctorSuggestion, symptoms?: string) => {
-    // Collect comprehensive notes from chat
-    let comprehensiveNotes = "";
+    // ✅ Use COMPLETE chat history from database, not paginated messages
+    const allChatMessages = aiAllMessagesRef.current || messages;
 
-    // Add symptoms if provided
-    if (symptoms) {
-      comprehensiveNotes += `TRIỆU CHỨNG: ${symptoms}\n\n`;
-    }
+    console.log("🔍 [navigateToAppointments] Total messages:", allChatMessages.length);
+    console.log("🔍 [navigateToAppointments] All messages:", allChatMessages);
 
-    // Add urgency level
-    if (urgencyLevel && urgencyLevel !== "low") {
-      comprehensiveNotes += `⚠️ MỨC ĐỘ KHẨN CẤP: ${urgencyLevel.toUpperCase()}\n\n`;
-    }
+    // Collect symptoms from chat - filter out image upload messages
+    const collectedSymptoms: string[] = [];
+    let latestAnalysisResult = analysisResult;
+    let latestImageUrl = uploadedImage;
 
-    // Add analysis result if available
-    if (analysisResult) {
-      comprehensiveNotes += `KẾT QUẢ PHÂN TÍCH AI:\n${
-        analysisResult.richContent?.analysis || analysisResult.analysis || "Đã phân tích hình ảnh X-ray"
-      }\n\n`;
-    }
-
-    // Add chat history as context
-    if (messages.length > 0) {
-      comprehensiveNotes += `LỊCH SỬ CHAT:\n`;
-      messages.forEach((msg, index) => {
-        if (msg.role === "user") {
-          comprehensiveNotes += `Bệnh nhân: ${msg.content}\n`;
-        } else if (msg.role === "assistant") {
-          comprehensiveNotes += `AI: ${msg.content}\n`;
+    // Collect user symptoms from messages (exclude image upload messages)
+    allChatMessages.forEach((msg: any) => {
+      if (msg.role === "user" && msg.content && !msg.isAnalysisResult) {
+        const content = msg.content.toLowerCase();
+        // Skip messages about uploading images
+        if (
+          !content.includes("tải lên ảnh") &&
+          !content.includes("đang tải lên ảnh") &&
+          !content.includes("để phân tích:")
+        ) {
+          collectedSymptoms.push(msg.content);
         }
-        if (index < messages.length - 1) comprehensiveNotes += "\n";
-      });
+      }
+    });
+
+    // Extract the latest image from all messages
+    for (let i = allChatMessages.length - 1; i >= 0; i--) {
+      const msg: any = allChatMessages[i];
+      console.log(`🖼️ [Image Search ${i}] messageType:`, msg.messageType, "imageUrl:", msg.imageUrl);
+      // Find latest image upload message with Cloudinary URL
+      if (msg.messageType === "image_upload" && msg.imageUrl && !msg.imageUrl.startsWith("blob:")) {
+        latestImageUrl = msg.imageUrl;
+        console.log("✅ [Image Found] URL:", latestImageUrl);
+        break;
+      }
     }
 
-    // Store data in Redux
-    // Find Cloudinary URL from messages if available (prioritize over blob URL)
-    const imageMessage = messages.find((msg) => msg.imageUrl && !msg.imageUrl.startsWith("blob:"));
-    const cloudinaryUrl = imageMessage?.imageUrl || uploadedImage;
+    // Find the latest AI analysis result from message history
+    for (let i = allChatMessages.length - 1; i >= 0; i--) {
+      const msg: any = allChatMessages[i];
+      console.log(`🔬 [Analysis Search ${i}] messageType:`, msg.messageType, "hasAnalysisData:", !!msg.analysisData);
+      // Check for analysis message type and data
+      if (msg.messageType === "image_analysis" && msg.analysisData) {
+        latestAnalysisResult = msg.analysisData;
+        console.log("✅ [Analysis Found]", latestAnalysisResult);
+        break;
+      }
+    }
 
+    console.log("📊 [Final Results] Image:", latestImageUrl, "Analysis:", latestAnalysisResult);
+
+    // Build clean symptoms text from collected symptoms
+    const cleanSymptoms = collectedSymptoms
+      .filter((s) => s.trim().length > 0)
+      .join("; ")
+      .trim();
+
+    // ✅ Use collected data instead of old variables
     const appointmentData = {
       doctorId: doctor?._id || "",
       doctorName: doctor?.fullName || "",
       specialty: doctor?.specialty || "",
-      symptoms: symptoms || "",
+      symptoms: cleanSymptoms || symptoms || "",
       urgency: urgencyLevel,
-      notes: comprehensiveNotes,
-      hasImageAnalysis: !!analysisResult,
-      // Thêm thông tin hình ảnh và phân tích
-      uploadedImage: cloudinaryUrl || undefined,
-      analysisResult: analysisResult || null,
-      imageUrl: cloudinaryUrl || undefined,
+      // ❌ REMOVED: Don't auto-fill notes - let user enter manually
+      // notes: comprehensiveNotes,
+      hasImageAnalysis: !!latestAnalysisResult,
+      // ✅ Use latest image and analysis from complete history
+      uploadedImage: latestImageUrl || undefined,
+      analysisResult: latestAnalysisResult || null,
+      imageUrl: latestImageUrl || undefined,
     };
 
     dispatch(setAppointmentData(appointmentData));
-    dispatch(setSymptoms(symptoms || ""));
-    dispatch(setNotes(comprehensiveNotes));
+    dispatch(setSymptoms(cleanSymptoms || symptoms || ""));
 
     // Store selected doctor in Redux
     if (doctor) {
       dispatch(setSelectedDoctor(doctor));
     }
-
-    // Add chat messages to history
-    const userMessages = messages.filter((msg) => msg.role === "user");
-    userMessages.forEach((msg) => {
-      dispatch(addChatMessage(msg.content));
-    });
 
     // Navigate to appointments page with flag to auto-open modal
     router.push("/patient/appointments?fromAI=true");
