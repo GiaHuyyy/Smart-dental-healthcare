@@ -4,6 +4,7 @@ import { useAppointment } from "@/contexts/AppointmentContext";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
+import AppointmentAIDataDisplay from "@/components/appointments/AppointmentAIDataDisplay";
 import {
   AlertCircle,
   ArrowLeft,
@@ -1033,9 +1034,10 @@ function MyAppointmentsContent() {
 
       {/* Detail Dialog */}
       {detailDialogOpen && selectedAppointment && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full my-8">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            {/* Header - Fixed */}
+            <div className="flex-shrink-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-semibold text-gray-900">
                   {(selectedAppointment as any).followUpParentId ? "Chi tiết lịch hẹn tái khám" : "Chi tiết lịch hẹn"}
@@ -1052,7 +1054,8 @@ function MyAppointmentsContent() {
               </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Doctor Info */}
               <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -1224,6 +1227,13 @@ function MyAppointmentsContent() {
                 </div>
               )}
 
+              {/* AI Analysis Data */}
+              {selectedAppointment.aiAnalysisData && (
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                  <AppointmentAIDataDisplay aiData={selectedAppointment.aiAnalysisData} />
+                </div>
+              )}
+
               {/* Notes */}
               {selectedAppointment.notes && (
                 <div>
@@ -1245,7 +1255,8 @@ function MyAppointmentsContent() {
               )}
             </div>
 
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
+            {/* Footer - Fixed */}
+            <div className="flex-shrink-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
               <button
                 onClick={() => {
                   setDetailDialogOpen(false);

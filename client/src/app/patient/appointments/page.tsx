@@ -292,6 +292,11 @@ export default function PatientAppointmentsPage() {
         status: AppointmentStatus.PENDING,
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
+        // Include AI analysis data if user chose to use it
+        ...(dataToSubmit.includeAIData &&
+          dataToSubmit.aiAnalysisData && {
+            aiAnalysisData: dataToSubmit.aiAnalysisData,
+          }),
       };
 
       const appointmentResult = await appointmentService.createAppointment(appointmentPayload, accessToken);
@@ -440,6 +445,11 @@ export default function PatientAppointmentsPage() {
         notes: dataToSubmit.chiefComplaint || "",
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
+        // Include AI analysis data if user chose to use it
+        ...(dataToSubmit.includeAIData &&
+          dataToSubmit.aiAnalysisData && {
+            aiAnalysisData: dataToSubmit.aiAnalysisData,
+          }),
       };
 
       const appointmentResult = await appointmentService.createAppointment(appointmentPayload, accessToken);
@@ -574,6 +584,11 @@ export default function PatientAppointmentsPage() {
         paymentMethod: dataToSubmit.paymentMethod || "later", // Add payment method
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
+        // Include AI analysis data if user chose to use it
+        ...(dataToSubmit.includeAIData &&
+          dataToSubmit.aiAnalysisData && {
+            aiAnalysisData: dataToSubmit.aiAnalysisData,
+          }),
       };
 
       console.log("Booking payload:", payload); // Debug log

@@ -126,10 +126,27 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     }
   };
 
-  // Function to use AI data in form (placeholder for future functionality)
+  // Function to use AI data in appointment
   const handleRestoreAIData = () => {
-    // TODO: Implement logic to use AI suggestions
-    toast.info("🤖 Tính năng đang được phát triển!");
+    if (!appointmentDataFromAI) {
+      toast.error("Không có thông tin AI để sử dụng");
+      return;
+    }
+
+    // Set flag to include AI data when submitting
+    setFormData((prev) => ({
+      ...prev,
+      includeAIData: true,
+      aiAnalysisData: {
+        symptoms: appointmentDataFromAI.symptoms,
+        uploadedImage: appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl,
+        analysisResult: appointmentDataFromAI.analysisResult,
+        urgency: appointmentDataFromAI.urgency,
+        hasImageAnalysis: appointmentDataFromAI.hasImageAnalysis,
+      },
+    }));
+
+    toast.success("✅ Đã đánh dấu để lưu thông tin AI vào cuộc hẹn");
   };
 
   const validate = (): boolean => {
@@ -198,10 +215,24 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                 <button
                   type="button"
                   onClick={handleRestoreAIData}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  disabled={formData.includeAIData}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                    formData.includeAIData
+                      ? "bg-green-600 text-white cursor-default"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Sử dụng thông tin từ AI
+                  {formData.includeAIData ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Đã lưu thông tin AI
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Sử dụng thông tin từ AI
+                    </>
+                  )}
                 </button>
               </div>
 
