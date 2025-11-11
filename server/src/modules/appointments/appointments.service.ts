@@ -213,30 +213,6 @@ export class AppointmentsService {
     try {
       // Kiểm tra xem bác sĩ có lịch trùng không
       const { doctorId, appointmentDate, startTime } = createAppointmentDto;
-
-      // DEBUG: Log entire payload to check followUpParentId
-      this.logger.log('🔍 [DEBUG] Creating appointment with payload:');
-      this.logger.log(JSON.stringify(createAppointmentDto, null, 2));
-
-      // DEBUG: Check if AI analysis data is present
-      const aiAnalysisData = (createAppointmentDto as any).aiAnalysisData;
-      if (aiAnalysisData) {
-        this.logger.log('🤖 AI Analysis Data present in request:');
-        this.logger.log(JSON.stringify(aiAnalysisData, null, 2));
-      } else {
-        this.logger.log('❌ No aiAnalysisData in payload');
-      }
-
-      // DEBUG: Log follow-up parent ID if present
-      const followUpParentId = (createAppointmentDto as any).followUpParentId;
-      if (followUpParentId) {
-        this.logger.log(
-          `🔗 Creating follow-up appointment with parent: ${followUpParentId}`,
-        );
-      } else {
-        this.logger.log('❌ No followUpParentId in payload');
-      }
-
       // Basic required fields validation
       if (!doctorId) {
         throw new BadRequestException('Thiếu doctorId');
