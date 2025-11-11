@@ -86,7 +86,7 @@ export default function PatientDashboard() {
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">Tổng quan</h1>
                   <p className="text-sm text-gray-600">
-                    Chào mừng trở lại, Theo dõi sức khỏe răng miệng của bạn {session?.user?.fullName || "Bệnh nhân"}
+                    Chào mừng trở lại, Theo dõi sức khỏe răng miệng của bạn {(session?.user as any)?.fullName || "Bệnh nhân"}
                   </p>
                 </div>
               </div>

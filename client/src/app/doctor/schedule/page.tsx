@@ -28,6 +28,7 @@ import appointmentService from "@/services/appointmentService";
 import TreatmentModal from "@/components/appointments/TreatmentModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
 import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
+import AppointmentAIDataDisplay from "@/components/appointments/AppointmentAIDataDisplay";
 
 // Appointment type
 interface Appointment {
@@ -48,6 +49,24 @@ interface Appointment {
   phone?: string;
   createdAt?: string;
   followUpParentId?: string; // ID of parent appointment if this is a follow-up
+  aiAnalysisData?: {
+    symptoms?: string;
+    uploadedImage?: string;
+    analysisResult?: {
+      analysis?: string;
+      richContent?: {
+        analysis?: string;
+        sections?: Array<{
+          heading: string;
+          text?: string;
+          bullets?: string[];
+        }>;
+        recommendations?: string[];
+      };
+    };
+    urgency?: string;
+    hasImageAnalysis?: boolean;
+  };
 }
 
 // Session type with accessToken
@@ -79,7 +98,6 @@ function DoctorScheduleContent() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-
   // Date filter state
   const [startFilterDate, setStartFilterDate] = useState<string>("");
   const [endFilterDate, setEndFilterDate] = useState<string>("");
@@ -153,6 +171,7 @@ function DoctorScheduleContent() {
             phone: (apt.patientId as { phone?: string })?.phone,
             followUpParentId: (apt as any).followUpParentId, // CRITICAL: Include follow-up parent ID
             createdAt: apt.createdAt,
+            aiAnalysisData: (apt as any).aiAnalysisData,
           }));
 
         setAppointments(transformedData);
@@ -445,9 +464,7 @@ function DoctorScheduleContent() {
         console.log("🔍 Parent appointment ID:", currentTreatmentAppointment.followUpParentId);
 
         try {
-          const queryUrl = `${
-            process.env.NEXT_PUBLIC_BACKEND_URL
-          }/api/v1/medical-records?appointmentId=${currentTreatmentAppointment.followUpParentId}`;
+          const queryUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records?appointmentId=${currentTreatmentAppointment.followUpParentId}`;
           console.log("🌐 Querying URL:", queryUrl);
 
           // Find medical record of parent appointment
@@ -505,17 +522,14 @@ function DoctorScheduleContent() {
         hasParentRecord: !!parentRecordId,
       });
 
-      const medicalRecordResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(medicalRecordPayload),
-        }
-      );
+      const medicalRecordResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(medicalRecordPayload),
+      });
 
       if (!medicalRecordResponse.ok) {
         const errorData = await medicalRecordResponse.json();
@@ -552,17 +566,14 @@ function DoctorScheduleContent() {
           notes: formData.notes,
         };
 
-        const prescriptionResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/prescriptions`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify(prescriptionPayload),
-          }
-        );
+        const prescriptionResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/prescriptions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(prescriptionPayload),
+        });
 
         if (!prescriptionResponse.ok) {
           const errorData = await prescriptionResponse.json();
@@ -698,9 +709,7 @@ function DoctorScheduleContent() {
     try {
       const accessToken = (session as ExtendedSession).accessToken;
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_BACKEND_URL
-        }/api/v1/payments/appointment/${appointmentId}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/appointment/${appointmentId}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -733,9 +742,7 @@ function DoctorScheduleContent() {
     try {
       const accessToken = (session as ExtendedSession).accessToken;
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/${
-          pendingBill._id
-        }/mark-paid`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/${pendingBill._id}/mark-paid`,
         {
           method: "POST",
           headers: {
@@ -1224,8 +1231,9 @@ function DoctorScheduleContent() {
       {/* Detail Modal */}
       {detailModalOpen && selectedAppointment && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
+            {/* Header - Fixed */}
+            <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
               <h2 className="text-xl font-bold text-gray-900">
                 {(selectedAppointment as any).followUpParentId ? "Chi Tiết Lịch Hẹn Tái Khám" : "Chi Tiết Lịch Hẹn"}
               </h2>
@@ -1234,7 +1242,8 @@ function DoctorScheduleContent() {
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Patient info */}
               <div className="flex items-center gap-4">
                 <Image
@@ -1331,14 +1340,23 @@ function DoctorScheduleContent() {
                 </div>
               </div>
 
+              {/* AI Analysis Data */}
+              {selectedAppointment.aiAnalysisData && (
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                  <AppointmentAIDataDisplay aiData={selectedAppointment.aiAnalysisData} />
+                </div>
+              )}
+
               {/* Reason */}
               <div>
                 <p className="text-sm text-gray-600 mb-2">Lý do khám</p>
                 <p className="text-gray-900 bg-gray-50 rounded-lg p-4">{selectedAppointment.reason}</p>
               </div>
+            </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+            {/* Footer - Fixed Actions */}
+            <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4 rounded-b-lg">
+              <div className="flex items-center gap-3">
                 {selectedAppointment.status === "pending" && (
                   <button
                     onClick={() => {

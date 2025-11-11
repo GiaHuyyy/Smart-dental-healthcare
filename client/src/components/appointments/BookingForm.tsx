@@ -17,16 +17,14 @@ import {
   Wallet,
   Brain,
   Sparkles,
-  RotateCcw,
-  Image as ImageIcon,
   Tag,
   Check,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
 import { useSession } from "next-auth/react";
-import Image from "next/image";
 import { toast } from "sonner";
+import AIAnalysisSummary from "./AIAnalysisSummary";
 
 interface BookingFormProps {
   bookingData: Partial<BookingFormData>;
@@ -128,15 +126,27 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     }
   };
 
-  // Function to restore AI data to form
+  // Function to use AI data in appointment
   const handleRestoreAIData = () => {
-    if (appointmentDataFromAI?.symptoms) {
-      handleInputChange("chiefComplaint", appointmentDataFromAI.symptoms);
-      if (appointmentDataFromAI.notes) {
-        handleInputChange("notes", appointmentDataFromAI.notes);
-      }
-      toast.success("✅ Đã khôi phục thông tin từ AI!");
+    if (!appointmentDataFromAI) {
+      toast.error("Không có thông tin AI để sử dụng");
+      return;
     }
+
+    // Set flag to include AI data when submitting
+    setFormData((prev) => ({
+      ...prev,
+      includeAIData: true,
+      aiAnalysisData: {
+        symptoms: appointmentDataFromAI.symptoms,
+        uploadedImage: appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl,
+        analysisResult: appointmentDataFromAI.analysisResult,
+        urgency: appointmentDataFromAI.urgency,
+        hasImageAnalysis: appointmentDataFromAI.hasImageAnalysis,
+      },
+    }));
+
+    toast.success("✅ Đã đánh dấu để lưu thông tin AI vào cuộc hẹn");
   };
 
   const validate = (): boolean => {
@@ -205,19 +215,40 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                 <button
                   type="button"
                   onClick={handleRestoreAIData}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  disabled={formData.includeAIData}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
+                    formData.includeAIData
+                      ? "bg-green-600 text-white cursor-default"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  Lấy lại thông tin
+                  {formData.includeAIData ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Đã lưu thông tin AI
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Sử dụng thông tin từ AI
+                    </>
+                  )}
                 </button>
               </div>
 
               {appointmentDataFromAI.symptoms && (
                 <div className="mb-3">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Triệu chứng:</p>
-                  <p className="text-sm text-gray-900 bg-white rounded-lg p-3 border border-blue-100">
-                    {appointmentDataFromAI.symptoms}
-                  </p>
+                  <label htmlFor="ai-symptoms" className="text-sm font-medium text-gray-700 mb-1 block">
+                    Triệu chứng: <span className="text-xs text-gray-500">(Có thể chỉnh sửa)</span>
+                  </label>
+                  <textarea
+                    id="ai-symptoms"
+                    value={formData.symptoms || appointmentDataFromAI.symptoms}
+                    onChange={(e) => handleInputChange("symptoms", e.target.value)}
+                    rows={3}
+                    className="w-full text-sm text-gray-900 bg-white rounded-lg p-3 border border-blue-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-y"
+                    placeholder="Nhập triệu chứng của bạn..."
+                  />
                 </div>
               )}
 
@@ -236,33 +267,12 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                 </div>
               )}
 
-              {/* Display uploaded images */}
-              {(appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl) && (
-                <div className="mb-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ImageIcon className="w-4 h-4 text-gray-700" />
-                    <p className="text-sm font-medium text-gray-700">Hình ảnh X-quang:</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-blue-100">
-                    <div className="relative w-full max-w-md mx-auto">
-                      <Image
-                        src={appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl || ""}
-                        alt="X-ray đã tải lên"
-                        width={500}
-                        height={500}
-                        className="w-full h-auto rounded-lg shadow-md object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {appointmentDataFromAI.hasImageAnalysis && (
-                <div className="flex items-center gap-2 text-sm text-blue-700 font-medium">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>Đã phân tích hình ảnh X-quang</span>
-                </div>
+              {/* Display AI Analysis with Image */}
+              {appointmentDataFromAI.analysisResult && (
+                <AIAnalysisSummary
+                  analysisResult={appointmentDataFromAI.analysisResult}
+                  uploadedImage={appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl}
+                />
               )}
 
               <p className="text-xs text-gray-500 mt-3 italic">

@@ -207,7 +207,7 @@ export default function DoctorDashboard() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">Tổng quan</h1>
-                  <p className="text-sm text-gray-600">Chào mừng trở lại, {session?.user?.fullName || "Bác sĩ"}</p>
+                  <p>{(session?.user as any)?.fullName || "Bác sĩ"}</p>
                 </div>
               </div>
 

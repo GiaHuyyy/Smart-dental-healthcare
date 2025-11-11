@@ -76,6 +76,26 @@ export interface Appointment {
   suggestedFollowUpDate?: string; // Doctor's suggested date
   suggestedFollowUpTime?: string; // Doctor's suggested time
   appliedVoucherId?: string; // Applied voucher ID
+
+  // AI Analysis Data - Thông tin từ tư vấn AI
+  aiAnalysisData?: {
+    symptoms?: string;
+    uploadedImage?: string;
+    analysisResult?: {
+      analysis?: string;
+      richContent?: {
+        analysis?: string;
+        sections?: Array<{
+          heading?: string;
+          text?: string;
+          bullets?: string[];
+        }>;
+        recommendations?: string[];
+      };
+    };
+    urgency?: string;
+    hasImageAnalysis?: boolean;
+  };
 }
 
 export interface Patient {
@@ -142,12 +162,22 @@ export interface BookingFormData {
   guardianPhone?: string;
   guardianEmail?: string;
   chiefComplaint?: string;
+  symptoms?: string; // Symptoms from AI chat (editable)
   notes?: string;
   paymentMethod?: "momo" | "cash" | "later" | "wallet";
   paymentAmount?: number;
   voucherCode?: string;
   voucherId?: string;
   discountAmount?: number;
+  // AI Analysis Data - User choose to include AI data
+  includeAIData?: boolean;
+  aiAnalysisData?: {
+    symptoms?: string;
+    uploadedImage?: string;
+    analysisResult?: any;
+    urgency?: string;
+    hasImageAnalysis?: boolean;
+  };
 }
 
 export interface AppointmentConfirmation {

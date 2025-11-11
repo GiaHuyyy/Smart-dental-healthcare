@@ -83,4 +83,13 @@ export class CreateAppointmentDto {
   @IsOptional()
   @IsMongoId()
   followUpParentId: string;
+
+  @IsOptional()
+  aiAnalysisData?: {
+    symptoms?: string;
+    uploadedImage?: string;
+    analysisResult?: any;
+    urgency?: string;
+    hasImageAnalysis?: boolean;
+  };
 }

@@ -115,6 +115,27 @@ export class Appointment {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Voucher' })
   appliedVoucherId?: MongooseSchema.Types.ObjectId; // Voucher đã sử dụng
+
+  // AI Analysis Data - Thông tin từ tư vấn AI
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  aiAnalysisData?: {
+    symptoms?: string; // Triệu chứng từ chat
+    uploadedImage?: string; // URL hình ảnh X-ray
+    analysisResult?: {
+      analysis?: string;
+      richContent?: {
+        analysis?: string;
+        sections?: Array<{
+          heading?: string;
+          text?: string;
+          bullets?: string[];
+        }>;
+        recommendations?: string[];
+      };
+    };
+    urgency?: string; // Mức độ khẩn cấp
+    hasImageAnalysis?: boolean;
+  };
 }
 
 export const AppointmentSchema = SchemaFactory.createForClass(Appointment);
