@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import {
   FileText,
@@ -14,9 +14,12 @@ import {
   Clock,
   AlertCircle,
   CheckCircle,
-  Eye,
   FileSearch,
   Printer,
+  ChevronDown,
+  CornerDownRight,
+  Activity,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +49,7 @@ interface MedicalRecord {
   status: string;
   isFollowUpRequired: boolean;
   followUpDate?: string;
+  parentRecordId?: string | { _id: string }; // Parent medical record ID for follow-up records
   procedures?: Array<{
     name: string;
     description: string;
@@ -86,6 +90,21 @@ export default function PatientRecordsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set()); // Track expanded parent records
+
+  // Toggle expand/collapse for parent records
+  const toggleExpand = (recordId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedRecords((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(recordId)) {
+        newSet.delete(recordId);
+      } else {
+        newSet.add(recordId);
+      }
+      return newSet;
+    });
+  };
 
   // Fetch medical records
   const fetchRecords = useCallback(async () => {
@@ -252,6 +271,37 @@ export default function PatientRecordsPage() {
     setFilteredRecords(filtered);
   }, [records, searchTerm, statusFilter, startDate, endDate]);
 
+  // Build hierarchy from filtered records
+  const { parentRecords, childRecordsMap } = useMemo(() => {
+    const parents: MedicalRecord[] = [];
+    const childrenMap = new Map<string, MedicalRecord[]>();
+
+    filteredRecords.forEach((record) => {
+      const parentId = typeof record.parentRecordId === "string" ? record.parentRecordId : record.parentRecordId?._id;
+
+      if (parentId) {
+        // This is a child record
+        if (!childrenMap.has(parentId)) {
+          childrenMap.set(parentId, []);
+        }
+        childrenMap.get(parentId)!.push(record);
+      } else {
+        // This is a parent record
+        parents.push(record);
+      }
+    });
+
+    // Sort children by date (oldest first)
+    childrenMap.forEach((children) => {
+      children.sort((a, b) => new Date(a.recordDate).getTime() - new Date(b.recordDate).getTime());
+    });
+
+    // Sort parents by date (newest first)
+    parents.sort((a, b) => new Date(b.recordDate).getTime() - new Date(a.recordDate).getTime());
+
+    return { parentRecords: parents, childRecordsMap: childrenMap };
+  }, [filteredRecords]);
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
@@ -297,9 +347,9 @@ export default function PatientRecordsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header with Filters */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header with Filters */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="space-y-4">
             {/* Title Row */}
@@ -360,23 +410,25 @@ export default function PatientRecordsPage() {
             </div>
           </div>
         </div>
+      </div>
 
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {/* Tổng hồ sơ */}
           <button
             onClick={() => setStatusFilter("all")}
-            className={`bg-white rounded-xl border-2 border-transparent shadow-sm p-6 text-left transition-all hover:shadow-md ${
+            className={`bg-white rounded-xl border-2 border-transparent shadow-sm p-4 text-left transition-all hover:shadow-md ${
               statusFilter === "all" ? " border-2 border-primary" : ""
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Tổng hồ sơ</p>
-                <p className="text-3xl font-bold text-gray-900">{records.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{records.length}</p>
               </div>
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileText className="w-7 h-7 text-primary" />
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-primary" />
               </div>
             </div>
           </button>
@@ -384,19 +436,19 @@ export default function PatientRecordsPage() {
           {/* Đã điều trị */}
           <button
             onClick={() => setStatusFilter("treated")}
-            className={`bg-white rounded-xl border-2 border-transparent shadow-sm p-6 text-left transition-all hover:shadow-md ${
+            className={`bg-white rounded-xl border-2 border-transparent shadow-sm p-4 text-left transition-all hover:shadow-md ${
               statusFilter === "treated" ? " border-2 border-primary" : ""
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Đã điều trị</p>
-                <p className="text-3xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-gray-900">
                   {records.filter((r) => !r.isFollowUpRequired).length}
                 </p>
               </div>
-              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle className="w-7 h-7 text-green-600" />
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </button>
@@ -404,17 +456,17 @@ export default function PatientRecordsPage() {
           {/* Cần tái khám */}
           <button
             onClick={() => setStatusFilter("followUp")}
-            className={`bg-white rounded-xl border-2 border-transparent shadow-sm p-6 text-left transition-all hover:shadow-md ${
+            className={`bg-white rounded-xl border-2 border-transparent shadow-sm p-4 text-left transition-all hover:shadow-md ${
               statusFilter === "followUp" ? " border-2 border-primary" : ""
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Cần tái khám</p>
-                <p className="text-3xl font-bold text-gray-900">{records.filter((r) => r.isFollowUpRequired).length}</p>
+                <p className="text-2xl font-bold text-gray-900">{records.filter((r) => r.isFollowUpRequired).length}</p>
               </div>
-              <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
-                <AlertCircle className="w-7 h-7 text-amber-600" />
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
               </div>
             </div>
           </button>
@@ -432,120 +484,219 @@ export default function PatientRecordsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
-            {filteredRecords.map((record) => (
-              <div
-                key={record._id}
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 overflow-hidden"
-              >
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-4 flex-1">
-                      {/* Doctor Avatar */}
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <User className="w-8 h-8 text-primary" />
-                      </div>
+          <div className="space-y-3">
+            {parentRecords.map((record) => {
+              const childRecords = childRecordsMap.get(record._id) || [];
+              const isExpanded = expandedRecords.has(record._id);
+              const hasChildren = childRecords.length > 0;
 
-                      {/* Record Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {record.doctorId?.fullName || "Bác sĩ"}
-                          </h3>
-                          {getStatusBadge(record.status)}
-                        </div>
-                        {record.doctorId?.specialty && (
-                          <p className="text-sm text-primary mb-2">{record.doctorId.specialty}</p>
+              return (
+                <div key={record._id} className="space-y-2">
+                  {/* Parent Record */}
+                  <div
+                    className={`bg-white cursor-pointer rounded-md p-3 border-2 transition-all ${
+                      hasChildren
+                        ? "border-primary/20 shadow-sm hover:border-primary/30 hover:bg-primary/5"
+                        : "border-gray-200 hover:border-primary/30 hover:bg-primary/5"
+                    } ${hasChildren ? "" : "cursor-pointer group"}`}
+                    onClick={() => handleViewDetail(record)}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start gap-3 flex-1">
+                        {/* Expand/Collapse Button for Parent with Children */}
+                        {hasChildren && (
+                          <button
+                            onClick={(e) => toggleExpand(record._id, e)}
+                            className="shrink-0 w-10 h-10 rounded-md bg-primary/10 hover:bg-primary/20 flex items-center justify-center transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="w-5 h-5 text-primary" />
+                            ) : (
+                              <ChevronRight className="w-5 h-5 text-primary" />
+                            )}
+                          </button>
                         )}
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {new Date(record.recordDate).toLocaleDateString("vi-VN", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                            })}
-                          </span>
-                          {record.isFollowUpRequired && (
-                            <span className="flex items-center gap-1 text-amber-600">
-                              <AlertCircle className="w-4 h-4" />
-                              Cần tái khám
-                            </span>
+
+                        {/* Icon for Parent without Children */}
+                        {!hasChildren && (
+                          <div className="w-10 h-10 rounded-md bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center shrink-0 transition-colors">
+                            <FileText className="w-5 h-5 text-primary" />
+                          </div>
+                        )}
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-gray-900 text-sm">
+                              {new Date(record.recordDate).toLocaleDateString("vi-VN", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              })}
+                            </h4>
+                            {hasChildren && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary text-white">
+                                📋 Hồ sơ gốc ({childRecords.length} tái khám)
+                              </span>
+                            )}
+                            {!hasChildren && (
+                              <Eye className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
+                          </div>
+                          {record.doctorId && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                              <User className="w-3 h-3" />
+                              <span>BS. {record.doctorId.fullName}</span>
+                              <span className="text-gray-400">•</span>
+                              <span>{record.doctorId.specialty}</span>
+                            </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Record Details Preview */}
-                  <div className="space-y-3 mb-4">
-                    {/* Lý do khám */}
-                    {record.chiefComplaint && (
-                      <div className="flex gap-2">
-                        <AlertCircle className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 mb-1">Lý do khám:</p>
-                          <p className="text-sm text-gray-600">{record.chiefComplaint}</p>
-                        </div>
+                    <div className="ml-13 space-y-2 text-sm">
+                      <div className="bg-amber-50 rounded p-2">
+                        <p className="text-xs font-medium text-amber-800 mb-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          Triệu chứng
+                        </p>
+                        <p className="text-gray-700 line-clamp-2">{record.chiefComplaint}</p>
                       </div>
-                    )}
 
-                    {/* Chuẩn đoán - ưu tiên diagnosisGroups */}
-                    {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
-                      <div className="flex gap-2">
-                        <Stethoscope className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 mb-1">Chuẩn đoán:</p>
+                      {/* Show diagnosisGroups or fallback to diagnosis */}
+                      {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
+                        <div className="bg-blue-50 rounded p-2">
+                          <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                            <Stethoscope className="w-3 h-3" />
+                            Chuẩn đoán
+                          </p>
                           <div className="space-y-1">
                             {record.diagnosisGroups.map((group, idx) => (
-                              <p key={idx} className="text-sm text-gray-600">
+                              <p key={idx} className="text-gray-700 text-xs line-clamp-1">
                                 • {group.diagnosis}
                               </p>
                             ))}
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      record.diagnosis && (
-                        <div className="flex gap-2">
-                          <Stethoscope className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-700 mb-1">Chuẩn đoán:</p>
-                            <p className="text-sm text-gray-600">{record.diagnosis}</p>
+                      ) : (
+                        record.diagnosis && (
+                          <div className="bg-blue-50 rounded p-2">
+                            <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                              <Activity className="w-3 h-3" />
+                              Chẩn đoán
+                            </p>
+                            <p className="text-gray-700 line-clamp-2">{record.diagnosis}</p>
+                          </div>
+                        )
+                      )}
+
+                      {record.isFollowUpRequired && record.followUpDate && (
+                        <div className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded">
+                          <Calendar className="w-3 h-3" />
+                          <span>Tái khám: {new Date(record.followUpDate).toLocaleDateString("vi-VN")}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Child Records (Follow-ups) - Show when expanded */}
+                  {hasChildren && isExpanded && (
+                    <div className="ml-8 space-y-2 border-l-2 border-primary/30 pl-4">
+                      {childRecords.map((childRecord, index) => (
+                        <div
+                          key={childRecord._id}
+                          className="bg-white rounded-md p-3 border border-amber-200 hover:border-amber-400 hover:bg-amber-50/50 transition-all cursor-pointer group relative"
+                          onClick={() => handleViewDetail(childRecord)}
+                        >
+                          {/* Child Indicator Line */}
+                          <div className="absolute -left-4 top-5 w-4 h-0.5 bg-primary/30"></div>
+
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-start gap-3 flex-1">
+                              <div className="w-10 h-10 rounded-md bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center shrink-0 transition-colors">
+                                <CornerDownRight className="w-5 h-5 text-amber-700" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold text-gray-900 text-sm">
+                                    {new Date(childRecord.recordDate).toLocaleDateString("vi-VN", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })}
+                                  </h4>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-600 text-white">
+                                    🔄 Tái khám {index + 1}
+                                  </span>
+                                  <Eye className="w-4 h-4 text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                                {childRecord.doctorId && (
+                                  <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                                    <User className="w-3 h-3" />
+                                    <span>BS. {childRecord.doctorId.fullName}</span>
+                                    <span className="text-gray-400">•</span>
+                                    <span>{childRecord.doctorId.specialty}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="ml-13 space-y-2 text-sm">
+                            <div className="bg-amber-50 rounded p-2">
+                              <p className="text-xs font-medium text-amber-800 mb-1 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" />
+                                Triệu chứng
+                              </p>
+                              <p className="text-gray-700 line-clamp-2">{childRecord.chiefComplaint}</p>
+                            </div>
+
+                            {childRecord.diagnosisGroups && childRecord.diagnosisGroups.length > 0 ? (
+                              <div className="bg-blue-50 rounded p-2">
+                                <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                                  <Stethoscope className="w-3 h-3" />
+                                  Chuẩn đoán
+                                </p>
+                                <div className="space-y-1">
+                                  {childRecord.diagnosisGroups.map((group, idx) => (
+                                    <p key={idx} className="text-gray-700 text-xs line-clamp-1">
+                                      • {group.diagnosis}
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              childRecord.diagnosis && (
+                                <div className="bg-blue-50 rounded p-2">
+                                  <p className="text-xs font-medium text-blue-800 mb-1 flex items-center gap-1">
+                                    <Activity className="w-3 h-3" />
+                                    Chẩn đoán
+                                  </p>
+                                  <p className="text-gray-700 line-clamp-2">{childRecord.diagnosis}</p>
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
-                      )
-                    )}
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="pt-4 border-t border-gray-100">
-                    <button
-                      onClick={() => handleViewDetail(record)}
-                      className="w-full px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center justify-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Xem chi tiết
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
-
-        {/* Detail Modal */}
-        {detailModalOpen && selectedRecord && (
-          <RecordDetailModal
-            record={selectedRecord}
-            onClose={() => {
-              setDetailModalOpen(false);
-              setSelectedRecord(null);
-            }}
-          />
-        )}
       </div>
+      {/* Detail Modal */}
+      {detailModalOpen && selectedRecord && (
+        <RecordDetailModal
+          record={selectedRecord}
+          onClose={() => {
+            setDetailModalOpen(false);
+            setSelectedRecord(null);
+          }}
+        />
+      )}
     </div>
   );
 }

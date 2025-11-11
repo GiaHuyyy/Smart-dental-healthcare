@@ -446,7 +446,7 @@ function DoctorScheduleContent() {
 
         try {
           const queryUrl = `${
-            process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
+            process.env.NEXT_PUBLIC_BACKEND_URL
           }/api/v1/medical-records?appointmentId=${currentTreatmentAppointment.followUpParentId}`;
           console.log("🌐 Querying URL:", queryUrl);
 
@@ -506,7 +506,7 @@ function DoctorScheduleContent() {
       });
 
       const medicalRecordResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/medical-records`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records`,
         {
           method: "POST",
           headers: {
@@ -553,7 +553,7 @@ function DoctorScheduleContent() {
         };
 
         const prescriptionResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/prescriptions`,
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/prescriptions`,
           {
             method: "POST",
             headers: {
@@ -699,7 +699,7 @@ function DoctorScheduleContent() {
       const accessToken = (session as ExtendedSession).accessToken;
       const response = await fetch(
         `${
-          process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
+          process.env.NEXT_PUBLIC_BACKEND_URL
         }/api/v1/payments/appointment/${appointmentId}`,
         {
           headers: {
@@ -733,7 +733,7 @@ function DoctorScheduleContent() {
     try {
       const accessToken = (session as ExtendedSession).accessToken;
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/payments/${
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/${
           pendingBill._id
         }/mark-paid`,
         {

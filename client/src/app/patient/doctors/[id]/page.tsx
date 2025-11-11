@@ -283,7 +283,7 @@ export default function DoctorDetailsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto p-6 space-y-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
         {/* Header */}
         <div className="healthcare-card-elevated p-6">
           <div className="flex items-start gap-4">
@@ -309,7 +309,7 @@ export default function DoctorDetailsPage() {
                   href="/patient/doctors"
                   className="inline-flex items-center justify-center border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-xl py-3 px-4 text-sm font-medium hover:shadow-sm transition"
                 >
-                  <ArrowLeft className="w-4 h-4 mr-2" /> Xem chi tiết
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Quay lại
                 </Link>
 
                 <button

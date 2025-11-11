@@ -13,6 +13,7 @@ import {
   Thermometer,
   Eye,
   Stethoscope,
+  BarChart2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -25,6 +26,7 @@ export default function PatientDashboard() {
   const [stats, setStats] = useState<PatientDashboardStats | null>(null);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     if (session?.user) {
@@ -32,6 +34,15 @@ export default function PatientDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  // Cập nhật thời gian thực mỗi phút
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Cập nhật mỗi 1 phút
+
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchDashboardData = async () => {
     try {
@@ -62,36 +73,38 @@ export default function PatientDashboard() {
     }
   };
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
-              <p className="text-sm text-gray-500 mt-1">Theo dõi sức khỏe răng miệng của bạn</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push("/patient/appointments")}
-                className="btn-healthcare-primary flex items-center gap-2 px-4 py-2"
-              >
-                <Calendar className="w-4 h-4" />
-                Đặt lịch hẹn
-              </button>
-              <button
-                onClick={() => router.push("/patient/doctors")}
-                className="btn-healthcare-secondary flex items-center gap-2 px-4 py-2"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Liên hệ
-              </button>
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BarChart2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Tổng quan</h1>
+                  <p className="text-sm text-gray-600">
+                    Chào mừng trở lại, Theo dõi sức khỏe răng miệng của bạn {session?.user?.fullName || "Bệnh nhân"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-500">
+                {currentTime.toLocaleDateString("vi-VN", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto mt-6 space-y-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         {/* Stats Cards - Horizontal Layout (giống Doctor Dashboard) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Lịch hẹn tiếp theo */}
