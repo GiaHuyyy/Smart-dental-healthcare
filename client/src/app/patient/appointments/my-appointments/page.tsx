@@ -252,7 +252,7 @@ function MyAppointmentsContent() {
 
     try {
       // Get ALL reviews of patient in ONE API call
-      const response = await fetch(`/api/reviews/patient/${patientId}?page=1&limit=200`, {
+      const response = await fetch(`/api/v1/reviews/patient/${patientId}?page=1&limit=200`, {
         headers: {
           ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         },
