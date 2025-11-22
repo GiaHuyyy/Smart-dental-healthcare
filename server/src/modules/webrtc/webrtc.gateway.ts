@@ -11,6 +11,7 @@ import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { RealtimeChatService } from '../realtime-chat/realtime-chat.service';
 import { Types } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 
 interface CallOffer {
   callerId: string;
@@ -43,7 +44,9 @@ interface CallRequest {
 // Deploy nhớ thay đổi origin cho đúng
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:3000'],
+    origin: [
+      new ConfigService().get<string>('CLIENT_URL') || 'http://localhost:3000',
+    ],
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -105,7 +108,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('webrtc-joined', { success: true });
   }
 
-@SubscribeMessage('call-user')
+  @SubscribeMessage('call-user')
   async handleCallUser(
     @MessageBody()
     data: {
@@ -168,9 +171,11 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
         activeCallData.messageId = realMessageId;
         this.activeCalls.set(callKey, activeCallData);
       } else {
-         // Trường hợp hiếm gặp: cuộc gọi đã bị hủy bởi một tiến trình khác
-         this.logger.warn(`Active call data for ${callKey} disappeared unexpectedly.`);
-         return;
+        // Trường hợp hiếm gặp: cuộc gọi đã bị hủy bởi một tiến trình khác
+        this.logger.warn(
+          `Active call data for ${callKey} disappeared unexpectedly.`,
+        );
+        return;
       }
 
       const receiver = this.connectedUsers.get(data.receiverId);

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const current = searchParams.get("current") || "1";
     const pageSize = searchParams.get("pageSize") || "10";
 
-    // Kiểm tra biến môi trường (ưu tiên NEXT_PUBLIC_API_URL, sau đó NEXT_PUBLIC_BACKEND_URL)
+    // Kiểm tra biến môi trường (ưu tiên NEXT_PUBLIC_BACKEND_URL, sau đó NEXT_PUBLIC_BACKEND_URL)
     const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
     console.log("API URL:", apiUrl);
 

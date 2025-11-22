@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class AppointmentEmailService {
   private readonly logger = new Logger(AppointmentEmailService.name);
 
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(
+    private readonly mailerService: MailerService,
+    private readonly configService: ConfigService,
+  ) {}
 
   /**
    * Send email to doctor about new appointment
@@ -25,7 +29,7 @@ export class AppointmentEmailService {
         year: 'numeric',
       });
 
-      const viewUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/doctor/schedule?appointmentId=${appointment._id}`;
+      const viewUrl = `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule?appointmentId=${appointment._id}`;
 
       await this.mailerService.sendMail({
         to: doctor.email,
@@ -78,8 +82,8 @@ export class AppointmentEmailService {
         cancelledBy === 'doctor' ? patient.fullName : `BS. ${doctor.fullName}`;
       const viewUrl =
         cancelledBy === 'doctor'
-          ? `${process.env.CLIENT_URL || 'http://localhost:3000'}/patient/appointments/my-appointments`
-          : `${process.env.CLIENT_URL || 'http://localhost:3000'}/doctor/schedule`;
+          ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`
+          : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`;
 
       await this.mailerService.sendMail({
         to: recipient.email,
@@ -132,8 +136,8 @@ export class AppointmentEmailService {
           : `BS. ${doctor.fullName}`;
       const viewUrl =
         recipientType === 'doctor'
-          ? `${process.env.CLIENT_URL || 'http://localhost:3000'}/doctor/schedule`
-          : `${process.env.CLIENT_URL || 'http://localhost:3000'}/patient/appointments/my-appointments`;
+          ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`
+          : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`;
 
       await this.mailerService.sendMail({
         to: recipient.email,
@@ -313,7 +317,8 @@ export class AppointmentEmailService {
     suggestion: any,
   ) {
     try {
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+      const clientUrl =
+        this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
       const viewUrl = `${clientUrl}/patient/appointments?tab=follow-ups`;
 
       const voucherInfo = suggestion.voucherId
@@ -422,7 +427,8 @@ export class AppointmentEmailService {
    */
   async sendFollowUpRejectedEmail(doctor: any, patient: any, suggestion: any) {
     try {
-      const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+      const clientUrl =
+        this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
       const scheduleUrl = `${clientUrl}/doctor/schedule`;
 
       await this.mailerService.sendMail({

@@ -6,16 +6,19 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Notification } from './schemas/notification.schemas'; // Fixed: using .schemas (plural) - the active file
 
+// Use ConfigService to read FRONTEND_URL fallback consistently
+const _config = new ConfigService();
+const frontendUrl =
+  _config.get<string>('CLIENT_URL') || 'http://localhost:3000';
+
 @WebSocketGateway({
   cors: {
-    origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
-      process.env.MOBILE_URL || 'http://localhost:8082',
-    ],
+    origin: [frontendUrl, process.env.MOBILE_URL || 'http://localhost:8082'],
     credentials: true,
   },
   namespace: '/appointments', // Changed from /notifications to reuse client's socket connection
