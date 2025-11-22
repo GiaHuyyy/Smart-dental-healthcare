@@ -7,11 +7,13 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @WebSocketGateway({
   cors: {
     origin: [
-      process.env.FRONTEND_URL || 'http://localhost:3000',
+      // Use ConfigService inline to read CLIENT_URL with a fallback
+      new ConfigService().get<string>('CLIENT_URL') || 'http://localhost:3000',
       process.env.MOBILE_URL || 'http://localhost:8082',
     ],
     credentials: true,

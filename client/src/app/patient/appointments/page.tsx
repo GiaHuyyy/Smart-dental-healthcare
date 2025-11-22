@@ -130,8 +130,8 @@ export default function PatientAppointmentsPage() {
       }
 
       console.log("Fetch doctors with params:", params.toString());
-
-      const url = `/api/users/doctors?${params.toString()}`;
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const url = `${API_URL}/api/v1/users/doctors?${params.toString()}`;
       const res = await fetch(url, { method: "GET" });
       console.log("Fetch response:", res);
       if (!res.ok) throw new Error("Failed to fetch doctors");
@@ -501,9 +501,9 @@ export default function PatientAppointmentsPage() {
         ],
         calendarLinks: {
           google: generateGoogleCalendarLink(appointment, selectedDoctor),
-          ics: `/api/appointments/${appointment._id}/ics`,
+          ics: `/api/v1/appointments/${appointment._id}/ics`,
         },
-        receiptUrl: `/api/appointments/${appointment._id}/receipt`,
+        receiptUrl: `/api/v1/appointments/${appointment._id}/receipt`,
       };
 
       setBookingData((prev) => ({
@@ -629,9 +629,9 @@ export default function PatientAppointmentsPage() {
         ],
         calendarLinks: {
           google: generateGoogleCalendarLink(appointment, selectedDoctor!),
-          ics: `/api/appointments/${appointment._id}/ics`,
+          ics: `/api/v1/appointments/${appointment._id}/ics`,
         },
-        receiptUrl: `/api/appointments/${appointment._id}/receipt`,
+        receiptUrl: `/api/v1/appointments/${appointment._id}/receipt`,
       };
 
       setBookingData((prev) => ({

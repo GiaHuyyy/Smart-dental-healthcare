@@ -79,7 +79,7 @@ export class WalletService {
 
       // Get URLs from config
       const frontendUrl =
-        this.configService.get<string>('FRONTEND_URL') ||
+        this.configService.get<string>('CLIENT_URL') ||
         'http://localhost:3000';
       const backendUrl =
         this.configService.get<string>('BACKEND_URL') ||

@@ -54,14 +54,14 @@ export class PaymentsService {
       const orderId = `APT_${appointmentId}_${Date.now()}`;
 
       // Get URLs from config
-      const frontendUrl =
-        this.configService.get<string>('FRONTEND_URL') ||
+      const clientUrl =
+        this.configService.get<string>('CLIENT_URL') ||
         'http://localhost:3000';
       const backendUrl =
         this.configService.get<string>('BACKEND_URL') ||
         'http://localhost:8081';
 
-      const returnUrl = `${frontendUrl}/patient/appointments/payment-result`;
+      const returnUrl = `${clientUrl}/patient/appointments/payment-result`;
       const notifyUrl = `${backendUrl}/api/v1/payments/momo/callback`;
 
       // Create payment record in DB (pending)

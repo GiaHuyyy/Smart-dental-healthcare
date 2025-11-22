@@ -161,8 +161,8 @@ export default function DoctorPatients() {
       if (selectedFilter && selectedFilter !== "all") params.append("status", selectedFilter);
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
-
-      const response = await fetch(`/api/users/patients/search?${params}`);
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const response = await fetch(`${API_URL}/api/v1/users/patients/search?${params}`);
       const data = await response.json();
 
       if (data?.success === true) {
@@ -195,7 +195,8 @@ export default function DoctorPatients() {
   const fetchStats = async () => {
     try {
       const params = new URLSearchParams();
-      const response = await fetch(`/api/users/patients/stats?${params}`);
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const response = await fetch(`${API_URL}/api/v1/users/patients/stats?${params}`);
       const data = await response.json();
 
       if (data?.success === true) {

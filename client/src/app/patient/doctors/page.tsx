@@ -95,7 +95,8 @@ export default function PatientDoctorsPage() {
       setError(null);
       try {
         // Use Next API route that proxies to backend
-        const url = new URL("/api/users/doctors", window.location.origin);
+        const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+        const url = new URL(`${API_URL}/api/v1/users/doctors`, window.location.origin);
         const sp = new URLSearchParams();
         // allow backend filters if exist, e.g., search, specialty
         if (query) sp.set("search", query);
