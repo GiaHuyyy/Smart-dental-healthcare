@@ -670,14 +670,6 @@ export default function PatientAppointmentsPage() {
     }
   };
 
-  // TODO: Uncomment when ready to implement receipt download
-  // const handleDownloadReceipt = () => {
-  //   const receiptUrl = confirmation?.receiptUrl;
-  //   if (receiptUrl) {
-  //     window.open(receiptUrl, "_blank", "noopener,noreferrer");
-  //   }
-  // };
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">

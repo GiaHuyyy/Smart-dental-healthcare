@@ -81,14 +81,14 @@ const DAYS_OF_WEEK = [
   { key: "thursday", name: "Thứ 5", dayIndex: 4 },
   { key: "friday", name: "Thứ 6", dayIndex: 5 },
   { key: "saturday", name: "Thứ 7", dayIndex: 6 },
-  { key: "sunday", name: "Chủ Nhật", dayIndex: 7 }, // Use 7 instead of 0 to represent end of week
+  { key: "sunday", name: "Chủ Nhật", dayIndex: 0 }, // 0 = Sunday (matches JavaScript Date.getDay())
 ];
 
 // Get date for a specific day of the current week (Monday-based week)
 const getDateForDay = (dayIndex: number): string => {
   const today = new Date();
   const currentDayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, ...
-  // Convert Sunday (0) to 7 for calculation purposes
+  // Convert to Monday-based week for calculation (Mon=1, Sun=7)
   const adjustedCurrentDay = currentDayIndex === 0 ? 7 : currentDayIndex;
   const adjustedTargetDay = dayIndex === 0 ? 7 : dayIndex;
   const diff = adjustedTargetDay - adjustedCurrentDay;

@@ -72,7 +72,7 @@ const getDefaultWeeklySchedule = () => [
     dayKey: 'sunday',
     dayName: 'Chủ Nhật',
     dayIndex: 0,
-    isWorking: false,
+    isWorking: true,
     timeSlots: generateDefaultTimeSlots(),
   },
 ];
@@ -110,8 +110,6 @@ export class DoctorScheduleService {
     doctorId: string,
     updateDto: UpdateDoctorScheduleDto,
   ): Promise<DoctorSchedule> {
-    console.log('updateSchedule called with doctorId:', doctorId);
-    console.log('updateDto:', JSON.stringify(updateDto, null, 2));
 
     const schedule = await this.doctorScheduleModel
       .findOneAndUpdate(
@@ -125,8 +123,6 @@ export class DoctorScheduleService {
         { new: true, upsert: true },
       )
       .exec();
-
-    console.log('Schedule saved:', schedule ? 'success' : 'failed');
     return schedule;
   }
 

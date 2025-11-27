@@ -2,9 +2,41 @@
 
 import { ConsultType, Doctor, TimeSlot } from "@/types/appointment";
 import { calculateConsultationFee, formatFee } from "@/utils/consultationFees";
-import { AlertCircle, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  Calendar as CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Loader2,
+  CalendarOff,
+} from "lucide-react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { toast } from "sonner";
+
+// Doctor schedule types
+interface DoctorDaySchedule {
+  dayKey: string;
+  dayName: string;
+  dayIndex: number;
+  isWorking: boolean;
+  timeSlots: { time: string; isWorking: boolean }[];
+}
+
+interface BlockedTime {
+  id: string;
+  startDate: string;
+  endDate: string;
+  type: "full_day" | "time_range";
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
+}
+
+interface DoctorScheduleData {
+  weeklySchedule: DoctorDaySchedule[];
+  blockedTimes: BlockedTime[];
+}
 
 interface TimeSlotPickerProps {
   doctor: Doctor;
@@ -22,6 +54,88 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Doctor schedule states
+  const [doctorSchedule, setDoctorSchedule] = useState<DoctorScheduleData | null>(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [availableSlotsBySchedule, setAvailableSlotsBySchedule] = useState<{ time: string; available: boolean }[]>([]);
+
+  // Fetch doctor's working schedule (weekly + blocked times)
+  useEffect(() => {
+    if (!doctor._id) return;
+
+    const fetchDoctorSchedule = async () => {
+      setScheduleLoading(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-schedule/${doctor._id}`);
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch doctor schedule");
+        }
+
+        const result = await response.json();
+        const scheduleData = result.data || result;
+        setDoctorSchedule(scheduleData);
+      } catch (error) {
+        console.error("Error fetching doctor schedule:", error);
+        // Use default schedule if fetch fails
+        setDoctorSchedule(null);
+      } finally {
+        setScheduleLoading(false);
+      }
+    };
+
+    fetchDoctorSchedule();
+  }, [doctor._id]);
+
+  // Check if a date is a working day based on doctor's schedule
+  const isWorkingDay = useCallback(
+    (date: Date): boolean => {
+      if (!doctorSchedule) return true; // Default: all days are working
+
+      const dayIndex = date.getDay(); // 0 = Sunday, 1 = Monday, ...
+      const dayConfig = doctorSchedule.weeklySchedule.find((day) => day.dayIndex === dayIndex);
+
+      if (!dayConfig || !dayConfig.isWorking) return false;
+
+      // Check if date falls within any full_day blocked time
+      const dateStr = formatDate(date);
+      const isFullDayBlocked = doctorSchedule.blockedTimes.some((bt) => {
+        if (bt.type !== "full_day") return false;
+        const startDate = bt.startDate.split("T")[0];
+        const endDate = bt.endDate.split("T")[0];
+        return dateStr >= startDate && dateStr <= endDate;
+      });
+
+      return !isFullDayBlocked;
+    },
+    [doctorSchedule]
+  );
+
+  // Get blocked time reason for a date (if any)
+  const getBlockedReason = useCallback(
+    (date: Date): string | null => {
+      if (!doctorSchedule) return null;
+
+      const dayIndex = date.getDay();
+      const dayConfig = doctorSchedule.weeklySchedule.find((day) => day.dayIndex === dayIndex);
+
+      if (!dayConfig || !dayConfig.isWorking) {
+        return "Bác sĩ nghỉ";
+      }
+
+      const dateStr = formatDate(date);
+      const blockedTime = doctorSchedule.blockedTimes.find((bt) => {
+        if (bt.type !== "full_day") return false;
+        const startDate = bt.startDate.split("T")[0];
+        const endDate = bt.endDate.split("T")[0];
+        return dateStr >= startDate && dateStr <= endDate;
+      });
+
+      return blockedTime?.reason || (blockedTime ? "Bác sĩ bận" : null);
+    },
+    [doctorSchedule]
+  );
+
   // Generate available dates for the next 7 days
   const weekDates = useMemo(() => {
     const dates = [];
@@ -37,36 +151,49 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
   useEffect(() => {
     if (!selectedDate || !doctor._id) {
       setBookedSlots([]);
+      setAvailableSlotsBySchedule([]);
       return;
     }
 
-    const fetchBookedSlots = async () => {
+    const fetchSlotsData = async () => {
       setLoading(true);
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
-        const response = await fetch(
-          `${backendUrl}/api/v1/appointments/doctor/${doctor._id}/available-slots?date=${selectedDate}&duration=${duration}`
-        );
+        // Fetch both: booked appointments AND doctor's schedule-based availability
+        const [appointmentsRes, scheduleRes] = await Promise.all([
+          fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctor._id}/available-slots?date=${selectedDate}&duration=${duration}`
+          ),
+          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-schedule/${doctor._id}/available-slots?date=${selectedDate}`),
+        ]);
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch available slots");
+        // Process booked appointments
+        if (appointmentsRes.ok) {
+          const appointmentsData = await appointmentsRes.json();
+          const bookedSlotsArray = appointmentsData.bookedSlots || [];
+          setBookedSlots(bookedSlotsArray);
+        } else {
+          setBookedSlots([]);
         }
 
-        const data = await response.json();
-
-        // API returns data directly without wrapping in success/data
-        const bookedSlotsArray = data.bookedSlots || [];
-        setBookedSlots(bookedSlotsArray);
+        // Process doctor's schedule-based availability
+        if (scheduleRes.ok) {
+          const scheduleData = await scheduleRes.json();
+          const availableSlots = scheduleData.data || scheduleData || [];
+          setAvailableSlotsBySchedule(availableSlots);
+        } else {
+          setAvailableSlotsBySchedule([]);
+        }
       } catch (error) {
-        console.error("Error fetching available slots:", error);
+        console.error("Error fetching slots data:", error);
         toast.error("Không thể tải lịch trống của bác sĩ");
-        setBookedSlots([]); // Assume all available if API fails
+        setBookedSlots([]);
+        setAvailableSlotsBySchedule([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBookedSlots();
+    fetchSlotsData();
   }, [selectedDate, doctor._id, duration]);
 
   // Calculate end time based on start time and duration
@@ -130,13 +257,22 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
           isPast = timeDifferenceMinutes < MINIMUM_LEAD_TIME_MINUTES;
         }
 
-        // Check if slot is booked
+        // Check if slot is booked (from appointments)
         const isBooked = bookedSlots.includes(time);
+
+        // Check if slot is blocked by doctor's schedule
+        let isBlockedBySchedule = false;
+        if (availableSlotsBySchedule.length > 0) {
+          const scheduleSlot = availableSlotsBySchedule.find((s) => s.time === time);
+          if (scheduleSlot && !scheduleSlot.available) {
+            isBlockedBySchedule = true;
+          }
+        }
 
         slots.push({
           time,
-          available: !isPast && !isBooked,
-          booked: isBooked,
+          available: !isPast && !isBooked && !isBlockedBySchedule,
+          booked: isBooked || isBlockedBySchedule,
           selected: time === selectedTime,
         });
 
@@ -150,7 +286,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
       morning: generateSlots(8, 12), // 8:00 - 11:30
       afternoon: generateSlots(13, 17), // 13:00 - 16:30
     };
-  }, [selectedDate, selectedTime, duration, bookedSlots]);
+  }, [selectedDate, selectedTime, duration, bookedSlots, availableSlotsBySchedule]);
 
   const handleDateSelect = (date: Date) => {
     const dateStr = formatDate(date);
@@ -184,35 +320,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
     setSelectedTime("");
     setSelectedEndTime("");
   };
-
-  // const renderHeader = () => (
-  //   <div
-  //     className={`flex items-start justify-between gap-4 ${
-  //       embedded ? "px-6 pt-6 pb-6" : "sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl"
-  //     }`}
-  //   >
-  //     <div className="flex items-start gap-4">
-  //       <Image
-  //         src={doctor.profileImage || "/api/placeholder/60/60"}
-  //         alt={doctor.fullName}
-  //         width={60}
-  //         height={60}
-  //         className="w-15 h-15 rounded-full object-cover"
-  //       />
-  //       <div>
-  //         <h2 className="text-xl font-semibold text-gray-900">{doctor.fullName}</h2>
-  //         <p className="text-primary font-medium">{doctor.specialty}</p>
-  //         {doctor.clinicName && <p className="text-sm text-gray-600">{doctor.clinicName}</p>}
-  //         {doctor.clinicAddress && <p className="text-sm text-gray-500 mt-1">{doctor.clinicAddress}</p>}
-  //       </div>
-  //     </div>
-  //     {showCloseButton && (
-  //       <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-  //         <X className="w-6 h-6 text-gray-600" />
-  //       </button>
-  //     )}
-  //   </div>
-  // );
 
   const renderContent = () => (
     <>
@@ -309,36 +416,54 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
         </div>
 
         <div className="grid grid-cols-7 gap-2">
-          {weekDates.map((date) => {
-            const dateStr = formatDate(date);
-            const isSelected = dateStr === selectedDate;
-            const isToday = formatDate(new Date()) === dateStr;
-            const isPast = date < new Date() && !isToday;
+          {scheduleLoading ? (
+            <div className="col-span-7 flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <span className="ml-2 text-sm text-gray-500">Đang tải lịch bác sĩ...</span>
+            </div>
+          ) : (
+            weekDates.map((date) => {
+              const dateStr = formatDate(date);
+              const isSelected = dateStr === selectedDate;
+              const isToday = formatDate(new Date()) === dateStr;
+              const isPast = date < new Date() && !isToday;
+              const isDoctorOff = !isWorkingDay(date);
+              const blockedReason = getBlockedReason(date);
+              const isDisabled = isPast || isDoctorOff;
 
-            return (
-              <button
-                key={dateStr}
-                onClick={() => !isPast && handleDateSelect(date)}
-                disabled={isPast}
-                className={`p-3 rounded-lg text-center transition-all ${
-                  isSelected
-                    ? "bg-primary text-white shadow-md"
-                    : isPast
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-white border-2 border-gray-200 hover:border-primary/30"
-                }`}
-              >
-                <div className="text-xs font-medium mb-1">{date.toLocaleDateString("vi-VN", { weekday: "short" })}</div>
-                <div className="text-lg font-semibold">{date.getDate()}</div>
-                <div className="text-xs">{date.toLocaleDateString("vi-VN", { month: "short" })}</div>
-                {isToday && !isSelected && (
-                  <div className="mt-1">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full mx-auto" />
+              return (
+                <button
+                  key={dateStr}
+                  onClick={() => !isDisabled && handleDateSelect(date)}
+                  disabled={isDisabled}
+                  title={blockedReason || undefined}
+                  className={`p-3 rounded-lg text-center transition-all relative ${
+                    isSelected
+                      ? "bg-primary text-white shadow-md"
+                      : isDisabled
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-white border-2 border-gray-200 hover:border-primary/30"
+                  }`}
+                >
+                  <div className="text-xs font-medium mb-1">
+                    {date.toLocaleDateString("vi-VN", { weekday: "short" })}
                   </div>
-                )}
-              </button>
-            );
-          })}
+                  <div className="text-lg font-semibold">{date.getDate()}</div>
+                  <div className="text-xs">{date.toLocaleDateString("vi-VN", { month: "short" })}</div>
+                  {isToday && !isSelected && !isDisabled && (
+                    <div className="mt-1">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full mx-auto" />
+                    </div>
+                  )}
+                  {isDoctorOff && !isPast && (
+                    <div className="absolute top-1 right-1">
+                      <CalendarOff className="w-3 h-3 text-red-400" />
+                    </div>
+                  )}
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -353,6 +478,17 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
               <span className="ml-2 text-gray-600">Đang tải lịch trống...</span>
+            </div>
+          ) : timeSlotsByPeriod.morning.every((s) => !s.available) &&
+            timeSlotsByPeriod.afternoon.every((s) => !s.available) ? (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-center gap-2 text-amber-800">
+                <CalendarOff className="w-5 h-5" />
+                <span className="font-medium">Bác sĩ không có lịch trống vào ngày này</span>
+              </div>
+              <p className="mt-2 text-sm text-amber-700">
+                Vui lòng chọn ngày khác hoặc liên hệ phòng khám để được hỗ trợ.
+              </p>
             </div>
           ) : (
             <>
@@ -390,7 +526,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-4 text-sm">
+              <div className="mt-4 flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-primary rounded" />
                   <span className="text-gray-600">Đã chọn</span>
@@ -401,7 +537,11 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-gray-200 rounded" />
-                  <span className="text-gray-600">Đã đặt</span>
+                  <span className="text-gray-600">Đã đặt/Bận</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CalendarOff className="w-4 h-4 text-red-400" />
+                  <span className="text-gray-600">Bác sĩ nghỉ</span>
                 </div>
               </div>
             </>

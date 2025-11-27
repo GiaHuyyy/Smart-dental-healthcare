@@ -1,24 +1,24 @@
 "use client";
 
 import { BookingFormData, ConsultType } from "@/types/appointment";
-import voucherService from "@/services/voucherService";
+import voucherService, { Voucher } from "@/services/voucherService";
 import walletService from "@/services/walletService";
 import {
   AlertCircle,
-  Building2,
   Calendar,
   Clock,
   CreditCard,
-  Home,
   Mail,
   Phone,
   User,
-  Video,
   Wallet,
   Brain,
   Sparkles,
   Tag,
   Check,
+  ChevronDown,
+  X,
+  Gift,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
@@ -54,6 +54,43 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
   const [voucherApplied, setVoucherApplied] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [loadingBalance, setLoadingBalance] = useState(false);
+
+  // Voucher states
+  const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
+  const [showVoucherDropdown, setShowVoucherDropdown] = useState(false);
+  const [originalPaymentAmount, setOriginalPaymentAmount] = useState<number>(bookingData?.paymentAmount || 200000);
+
+  // Fetch available vouchers on mount
+  useEffect(() => {
+    const fetchVouchers = async () => {
+      const accessToken = (session as { access_token?: string })?.access_token;
+      if (!accessToken) return;
+
+      setLoadingVouchers(true);
+      try {
+        const result = await voucherService.getMyVouchers(accessToken);
+        if (result.success && result.data) {
+          // Filter only valid, unused vouchers
+          const validVouchers = result.data.filter((v) => !v.isUsed && !voucherService.isExpired(v));
+          setAvailableVouchers(validVouchers);
+        }
+      } catch (error) {
+        console.error("Failed to fetch vouchers:", error);
+      } finally {
+        setLoadingVouchers(false);
+      }
+    };
+
+    fetchVouchers();
+  }, [session]);
+
+  // Track original payment amount
+  useEffect(() => {
+    if (bookingData?.paymentAmount && !voucherApplied) {
+      setOriginalPaymentAmount(bookingData.paymentAmount);
+    }
+  }, [bookingData?.paymentAmount, voucherApplied]);
 
   // Fetch wallet balance on component mount
   useEffect(() => {
@@ -115,6 +152,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
           voucherId: result.data!.voucherId, // Save voucherId for appointment creation
         }));
         setVoucherApplied(true);
+        setShowVoucherDropdown(false);
         toast.success(`✅ Giảm giá ${discount.toLocaleString()}đ!`);
       } else {
         toast.error(result.error || "Không thể áp dụng voucher");
@@ -124,6 +162,25 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     } finally {
       setApplyingVoucher(false);
     }
+  };
+
+  // Select voucher from dropdown
+  const handleSelectVoucher = (voucher: Voucher) => {
+    setFormData((prev) => ({ ...prev, voucherCode: voucher.code }));
+    setShowVoucherDropdown(false);
+  };
+
+  // Cancel applied voucher
+  const handleCancelVoucher = () => {
+    setFormData((prev) => ({
+      ...prev,
+      voucherCode: "",
+      discountAmount: 0,
+      paymentAmount: originalPaymentAmount,
+      voucherId: undefined,
+    }));
+    setVoucherApplied(false);
+    toast.info("Đã hủy áp dụng voucher");
   };
 
   // Function to use AI data in appointment
@@ -282,63 +339,6 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
           </div>
         </div>
       )}
-
-      {/* Consult Type Selection */}
-      <div className="healthcare-card p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Hình thức khám</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <label className="relative cursor-pointer">
-            <input
-              type="radio"
-              name="consultType"
-              checked={formData.consultType === ConsultType.TELEVISIT}
-              onChange={() => handleInputChange("consultType", ConsultType.TELEVISIT)}
-              className="peer sr-only"
-            />
-            <div className="p-4 border-2 border-gray-300 rounded-lg peer-checked:border-primary peer-checked:bg-primary/5 transition-all hover:border-primary/50">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <Video className="w-6 h-6 text-primary" />
-                <span className="font-medium text-sm">Tư vấn từ xa</span>
-                <span className="text-xs text-gray-500">Video call online</span>
-              </div>
-            </div>
-          </label>
-
-          <label className="relative cursor-pointer">
-            <input
-              type="radio"
-              name="consultType"
-              checked={formData.consultType === ConsultType.ON_SITE}
-              onChange={() => handleInputChange("consultType", ConsultType.ON_SITE)}
-              className="peer sr-only"
-            />
-            <div className="p-4 border-2 border-gray-300 rounded-lg peer-checked:border-primary peer-checked:bg-primary/5 transition-all hover:border-primary/50">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <Building2 className="w-6 h-6 text-primary" />
-                <span className="font-medium text-sm">Khám tại phòng khám</span>
-                <span className="text-xs text-gray-500">Đến phòng khám</span>
-              </div>
-            </div>
-          </label>
-
-          <label className="relative cursor-pointer">
-            <input
-              type="radio"
-              name="consultType"
-              checked={formData.consultType === ConsultType.HOME_VISIT}
-              onChange={() => handleInputChange("consultType", ConsultType.HOME_VISIT)}
-              className="peer sr-only"
-            />
-            <div className="p-4 border-2 border-gray-300 rounded-lg peer-checked:border-primary peer-checked:bg-primary/5 transition-all hover:border-primary/50">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <Home className="w-6 h-6 text-primary" />
-                <span className="font-medium text-sm">Khám tại nhà</span>
-                <span className="text-xs text-gray-500">Bác sĩ đến tận nơi</span>
-              </div>
-            </div>
-          </label>
-        </div>
-      </div>
 
       <div className="healthcare-card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Đặt lịch cho</h3>
@@ -587,34 +587,113 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
           Mã giảm giá
         </h3>
         <div className="space-y-3">
+          {/* Voucher Input and Select */}
           <div className="flex gap-2">
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <input
                 type="text"
                 value={formData.voucherCode || ""}
                 onChange={(e) => handleInputChange("voucherCode", e.target.value)}
-                placeholder="Nhập mã voucher (nếu có)"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Nhập hoặc chọn mã voucher"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent pr-10"
                 disabled={voucherApplied}
               />
+              {/* Dropdown toggle button */}
+              {!voucherApplied && availableVouchers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowVoucherDropdown(!showVoucherDropdown)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                >
+                  <ChevronDown
+                    className={`w-5 h-5 text-gray-400 transition-transform ${showVoucherDropdown ? "rotate-180" : ""}`}
+                  />
+                </button>
+              )}
+
+              {/* Voucher Dropdown */}
+              {showVoucherDropdown && !voucherApplied && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                  {loadingVouchers ? (
+                    <div className="p-4 text-center text-gray-500">
+                      <div className="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+                      Đang tải...
+                    </div>
+                  ) : availableVouchers.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      <Gift className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                      Bạn chưa có voucher nào
+                    </div>
+                  ) : (
+                    availableVouchers.map((voucher) => (
+                      <button
+                        key={voucher._id}
+                        type="button"
+                        onClick={() => handleSelectVoucher(voucher)}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="font-mono font-semibold text-gray-900">{voucher.code}</div>
+                          <div className="text-xs text-gray-500">
+                            {voucherService.getReasonText(voucher.reason)} • Giảm{" "}
+                            {voucherService.formatDiscount(voucher)}
+                          </div>
+                        </div>
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                          {voucherService.formatDiscount(voucher)}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={handleApplyVoucher}
-              disabled={applyingVoucher || voucherApplied || !formData.voucherCode?.trim()}
-              className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {applyingVoucher ? "Đang xử lý..." : voucherApplied ? "Đã áp dụng" : "Áp dụng"}
-            </button>
+
+            {/* Apply or Cancel button */}
+            {voucherApplied ? (
+              <button
+                type="button"
+                onClick={handleCancelVoucher}
+                className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Hủy áp dụng
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleApplyVoucher}
+                disabled={applyingVoucher || !formData.voucherCode?.trim()}
+                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {applyingVoucher ? "Đang xử lý..." : "Áp dụng"}
+              </button>
+            )}
           </div>
+
+          {/* Applied voucher info */}
           {voucherApplied && formData.discountAmount && formData.discountAmount > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <Check className="w-5 h-5 text-green-600" />
-              <span className="text-sm text-green-700 font-medium">
-                Giảm giá: {formData.discountAmount.toLocaleString("vi-VN")} ₫
+            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Check className="w-5 h-5 text-green-600" />
+                <span className="text-sm text-green-700 font-medium">
+                  Đã áp dụng mã: <span className="font-mono">{formData.voucherCode}</span>
+                </span>
+              </div>
+              <span className="text-sm font-bold text-green-700">
+                -{formData.discountAmount.toLocaleString("vi-VN")} ₫
               </span>
             </div>
           )}
+
+          {/* Available vouchers hint */}
+          {!voucherApplied && availableVouchers.length > 0 && (
+            <p className="text-sm text-primary flex items-center gap-1">
+              <Gift className="w-4 h-4" />
+              Bạn có {availableVouchers.length} voucher khả dụng. Click vào mũi tên để chọn.
+            </p>
+          )}
+
           <p className="text-sm text-gray-500">
             Bạn có thể nhận voucher giảm giá 5% khi bác sĩ đề xuất lịch tái khám hoặc khi bác sĩ hủy lịch khẩn cấp
           </p>

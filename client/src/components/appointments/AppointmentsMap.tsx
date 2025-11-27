@@ -230,13 +230,13 @@ export default function AppointmentsMap({
     const navigationIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: middle;"><path d="m3 11 19-9-9 19-2-8-8-2z"></path></svg>`;
     return `<div style="font-family: 'Segoe UI', sans-serif; min-width: 280px; max-width: 320px;"><div style="padding: 16px 16px 12px 16px;"><h3 style="margin: 0 0 4px 0; font-size: 17px; font-weight: 700;">${
       doctor.fullName
-    }</h3><p style="margin: 0; font-size: 14px; color: #3b82f6; font-weight: 600;">${
+    }</h3><p style="margin: 0; font-size: 14px; color: #00a6f4; font-weight: 600;">${
       doctor.specialty || "Bác sĩ"
     }</p></div>${
       doctor.address
         ? `<div style="padding: 0 16px 12px 16px; display: flex; align-items: start; gap: 8px; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 14px; color: #6b7280; margin-top: 2px;">📍</span><div style="flex: 1;"><p style="margin: 0; font-size: 13px;">${doctor.address}</p></div></div>`
         : ""
-    }<div style="display: flex; gap: 8px; padding: 12px 16px;"><button id="directions-btn-${doctorId}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:8px;border:1px solid #d1d5db;background-color:#f9fafb;color:#374151;font-weight:600;cursor:pointer;font-size:13px;transition:all .2s ease" onmouseover="this.style.backgroundColor='#f3f4f6';" onmouseout="this.style.backgroundColor='#f9fafb';">${navigationIcon}Chỉ đường</button><button id="book-btn-${doctorId}" style="flex:1;padding:10px 14px;border-radius:8px;border:none;background-color:#3b82f6;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s ease" onmouseover="this.style.backgroundColor='#2563eb';" onmouseout="this.style.backgroundColor='#3b82f6';">Đặt lịch</button></div></div>`;
+    }<div style="display: flex; gap: 8px; padding: 12px 16px;"><button id="directions-btn-${doctorId}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:8px;border:1px solid #d1d5db;background-color:#f9fafb;color:#374151;font-weight:600;cursor:pointer;font-size:13px;transition:all .2s ease" onmouseover="this.style.backgroundColor='#f3f4f6';" onmouseout="this.style.backgroundColor='#f9fafb';">${navigationIcon}Chỉ đường</button><button id="book-btn-${doctorId}" style="flex:1;padding:10px 14px;border-radius:8px;border:none;background-color:#00a6f4;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s ease" onmouseover="this.style.backgroundColor='#2563eb';" onmouseout="this.style.backgroundColor='#00a6f4';">Đặt lịch</button></div></div>`;
   }, []);
 
   const clearRoute = useCallback(() => {
@@ -559,7 +559,7 @@ export default function AppointmentsMap({
       {!isMapReady && !error && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-gray-600">Đang tải bản đồ...</p>
           </div>
         </div>
@@ -622,7 +622,7 @@ export default function AppointmentsMap({
         {isRouting && (
           <div className="bg-white rounded-lg shadow-lg p-3 text-xs text-gray-600">
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+              <div className="h-3 w-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
               Đang tính toán tuyến đường...
             </div>
           </div>
@@ -636,7 +636,7 @@ export default function AppointmentsMap({
                 void requestUserLocation();
               }}
               disabled={isRequestingLocation}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed transition-colors text-sm font-medium"
             >
               <MapPin className="w-4 h-4" />
               {isRequestingLocation ? "Đang lấy vị trí..." : "Dùng vị trí của tôi"}
@@ -648,12 +648,12 @@ export default function AppointmentsMap({
           <h4 className="font-semibold text-xs mb-2 text-gray-700">Chú thích</h4>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+              <div className="w-4 h-4 bg-primary rounded-full"></div>
               <span className="text-xs text-gray-600">Bác sĩ</span>
             </div>
             {userLocation && (
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow"></div>
+                <div className="w-4 h-4 bg-red-500 rounded-full"></div>
                 <span className="text-xs text-gray-600">Vị trí của bạn</span>
               </div>
             )}
