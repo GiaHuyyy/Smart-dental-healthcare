@@ -1554,6 +1554,18 @@ function DoctorScheduleContent() {
         onClose={() => setWorkingHoursModalOpen(false)}
         doctorId={(session?.user as { _id?: string })?._id}
         accessToken={(session as ExtendedSession)?.access_token}
+        onViewAppointment={(appointmentId: string) => {
+          // Find and open appointment detail modal
+          const appointment = appointments.find((apt) => apt._id === appointmentId || apt.id === appointmentId);
+          if (appointment) {
+            setSelectedAppointment(appointment);
+            setDetailModalOpen(true);
+            // Check for pending bill if appointment is completed
+            if (appointment.status === "completed") {
+              checkPendingBill(appointment._id || appointment.id);
+            }
+          }
+        }}
       />
     </div>
   );

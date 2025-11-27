@@ -2,7 +2,20 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Calendar, ChevronDown, ChevronUp, Trash2, Plus, Settings, CalendarOff, X, Loader2 } from "lucide-react";
+import {
+  Clock,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Plus,
+  Settings,
+  CalendarOff,
+  X,
+  Loader2,
+  AlertTriangle,
+  Eye,
+} from "lucide-react";
 import { toast } from "sonner";
 
 // Types
@@ -29,12 +42,35 @@ interface BlockedTime {
   reason?: string;
 }
 
+// Conflicting appointment interface
+interface ConflictingAppointment {
+  _id: string;
+  patientId?: {
+    _id: string;
+    fullName: string;
+    email?: string;
+    phone?: string;
+    avatarUrl?: string;
+    gender?: string;
+    address?: string;
+  };
+  patientName?: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  appointmentType?: string;
+  visitType?: string;
+  reason?: string;
+  status: string;
+}
+
 interface WorkingHoursModalProps {
   isOpen: boolean;
   onClose: () => void;
   doctorId?: string;
   accessToken?: string;
   onSave?: (weeklySchedule: DaySchedule[], blockedTimes: BlockedTime[]) => void;
+  onViewAppointment?: (appointmentId: string) => void; // Callback to open appointment detail modal in parent
 }
 
 // Days of week in Vietnamese (Monday to Sunday)
@@ -140,8 +176,18 @@ const formatTimeInput = (value: string): string => {
   return cleaned;
 };
 
-export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessToken, onSave }: WorkingHoursModalProps) {
+export default function WorkingHoursModal({
+  isOpen,
+  onClose,
+  doctorId,
+  accessToken,
+  onSave,
+  onViewAppointment,
+}: WorkingHoursModalProps) {
   const [activeTab, setActiveTab] = useState("weekly");
+
+  // Cache fetched appointments for time slot conflict check
+  const [cachedAppointments, setCachedAppointments] = useState<ConflictingAppointment[]>([]);
   const [weeklySchedule, setWeeklySchedule] = useState<DaySchedule[]>(initializeWeeklySchedule);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [blockedTimes, setBlockedTimes] = useState<BlockedTime[]>([]);
@@ -151,6 +197,13 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
   // Track original data to detect changes
   const [originalSchedule, setOriginalSchedule] = useState<string>("");
   const [originalBlockedTimes, setOriginalBlockedTimes] = useState<string>("");
+
+  // Conflict warning modal states
+  const [conflictWarningOpen, setConflictWarningOpen] = useState(false);
+  const [conflictingAppointments, setConflictingAppointments] = useState<ConflictingAppointment[]>([]);
+  const [isCheckingConflict, setIsCheckingConflict] = useState(false);
+  // Track which source triggered the conflict warning (for weekly tab vs blocked time tab)
+  const [conflictSource, setConflictSource] = useState<"weekly" | "blocked">("blocked");
 
   // Check if there are unsaved changes
   const hasChanges = () => {
@@ -233,13 +286,44 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
     }
   }, [doctorId]);
 
+  // Fetch appointments for conflict checking
+  const fetchAppointments = useCallback(async () => {
+    if (!doctorId || !accessToken) return;
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}?populate=patientId`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const appointments = data.data || data || [];
+        // Filter only pending and confirmed appointments
+        const activeAppointments = appointments.filter(
+          (apt: ConflictingAppointment) => apt.status === "pending" || apt.status === "confirmed"
+        );
+        setCachedAppointments(activeAppointments);
+      }
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+    }
+  }, [doctorId, accessToken]);
+
   // Fetch schedule when modal opens
   useEffect(() => {
     if (isOpen && doctorId) {
       fetchSchedule();
+      fetchAppointments();
       setExpandedDay(null);
     }
-  }, [isOpen, doctorId, fetchSchedule]);
+  }, [isOpen, doctorId, fetchSchedule, fetchAppointments]);
 
   // Toggle day working status
   const toggleDayWorking = (dayKey: string) => {
@@ -264,13 +348,125 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
     );
   };
 
+  // Check if a time slot has appointments (from cached appointments)
+  const getAppointmentsAtTimeSlot = (dayIndex: number, time: string): ConflictingAppointment[] => {
+    if (cachedAppointments.length === 0) return [];
+
+    // Get the date for this day
+    const targetDate = getDateObjectForDay(dayIndex);
+    const year = targetDate.getFullYear();
+    const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+    const day = String(targetDate.getDate()).padStart(2, "0");
+    const targetDateStr = `${year}-${month}-${day}`;
+
+    // Calculate end time for the slot (30 min duration)
+    const endTime = calculateEndTime(time);
+
+    return cachedAppointments.filter((apt) => {
+      const aptDateStr = apt.appointmentDate.split("T")[0];
+      if (aptDateStr !== targetDateStr) return false;
+
+      // Check if appointment overlaps with this time slot
+      const aptStart = apt.startTime;
+      const aptEnd = apt.endTime;
+
+      // Overlap: apt starts before slot ends AND apt ends after slot starts
+      return aptStart < endTime && aptEnd > time;
+    });
+  };
+
+  // Handle time slot click - check for appointments first
+  const handleTimeSlotClick = (dayKey: string, dayIndex: number, time: string) => {
+    const appointmentsAtSlot = getAppointmentsAtTimeSlot(dayIndex, time);
+
+    if (appointmentsAtSlot.length > 0) {
+      // Show conflict warning modal
+      setConflictingAppointments(appointmentsAtSlot);
+      setConflictSource("weekly");
+      setConflictWarningOpen(true);
+    } else {
+      // No conflicts, toggle the time slot
+      toggleTimeSlot(dayKey, time);
+    }
+  };
+
   // Toggle expand day
   const toggleExpandDay = (dayKey: string) => {
     setExpandedDay((prev) => (prev === dayKey ? null : dayKey));
   };
 
+  // Check for conflicting appointments before adding blocked time
+  const checkForConflictingAppointments = async (
+    startDate: string,
+    endDate: string,
+    type: "full_day" | "time_range",
+    startTime?: string,
+    endTime?: string
+  ): Promise<ConflictingAppointment[]> => {
+    if (!doctorId || !accessToken) return [];
+
+    try {
+      // Fetch appointments for the doctor
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}?populate=patientId`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) return [];
+
+      const data = await response.json();
+      const appointments = data.data || data || [];
+      console.log("Fetched appointments for conflict check:", appointments);
+      // Filter appointments that conflict with the blocked time
+      const conflicting = appointments.filter((apt: ConflictingAppointment) => {
+        // Parse appointment date - handle both ISO format and yyyy-mm-dd
+        const aptDateStr = apt.appointmentDate.split("T")[0];
+
+        // Check if appointment is within blocked date range
+        if (aptDateStr < startDate || aptDateStr > endDate) {
+          return false;
+        }
+
+        // Only check pending or confirmed appointments
+        if (apt.status !== "pending" && apt.status !== "confirmed") {
+          return false;
+        }
+
+        // If full day block, all appointments on those days conflict
+        if (type === "full_day") {
+          return true;
+        }
+
+        // If time range block, check if appointment time overlaps
+        if (type === "time_range" && startTime && endTime) {
+          const aptStart = apt.startTime;
+          const aptEnd = apt.endTime;
+
+          // Check for overlap: apt starts before block ends AND apt ends after block starts
+          return aptStart < endTime && aptEnd > startTime;
+        }
+
+        return false;
+      });
+
+      return conflicting;
+    } catch (error) {
+      console.error("Error checking for conflicting appointments:", error);
+      return [];
+    }
+  };
+
+  // Pending blocked time to be added after confirmation
+  const [pendingBlockedTime, setPendingBlockedTime] = useState<BlockedTime | null>(null);
+
   // Add blocked time
-  const addBlockedTime = () => {
+  const addBlockedTime = async () => {
     if (!newBlockedTime.startDate) {
       toast.error("Vui lòng chọn ngày bắt đầu");
       return;
@@ -302,6 +498,32 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
       reason: newBlockedTime.reason,
     };
 
+    // Check for conflicting appointments
+    setIsCheckingConflict(true);
+    const conflicts = await checkForConflictingAppointments(
+      blockedTime.startDate,
+      blockedTime.endDate,
+      blockedTime.type,
+      blockedTime.startTime,
+      blockedTime.endTime
+    );
+    setIsCheckingConflict(false);
+
+    if (conflicts.length > 0) {
+      // Show warning modal
+      setConflictingAppointments(conflicts);
+      setPendingBlockedTime(blockedTime);
+      setConflictSource("blocked");
+      setConflictWarningOpen(true);
+      return;
+    }
+
+    // No conflicts, add directly
+    finalizeAddBlockedTime(blockedTime);
+  };
+
+  // Finalize adding blocked time (after confirmation or no conflicts)
+  const finalizeAddBlockedTime = (blockedTime: BlockedTime) => {
     setBlockedTimes((prev) => [...prev, blockedTime]);
     setNewBlockedTime({
       startDate: "",
@@ -311,7 +533,31 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
       endTime: "17:00",
       reason: "",
     });
+    setPendingBlockedTime(null);
+    setConflictWarningOpen(false);
+    setConflictingAppointments([]);
     toast.success("Đã thêm lịch nghỉ");
+  };
+
+  // Handle view appointment from warning modal - calls parent's onViewAppointment
+  const handleViewConflictAppointment = (appointment: ConflictingAppointment) => {
+    // Close warning modal and working hours modal
+    setConflictWarningOpen(false);
+    setConflictingAppointments([]);
+    setPendingBlockedTime(null);
+    onClose(); // Close working hours modal
+
+    // Call parent callback to open appointment detail modal
+    if (onViewAppointment) {
+      onViewAppointment(appointment._id);
+    }
+  };
+
+  // Close conflict warning modal
+  const closeConflictWarning = () => {
+    setConflictWarningOpen(false);
+    setConflictingAppointments([]);
+    setPendingBlockedTime(null);
   };
 
   // Remove blocked time
@@ -562,21 +808,29 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
                                 .map((slot) => {
                                   const isPast = isTimeSlotInPast(day.dayIndex, slot.time);
                                   const isBlocked = isTimeSlotBlocked(day.dayIndex, slot.time);
+                                  const hasAppointment = getAppointmentsAtTimeSlot(day.dayIndex, slot.time).length > 0;
                                   return (
                                     <button
                                       key={slot.time}
-                                      onClick={() => !isPast && !isBlocked && toggleTimeSlot(day.dayKey, slot.time)}
+                                      onClick={() => {
+                                        if (isPast || isBlocked) return;
+                                        handleTimeSlotClick(day.dayKey, day.dayIndex, slot.time);
+                                      }}
                                       disabled={isPast || isBlocked}
                                       className={`px-2 py-2 rounded-lg text-sm font-medium transition-all border ${
                                         isPast
                                           ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed opacity-50"
                                           : isBlocked
                                           ? "bg-red-100 text-red-500 border-red-300 cursor-not-allowed"
+                                          : hasAppointment
+                                          ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200"
                                           : slot.isWorking
                                           ? "bg-primary text-white border-primary hover:bg-primary/90"
                                           : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200"
                                       }`}
-                                      title={isBlocked ? "Đã đặt lịch nghỉ" : undefined}
+                                      title={
+                                        isBlocked ? "Đã đặt lịch nghỉ" : hasAppointment ? "Có lịch hẹn" : undefined
+                                      }
                                     >
                                       <div>{slot.time}</div>
                                       <div className="text-xs opacity-80">{calculateEndTime(slot.time)}</div>
@@ -598,21 +852,29 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
                                 .map((slot) => {
                                   const isPast = isTimeSlotInPast(day.dayIndex, slot.time);
                                   const isBlocked = isTimeSlotBlocked(day.dayIndex, slot.time);
+                                  const hasAppointment = getAppointmentsAtTimeSlot(day.dayIndex, slot.time).length > 0;
                                   return (
                                     <button
                                       key={slot.time}
-                                      onClick={() => !isPast && !isBlocked && toggleTimeSlot(day.dayKey, slot.time)}
+                                      onClick={() => {
+                                        if (isPast || isBlocked) return;
+                                        handleTimeSlotClick(day.dayKey, day.dayIndex, slot.time);
+                                      }}
                                       disabled={isPast || isBlocked}
                                       className={`px-2 py-2 rounded-lg text-sm font-medium transition-all border ${
                                         isPast
                                           ? "bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed opacity-50"
                                           : isBlocked
                                           ? "bg-red-100 text-red-500 border-red-300 cursor-not-allowed"
+                                          : hasAppointment
+                                          ? "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200"
                                           : slot.isWorking
                                           ? "bg-primary text-white border-primary hover:bg-primary/90"
                                           : "bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200"
                                       }`}
-                                      title={isBlocked ? "Đã đặt lịch nghỉ" : undefined}
+                                      title={
+                                        isBlocked ? "Đã đặt lịch nghỉ" : hasAppointment ? "Có lịch hẹn" : undefined
+                                      }
                                     >
                                       <div>{slot.time}</div>
                                       <div className="text-xs opacity-80">{calculateEndTime(slot.time)}</div>
@@ -635,6 +897,10 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
                             <div className="flex items-center gap-2">
                               <div className="w-4 h-4 bg-red-100 border border-red-300 rounded" />
                               <span className="text-gray-600">Lịch nghỉ cụ thể</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-amber-100 border border-amber-300 rounded" />
+                              <span className="text-gray-600">Có lịch hẹn</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded opacity-50" />
@@ -782,10 +1048,20 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
                       {/* Add Button */}
                       <button
                         onClick={addBlockedTime}
-                        className="w-full px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+                        disabled={isCheckingConflict}
+                        className="w-full px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Plus className="w-4 h-4" />
-                        Thêm lịch nghỉ
+                        {isCheckingConflict ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Đang kiểm tra...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            Thêm lịch nghỉ
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -873,6 +1149,78 @@ export default function WorkingHoursModal({ isOpen, onClose, doctorId, accessTok
           </button>
         </div>
       </div>
+
+      {/* Conflict Warning Modal - Overlay on top of Working Hours Modal */}
+      {conflictWarningOpen && (
+        <div className="fixed inset-0 bg-black/40 z-60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center gap-3 p-4 border-b border-gray-200 bg-amber-50 rounded-t-xl">
+              <div className="p-2 bg-amber-100 rounded-full">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Cảnh báo lịch hẹn</h3>
+                <p className="text-sm text-gray-600">Đang có lịch hẹn trong khung giờ này</p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <p className="text-gray-700 mb-4">
+                Có <span className="font-bold text-amber-600">{conflictingAppointments.length}</span> lịch hẹn{" "}
+                {conflictSource === "blocked" ? "sẽ bị ảnh hưởng" : "trong khung giờ này"}:
+              </p>
+
+              {/* Appointment list */}
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {conflictingAppointments.map((apt) => (
+                  <div
+                    key={apt._id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-medium text-primary">
+                            {(apt.patientId?.fullName || apt.patientName || "BN").charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">
+                            {apt.patientId?.fullName || apt.patientName || "Bệnh nhân"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(apt.appointmentDate).toLocaleDateString("vi-VN")} • {apt.startTime} -{" "}
+                            {apt.endTime}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleViewConflictAppointment(apt)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors text-sm font-medium"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Xem lịch hẹn
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={closeConflictWarning}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
