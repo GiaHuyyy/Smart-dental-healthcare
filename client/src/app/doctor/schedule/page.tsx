@@ -11,12 +11,12 @@ import {
   Mail,
   Phone,
   MapPin,
-  Plus,
   Download,
   CalendarDays,
   CheckCircle,
   DollarSign,
   Search,
+  Settings,
 } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
@@ -29,6 +29,7 @@ import TreatmentModal from "@/components/appointments/TreatmentModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
 import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 import AppointmentAIDataDisplay from "@/components/appointments/AppointmentAIDataDisplay";
+import WorkingHoursModal from "@/components/appointments/WorkingHoursModal";
 
 // Appointment type
 interface Appointment {
@@ -121,6 +122,9 @@ function DoctorScheduleContent() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [pendingBill, setPendingBill] = useState<any>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Working hours modal state
+  const [workingHoursModalOpen, setWorkingHoursModalOpen] = useState(false);
 
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
@@ -831,9 +835,12 @@ function DoctorScheduleContent() {
                   <span className="hidden sm:inline">Xuất Excel</span>
                 </button>
 
-                <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Thêm Lịch Hẹn</span>
+                <button
+                  onClick={() => setWorkingHoursModalOpen(true)}
+                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Quản lý giờ làm việc</span>
                 </button>
               </div>
             </div>
@@ -1539,6 +1546,14 @@ function DoctorScheduleContent() {
         onSubmit={handleTreatmentSubmit}
         isSubmitting={isSubmittingTreatment}
         accessToken={(session as ExtendedSession)?.accessToken}
+      />
+
+      {/* Working Hours Modal */}
+      <WorkingHoursModal
+        isOpen={workingHoursModalOpen}
+        onClose={() => setWorkingHoursModalOpen(false)}
+        doctorId={(session?.user as { _id?: string })?._id}
+        accessToken={(session as ExtendedSession)?.access_token}
       />
     </div>
   );
