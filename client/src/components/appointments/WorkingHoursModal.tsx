@@ -541,11 +541,11 @@ export default function WorkingHoursModal({
 
   // Handle view appointment from warning modal - calls parent's onViewAppointment
   const handleViewConflictAppointment = (appointment: ConflictingAppointment) => {
-    // Close warning modal and working hours modal
+    // Close only the warning modal, keep working hours modal open
     setConflictWarningOpen(false);
     setConflictingAppointments([]);
     setPendingBlockedTime(null);
-    onClose(); // Close working hours modal
+    // Don't close working hours modal - let appointment detail modal show on top
 
     // Call parent callback to open appointment detail modal
     if (onViewAppointment) {

@@ -1235,13 +1235,13 @@ function DoctorScheduleContent() {
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Detail Modal - Higher z-index to appear above WorkingHoursModal */}
       {detailModalOpen && selectedAppointment && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
             {/* Header - Fixed */}
             <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-primary">
                 {(selectedAppointment as any).followUpParentId ? "Chi Tiết Lịch Hẹn Tái Khám" : "Chi Tiết Lịch Hẹn"}
               </h2>
               <button onClick={() => setDetailModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
