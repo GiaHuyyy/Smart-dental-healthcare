@@ -209,7 +209,7 @@ export default function AppointmentsMap({
     const el = document.createElement("div");
     el.style.cssText = "width:32px; height:32px; cursor:pointer;";
     el.title = `${doctor.fullName} - ${doctor.specialty || "Bác sĩ"}`;
-    const backgroundColor = isSelected ? "#059669" : "#3b82f6";
+    const backgroundColor = isSelected ? "#059669" : "#00a6f4";
     const shadowColor = isSelected ? "rgba(5,150,105,0.5)" : "rgba(59,130,246,0.5)";
     const markerEl = document.createElement("div");
     markerEl.style.transition = "all 0.2s ease-in-out";
@@ -236,7 +236,7 @@ export default function AppointmentsMap({
       doctor.address
         ? `<div style="padding: 0 16px 12px 16px; display: flex; align-items: start; gap: 8px; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 14px; color: #6b7280; margin-top: 2px;">📍</span><div style="flex: 1;"><p style="margin: 0; font-size: 13px;">${doctor.address}</p></div></div>`
         : ""
-    }<div style="display: flex; gap: 8px; padding: 12px 16px;"><button id="directions-btn-${doctorId}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:8px;border:1px solid #d1d5db;background-color:#f9fafb;color:#374151;font-weight:600;cursor:pointer;font-size:13px;transition:all .2s ease" onmouseover="this.style.backgroundColor='#f3f4f6';" onmouseout="this.style.backgroundColor='#f9fafb';">${navigationIcon}Chỉ đường</button><button id="book-btn-${doctorId}" style="flex:1;padding:10px 14px;border-radius:8px;border:none;background-color:#00a6f4;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s ease" onmouseover="this.style.backgroundColor='#2563eb';" onmouseout="this.style.backgroundColor='#00a6f4';">Đặt lịch</button></div></div>`;
+    }<div style="display: flex; gap: 8px; padding: 12px 16px;"><button id="directions-btn-${doctorId}" style="flex:1;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:8px;border:1px solid #d1d5db;background-color:#f9fafb;color:#374151;font-weight:600;cursor:pointer;font-size:13px;transition:all .2s ease" onmouseover="this.style.backgroundColor='#f3f4f6';" onmouseout="this.style.backgroundColor='#f9fafb';">${navigationIcon}Chỉ đường</button><button id="book-btn-${doctorId}" style="flex:1;padding:10px 14px;border-radius:8px;border:none;background-color:#00a6f4;color:white;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s ease" onmouseover="this.style.backgroundColor='#4fc0f5';" onmouseout="this.style.backgroundColor='#00a6f4';">Đặt lịch</button></div></div>`;
   }, []);
 
   const clearRoute = useCallback(() => {
@@ -337,7 +337,7 @@ export default function AppointmentsMap({
               "line-join": "round",
             },
             paint: {
-              "line-color": "#2563eb",
+              "line-color": "#00a6f4",
               "line-width": 4,
             },
           });

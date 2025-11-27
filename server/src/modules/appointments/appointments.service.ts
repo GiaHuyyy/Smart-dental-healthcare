@@ -1269,13 +1269,6 @@ export class AppointmentsService {
       .select('startTime endTime status')
       .lean();
 
-    console.log('🔍 Query params:', {
-      doctorId,
-      targetDate,
-      endDate,
-      bookedAppointmentsCount: bookedAppointments.length,
-    });
-
     // Extract booked time slots
     const bookedSlots = bookedAppointments.map((appt) => appt.startTime);
 

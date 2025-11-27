@@ -1,7 +1,6 @@
 "use client";
 
 import { useAppointment } from "@/contexts/AppointmentContext";
-import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
 import AppointmentAIDataDisplay from "@/components/appointments/AppointmentAIDataDisplay";
@@ -60,7 +59,6 @@ const isAppointmentPastConsultation = (appointment: Appointment): boolean => {
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { isConnected } = useGlobalSocket();
   const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +67,6 @@ function MyAppointmentsContent() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] = useState<Appointment | null>(null);
   const [startFilterDate, setStartFilterDate] = useState<string>("");
@@ -187,13 +184,6 @@ function MyAppointmentsContent() {
       console.log("🔇 Patient my-appointments unregistered from global socket");
     };
   }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
-
-  // Socket connection status indicator (optional)
-  useEffect(() => {
-    if (isConnected) {
-      console.log("✅ Patient my-appointments connected to global socket");
-    }
-  }, [isConnected]);
 
   const handleContactDoctor = async (appointment: Appointment) => {
     const doctorId = typeof appointment.doctorId === "string" ? appointment.doctorId : appointment.doctorId?._id;
@@ -530,25 +520,13 @@ function MyAppointmentsContent() {
                   <p className="text-sm text-gray-600">Quản lý và theo dõi các lịch hẹn</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-                    isConnected ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
-                  />
-                  <span>{isConnected ? "Đang kết nối" : "Ngoại tuyến"}</span>
-                </div>
-                <button
-                  onClick={() => router.push("/patient/appointments")}
-                  className="flex cursor-pointer items-center gap-2 text-gray-600 hover:text-primary transition-colors px-3 py-2 rounded-lg hover:bg-gray-50"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                  <span className="font-medium">Quay lại</span>
-                </button>
-              </div>
+              <button
+                onClick={() => router.push("/patient/appointments")}
+                className="flex cursor-pointer items-center gap-2 border-primary text-primary border hover:text-white! transition-colors px-3 py-2 rounded-lg hover:bg-primary"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Quay lại</span>
+              </button>
             </div>
 
             {/* Filters Row */}
