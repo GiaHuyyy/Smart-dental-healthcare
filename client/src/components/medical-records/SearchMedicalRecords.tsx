@@ -46,14 +46,13 @@ export default function SearchMedicalRecords({ onRecordSelect, userRole }: Searc
   const handleSearch = async () => {
     setLoading(true);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (startDate) params.append("startDate", startDate.toISOString());
       if (endDate) params.append("endDate", endDate.toISOString());
 
-      const response = await fetch(`${API_URL}/api/v1/medical-records/search?${params}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/search?${params}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },

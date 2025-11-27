@@ -591,7 +591,6 @@ export default function PatientAppointmentsPage() {
       console.log("Access token:", accessToken ? "✅ Available" : "❌ Missing");
 
       const result = await appointmentService.createAppointment(payload, accessToken);
-      console.log("API result:", result);
 
       if (!result.success || !result.data) {
         const errorMsg = result.error || "Không thể đặt lịch hẹn";

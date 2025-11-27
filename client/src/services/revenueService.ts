@@ -1,7 +1,5 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8081/api/v1";
-
 export interface RevenueRecord {
   _id: string;
   doctorId: string;
@@ -114,7 +112,7 @@ class RevenueService {
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
 
-      const response = await axios.get(`${API_BASE_URL}/revenue/doctor/${doctorId}/summary?${params.toString()}`);
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/summary?${params.toString()}`);
 
       return response.data;
     } catch (error: any) {
@@ -148,7 +146,7 @@ class RevenueService {
       if (filters?.startDate) params.append("revenueDate[$gte]", filters.startDate);
       if (filters?.endDate) params.append("revenueDate[$lte]", filters.endDate);
 
-      const response = await axios.get(`${API_BASE_URL}/revenue/doctor/${doctorId}?${params.toString()}`);
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?${params.toString()}`);
 
       return response.data;
     } catch (error: any) {
@@ -174,7 +172,7 @@ class RevenueService {
 
       if (status) params.append("status", status);
 
-      const response = await axios.get(`${API_BASE_URL}/revenue/doctor/${doctorId}/range?${params.toString()}`);
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/range?${params.toString()}`);
 
       return response.data;
     } catch (error: any) {
@@ -188,7 +186,7 @@ class RevenueService {
    */
   async getRevenueDetail(revenueId: string): Promise<{ success: boolean; data: RevenueRecord; message: string }> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/revenue/${revenueId}`);
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/${revenueId}`);
       return response.data;
     } catch (error: any) {
       console.error("Error fetching revenue detail:", error);
@@ -210,7 +208,7 @@ class RevenueService {
     }
   ): Promise<{ success: boolean; data: RevenueRecord; message: string }> {
     try {
-      const response = await axios.patch(`${API_BASE_URL}/revenue/${revenueId}`, data);
+      const response = await axios.patch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/${revenueId}`, data);
       return response.data;
     } catch (error: any) {
       console.error("Error updating revenue:", error);

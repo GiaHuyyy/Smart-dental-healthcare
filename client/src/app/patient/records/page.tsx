@@ -114,8 +114,7 @@ export default function PatientRecordsPage() {
     try {
       const userId = (session.user as { _id?: string })._id;
       const accessToken = (session as any)?.access_token;
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/medical-records/patient/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/patient/${userId}`, {
         headers: {
           ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         },
@@ -161,12 +160,11 @@ export default function PatientRecordsPage() {
       if (appointmentId && records.length > 0) {
         try {
           const accessToken = (session as any)?.access_token;
-          const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
           console.log("📡 Fetching medical record for appointmentId:", appointmentId);
 
           // Fetch medical record by appointmentId
-          const response = await fetch(`${API_URL}/api/v1/medical-records/appointment/${appointmentId}`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/appointment/${appointmentId}`, {
             headers: {
               ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
             },
@@ -176,31 +174,23 @@ export default function PatientRecordsPage() {
 
           if (response.ok) {
             const data = await response.json();
-            console.log("📦 Response data:", data);
-
             // API returns an array, get the first element
             const medicalRecord = Array.isArray(data) ? data[0] : data?.data || data;
-            console.log("🏥 Medical record:", medicalRecord);
 
             if (medicalRecord && medicalRecord._id) {
               // Find the record in our list or use the fetched one
               const recordToShow = records.find((r) => r._id === medicalRecord._id) || medicalRecord;
-              console.log("✅ Opening modal with record:", recordToShow._id);
               handleViewDetail(recordToShow);
 
               // Clean up URL
               window.history.replaceState({}, "", "/patient/records");
             } else {
-              console.error("❌ No medical record found in response");
               toast.error("Không tìm thấy hồ sơ điều trị cho lịch hẹn này");
             }
           } else {
-            const errorData = await response.json().catch(() => ({}));
-            console.error("❌ API error:", response.status, errorData);
             toast.error("Không thể tải hồ sơ điều trị");
           }
         } catch (error) {
-          console.error("💥 Error fetching medical record by appointmentId:", error);
           toast.error("Có lỗi xảy ra khi tải hồ sơ");
         }
       } else if (appointmentId && records.length === 0) {

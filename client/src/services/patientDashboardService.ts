@@ -1,5 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export interface PatientDashboardStats {
   nextAppointment: {
     id: string;
@@ -35,7 +33,7 @@ export async function getPatientDashboardStats(
     let nextAppointment = null;
 
     // First, try to get confirmed appointments that are upcoming (from now onwards)
-    const confirmedResponse = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}?status=confirmed`, {
+    const confirmedResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}?status=confirmed`, {
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -75,7 +73,7 @@ export async function getPatientDashboardStats(
 
     // If no confirmed appointments found, try pending appointments
     if (!nextAppointment) {
-      const pendingResponse = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}?status=pending`, {
+      const pendingResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}?status=pending`, {
         headers: {
           "Content-Type": "application/json",
           ...(token && { Authorization: `Bearer ${token}` }),
@@ -115,7 +113,7 @@ export async function getPatientDashboardStats(
     }
 
     // Fetch completed appointments count
-    const completedResponse = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}?status=completed`, {
+    const completedResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}?status=completed`, {
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -130,7 +128,7 @@ export async function getPatientDashboardStats(
     }
 
     // Fetch follow-up suggestions count
-    const followUpResponse = await fetch(`${API_URL}/api/v1/appointments/follow-up/suggestions/${patientId}`, {
+    const followUpResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/follow-up/suggestions/${patientId}`, {
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),
@@ -179,7 +177,7 @@ export async function getRecentActivities(
 ): Promise<{ success: boolean; data?: RecentActivity[]; error?: string }> {
   try {
     // Fetch recent appointments
-    const response = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}/history?pageSize=3`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/history?pageSize=3`, {
       headers: {
         "Content-Type": "application/json",
         ...(token && { Authorization: `Bearer ${token}` }),

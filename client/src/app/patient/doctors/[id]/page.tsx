@@ -79,15 +79,14 @@ export default function DoctorDetailsPage() {
       setError(null);
       try {
         // Fetch single doctor
-        const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-        const res = await fetch(`${API_URL}/api/v1/users/${doctorId}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/${doctorId}`);
         const data = await res.json();
         const item: Doctor | null = (data?.data || data) as Doctor;
         setDoctor(item);
         // Related by specialty
         const spec = item?.specialty || item?.specialization || "";
         if (spec) {
-          const relRes = await fetch(`${API_URL}/api/v1/users/doctors?specialty=${encodeURIComponent(spec)}`);
+          const relRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/doctors?specialty=${encodeURIComponent(spec)}`);
           const relData = await relRes.json();
           const list = relData?.data || relData?.users || relData?.results || relData || [];
           const maybe = list as unknown as { result?: Doctor[] };
@@ -183,8 +182,7 @@ export default function DoctorDetailsPage() {
 
     try {
       const accessToken = (session as any)?.access_token;
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/reviews/${editingReview._id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/${editingReview._id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -207,13 +205,13 @@ export default function DoctorDetailsPage() {
       setEditingReview(null);
 
       // Reload reviews
-      const reviewsRes = await fetch(`${API_URL}/api/v1/reviews/doctor/${doctorId}?page=1&limit=10`);
+      const reviewsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/doctor/${doctorId}?page=1&limit=10`);
       const reviewsData = await reviewsRes.json();
       const reviewsList = reviewsData?.data?.data || reviewsData?.data || [];
       setReviews(Array.isArray(reviewsList) ? reviewsList : []);
 
       // Reload rating stats
-      const statsRes = await fetch(`${API_URL}/api/v1/reviews/doctor/${doctorId}/rating`);
+      const statsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/doctor/${doctorId}/rating`);
       const statsData = await statsRes.json();
       if (statsData?.data) {
         setReviewStats({

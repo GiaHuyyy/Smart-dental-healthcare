@@ -3,10 +3,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, User, Stethoscope, Smile } from "lucide-react";
+import { Eye, EyeOff, User, Stethoscope } from "lucide-react";
 import { sendRequest } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Image from "next/image";
+import tooth from "../../../../public/tooth.svg";
 
 export default function RegisterPage() {
   const [userType, setUserType] = useState("patient");
@@ -68,26 +70,27 @@ export default function RegisterPage() {
 
   return (
     <div
-    className="min-h-screen bg-gradient-to-br flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
-                  style={{
-                    backgroundColor: "var(--color-primary-50)",
-                    backgroundImage: "linear-gradient(135deg, var(--color-primary-50) 0%, rgba(var(--color-primary-rgb), 0.06) 50%, var(--color-primary) 100%)",
-                  }}
+      className="min-h-screen bg-linear-to-br flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{
+        backgroundColor: "var(--color-primary-50)",
+        backgroundImage:
+          "linear-gradient(135deg, var(--color-primary-50) 0%, rgba(var(--color-primary-rgb), 0.06) 50%, var(--color-primary) 100%)",
+      }}
     >
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <Link href="/" className="flex items-center justify-center group">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-              <Smile className="text-white w-8 h-8" />
+            <div className="w-16 h-16 bg-linear-to-br from-blue-100 to-[#00a6f4] rounded-2xl flex items-center justify-center shadow-lg">
+              <Image src={tooth} alt="Logo" width={40} height={40} />
             </div>
             <div className="ml-4">
-              <span className="text-2xl font-bold text-gray-900">Smart Dental</span>
+              <span className="text-2xl font-bold text-primary">Smart Dental</span>
               <div className="text-sm text-gray-500 -mt-1">Healthcare Platform</div>
             </div>
           </Link>
           <div className="healthcare-card-elevated p-8 mt-8">
-            <h2 className="healthcare-heading text-2xl text-center">Tạo tài khoản mới</h2>
+            <h2 className="healthcare-heading text-primary text-2xl text-center">Tạo tài khoản mới</h2>
             <p className="healthcare-body text-center mt-2">Điền thông tin để tham gia hệ thống chăm sóc sức khỏe</p>
           </div>
         </div>
@@ -99,7 +102,7 @@ export default function RegisterPage() {
               type="button"
               className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
                 userType === "patient"
-                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  ? "border-primary bg-blue-50 text-primary shadow-md"
                   : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
               }`}
               onClick={() => setUserType("patient")}
@@ -120,7 +123,7 @@ export default function RegisterPage() {
               type="button"
               className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
                 userType === "doctor"
-                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  ? "border-primary bg-blue-50 text-primary shadow-md"
                   : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
               }`}
               onClick={() => setUserType("doctor")}
@@ -156,7 +159,7 @@ export default function RegisterPage() {
                     name="fullName"
                     type="text"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     placeholder="Nhập họ và tên đầy đủ"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
@@ -172,7 +175,7 @@ export default function RegisterPage() {
                     name="email"
                     type="email"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     placeholder="Nhập địa chỉ email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -188,7 +191,7 @@ export default function RegisterPage() {
                     name="phone"
                     type="tel"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     placeholder="Nhập số điện thoại"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -204,7 +207,7 @@ export default function RegisterPage() {
                     name="dateOfBirth"
                     type="date"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                   />
@@ -218,7 +221,7 @@ export default function RegisterPage() {
                     id="gender"
                     name="gender"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                   >
@@ -238,7 +241,7 @@ export default function RegisterPage() {
                     name="address"
                     type="text"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     placeholder="Nhập địa chỉ đầy đủ"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -263,7 +266,7 @@ export default function RegisterPage() {
                       name="specialty"
                       type="text"
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       placeholder="Ví dụ: Nha khoa tổng quát, Chỉnh hình..."
                       value={formData.specialty}
                       onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
@@ -279,7 +282,7 @@ export default function RegisterPage() {
                       name="licenseNumber"
                       type="text"
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       placeholder="Nhập số chứng chỉ hành nghề"
                       value={formData.licenseNumber}
                       onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
@@ -303,7 +306,7 @@ export default function RegisterPage() {
                       name="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       placeholder="Tối thiểu 6 ký tự"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -311,7 +314,7 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-primary transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -328,7 +331,7 @@ export default function RegisterPage() {
                       name="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       placeholder="Nhập lại mật khẩu"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
@@ -336,7 +339,7 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-primary transition-colors"
                     >
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -356,7 +359,7 @@ export default function RegisterPage() {
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600">
                 Đã có tài khoản?{" "}
-                <Link href="/auth/login" className="font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                <Link href="/auth/login" className="font-semibold text-primary hover:opacity-90 transition-colors">
                   Đăng nhập ngay
                 </Link>
               </p>

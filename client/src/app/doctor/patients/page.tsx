@@ -161,8 +161,7 @@ export default function DoctorPatients() {
       if (selectedFilter && selectedFilter !== "all") params.append("status", selectedFilter);
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/users/patients/search?${params}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/patients/search?${params}`);
       const data = await response.json();
 
       if (data?.success === true) {
@@ -195,8 +194,7 @@ export default function DoctorPatients() {
   const fetchStats = async () => {
     try {
       const params = new URLSearchParams();
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/users/patients/stats?${params}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/patients/stats?${params}`);
       const data = await response.json();
 
       if (data?.success === true) {
@@ -269,8 +267,7 @@ export default function DoctorPatients() {
 
   const fetchPatientAppointments = async (patientId: string) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}/history?current=1&pageSize=50`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/history?current=1&pageSize=50`);
       const data = await response.json();
       if (data.success) {
         const appointments = data.data.appointments || [];
@@ -283,8 +280,7 @@ export default function DoctorPatients() {
 
   const fetchPatientMedicalRecords = async (patientId: string) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/medical-records/patient/${patientId}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/patient/${patientId}`);
       const data = await response.json();
       if (data && !data.error) {
         const records = data.data || data.results || data;
@@ -306,16 +302,8 @@ export default function DoctorPatients() {
       }
 
       // Fetch revenue data for doctor filtered by patient ID
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
-      const res = await fetch(`${API_URL}/api/v1/revenue/doctor/${doctorId}?patientId=${patientId}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?patientId=${patientId}`);
       const data = await res.json();
-
-      console.log("📊 Revenue API Response:", {
-        success: data?.success,
-        totalItems: data?.data?.totalItems,
-        resultsLength: data?.data?.results?.length,
-        results: data?.data?.results,
-      });
 
       // Handle response format from revenue API
       // Expected: { success: true, data: { results: [...], totalItems, totalPages, etc } }

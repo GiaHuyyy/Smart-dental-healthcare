@@ -38,11 +38,10 @@ export default function PatientStatistics({ patientId }: PatientStatisticsProps)
 
   const fetchStatistics = async () => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
       const params = new URLSearchParams();
       params.append("patientId", patientId);
 
-      const response = await fetch(`${API_URL}/api/v1/medical-records/statistics/patient?${params}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/statistics/patient?${params}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },

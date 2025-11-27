@@ -489,8 +489,6 @@ export default function PatientPayments() {
     const loadingToast = toast.loading("Đang xử lý thanh toán...");
 
     try {
-      // Use new API to pay existing pending bill (update bill, not create new one)
-      console.log("🔵 Calling payPendingBill API...");
       const result = await walletService.payPendingBill(accessToken, selectedPayment._id);
 
       if (result.success) {

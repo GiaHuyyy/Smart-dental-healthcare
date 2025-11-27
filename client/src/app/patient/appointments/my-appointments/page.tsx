@@ -242,8 +242,7 @@ function MyAppointmentsContent() {
 
     try {
       // Get ALL reviews of patient in ONE API call
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/reviews/patient/${patientId}?page=1&limit=200`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/patient/${patientId}?page=1&limit=200`, {
         headers: {
           ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         },
@@ -302,8 +301,7 @@ function MyAppointmentsContent() {
         toast.error("Thiếu thông tin cần thiết");
         return;
       }
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/reviews`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

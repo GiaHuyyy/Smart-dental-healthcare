@@ -187,8 +187,7 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
       setIsMedicalRecordModalOpen(true);
 
       // Fetch full details
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/medical-records/${record._id}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/${record._id}`);
       const data = await response.json();
       if (data && !data.error) {
         setMedicalRecordDetails(data.data || data);
@@ -229,8 +228,6 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
   }) => {
     setIsSubmitting(true);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
       const requestBody = {
         chiefComplaint: formData.chiefComplaints?.join(", ") || medicalRecordDetails?.chiefComplaint,
         diagnosis: formData.diagnosisGroups?.map((g) => g.diagnosis).join(", ") || medicalRecordDetails?.diagnosis,
@@ -248,7 +245,7 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
         notes: formData.notes || medicalRecordDetails?.notes,
       };
 
-      const response = await fetch(`${API_URL}/api/v1/medical-records/${selectedMedicalRecord?._id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/${selectedMedicalRecord?._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -947,8 +944,7 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
             // Refetch medical record detail to show updated follow-up info
             if (selectedMedicalRecord) {
               try {
-                const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-                const response = await fetch(`${API_URL}/api/v1/medical-records/${selectedMedicalRecord._id}`);
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/${selectedMedicalRecord._id}`);
                 if (response.ok) {
                   const updatedRecord = await response.json();
                   setMedicalRecordDetails(updatedRecord);

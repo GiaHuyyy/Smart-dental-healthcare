@@ -1,5 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081";
-
 interface TopUpRequest {
   amount: number;
   paymentMethod: "momo" | "banking" | "cash";
@@ -9,7 +7,7 @@ interface TopUpRequest {
 class WalletService {
   async getBalance(accessToken: string) {
     try {
-      const response = await fetch(`${API_URL}/api/v1/wallet/balance`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/balance`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -30,7 +28,7 @@ class WalletService {
 
   async topUp(accessToken: string, data: TopUpRequest) {
     try {
-      const response = await fetch(`${API_URL}/api/v1/wallet/topup`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/topup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -52,7 +50,7 @@ class WalletService {
 
   async getHistory(accessToken: string, page = 1, limit = 10) {
     try {
-      const response = await fetch(`${API_URL}/api/v1/wallet/history?page=${page}&limit=${limit}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/history?page=${page}&limit=${limit}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -73,7 +71,7 @@ class WalletService {
 
   async getStats(accessToken: string) {
     try {
-      const response = await fetch(`${API_URL}/api/v1/wallet/stats`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/stats`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -94,7 +92,7 @@ class WalletService {
 
   async payWithWallet(accessToken: string, appointmentId: string, amount: number) {
     try {
-      const response = await fetch(`${API_URL}/api/v1/wallet/pay-appointment`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/pay-appointment`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -119,16 +117,8 @@ class WalletService {
   }
 
   async payPendingBill(accessToken: string, billId: string) {
-    console.log("🔵 [CLIENT] Pay Pending Bill - START");
-    console.log("🔵 [CLIENT] Request:", {
-      billId,
-      accessToken: accessToken ? "✅ Present" : "❌ Missing",
-    });
-
     try {
-      console.log("🔵 [CLIENT] Calling API:", `${API_URL}/api/v1/wallet/pay-bill`);
-
-      const response = await fetch(`${API_URL}/api/v1/wallet/pay-bill`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/pay-bill`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,8 +129,6 @@ class WalletService {
         }),
       });
 
-      console.log("🔵 [CLIENT] Response status:", response.status);
-
       if (!response.ok) {
         const errorData = await response.json();
         console.error("🔴 [CLIENT] Error response:", errorData);
@@ -148,7 +136,6 @@ class WalletService {
       }
 
       const result = await response.json();
-      console.log("🔵 [CLIENT] Success response:", result);
       return result;
     } catch (error) {
       console.error("🔴 [CLIENT] Error paying bill:", error);
