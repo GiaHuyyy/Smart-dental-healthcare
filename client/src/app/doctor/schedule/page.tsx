@@ -11,12 +11,12 @@ import {
   Mail,
   Phone,
   MapPin,
-  Plus,
   Download,
   CalendarDays,
   CheckCircle,
   DollarSign,
   Search,
+  Settings,
 } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
@@ -29,6 +29,7 @@ import TreatmentModal from "@/components/appointments/TreatmentModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
 import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 import AppointmentAIDataDisplay from "@/components/appointments/AppointmentAIDataDisplay";
+import WorkingHoursModal from "@/components/appointments/WorkingHoursModal";
 
 // Appointment type
 interface Appointment {
@@ -121,6 +122,9 @@ function DoctorScheduleContent() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [pendingBill, setPendingBill] = useState<any>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Working hours modal state
+  const [workingHoursModalOpen, setWorkingHoursModalOpen] = useState(false);
 
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
@@ -831,9 +835,12 @@ function DoctorScheduleContent() {
                   <span className="hidden sm:inline">Xuất Excel</span>
                 </button>
 
-                <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Thêm Lịch Hẹn</span>
+                <button
+                  onClick={() => setWorkingHoursModalOpen(true)}
+                  className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Quản lý giờ làm việc</span>
                 </button>
               </div>
             </div>
@@ -1228,13 +1235,13 @@ function DoctorScheduleContent() {
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Detail Modal - Higher z-index to appear above WorkingHoursModal */}
       {detailModalOpen && selectedAppointment && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
             {/* Header - Fixed */}
             <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-primary">
                 {(selectedAppointment as any).followUpParentId ? "Chi Tiết Lịch Hẹn Tái Khám" : "Chi Tiết Lịch Hẹn"}
               </h2>
               <button onClick={() => setDetailModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -1385,7 +1392,7 @@ function DoctorScheduleContent() {
                   <button
                     onClick={() => {
                       openCancelDialog(selectedAppointment._id || selectedAppointment.id);
-                      setDetailModalOpen(false);
+                      // Don't close detail modal - cancel modal will show on top
                     }}
                     disabled={actionLoading}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1440,6 +1447,8 @@ function DoctorScheduleContent() {
             setCancelDialogOpen(false);
             setAppointmentToCancel(null);
             setCancelReason("");
+            setDetailModalOpen(false); // Close detail modal after successful cancellation
+            setSelectedAppointment(null);
             fetchAppointments();
           }}
         />
@@ -1539,6 +1548,26 @@ function DoctorScheduleContent() {
         onSubmit={handleTreatmentSubmit}
         isSubmitting={isSubmittingTreatment}
         accessToken={(session as ExtendedSession)?.accessToken}
+      />
+
+      {/* Working Hours Modal */}
+      <WorkingHoursModal
+        isOpen={workingHoursModalOpen}
+        onClose={() => setWorkingHoursModalOpen(false)}
+        doctorId={(session?.user as { _id?: string })?._id}
+        accessToken={(session as ExtendedSession)?.access_token}
+        onViewAppointment={(appointmentId: string) => {
+          // Find and open appointment detail modal
+          const appointment = appointments.find((apt) => apt._id === appointmentId || apt.id === appointmentId);
+          if (appointment) {
+            setSelectedAppointment(appointment);
+            setDetailModalOpen(true);
+            // Check for pending bill if appointment is completed
+            if (appointment.status === "completed") {
+              checkPendingBill(appointment._id || appointment.id);
+            }
+          }
+        }}
       />
     </div>
   );

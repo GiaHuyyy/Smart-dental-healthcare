@@ -118,7 +118,7 @@ export default function TreatmentModal({
   const fetchSuggestions = useCallback(async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/ai-chat/suggestions`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat/suggestions`,
         {
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
         }

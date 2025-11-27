@@ -170,14 +170,14 @@ function MapView({
                 }}
                 className={`p-4 rounded-xl cursor-pointer transition-all ${
                   isSelected
-                    ? "bg-blue-50 border-2 border-blue-500 shadow-md"
+                    ? "bg-blue-50 border-2 border-primary shadow-md"
                     : "bg-white border border-gray-200 hover:border-blue-300 hover:shadow-sm"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold text-gray-900 text-sm truncate">{doctor.fullName}</h4>
-                    <p className="text-xs text-blue-600 mt-1">{doctor.specialty || "Bác sĩ"}</p>
+                    <p className="text-xs text-primary mt-1">{doctor.specialty || "Bác sĩ"}</p>
                     {doctor.address && <p className="text-xs text-gray-500 mt-1 line-clamp-2">📍 {doctor.address}</p>}
                     {doctor.rating && (
                       <div className="flex items-center gap-1 mt-2">
@@ -192,7 +192,7 @@ function MapView({
                       e.stopPropagation();
                       onBookAppointment(doctor);
                     }}
-                    className="flex-shrink-0 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex-shrink-0 px-3 py-1.5 bg-primary text-white text-xs rounded-lg hover:opacity-90 transition-colors"
                   >
                     Đặt lịch
                   </button>

@@ -84,7 +84,7 @@ export default function AppointmentConfirmationComponent({
   const body = (
     <div className="p-6 space-y-6">
       <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Chi tiết lịch hẹn</h3>
+        <h3 className="text-lg font-semibold text-primary mb-4">Chi tiết lịch hẹn</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">

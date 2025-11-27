@@ -1040,7 +1040,7 @@ function MyAppointmentsContent() {
             {/* Header - Fixed */}
             <div className="flex-shrink-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-semibold text-gray-900">
+                <h3 className="text-2xl font-semibold text-primary">
                   {(selectedAppointment as any).followUpParentId ? "Chi tiết lịch hẹn tái khám" : "Chi tiết lịch hẹn"}
                 </h3>
                 <button
