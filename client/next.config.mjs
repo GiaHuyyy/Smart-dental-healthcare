@@ -21,6 +21,7 @@ const nextConfig = {
         pathname: "/**",
       },
     ],
+    dangerouslyAllowSVG: true,
   },
   // Skip ESLint during production builds to avoid build failures from lint-only errors
   eslint: {

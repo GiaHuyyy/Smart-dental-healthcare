@@ -10,6 +10,7 @@ import { Eye, EyeOff, User, Stethoscope } from "lucide-react";
 import ModalReactive from "@/components/auth/ModalReactive";
 import ModalForgotPassword from "@/components/auth/ModalForgotPassword";
 import Image from "next/image";
+import tooth from "../../../../public/tooth.svg";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -68,16 +69,16 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="flex items-center justify-center group">
-            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
-              <Image src="/tooth.svg" alt="Logo" width={40} height={40} className="w-6 h-6" />
+            <div className="w-16 h-16 bg-linear-to-br from-blue-100 to-[#00a6f4] rounded-2xl flex items-center justify-center shadow-lg">
+              <Image src={tooth} alt="logo" width={40} height={40} />
             </div>
             <div className="ml-4">
-              <span className="text-2xl font-bold text-gray-900">Smart Dental</span>
+              <span className="text-2xl font-bold text-primary">Smart Dental</span>
               <div className="text-sm text-gray-500 -mt-1">Healthcare Platform</div>
             </div>
           </Link>
           <div className="healthcare-card-elevated p-8 mt-8">
-            <h2 className="healthcare-heading text-2xl text-center">Đăng nhập hệ thống</h2>
+            <h2 className="healthcare-heading text-2xl text-primary text-center">Đăng nhập hệ thống</h2>
             <p className="healthcare-body text-center mt-2">Vui lòng chọn loại tài khoản và đăng nhập</p>
           </div>
         </div>
@@ -89,7 +90,7 @@ export default function LoginPage() {
               type="button"
               className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
                 userType === "patient"
-                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  ? "border-primary bg-blue-50 text-primary shadow-md"
                   : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
               }`}
               onClick={() => (setUserType("patient"), setFormData({ ...formData, email: "", password: "" }))}
@@ -110,7 +111,7 @@ export default function LoginPage() {
               type="button"
               className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all duration-200 ${
                 userType === "doctor"
-                  ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                  ? "border-primary bg-blue-50 text-primary shadow-md"
                   : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:border-blue-300"
               }`}
               onClick={() => (setUserType("doctor"), setFormData({ ...formData, email: "", password: "" }))}
@@ -148,7 +149,7 @@ export default function LoginPage() {
                     name="email"
                     type="email"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     placeholder="Nhập địa chỉ email của bạn"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -165,7 +166,7 @@ export default function LoginPage() {
                       name="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       placeholder="Nhập mật khẩu của bạn"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -173,7 +174,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-primary transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -186,7 +187,7 @@ export default function LoginPage() {
                       id="remember-me"
                       name="remember-me"
                       type="checkbox"
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                       checked={formData.rememberMe}
                       onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
                     />
@@ -197,7 +198,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setIsForgotPasswordModalOpen(true)}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                    className="text-sm text-primary hover:text-primary font-medium transition-colors"
                   >
                     Quên mật khẩu?
                   </button>
@@ -228,7 +229,7 @@ export default function LoginPage() {
                   Chưa có tài khoản?{" "}
                   <Link
                     href="/auth/register"
-                    className="font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                    className="font-semibold text-primary hover:text-primary transition-colors"
                   >
                     Đăng ký ngay
                   </Link>

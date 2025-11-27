@@ -9,6 +9,7 @@ import { User, Settings, Activity, Calendar, Home, FileText } from "lucide-react
 import Image from "next/image";
 import { PolicyModal } from "@/components/PolicyModal";
 import { NotificationButton } from "./NotificationButton";
+import tooth from "../../public/tooth.svg";
 
 export default function Header() {
   const { data: session } = useSession();
@@ -67,10 +68,10 @@ export default function Header() {
             {isHomePage ? (
               <Link href="/" className="flex items-center hover:opacity-90 transition-opacity group">
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-linear-to-br from-blue-100 to-[#00a6f4]">
-                  <Image src="/tooth.svg" alt="Logo" width={40} height={40} className="w-6 h-6" />
+                  <Image src={tooth} alt="Logo" width={24} height={24} />
                 </div>
                 <div className="ml-3">
-                  <span className="text-xl font-bold text-gray-900">Smart Dental</span>
+                  <span className="text-xl font-bold text-primary">Smart Dental</span>
                   <div className="text-xs text-gray-500 -mt-1">Healthcare Platform</div>{" "}
                 </div>
               </Link>
