@@ -61,8 +61,7 @@ export default function CreateMedicalRecordModal({
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const token = localStorage.getItem('token');
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/v1/users/patients`, { headers });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/patients`, { headers });
       if (!response.ok) {
         console.warn('Failed to fetch patients, status:', response.status);
         return;

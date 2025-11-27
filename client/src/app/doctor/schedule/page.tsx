@@ -482,17 +482,14 @@ function DoctorScheduleContent() {
 
           if (parentMedicalRecordResponse.ok) {
             const parentMedicalRecordData = await parentMedicalRecordResponse.json();
-            console.log("📦 Full API response:", parentMedicalRecordData);
 
             // API returns array directly, not wrapped in data/results
             const parentRecords = Array.isArray(parentMedicalRecordData)
               ? parentMedicalRecordData
               : parentMedicalRecordData?.data || parentMedicalRecordData?.results || [];
-            console.log("📋 Parent records found:", parentRecords.length);
 
             if (parentRecords.length > 0) {
               parentRecordId = parentRecords[0]._id;
-              console.log("✅ Found parent medical record:", parentRecordId);
             } else {
               console.warn("⚠️ No medical records found for parent appointment");
             }

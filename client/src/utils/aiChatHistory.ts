@@ -1,6 +1,3 @@
-// AI Chat History API service
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export interface AiChatSession {
   _id?: string;
   userId: string;
@@ -61,7 +58,7 @@ export interface ChatStats {
 class AiChatHistoryService {
   // Session methods
   async getSession(sessionId: string): Promise<AiChatSession> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/${sessionId}`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/sessions/${sessionId}`);
 
     if (!response.ok) {
       throw new Error(`Failed to get session: ${response.statusText}`);
@@ -81,7 +78,7 @@ class AiChatHistoryService {
     totalPages: number;
   }> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/ai-chat-history/users/${userId}/sessions?page=${page}&limit=${limit}`
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/users/${userId}/sessions?page=${page}&limit=${limit}`
     );
 
     if (!response.ok) {
@@ -92,7 +89,7 @@ class AiChatHistoryService {
   }
 
   async createSession(createData: Partial<AiChatSession>): Promise<AiChatSession> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/sessions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -108,7 +105,7 @@ class AiChatHistoryService {
   }
 
   async updateSession(sessionId: string, updateData: Partial<AiChatSession>): Promise<AiChatSession> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/sessions/${sessionId}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/sessions/${sessionId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -125,7 +122,7 @@ class AiChatHistoryService {
 
   // Message methods
   async addMessage(messageData: Omit<AiChatMessage, "_id" | "createdAt" | "updatedAt">): Promise<AiChatMessage> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/ai-chat-history/messages`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -144,7 +141,7 @@ class AiChatHistoryService {
 
   async getSessionMessages(sessionId: string, page: number = 1, limit: number = 50): Promise<AiChatMessage[]> {
     const response = await fetch(
-      `${API_BASE_URL}/api/v1/ai-chat-history/sessions/${sessionId}/messages?page=${page}&limit=${limit}`
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/sessions/${sessionId}/messages?page=${page}&limit=${limit}`
     );
 
     if (!response.ok) {

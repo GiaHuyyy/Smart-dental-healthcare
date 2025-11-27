@@ -1,8 +1,6 @@
 import { Appointment, AppointmentStatus } from "@/types/appointment";
 import type { FollowUpSuggestion } from "@/types/followUpSuggestion";
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export interface CreateAppointmentPayload {
   patientId: string;
   doctorId: string;
@@ -43,7 +41,7 @@ const appointmentService = {
    */
   async createAppointment(payload: CreateAppointmentPayload, token?: string): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -97,7 +95,7 @@ const appointmentService = {
       // Add populate for doctor and patient info
       queryParams.append("populate", "doctorId,patientId");
 
-      const url = `${API_URL}/api/v1/appointments/patient/${patientId}${
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}${
         queryParams.toString() ? `?${queryParams.toString()}` : ""
       }`;
 
@@ -154,7 +152,7 @@ const appointmentService = {
    */
   async getPatientUpcomingAppointments(patientId: string, token?: string): Promise<AppointmentsListResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/patient/${patientId}/upcoming`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/upcoming`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -192,7 +190,7 @@ const appointmentService = {
    */
   async getAppointmentById(appointmentId: string, token?: string): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -234,7 +232,7 @@ const appointmentService = {
     token?: string
   ): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/status`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -278,7 +276,7 @@ const appointmentService = {
     cancelledBy?: "doctor" | "patient"
   ): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/cancel`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/cancel`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -326,7 +324,7 @@ const appointmentService = {
     token?: string
   ): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/reschedule`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/reschedule`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -365,7 +363,7 @@ const appointmentService = {
    */
   async confirmAppointment(appointmentId: string, token?: string): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/confirm`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -403,7 +401,7 @@ const appointmentService = {
    */
   async completeAppointment(appointmentId: string, token?: string): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/complete`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/complete`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -453,7 +451,7 @@ const appointmentService = {
       // Add populate for doctor and patient info
       queryParams.append("populate", "doctorId,patientId");
 
-      const url = `${API_URL}/api/v1/appointments/doctor/${doctorId}${
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}${
         queryParams.toString() ? `?${queryParams.toString()}` : ""
       }`;
 
@@ -520,7 +518,7 @@ const appointmentService = {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/reschedule-with-billing`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/reschedule-with-billing`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -576,7 +574,7 @@ const appointmentService = {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/${appointmentId}/cancel-with-billing`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/cancel-with-billing`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -634,7 +632,7 @@ const appointmentService = {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/create-suggestion`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/follow-up/create-suggestion`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -679,7 +677,7 @@ const appointmentService = {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/suggestions/${patientId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/follow-up/suggestions/${patientId}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -715,7 +713,7 @@ const appointmentService = {
    */
   async rejectFollowUpSuggestion(suggestionId: string, token?: string): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/${suggestionId}/reject`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/follow-up/${suggestionId}/reject`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -755,7 +753,7 @@ const appointmentService = {
     token?: string
   ): Promise<AppointmentResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/follow-up/${suggestionId}/mark-scheduled`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/follow-up/${suggestionId}/mark-scheduled`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -801,7 +799,7 @@ const appointmentService = {
     error?: string;
   }> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/appointments/available-slots/${doctorId}?date=${date}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/available-slots/${doctorId}?date=${date}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

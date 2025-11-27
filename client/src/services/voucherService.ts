@@ -1,5 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export interface Voucher {
   _id: string;
   patientId: string;
@@ -38,7 +36,7 @@ const voucherService = {
    */
   async getMyVouchers(token?: string): Promise<VoucherResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/vouchers/my-vouchers`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/vouchers/my-vouchers`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +72,7 @@ const voucherService = {
    */
   async applyVoucher(voucherCode: string, amount: number, token?: string): Promise<ApplyVoucherResponse> {
     try {
-      const response = await fetch(`${API_URL}/api/v1/vouchers/apply`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/vouchers/apply`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
