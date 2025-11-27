@@ -79,8 +79,9 @@ export class UpdateDoctorScheduleDto {
   @Type(() => DayScheduleDto)
   weeklySchedule: DayScheduleDto[];
 
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => BlockedTimeDto)
-  blockedTimes: BlockedTimeDto[];
+  blockedTimes?: BlockedTimeDto[];
 }

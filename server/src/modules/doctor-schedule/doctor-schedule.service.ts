@@ -110,19 +110,23 @@ export class DoctorScheduleService {
     doctorId: string,
     updateDto: UpdateDoctorScheduleDto,
   ): Promise<DoctorSchedule> {
+    console.log('updateSchedule called with doctorId:', doctorId);
+    console.log('updateDto:', JSON.stringify(updateDto, null, 2));
+
     const schedule = await this.doctorScheduleModel
       .findOneAndUpdate(
         { doctorId },
         {
           $set: {
             weeklySchedule: updateDto.weeklySchedule,
-            blockedTimes: updateDto.blockedTimes,
+            blockedTimes: updateDto.blockedTimes || [],
           },
         },
         { new: true, upsert: true },
       )
       .exec();
 
+    console.log('Schedule saved:', schedule ? 'success' : 'failed');
     return schedule;
   }
 
@@ -131,7 +135,7 @@ export class DoctorScheduleService {
    */
   async addBlockedTime(
     doctorId: string,
-    blockedTime: UpdateDoctorScheduleDto['blockedTimes'][0],
+    blockedTime: NonNullable<UpdateDoctorScheduleDto['blockedTimes']>[0],
   ): Promise<DoctorSchedule> {
     const schedule = await this.doctorScheduleModel
       .findOneAndUpdate(
