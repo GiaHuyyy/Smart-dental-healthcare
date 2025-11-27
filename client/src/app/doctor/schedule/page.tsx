@@ -1392,7 +1392,7 @@ function DoctorScheduleContent() {
                   <button
                     onClick={() => {
                       openCancelDialog(selectedAppointment._id || selectedAppointment.id);
-                      setDetailModalOpen(false);
+                      // Don't close detail modal - cancel modal will show on top
                     }}
                     disabled={actionLoading}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1447,6 +1447,8 @@ function DoctorScheduleContent() {
             setCancelDialogOpen(false);
             setAppointmentToCancel(null);
             setCancelReason("");
+            setDetailModalOpen(false); // Close detail modal after successful cancellation
+            setSelectedAppointment(null);
             fetchAppointments();
           }}
         />
