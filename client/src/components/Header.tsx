@@ -59,14 +59,14 @@ export default function Header() {
   const dashboardInfo = getUserDashboardInfo();
 
   return (
-    <header className="healthcare-card !rounded-none border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
+    <header className="healthcare-card rounded-none! border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex justify-between items-center py-4">
           {/* Logo and Branding */}
           <div className="flex items-center gap-4">
             {isHomePage ? (
               <Link href="/" className="flex items-center hover:opacity-90 transition-opacity group">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-100 to-[#00a6f4]">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-linear-to-br from-blue-100 to-[#00a6f4]">
                   <Image src="/tooth.svg" alt="Logo" width={40} height={40} className="w-6 h-6" />
                 </div>
                 <div className="ml-3">
@@ -79,7 +79,7 @@ export default function Header() {
                 {dashboardInfo && (
                   <div className="flex items-center gap-2">
                     <span
-                      className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-[18px] font-semibold border border-[#8bd9fd] bg-gradient-to-r from-[60%] to-[100%] from-blue-100 to-[#80d7ff] text-[#00a6f4] shadow-sm tracking-wide"
+                      className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-[18px] font-semibold border border-[#8bd9fd] bg-linear-to-r from-60 to-100 from-blue-100 to-[#80d7ff] text-primary shadow-sm tracking-wide"
                       style={{
                         letterSpacing: "0.03em",
                         fontFamily: "Montserrat, Arial, sans-serif",
@@ -131,7 +131,7 @@ export default function Header() {
                     </div>
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
-                      className="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center border-2 border-white shadow-md"
+                      className="w-10 h-10 bg-linear-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center border-2 border-white shadow-md"
                       aria-label="User menu"
                     >
                       <User className="w-5 h-5 text-gray-600 hover:text-[#00a6f4]" />
@@ -144,7 +144,7 @@ export default function Header() {
                       {/* User Info Header */}
                       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-[#00a6f4] rounded-full flex items-center justify-center">
+                          <div className="w-12 h-12 bg-linear-to-br from-blue-100 to-[#00a6f4] rounded-full flex items-center justify-center">
                             <User className="w-6 h-6 text-white" />
                           </div>
                           <div>

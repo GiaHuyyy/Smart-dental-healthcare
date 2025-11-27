@@ -101,19 +101,20 @@ export default function DoctorDetailsPage() {
         // Load reviews
         setLoadingReviews(true);
         try {
-          const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-          const reviewsRes = await fetch(`${API_URL}/api/v1/reviews/doctor/${doctorId}?page=1&limit=10`);
+          const reviewsRes = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/doctor/${doctorId}?page=1&limit=10`
+          );
           const reviewsData = await reviewsRes.json();
           const reviewsList = reviewsData?.data?.data || reviewsData?.data || [];
           setReviews(Array.isArray(reviewsList) ? reviewsList : []);
 
           // Load rating stats
-          const statsRes = await fetch(`${API_URL}/api/v1/reviews/doctor/${doctorId}/rating`);
-          const statsData = await statsRes.json();
-          if (statsData?.data) {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/doctor/${doctorId}/rating`);
+          if (res.ok) {
+            const statsData = await res.json();
             setReviewStats({
-              averageRating: statsData.data.averageRating || 0,
-              totalReviews: statsData.data.totalReviews || 0,
+              averageRating: statsData.averageRating || 0,
+              totalReviews: statsData.totalReviews || 0,
             });
           }
         } catch (e) {
@@ -280,7 +281,7 @@ export default function DoctorDetailsPage() {
 
   const name = doctor.fullName || "Chưa rõ tên";
   const sp = doctor.specialty || doctor.specialization || "Đa khoa";
-  const rating = doctor.rating ?? 4.8;
+  const displayRating = reviewStats?.averageRating ? reviewStats.averageRating.toFixed(1) : "Chưa có";
   const exp = doctor.experienceYears ?? 5;
 
   return (
@@ -304,25 +305,25 @@ export default function DoctorDetailsPage() {
               <h1 className="healthcare-heading text-3xl">{name}</h1>
               <p className="healthcare-body">{sp}</p>
               <div className="flex items-center gap-3 text-sm text-gray-600 mt-2">
-                <Star className="w-4 h-4 text-yellow-400 fill-current" /> {rating} • {exp}+ năm kinh nghiệm
+                <Star className="w-4 h-4 text-yellow-400 fill-current" /> {displayRating} • {exp}+ năm kinh nghiệm
               </div>
               <div className="flex items-center gap-3 mt-4">
                 <Link
                   href="/patient/doctors"
-                  className="inline-flex items-center justify-center border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-xl py-3 px-4 text-sm font-medium hover:shadow-sm transition"
+                  className="inline-flex items-center justify-center border-2 border-primary text-primary rounded-xl py-3 px-4 text-sm font-medium hover:shadow-sm transition"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" /> Quay lại
                 </Link>
 
                 <button
-                  className="flex-1 cursor-pointer inline-flex items-center justify-center bg-[var(--color-primary)] text-white rounded-xl py-3 px-6 text-sm font-semibold shadow-md hover:brightness-95 transition"
+                  className="flex-1 cursor-pointer inline-flex items-center justify-center bg-primary text-white rounded-xl py-3 px-6 text-sm font-semibold shadow-md hover:brightness-95 transition"
                   onClick={onBook}
                 >
                   <Calendar className="w-4 h-4 mr-2" /> Đặt lịch
                 </button>
 
                 <button
-                  className="inline-flex border-[var(--color-primary)] text-[var(--color-primary)] items-center cursor-pointer hover:bg-gray-50 transition"
+                  className="inline-flex border-primary text-primary items-center cursor-pointer hover:bg-gray-50 transition"
                   onClick={onChat}
                   aria-label={`Chat với ${name}`}
                 >

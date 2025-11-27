@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Users, Star, Calendar, Phone, MapPin, MessageSquare } from "lucide-react";
 
 interface Doctor {
@@ -26,12 +26,48 @@ interface Props {
   creatingConvFor?: string | null;
 }
 
+// Ratings cache shared across all DoctorCard instances
+const ratingsCache: Record<string, { averageRating: number; totalReviews: number }> = {};
+
 export default function DoctorCard({ doctor, onView, onBook, onChat, creatingConvFor }: Props) {
   const id = doctor._id || doctor.id;
   const name = doctor.fullName || "Chưa rõ tên";
   const sp = doctor.specialty || doctor.specialization || "Đa khoa";
-  const rating = doctor.rating ?? 4.7;
   const exp = doctor.experienceYears ?? 5;
+
+  const [ratingData, setRatingData] = useState<{ averageRating: number; totalReviews: number } | null>(null);
+
+  // Fetch rating from API
+  useEffect(() => {
+    if (!id) return;
+
+    // Check cache first
+    if (ratingsCache[id]) {
+      setRatingData(ratingsCache[id]);
+      return;
+    }
+
+    const fetchRating = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/doctor/${id}/rating`);
+        if (res.ok) {
+          const data = await res.json();
+          const result = {
+            averageRating: data?.averageRating || 0,
+            totalReviews: data?.totalReviews || 0,
+          };
+          ratingsCache[id] = result;
+          setRatingData(result);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch rating for doctor ${id}:`, error);
+      }
+    };
+
+    fetchRating();
+  }, [id]);
+
+  const displayRating = ratingData?.averageRating ? ratingData.averageRating.toFixed(1) : "Chưa có";
 
   return (
     <div className="healthcare-card group">
@@ -56,7 +92,7 @@ export default function DoctorCard({ doctor, onView, onBook, onChat, creatingCon
 
         <div className="flex items-center gap-3 text-sm text-gray-600 mb-2">
           <Star className="w-4 h-4 text-yellow-400 fill-current" />
-          {rating} • {exp}+ năm kinh nghiệm
+          {displayRating} • {exp}+ năm kinh nghiệm
         </div>
         {doctor.address && (
           <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">

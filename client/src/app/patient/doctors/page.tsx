@@ -33,6 +33,8 @@ const specialtiesFallback = [
   "Thẩm mỹ răng",
 ];
 
+const DOCTORS_PER_PAGE = 6;
+
 function DoctorSkeleton() {
   return (
     <div className="healthcare-card animate-pulse">
@@ -55,6 +57,7 @@ export default function PatientDoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [query, setQuery] = useState<string>("");
   const [specialty, setSpecialty] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Read initial query params on client only to avoid prerender issues
   useEffect(() => {
@@ -69,6 +72,11 @@ export default function PatientDoctorsPage() {
       // ignore
     }
   }, []);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, specialty]);
 
   const filtered = useMemo(() => {
     let list = doctors;
@@ -95,8 +103,7 @@ export default function PatientDoctorsPage() {
       setError(null);
       try {
         // Use Next API route that proxies to backend
-        const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-        const url = new URL(`${API_URL}/api/v1/users/doctors`, window.location.origin);
+        const url = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/doctors`, window.location.origin);
         const sp = new URLSearchParams();
         // allow backend filters if exist, e.g., search, specialty
         if (query) sp.set("search", query);
@@ -204,9 +211,7 @@ export default function PatientDoctorsPage() {
         {/* Header */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center gap-4">
-            <div
-              className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"
-            >
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <Stethoscope className="w-5 h-5 text-primary" />
             </div>
             <div>
@@ -258,18 +263,88 @@ export default function PatientDoctorsPage() {
         ) : filtered.length === 0 ? (
           <div className="healthcare-card p-6 text-center">Không tìm thấy bác sĩ phù hợp.</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((d) => (
-              <DoctorCard
-                key={d._id || d.id || d.fullName}
-                doctor={d}
-                creatingConvFor={creatingConvFor}
-                onView={(doc) => router.push(`/patient/doctors/${doc._id || doc.id}`)}
-                onBook={onBook}
-                onChat={onChat}
-              />
-            ))}
-          </div>
+          (() => {
+            const totalPages = Math.ceil(filtered.length / DOCTORS_PER_PAGE);
+            const startIndex = (currentPage - 1) * DOCTORS_PER_PAGE;
+            const endIndex = startIndex + DOCTORS_PER_PAGE;
+            const currentDoctors = filtered.slice(startIndex, endIndex);
+
+            const handlePageChange = (page: number) => {
+              setCurrentPage(page);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            };
+
+            return (
+              <div className="space-y-6">
+                {/* Header with pagination */}
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-600">
+                    Hiển thị{" "}
+                    <span className="font-semibold text-gray-900">
+                      {startIndex + 1}-{Math.min(endIndex, filtered.length)}
+                    </span>{" "}
+                    trong tổng số <span className="font-semibold text-gray-900">{filtered.length}</span> bác sĩ
+                  </p>
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
+                      >
+                        Trước
+                      </button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => handlePageChange(page)}
+                              className={`w-8 h-8 rounded-lg transition text-sm ${
+                                currentPage === page
+                                  ? "bg-[var(--color-primary)] text-white"
+                                  : "border border-gray-300 hover:bg-gray-50"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
+                          return (
+                            <span key={page} className="px-1">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
+                      >
+                        Tiếp
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Doctor Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {currentDoctors.map((d) => (
+                    <DoctorCard
+                      key={d._id || d.id || d.fullName}
+                      doctor={d}
+                      creatingConvFor={creatingConvFor}
+                      onView={(doc) => router.push(`/patient/doctors/${doc._id || doc.id}`)}
+                      onBook={onBook}
+                      onChat={onChat}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })()
         )}
       </div>
     </div>

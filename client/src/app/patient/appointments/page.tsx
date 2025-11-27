@@ -77,14 +77,6 @@ export default function PatientAppointmentsPage() {
     const params = new URLSearchParams(window.location.search);
     const fromAI = params.get("fromAI");
 
-    console.log("🔍 AI Chat Auto-open Check:", {
-      fromAI,
-      hasAiDoctor: !!aiDoctor,
-      hasAppointmentData: !!appointmentData,
-      doctorsCount: doctors.length,
-      loading,
-    });
-
     // Wait until doctors are loaded before trying to match
     if (fromAI === "true" && aiDoctor && appointmentData && doctors.length > 0 && !loading) {
       console.log("🎯 Searching for doctor:", aiDoctor.fullName, "ID:", aiDoctor._id);
@@ -128,10 +120,7 @@ export default function PatientAppointmentsPage() {
       if (filters.experienceRange && filters.experienceRange[0] > 0) {
         params.set("minExperience", filters.experienceRange[0].toString());
       }
-
-      console.log("Fetch doctors with params:", params.toString());
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const url = `${API_URL}/api/v1/users/doctors?${params.toString()}`;
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/doctors?${params.toString()}`;
       const res = await fetch(url, { method: "GET" });
       console.log("Fetch response:", res);
       if (!res.ok) throw new Error("Failed to fetch doctors");
