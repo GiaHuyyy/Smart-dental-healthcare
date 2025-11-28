@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsArray } from 'class-validator';
 
 export class CreateAuthDto {
   @IsNotEmpty({ message: 'Email không được để trống' })
@@ -25,11 +25,38 @@ export class CreateAuthDto {
   @IsNotEmpty({ message: 'Số điện thoại không được để trống' })
   phone: string;
 
+  // Optional avatar URL (for both patient and doctor)
+  @IsOptional()
+  avatarUrl: string;
+
+  // Doctor-specific fields
   @IsOptional()
   specialty: string;
 
   @IsOptional()
   licenseNumber: string;
+
+  @IsOptional()
+  licenseImageUrl: string;
+
+  @IsOptional()
+  experienceYears: number;
+
+  @IsOptional()
+  qualifications: string;
+
+  @IsOptional()
+  @IsArray()
+  services: string[];
+
+  @IsOptional()
+  workAddress: string;
+
+  @IsOptional()
+  latitude: number;
+
+  @IsOptional()
+  longitude: number;
 }
 
 export class CodeAuthDto {

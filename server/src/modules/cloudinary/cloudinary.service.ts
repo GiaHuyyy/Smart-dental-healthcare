@@ -62,6 +62,16 @@ export class CloudinaryService {
   async uploadImage(
     file: Express.Multer.File,
   ): Promise<{ url: string; public_id: string }> {
+    return this.uploadImageWithFolder(file, 'smart-dental-healthcare');
+  }
+
+  /**
+   * Upload image with custom folder
+   */
+  async uploadImageWithFolder(
+    file: Express.Multer.File,
+    folder: string,
+  ): Promise<{ url: string; public_id: string }> {
     if (!this.isConfigured) {
       throw new Error(
         'Cloudinary is not configured. Please check your environment variables.',
@@ -71,7 +81,7 @@ export class CloudinaryService {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: 'smart-dental-healthcare',
+          folder: folder,
           resource_type: 'image',
           transformation: [
             { width: 800, height: 600, crop: 'limit' },

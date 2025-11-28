@@ -57,8 +57,6 @@ export class ImageAnalysisService {
   private readonly logger = new Logger(ImageAnalysisService.name);
   private readonly geminiApiKey: string;
   // keep URL for health check but use SDK for requests
-  private readonly geminiApiUrl =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   private genAI: GoogleGenerativeAI;
   private model: any;
 
@@ -73,7 +71,7 @@ export class ImageAnalysisService {
   // Initialize SDK client and model
     try {
       this.genAI = new GoogleGenerativeAI(this.geminiApiKey);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
     } catch (initError) {
       this.logger.warn(`Failed to initialize Gemini SDK: ${initError?.message || initError}`);
       // Keep service running; health checks will report issues.
@@ -95,7 +93,7 @@ export class ImageAnalysisService {
 
       // Check if filePath is a URL or local path
       const isUrl = filePath.startsWith('http://') || filePath.startsWith('https://');
-      
+
       if (!isUrl && !fs.existsSync(filePath)) {
         throw new BadRequestException('File không tồn tại');
       }
@@ -111,7 +109,7 @@ export class ImageAnalysisService {
           analysisDate: new Date().toISOString(),
           processingTime,
           imageQuality: 'good' as const,
-          aiModelVersion: 'gemini-2.0-flash',
+          aiModelVersion: 'gemini-2.5-pro',
           analysisSource: 'gemini_ai',
         },
       };
@@ -181,10 +179,10 @@ export class ImageAnalysisService {
       this.logger.log(`Starting Gemini AI analysis for file: ${filePath}`);
 
       let base64Image: string;
-      
+
       // Check if filePath is a URL or local path
       const isUrl = filePath.startsWith('http://') || filePath.startsWith('https://');
-      
+
       if (isUrl) {
         // Download image from URL and convert to base64
         try {
@@ -194,14 +192,14 @@ export class ImageAnalysisService {
               timeout: 30000,
             })
           );
-          
+
           if (!response.data || response.data.length === 0) {
             throw new Error('Empty response from image URL');
           }
-          
+
           const buffer = Buffer.from(response.data);
           base64Image = buffer.toString('base64');
-          
+
           // Log the content type for debugging
           const contentType = response.headers['content-type'];
           this.logger.log(`Downloaded image content-type: ${contentType}, size: ${buffer.length} bytes`);
@@ -623,7 +621,7 @@ Hãy trả về kết quả theo format JSON sau:
       // Test Gemini AI connection
       const response: any = await (firstValueFrom as any)(
         this.httpService.get(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash?key=${this.geminiApiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro?key=${this.geminiApiKey}`,
           { timeout: 5000 },
         ),
       );

@@ -35,6 +35,10 @@ export class User {
   @Prop()
   avatar: string;
 
+  // Avatar URL from Cloudinary
+  @Prop()
+  avatarUrl: string;
+
   @Prop({ required: true })
   role: string; // e.g., 'patient', 'doctor', 'admin'
 
@@ -62,8 +66,24 @@ export class User {
   @Prop()
   licenseNumber: string;
 
+  // License certificate image URL from Cloudinary
+  @Prop()
+  licenseImageUrl: string;
+
   @Prop()
   experienceYears: number;
+
+  // Qualifications/Degrees (e.g., "Bác sĩ Y khoa, Thạc sĩ Nha khoa")
+  @Prop()
+  qualifications: string;
+
+  // Professional services offered (comma-separated or array)
+  @Prop({ type: [String], default: [] })
+  services: string[];
+
+  // Work address (different from personal address)
+  @Prop()
+  workAddress: string;
 
   @Prop()
   rating: number;
