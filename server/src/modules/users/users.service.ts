@@ -10,12 +10,12 @@ import {
   ResetPasswordDto,
   VerifyResetCodeDto,
 } from 'src/auth/dto/create-auth.dto';
-import { hashPasswordHelper } from 'src/helpers/utils';
+import { comparePasswordHelper, hashPasswordHelper } from 'src/helpers/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { AiChatHistoryService } from '../ai-chat-history/ai-chat-history.service';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto, UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
 
 @Injectable()
@@ -191,6 +191,33 @@ export class UsersService {
       { _id: updateUserDto._id },
       { ...updateUserDto },
     );
+  }
+
+  async changePassword(changePasswordDto: ChangePasswordDto) {
+    const { _id, currentPassword, newPassword } = changePasswordDto;
+
+    // Find user by id
+    const user = await this.userModel.findById(_id);
+    if (!user) {
+      throw new BadRequestException('Người dùng không tồn tại');
+    }
+
+    // Verify current password
+    const isPasswordValid = await comparePasswordHelper(
+      currentPassword,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new BadRequestException('Mật khẩu hiện tại không đúng');
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPasswordHelper(newPassword);
+
+    // Update password
+    await this.userModel.updateOne({ _id }, { password: hashedPassword });
+
+    return { message: 'Đổi mật khẩu thành công' };
   }
 
   async remove(id: string) {

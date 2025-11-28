@@ -84,6 +84,10 @@ button {
   cursor: pointer !important;
 }
 
+input {
+  outline: none;
+}
+
 /* Healthcare Card Components - Clean & minimal */
 .healthcare-card {
   background: var(--color-surface);

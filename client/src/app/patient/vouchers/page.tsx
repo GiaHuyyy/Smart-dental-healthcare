@@ -8,7 +8,7 @@ export default function VouchersPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
@@ -33,25 +33,25 @@ export default function VouchersPage() {
 
         {/* Usage Instructions */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
-          <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+          <h3 className="font-semibold text-primary mb-3 flex items-center gap-2">
             <span className="text-xl">💡</span>
             Hướng dẫn sử dụng voucher
           </h3>
-          <ul className="space-y-2 text-blue-800">
+          <ul className="space-y-2 text-primary">
             <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold mt-1">1.</span>
+              <span className="text-primary font-bold mt-1">1.</span>
               <span>Click vào mã voucher để sao chép vào clipboard</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold mt-1">2.</span>
+              <span className="text-primary font-bold mt-1">2.</span>
               <span>Khi đặt lịch khám hoặc thanh toán, dán mã voucher vào ô "Mã giảm giá"</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold mt-1">3.</span>
+              <span className="text-primary font-bold mt-1">3.</span>
               <span>Voucher sẽ được áp dụng tự động và giảm trừ vào tổng số tiền</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-blue-600 font-bold mt-1">4.</span>
+              <span className="text-primary font-bold mt-1">4.</span>
               <span>Mỗi voucher chỉ được sử dụng một lần và có thời hạn sử dụng</span>
             </li>
           </ul>

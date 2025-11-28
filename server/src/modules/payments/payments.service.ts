@@ -742,8 +742,6 @@ export class PaymentsService {
         throw new BadRequestException('ID bệnh nhân không hợp lệ');
       }
 
-      this.logger.log('📋 Fetching payments for patient:', patientId);
-
       const payments = await this.paymentModel
         .find({ patientId })
         .sort({ createdAt: -1 })
@@ -760,15 +758,6 @@ export class PaymentsService {
           },
         })
         .exec();
-
-      // Debug first payment to verify populate
-      if (payments.length > 0) {
-        this.logger.log('📦 Sample payment:', {
-          id: payments[0]._id,
-          refId: payments[0].refId ? 'populated' : 'NOT POPULATED',
-          doctorId: payments[0].doctorId ? 'populated' : 'NOT POPULATED',
-        });
-      }
 
       return {
         success: true,

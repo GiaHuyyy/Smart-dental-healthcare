@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { Public } from 'src/decorator/customize';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto, UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -102,6 +102,12 @@ export class UsersController {
   @Public()
   update(@Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(updateUserDto);
+  }
+
+  @Patch('change-password')
+  @Public()
+  changePassword(@Body() changePasswordDto: ChangePasswordDto) {
+    return this.usersService.changePassword(changePasswordDto);
   }
 
   @Delete(':id')

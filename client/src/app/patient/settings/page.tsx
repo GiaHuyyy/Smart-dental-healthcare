@@ -1,71 +1,43 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { sendRequest } from "@/utils/api";
-import { Settings, User, Lock, Bell, Shield, Mail, Phone, Calendar, Save, Eye, EyeOff } from "lucide-react";
+import { Settings, User, Lock, Save, Eye, EyeOff, Camera, Loader2, Bell, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserProfile {
+  _id: string;
   fullName: string;
   email: string;
   phone: string;
   dateOfBirth: string;
-  gender: "male" | "female" | "other";
+  gender: string;
   address: string;
-  emergencyContact: string;
-  bloodType: string;
-  allergies: string;
-  medicalHistory: string;
-}
-
-interface NotificationSettings {
-  emailNotifications: boolean;
-  smsNotifications: boolean;
-  appointmentReminders: boolean;
-  medicationReminders: boolean;
-  promotionalEmails: boolean;
-}
-
-interface SecuritySettings {
-  twoFactorAuth: boolean;
-  sessionTimeout: number;
-  loginAlerts: boolean;
+  avatarUrl: string;
 }
 
 export default function PatientSettings() {
-  const { data: session } = useSession();
-  const [loading, setLoading] = useState(false);
+  const { data: session, update: updateSession } = useSession();
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<UserProfile>({
+    _id: "",
     fullName: "",
     email: "",
     phone: "",
     dateOfBirth: "",
-    gender: "other",
+    gender: "",
     address: "",
-    emergencyContact: "",
-    bloodType: "",
-    allergies: "",
-    medicalHistory: "",
-  });
-
-  const [notifications, setNotifications] = useState<NotificationSettings>({
-    emailNotifications: true,
-    smsNotifications: true,
-    appointmentReminders: true,
-    medicationReminders: true,
-    promotionalEmails: false,
-  });
-
-  const [security, setSecurity] = useState<SecuritySettings>({
-    twoFactorAuth: false,
-    sessionTimeout: 30,
-    loginAlerts: true,
+    avatarUrl: "",
   });
 
   const [passwordForm, setPasswordForm] = useState({
@@ -74,136 +46,238 @@ export default function PatientSettings() {
     confirmPassword: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
-    if (session) {
-      fetchUserSettings();
+    if (session?.user) {
+      fetchUserProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  const fetchUserSettings = async () => {
+  const fetchUserProfile = async () => {
     setLoading(true);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userId = (session?.user as any)?._id;
+      if (!userId) return;
+
       const response = await sendRequest<any>({
-        url: "/api/user/settings",
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/${userId}`,
         method: "GET",
         headers: {
           Authorization: `Bearer ${(session as any)?.access_token}`,
         },
       });
 
-      if (response && response.data) {
-        setProfile(response.data.profile || profile);
-        setNotifications(response.data.notifications || notifications);
-        setSecurity(response.data.security || security);
-      } else {
-        // Demo data for UI showcase
+      if (response) {
+        const userData = response.data || response;
         setProfile({
-          fullName: "Nguyễn Văn A",
-          email: "patient@example.com",
-          phone: "0123456789",
-          dateOfBirth: "1990-01-01",
-          gender: "male",
-          address: "123 Đường ABC, Quận 1, TP.HCM",
-          emergencyContact: "0987654321",
-          bloodType: "A+",
-          allergies: "Không có",
-          medicalHistory: "Không có tiền sử bệnh lý đặc biệt",
+          _id: userData._id || userId,
+          fullName: userData.fullName || "",
+          email: userData.email || "",
+          phone: userData.phone || "",
+          dateOfBirth: userData.dateOfBirth ? new Date(userData.dateOfBirth).toISOString().split("T")[0] : "",
+          gender: userData.gender || "",
+          address: userData.address || "",
+          avatarUrl: userData.avatarUrl || "",
         });
       }
     } catch (error) {
-      console.error("Error fetching user settings:", error);
+      console.error("Error fetching user profile:", error);
+      toast.error("Không thể tải thông tin người dùng");
     } finally {
       setLoading(false);
     }
   };
 
+  const validateProfile = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!profile.fullName.trim()) {
+      newErrors.fullName = "Họ và tên không được để trống";
+    }
+
+    if (!profile.phone.trim()) {
+      newErrors.phone = "Số điện thoại không được để trống";
+    } else if (!/^[0-9]{10,11}$/.test(profile.phone.trim())) {
+      newErrors.phone = "Số điện thoại không hợp lệ (10-11 số)";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validatePassword = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!passwordForm.currentPassword) {
+      newErrors.currentPassword = "Vui lòng nhập mật khẩu hiện tại";
+    }
+
+    if (!passwordForm.newPassword) {
+      newErrors.newPassword = "Vui lòng nhập mật khẩu mới";
+    } else {
+      // Check password requirements: at least 8 chars, uppercase, lowercase, and number
+      const hasMinLength = passwordForm.newPassword.length >= 8;
+      const hasUppercase = /[A-Z]/.test(passwordForm.newPassword);
+      const hasLowercase = /[a-z]/.test(passwordForm.newPassword);
+      const hasNumber = /[0-9]/.test(passwordForm.newPassword);
+
+      if (!hasMinLength || !hasUppercase || !hasLowercase || !hasNumber) {
+        newErrors.newPassword = "Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số";
+      }
+    }
+
+    if (!passwordForm.confirmPassword) {
+      newErrors.confirmPassword = "Vui lòng xác nhận mật khẩu mới";
+    } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      newErrors.confirmPassword = "Mật khẩu xác nhận không khớp";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Vui lòng chọn file hình ảnh");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Kích thước file không được vượt quá 5MB");
+      return;
+    }
+
+    // Create preview URL and store the file for later upload
+    const previewUrl = URL.createObjectURL(file);
+    setPreviewAvatarUrl(previewUrl);
+    setPendingAvatarFile(file);
+  };
+
   const saveProfile = async () => {
+    if (!validateProfile()) return;
+
     setSaving(true);
     try {
-      await sendRequest<any>({
-        url: "/api/user/profile",
-        method: "PUT",
+      const accessToken = (session as any)?.access_token;
+      let avatarUrl = profile.avatarUrl;
+
+      // Upload avatar to Cloudinary if there's a pending file
+      if (pendingAvatarFile) {
+        const formData = new FormData();
+        formData.append("file", pendingAvatarFile);
+        formData.append("folder", "avatars");
+
+        const uploadResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/cloudinary/upload`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: formData,
+        });
+
+        const uploadResult = await uploadResponse.json();
+
+        if (!uploadResult.success || !uploadResult.url) {
+          throw new Error(uploadResult.error || "Upload avatar failed");
+        }
+
+        avatarUrl = uploadResult.url;
+      }
+
+      // Save all profile data including avatar URL
+      const response = await sendRequest<any>({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users`,
+        method: "PATCH",
         headers: {
-          Authorization: `Bearer ${(session as any)?.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
-        body: profile,
+        body: {
+          _id: profile._id,
+          fullName: profile.fullName,
+          phone: profile.phone,
+          dateOfBirth: profile.dateOfBirth || undefined,
+          gender: profile.gender || undefined,
+          address: profile.address || undefined,
+          avatarUrl: avatarUrl,
+        },
       });
-      toast.success("Cập nhật thông tin thành công!");
-    } catch (error) {
+
+      if (response) {
+        // Update local state and session
+        setProfile((prev) => ({ ...prev, avatarUrl }));
+        await updateSession({
+          ...session,
+          user: {
+            ...session?.user,
+            fullName: profile.fullName,
+            avatarUrl: avatarUrl,
+          },
+        });
+
+        // Clear pending avatar file and preview
+        if (pendingAvatarFile) {
+          URL.revokeObjectURL(previewAvatarUrl);
+          setPendingAvatarFile(null);
+          setPreviewAvatarUrl("");
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        }
+
+        toast.success("Cập nhật thông tin thành công!");
+      }
+    } catch (error: any) {
       console.error("Error saving profile:", error);
-      toast.error("Có lỗi xảy ra khi cập nhật thông tin");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveNotifications = async () => {
-    setSaving(true);
-    try {
-      await sendRequest<any>({
-        url: "/api/user/notifications",
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${(session as any)?.access_token}`,
-        },
-        body: notifications,
-      });
-      toast.success("Cập nhật cài đặt thông báo thành công!");
-    } catch (error) {
-      console.error("Error saving notifications:", error);
-      toast.error("Có lỗi xảy ra khi cập nhật cài đặt");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveSecurity = async () => {
-    setSaving(true);
-    try {
-      await sendRequest<any>({
-        url: "/api/user/security",
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${(session as any)?.access_token}`,
-        },
-        body: security,
-      });
-      toast.success("Cập nhật cài đặt bảo mật thành công!");
-    } catch (error) {
-      console.error("Error saving security:", error);
-      toast.error("Có lỗi xảy ra khi cập nhật cài đặt");
+      toast.error(error?.message || "Có lỗi xảy ra khi cập nhật thông tin");
     } finally {
       setSaving(false);
     }
   };
 
   const changePassword = async () => {
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error("Mật khẩu xác nhận không khớp!");
-      return;
-    }
-
-    if (passwordForm.newPassword.length < 6) {
-      toast.error("Mật khẩu mới phải có ít nhất 6 ký tự!");
-      return;
-    }
+    if (!validatePassword()) return;
 
     setSaving(true);
     try {
-      await sendRequest<any>({
-        url: "/api/user/change-password",
-        method: "PUT",
+      const response = await sendRequest<{ message?: string; statusCode?: number; error?: string }>({
+        url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/change-password`,
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${(session as any)?.access_token}`,
         },
         body: {
+          _id: profile._id,
           currentPassword: passwordForm.currentPassword,
           newPassword: passwordForm.newPassword,
         },
       });
+
+      // Check if response contains error (statusCode or error field)
+      if (response?.statusCode || response?.error) {
+        const errorMessage = response.message || "Có lỗi xảy ra khi đổi mật khẩu";
+        if (errorMessage.includes("không đúng")) {
+          setErrors({ currentPassword: "Mật khẩu hiện tại không đúng" });
+        } else {
+          toast.error(errorMessage);
+        }
+        return;
+      }
+
+      // Success
       toast.success("Đổi mật khẩu thành công!");
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch (error) {
+      setErrors({});
+    } catch (error: any) {
       console.error("Error changing password:", error);
       toast.error("Có lỗi xảy ra khi đổi mật khẩu");
     } finally {
@@ -213,64 +287,91 @@ export default function PatientSettings() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 flex items-center justify-center">
-        <div
-          className="animate-spin rounded-full h-12 w-12 border-b-2"
-          style={{ borderColor: "var(--color-primary)" }}
-        ></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <span className="text-gray-600">Đang tải...</span>
+        </div>
       </div>
     );
   }
 
   const tabs = [
     { id: "profile", name: "Thông tin cá nhân", icon: User },
+    { id: "password", name: "Đổi mật khẩu", icon: Lock },
     { id: "notifications", name: "Thông báo", icon: Bell },
     { id: "security", name: "Bảo mật", icon: Shield },
-    { id: "password", name: "Đổi mật khẩu", icon: Lock },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/30 to-indigo-50/20 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="healthcare-card-elevated p-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center gap-4">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
-              style={{
-                backgroundImage: `linear-gradient(to bottom right, var(--color-primary), var(--color-primary-600))`,
-              }}
-            >
-              <Settings className="w-8 h-8 text-white" />
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Settings className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="healthcare-heading text-2xl">Cài đặt tài khoản</h1>
-              <p className="healthcare-body mt-1">Quản lý thông tin cá nhân và tùy chọn tài khoản</p>
+              <h1 className="text-xl font-bold text-gray-900">Cài đặt tài khoản</h1>
+              <p className="text-sm text-gray-600">Quản lý thông tin cá nhân và tùy chọn tài khoản</p>
             </div>
           </div>
         </div>
+      </div>
 
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="healthcare-card p-6">
-              <nav className="space-y-2">
+            <div className="healthcare-card p-4">
+              <div className="flex flex-col items-center mb-6 pb-6 border-b border-gray-100">
+                <div className="relative">
+                  <div
+                    className="w-24 h-24 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center cursor-pointer group"
+                    onClick={handleAvatarClick}
+                  >
+                    {previewAvatarUrl || profile.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={previewAvatarUrl || profile.avatarUrl}
+                        alt={profile.fullName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-10 h-10 text-primary" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-full">
+                      <Camera className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </div>
+                <h3 className="mt-3 font-semibold text-gray-900">{profile.fullName || "Bệnh nhân"}</h3>
+                <p className="text-sm text-gray-500">{profile.email}</p>
+                <button onClick={handleAvatarClick} className="mt-2 text-xs text-primary hover:underline">
+                  Thay đổi ảnh đại diện
+                </button>
+                {pendingAvatarFile && <p className="mt-1 text-xs text-orange-500">* Ảnh chưa được lưu</p>}
+              </div>
+
+              <nav className="space-y-1">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setErrors({});
+                      }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${
-                        activeTab === tab.id ? "text-white shadow-lg" : "text-gray-700 hover:bg-blue-50"
+                        activeTab === tab.id ? "text-white shadow-lg bg-primary" : "text-gray-700 hover:bg-gray-50"
                       }`}
-                      style={
-                        activeTab === tab.id
-                          ? {
-                              backgroundImage: `linear-gradient(to right, var(--color-primary), var(--color-primary-600))`,
-                            }
-                          : {}
-                      }
                     >
                       <Icon className="w-5 h-5" />
                       <span className="font-medium">{tab.name}</span>
@@ -281,116 +382,116 @@ export default function PatientSettings() {
             </div>
           </div>
 
-          {/* Content */}
           <div className="lg:col-span-3">
             {activeTab === "profile" && (
               <div className="healthcare-card p-6">
-                <h2 className="healthcare-heading text-xl mb-6">Thông tin cá nhân</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-6">Thông tin cá nhân</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Họ và tên *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Họ và tên <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       value={profile.fullName}
-                      onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setProfile({ ...profile, fullName: e.target.value });
+                        if (errors.fullName) setErrors({ ...errors, fullName: "" });
+                      }}
+                      className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
+                        errors.fullName ? "border-red-500" : "border-gray-300"
+                      }`}
+                      placeholder="Nhập họ và tên"
                     />
+                    {errors.fullName && <p className="mt-1 text-sm text-red-500">{errors.fullName}</p>}
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <input
                       type="email"
                       value={profile.email}
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                     />
+                    <p className="mt-1 text-xs text-gray-500">Email không thể thay đổi</p>
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Số điện thoại <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="tel"
                       value={profile.phone}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        setProfile({ ...profile, phone: value });
+                        if (errors.phone) setErrors({ ...errors, phone: "" });
+                      }}
+                      className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
+                        errors.phone ? "border-red-500" : "border-gray-300"
+                      }`}
+                      placeholder="Nhập số điện thoại"
+                      maxLength={11}
                     />
+                    {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone}</p>}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Ngày sinh</label>
                     <input
                       type="date"
                       value={profile.dateOfBirth}
                       onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      max={new Date().toISOString().split("T")[0]}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Giới tính</label>
                     <select
                       value={profile.gender}
-                      onChange={(e) => setProfile({ ...profile, gender: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                     >
+                      <option value="">Chọn giới tính</option>
                       <option value="male">Nam</option>
                       <option value="female">Nữ</option>
                       <option value="other">Khác</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nhóm máu</label>
-                    <input
-                      type="text"
-                      value={profile.bloodType}
-                      onChange={(e) => setProfile({ ...profile, bloodType: e.target.value })}
-                      placeholder="A+, B-, O+, AB+..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ</label>
                     <input
                       type="text"
                       value={profile.address}
                       onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Liên hệ khẩn cấp</label>
-                    <input
-                      type="tel"
-                      value={profile.emergencyContact}
-                      onChange={(e) => setProfile({ ...profile, emergencyContact: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Dị ứng</label>
-                    <input
-                      type="text"
-                      value={profile.allergies}
-                      onChange={(e) => setProfile({ ...profile, allergies: e.target.value })}
-                      placeholder="Thuốc, thức ăn..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tiền sử bệnh</label>
-                    <textarea
-                      value={profile.medicalHistory}
-                      onChange={(e) => setProfile({ ...profile, medicalHistory: e.target.value })}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                      placeholder="Nhập địa chỉ"
                     />
                   </div>
                 </div>
-                <div className="mt-6">
+
+                <div className="mt-8 flex justify-end">
                   <button
                     onClick={saveProfile}
                     disabled={saving}
-                    className="btn-healthcare-primary flex items-center gap-2"
+                    className="btn-healthcare-primary flex items-center gap-2 px-6"
                   >
-                    <Save className="w-4 h-4" />
-                    {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang lưu...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Lưu thay đổi
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -398,227 +499,144 @@ export default function PatientSettings() {
 
             {activeTab === "notifications" && (
               <div className="healthcare-card p-6">
-                <h2 className="healthcare-heading text-xl mb-6">Cài đặt thông báo</h2>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Thông báo qua email</h3>
-                      <p className="text-sm text-gray-600">Nhận thông báo về cuộc hẹn và đơn thuốc qua email</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notifications.emailNotifications}
-                        onChange={(e) => setNotifications({ ...notifications, emailNotifications: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Thông báo qua SMS</h3>
-                      <p className="text-sm text-gray-600">Nhận thông báo quan trọng qua tin nhắn</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notifications.smsNotifications}
-                        onChange={(e) => setNotifications({ ...notifications, smsNotifications: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Nhắc nhở cuộc hẹn</h3>
-                      <p className="text-sm text-gray-600">Nhắc nhở trước cuộc hẹn 24 giờ và 1 giờ</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notifications.appointmentReminders}
-                        onChange={(e) => setNotifications({ ...notifications, appointmentReminders: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Nhắc nhở uống thuốc</h3>
-                      <p className="text-sm text-gray-600">Nhắc nhở theo lịch uống thuốc được kê</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notifications.medicationReminders}
-                        onChange={(e) => setNotifications({ ...notifications, medicationReminders: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Email khuyến mãi</h3>
-                      <p className="text-sm text-gray-600">Nhận thông tin về các chương trình khuyến mãi</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notifications.promotionalEmails}
-                        onChange={(e) => setNotifications({ ...notifications, promotionalEmails: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <button
-                    onClick={saveNotifications}
-                    disabled={saving}
-                    className="btn-healthcare-primary flex items-center gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saving ? "Đang lưu..." : "Lưu cài đặt"}
-                  </button>
+                <h2 className="text-xl font-bold text-gray-900 mb-6">Cài đặt thông báo</h2>
+                <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+                  <Bell className="w-16 h-16 text-gray-300 mb-4" />
+                  <p className="text-lg font-medium">Chức năng đang phát triển</p>
+                  <p className="text-sm text-gray-400 mt-1">Vui lòng quay lại sau</p>
                 </div>
               </div>
             )}
 
             {activeTab === "security" && (
               <div className="healthcare-card p-6">
-                <h2 className="healthcare-heading text-xl mb-6">Cài đặt bảo mật</h2>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Xác thực 2 lớp</h3>
-                      <p className="text-sm text-gray-600">Tăng cường bảo mật với xác thực qua SMS</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={security.twoFactorAuth}
-                        onChange={(e) => setSecurity({ ...security, twoFactorAuth: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Thời gian hết hạn phiên (phút)
-                    </label>
-                    <select
-                      value={security.sessionTimeout}
-                      onChange={(e) => setSecurity({ ...security, sessionTimeout: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value={15}>15 phút</option>
-                      <option value={30}>30 phút</option>
-                      <option value={60}>1 giờ</option>
-                      <option value={120}>2 giờ</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-gray-900">Cảnh báo đăng nhập</h3>
-                      <p className="text-sm text-gray-600">Thông báo khi có đăng nhập từ thiết bị mới</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={security.loginAlerts}
-                        onChange={(e) => setSecurity({ ...security, loginAlerts: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <button
-                    onClick={saveSecurity}
-                    disabled={saving}
-                    className="btn-healthcare-primary flex items-center gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    {saving ? "Đang lưu..." : "Lưu cài đặt"}
-                  </button>
+                <h2 className="text-xl font-bold text-gray-900 mb-6">Bảo mật tài khoản</h2>
+                <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+                  <Shield className="w-16 h-16 text-gray-300 mb-4" />
+                  <p className="text-lg font-medium">Chức năng đang phát triển</p>
+                  <p className="text-sm text-gray-400 mt-1">Vui lòng quay lại sau</p>
                 </div>
               </div>
             )}
 
             {activeTab === "password" && (
               <div className="healthcare-card p-6">
-                <h2 className="healthcare-heading text-xl mb-6">Đổi mật khẩu</h2>
-                <div className="space-y-4 max-w-md">
+                <h2 className="text-xl font-bold text-gray-900 mb-6">Đổi mật khẩu</h2>
+                <div className="max-w-md space-y-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Mật khẩu hiện tại *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mật khẩu hiện tại <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <input
                         type={showCurrentPassword ? "text" : "password"}
                         value={passwordForm.currentPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(e) => {
+                          setPasswordForm({ ...passwordForm, currentPassword: e.target.value });
+                          if (errors.currentPassword) setErrors({ ...errors, currentPassword: "" });
+                        }}
+                        className={`w-full px-4 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
+                          errors.currentPassword ? "border-red-500" : "border-gray-300"
+                        }`}
+                        placeholder="Nhập mật khẩu hiện tại"
                       />
                       <button
                         type="button"
                         onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
+                    {errors.currentPassword && <p className="mt-1 text-sm text-red-500">{errors.currentPassword}</p>}
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Mật khẩu mới *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mật khẩu mới <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <input
                         type={showNewPassword ? "text" : "password"}
                         value={passwordForm.newPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(e) => {
+                          setPasswordForm({ ...passwordForm, newPassword: e.target.value });
+                          if (errors.newPassword) setErrors({ ...errors, newPassword: "" });
+                        }}
+                        className={`w-full px-4 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
+                          errors.newPassword ? "border-red-500" : "border-gray-300"
+                        }`}
+                        placeholder="Nhập mật khẩu mới"
                       />
                       <button
                         type="button"
                         onClick={() => setShowNewPassword(!showNewPassword)}
                         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
+                    {errors.newPassword && <p className="mt-1 text-sm text-red-500">{errors.newPassword}</p>}
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Xác nhận mật khẩu mới *</label>
-                    <input
-                      type="password"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Xác nhận mật khẩu mới <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => {
+                          setPasswordForm({ ...passwordForm, confirmPassword: e.target.value });
+                          if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: "" });
+                        }}
+                        className={`w-full px-4 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
+                          errors.confirmPassword ? "border-red-500" : "border-gray-300"
+                        }`}
+                        placeholder="Nhập lại mật khẩu mới"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && <p className="mt-1 text-sm text-red-500">{errors.confirmPassword}</p>}
                   </div>
+
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm text-primary">
                       <strong>Yêu cầu mật khẩu:</strong>
                     </p>
-                    <ul className="text-sm text-blue-700 mt-1 ml-4 list-disc">
-                      <li>Ít nhất 6 ký tự</li>
-                      <li>Nên bao gồm chữ hoa, chữ thường và số</li>
-                      <li>Không sử dụng thông tin cá nhân dễ đoán</li>
+                    <ul className="text-sm text-primary mt-1 ml-4 list-disc">
+                      <li className={passwordForm.newPassword.length >= 8 ? "text-green-600" : ""}>Ít nhất 8 ký tự</li>
+                      <li className={/[A-Z]/.test(passwordForm.newPassword) ? "text-green-600" : ""}>
+                        Có ít nhất 1 chữ hoa
+                      </li>
+                      <li className={/[a-z]/.test(passwordForm.newPassword) ? "text-green-600" : ""}>
+                        Có ít nhất 1 chữ thường
+                      </li>
+                      <li className={/[0-9]/.test(passwordForm.newPassword) ? "text-green-600" : ""}>
+                        Có ít nhất 1 số
+                      </li>
+                      <li
+                        className={
+                          passwordForm.newPassword === passwordForm.confirmPassword &&
+                          passwordForm.confirmPassword.length > 0
+                            ? "text-green-600"
+                            : ""
+                        }
+                      >
+                        Mật khẩu xác nhận khớp
+                      </li>
                     </ul>
                   </div>
                 </div>
-                <div className="mt-6">
+
+                <div className="mt-8 flex justify-end">
                   <button
                     onClick={changePassword}
                     disabled={
@@ -627,10 +645,19 @@ export default function PatientSettings() {
                       !passwordForm.newPassword ||
                       !passwordForm.confirmPassword
                     }
-                    className="btn-healthcare-primary flex items-center gap-2"
+                    className="btn-healthcare-primary flex items-center gap-2 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Lock className="w-4 h-4" />
-                    {saving ? "Đang xử lý..." : "Đổi mật khẩu"}
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4" />
+                        Đổi mật khẩu
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

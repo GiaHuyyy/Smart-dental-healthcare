@@ -419,13 +419,6 @@ export default function PatientPayments() {
   const handleMoMoPayment = async () => {
     if (!selectedPayment) return;
 
-    console.log("💳 ========== MOMO PAYMENT INITIATED ==========");
-    console.log("Payment details:", {
-      paymentId: selectedPayment._id,
-      amount: selectedPayment.amount,
-      status: selectedPayment.status,
-    });
-
     const accessToken = (session as { access_token?: string })?.access_token;
     if (!accessToken) {
       toast.error("Phiên đăng nhập không hợp lệ");
@@ -463,13 +456,6 @@ export default function PatientPayments() {
 
   const handleWalletPayment = async () => {
     if (!selectedPayment) return;
-
-    console.log("💰 ========== WALLET PAYMENT FOR PENDING BILL ==========");
-    console.log("Bill details:", {
-      billId: selectedPayment._id,
-      amount: selectedPayment.amount,
-      status: selectedPayment.status,
-    });
 
     const accessToken = (session as { access_token?: string })?.access_token;
     if (!accessToken) {
@@ -730,8 +716,8 @@ export default function PatientPayments() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {/* Header with Filters */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="space-y-4">
@@ -789,409 +775,411 @@ export default function PatientPayments() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {/* Card 1: Tổng chi tiêu */}
-          <button
-            onClick={() => handleStatCardClick("all")}
-            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
-              statusFilter === "all" ? "border-red-500 shadow-md" : "border-gray-200"
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-1">Tổng chi tiêu</p>
-                <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalSpending)}</div>
-                <p className="text-xs text-gray-500 mt-2">{stats.completedCount + stats.pendingCount} giao dịch</p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <DollarSignIcon className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </button>
-
-          {/* Card 2: Chờ thanh toán */}
-          <button
-            onClick={() => handleStatCardClick("pending")}
-            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
-              statusFilter === "pending" ? "border-yellow-500 shadow-md" : "border-gray-200"
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-1">Chờ thanh toán</p>
-                <div className="text-2xl font-bold text-yellow-600">{formatCurrency(stats.pendingTotal)}</div>
-                <p className="text-xs text-gray-500 mt-2">{stats.pendingCount} giao dịch</p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-6 h-6 text-yellow-600" />
-              </div>
-            </div>
-          </button>
-
-          {/* Card 3: Đã thanh toán */}
-          <button
-            onClick={() => handleStatCardClick("completed")}
-            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
-              statusFilter === "completed" ? "border-green-500 shadow-md" : "border-gray-200"
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-1">Đã thanh toán</p>
-                <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.completedTotal)}</div>
-                <p className="text-xs text-gray-500 mt-2">{stats.completedCount} giao dịch</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </button>
-
-          {/* Card 4: Đã hoàn tiền */}
-          <button
-            onClick={() => handleStatCardClick("refunded")}
-            className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
-              statusFilter === "refunded" ? "border-primary shadow-md" : "border-gray-200"
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-1">Đã hoàn tiền</p>
-                <div className="text-2xl font-bold text-primary">+{formatCurrency(stats.refundedTotal)}</div>
-                <p className="text-xs text-gray-500 mt-2">{stats.refundedCount} giao dịch</p>
-              </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <RefreshCw className="w-6 h-6 text-primary" />
-              </div>
-            </div>
-          </button>
-
-          {/* Wallet Balance Card */}
-          <button
-            onClick={handleWalletModalOpen}
-            className="bg-white rounded-lg p-4 border-2 border-gray-200 transition-all hover:shadow-md text-left"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Ví của tôi</p>
-                <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
-                  {formatCurrency(walletBalance)}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  Nhấp để xem chi tiết ví
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                <Wallet className="w-6 h-6 text-white" />
-              </div>
-            </div>
-          </button>
-        </div>
-
-        {/* Pending Payments Alert */}
-        {stats.pendingCount > 0 && (
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 shadow-md">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-yellow-100 rounded-xl">
-                <AlertCircle className="w-6 h-6 text-yellow-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-yellow-900 text-lg mb-1">
-                  Bạn có {stats.pendingCount} thanh toán chờ xử lý
-                </h3>
-                <p className="text-yellow-800">
-                  Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút{" "}
-                  <strong>&quot;Thanh toán ngay&quot;</strong> bên dưới để thanh toán qua Ví.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Pagination Controls - Above List */}
-        {!loading && filteredPayments.length > 0 && totalPages > 1 && (
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredPayments.length)} trong tổng số{" "}
-                {filteredPayments.length} giao dịch
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Trước
-                </button>
-                <div className="flex items-center gap-1">
-                  {[...Array(totalPages)].map((_, index) => {
-                    const pageNumber = index + 1;
-                    // Show first page, last page, current page, and pages around current
-                    if (
-                      pageNumber === 1 ||
-                      pageNumber === totalPages ||
-                      (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
-                    ) {
-                      return (
-                        <button
-                          key={pageNumber}
-                          onClick={() => setCurrentPage(pageNumber)}
-                          className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
-                            currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
-                          }`}
-                        >
-                          {pageNumber}
-                        </button>
-                      );
-                    } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
-                      return (
-                        <span key={pageNumber} className="px-2 text-gray-400">
-                          ...
-                        </span>
-                      );
-                    }
-                    return null;
-                  })}
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            {/* Card 1: Tổng chi tiêu */}
+            <button
+              onClick={() => handleStatCardClick("all")}
+              className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+                statusFilter === "all" ? "border-red-500 shadow-md" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Tổng chi tiêu</p>
+                  <div className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalSpending)}</div>
+                  <p className="text-xs text-gray-500 mt-2">{stats.completedCount + stats.pendingCount} giao dịch</p>
                 </div>
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Tiếp
-                </button>
+                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <DollarSignIcon className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
+            </button>
+
+            {/* Card 2: Chờ thanh toán */}
+            <button
+              onClick={() => handleStatCardClick("pending")}
+              className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+                statusFilter === "pending" ? "border-yellow-500 shadow-md" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Chờ thanh toán</p>
+                  <div className="text-2xl font-bold text-yellow-600">{formatCurrency(stats.pendingTotal)}</div>
+                  <p className="text-xs text-gray-500 mt-2">{stats.pendingCount} giao dịch</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-yellow-600" />
+                </div>
+              </div>
+            </button>
+
+            {/* Card 3: Đã thanh toán */}
+            <button
+              onClick={() => handleStatCardClick("completed")}
+              className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+                statusFilter === "completed" ? "border-green-500 shadow-md" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Đã thanh toán</p>
+                  <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.completedTotal)}</div>
+                  <p className="text-xs text-gray-500 mt-2">{stats.completedCount} giao dịch</p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </button>
+
+            {/* Card 4: Đã hoàn tiền */}
+            <button
+              onClick={() => handleStatCardClick("refunded")}
+              className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
+                statusFilter === "refunded" ? "border-primary shadow-md" : "border-gray-200"
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600 mb-1">Đã hoàn tiền</p>
+                  <div className="text-2xl font-bold text-primary">+{formatCurrency(stats.refundedTotal)}</div>
+                  <p className="text-xs text-gray-500 mt-2">{stats.refundedCount} giao dịch</p>
+                </div>
+                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <RefreshCw className="w-6 h-6 text-primary" />
+                </div>
+              </div>
+            </button>
+
+            {/* Wallet Balance Card */}
+            <button
+              onClick={handleWalletModalOpen}
+              className="bg-white rounded-lg p-4 border-2 border-gray-200 transition-all hover:shadow-md text-left"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Ví của tôi</p>
+                  <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
+                    {formatCurrency(walletBalance)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Nhấp để xem chi tiết ví
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                  <Wallet className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Pending Payments Alert */}
+          {stats.pendingCount > 0 && (
+            <div className="bg-linear-to-r mb-6 from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 shadow-md">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-yellow-100 rounded-xl">
+                  <AlertCircle className="w-6 h-6 text-yellow-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-yellow-900 text-lg mb-1">
+                    Bạn có {stats.pendingCount} thanh toán chờ xử lý
+                  </h3>
+                  <p className="text-yellow-800">
+                    Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Click vào nút{" "}
+                    <strong>&quot;Thanh toán ngay&quot;</strong> bên dưới để thanh toán qua Ví.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Payments List */}
-        {filteredPayments.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center shadow-md border border-gray-100">
-            <div className="max-w-md mx-auto">
-              <div className="p-6 bg-gray-50 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                <CreditCard className="w-12 h-12 text-gray-300" />
+          {/* Pagination Controls - Above List */}
+          {!loading && filteredPayments.length > 0 && totalPages > 1 && (
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredPayments.length)} trong tổng số{" "}
+                  {filteredPayments.length} giao dịch
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Trước
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, index) => {
+                      const pageNumber = index + 1;
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        pageNumber === 1 ||
+                        pageNumber === totalPages ||
+                        (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => setCurrentPage(pageNumber)}
+                            className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                              currentPage === pageNumber ? "bg-primary text-white" : "text-gray-700 hover:bg-gray-100"
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      } else if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                        return (
+                          <span key={pageNumber} className="px-2 text-gray-400">
+                            ...
+                          </span>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Tiếp
+                  </button>
+                </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">Chưa có giao dịch nào</h3>
-              <p className="text-gray-600">
-                {searchTerm || statusFilter !== "all"
-                  ? "Không tìm thấy giao dịch phù hợp với tiêu chí tìm kiếm"
-                  : "Bạn chưa có giao dịch thanh toán nào"}
-              </p>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {paginatedPayments.map((payment) => {
-              const appointment = typeof payment.refId === "object" ? payment.refId : null;
-              const doctor = typeof payment.doctorId === "object" ? payment.doctorId : null;
-              const appointmentDoctor = appointment?.doctorId;
-              const displayDoctor = appointmentDoctor || doctor;
+          )}
 
-              return (
-                <div
-                  key={payment._id}
-                  className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all border border-gray-100 overflow-hidden group"
-                >
-                  <div className="p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                      {/* Left: Payment Info */}
-                      <div className="flex-1 space-y-4">
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`p-3 rounded-xl ${
-                                payment.billType === "refund"
-                                  ? "bg-primary/10"
-                                  : payment.status === "completed"
-                                  ? "bg-green-50"
-                                  : payment.status === "pending"
-                                  ? "bg-yellow-50"
-                                  : payment.status === "failed"
-                                  ? "bg-red-50"
-                                  : "bg-gray-50"
-                              }`}
-                            >
-                              <DollarSign className={`w-6 h-6 ${getIconColor(payment)}`} />
-                            </div>
-                            <div>
-                              <h3 className="text-xl font-bold text-gray-900">
-                                {payment.billType === "refund"
-                                  ? "Hoàn tiền khám"
-                                  : appointment?.appointmentType || "Thanh toán"}
-                              </h3>
-                              {payment.billType === "refund" ? (
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg mt-1 bg-primary/10 text-primary">
-                                  <CheckCircle className="w-4 h-4" />
-                                  <span className="text-sm font-semibold">Đã hoàn tiền</span>
-                                </div>
-                              ) : (
-                                <div
-                                  className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg mt-1 ${getStatusColor(
-                                    payment.status
-                                  )}`}
-                                >
-                                  {getStatusIcon(payment.status)}
-                                  <span className="text-sm font-semibold">{getStatusText(payment.status)}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+          {/* Payments List */}
+          {filteredPayments.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center shadow-md border border-gray-100">
+              <div className="max-w-md mx-auto">
+                <div className="p-6 bg-gray-50 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                  <CreditCard className="w-12 h-12 text-gray-300" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Chưa có giao dịch nào</h3>
+                <p className="text-gray-600">
+                  {searchTerm || statusFilter !== "all"
+                    ? "Không tìm thấy giao dịch phù hợp với tiêu chí tìm kiếm"
+                    : "Bạn chưa có giao dịch thanh toán nào"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paginatedPayments.map((payment) => {
+                const appointment = typeof payment.refId === "object" ? payment.refId : null;
+                const doctor = typeof payment.doctorId === "object" ? payment.doctorId : null;
+                const appointmentDoctor = appointment?.doctorId;
+                const displayDoctor = appointmentDoctor || doctor;
 
-                        {/* Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div className="flex items-center gap-3 text-gray-700">
-                            <User className="w-5 h-5 text-gray-400" />
-                            <div>
-                              <p className="text-xs text-gray-500">Bác sĩ</p>
-                              <p className="font-medium">BS. {displayDoctor?.fullName || "Đang tải..."}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 text-gray-700">
-                            <Building2 className="w-5 h-5 text-gray-400" />
-                            <div>
-                              <p className="text-xs text-gray-500">Chuyên khoa</p>
-                              <p className="font-medium">
-                                {displayDoctor?.specialization || displayDoctor?.specialty || "Nha khoa"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 text-gray-700">
-                            <Calendar className="w-5 h-5 text-gray-400" />
-                            <div>
-                              <p className="text-xs text-gray-500">Ngày khám</p>
-                              <p className="font-medium">
-                                {appointment?.appointmentDate
-                                  ? formatDate(appointment.appointmentDate)
-                                  : formatDate(payment.createdAt)}
-                              </p>
-                            </div>
-                          </div>
-
-                          {appointment?.startTime && (
-                            <div className="flex items-center gap-3 text-gray-700">
-                              <Clock className="w-5 h-5 text-gray-400" />
+                return (
+                  <div
+                    key={payment._id}
+                    className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all border border-gray-100 overflow-hidden group"
+                  >
+                    <div className="p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+                        {/* Left: Payment Info */}
+                        <div className="flex-1 space-y-4">
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`p-3 rounded-xl ${
+                                  payment.billType === "refund"
+                                    ? "bg-primary/10"
+                                    : payment.status === "completed"
+                                    ? "bg-green-50"
+                                    : payment.status === "pending"
+                                    ? "bg-yellow-50"
+                                    : payment.status === "failed"
+                                    ? "bg-red-50"
+                                    : "bg-gray-50"
+                                }`}
+                              >
+                                <DollarSign className={`w-6 h-6 ${getIconColor(payment)}`} />
+                              </div>
                               <div>
-                                <p className="text-xs text-gray-500">Giờ khám</p>
-                                <p className="font-medium">{appointment.startTime}</p>
+                                <h3 className="text-xl font-bold text-gray-900">
+                                  {payment.billType === "refund"
+                                    ? "Hoàn tiền khám"
+                                    : appointment?.appointmentType || "Thanh toán"}
+                                </h3>
+                                {payment.billType === "refund" ? (
+                                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg mt-1 bg-primary/10 text-primary">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span className="text-sm font-semibold">Đã hoàn tiền</span>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg mt-1 ${getStatusColor(
+                                      payment.status
+                                    )}`}
+                                  >
+                                    {getStatusIcon(payment.status)}
+                                    <span className="text-sm font-semibold">{getStatusText(payment.status)}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                          )}
+                          </div>
 
-                          {payment.paymentMethod && (
+                          {/* Details */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="flex items-center gap-3 text-gray-700">
-                              <Wallet className="w-5 h-5 text-gray-400" />
+                              <User className="w-5 h-5 text-gray-400" />
                               <div>
-                                <p className="text-xs text-gray-500">Phương thức</p>
-                                <p className="font-medium">{getPaymentMethodLabel(payment.paymentMethod)}</p>
+                                <p className="text-xs text-gray-500">Bác sĩ</p>
+                                <p className="font-medium">BS. {displayDoctor?.fullName || "Đang tải..."}</p>
                               </div>
                             </div>
-                          )}
 
-                          {payment.billType && (
                             <div className="flex items-center gap-3 text-gray-700">
-                              <FileText className="w-5 h-5 text-gray-400" />
+                              <Building2 className="w-5 h-5 text-gray-400" />
                               <div>
-                                <p className="text-xs text-gray-500">Loại giao dịch</p>
-                                <p
-                                  className={`font-medium ${
-                                    payment.billType === "refund" ? "text-primary" : "text-red-600"
-                                  }`}
-                                >
-                                  {getBillTypeLabel(payment.billType)}
+                                <p className="text-xs text-gray-500">Chuyên khoa</p>
+                                <p className="font-medium">
+                                  {displayDoctor?.specialization || displayDoctor?.specialty || "Nha khoa"}
                                 </p>
                               </div>
                             </div>
-                          )}
 
-                          {/* Thời gian tạo bill - always show */}
-                          <div className="flex items-center gap-3 text-gray-700">
-                            <Clock className="w-5 h-5 text-gray-400" />
-                            <div>
-                              <p className="text-xs text-gray-500">Thời gian tạo</p>
-                              <p className="font-medium">{formatDateTime(payment.createdAt)}</p>
+                            <div className="flex items-center gap-3 text-gray-700">
+                              <Calendar className="w-5 h-5 text-gray-400" />
+                              <div>
+                                <p className="text-xs text-gray-500">Ngày khám</p>
+                                <p className="font-medium">
+                                  {appointment?.appointmentDate
+                                    ? formatDate(appointment.appointmentDate)
+                                    : formatDate(payment.createdAt)}
+                                </p>
+                              </div>
                             </div>
+
+                            {appointment?.startTime && (
+                              <div className="flex items-center gap-3 text-gray-700">
+                                <Clock className="w-5 h-5 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Giờ khám</p>
+                                  <p className="font-medium">{appointment.startTime}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {payment.paymentMethod && (
+                              <div className="flex items-center gap-3 text-gray-700">
+                                <Wallet className="w-5 h-5 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Phương thức</p>
+                                  <p className="font-medium">{getPaymentMethodLabel(payment.paymentMethod)}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {payment.billType && (
+                              <div className="flex items-center gap-3 text-gray-700">
+                                <FileText className="w-5 h-5 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Loại giao dịch</p>
+                                  <p
+                                    className={`font-medium ${
+                                      payment.billType === "refund" ? "text-primary" : "text-red-600"
+                                    }`}
+                                  >
+                                    {getBillTypeLabel(payment.billType)}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Thời gian tạo bill - always show */}
+                            <div className="flex items-center gap-3 text-gray-700">
+                              <Clock className="w-5 h-5 text-gray-400" />
+                              <div>
+                                <p className="text-xs text-gray-500">Thời gian tạo</p>
+                                <p className="font-medium">{formatDateTime(payment.createdAt)}</p>
+                              </div>
+                            </div>
+
+                            {/* Thời gian thanh toán - only show if not pending */}
+                            {payment.status !== "pending" && (
+                              <div className="flex items-center gap-3 text-gray-700">
+                                <CheckCircle className="w-5 h-5 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Đã thanh toán</p>
+                                  <p className="font-medium">{formatDateTime(payment.updatedAt)}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right: Amount & Action */}
+                        <div className="lg:w-72 flex flex-col items-center justify-center gap-4 p-6 bg-linear-to-br from-gray-50 to-primary/5 rounded-xl border-2 border-gray-100">
+                          <div className="text-center">
+                            <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
+                            <p
+                              className={`text-3xl font-bold ${
+                                payment.billType === "refund" ? "text-green-600" : "text-red-600"
+                              }`}
+                            >
+                              {formatAmountWithSign(payment)}
+                            </p>
                           </div>
 
-                          {/* Thời gian thanh toán - only show if not pending */}
-                          {payment.status !== "pending" && (
-                            <div className="flex items-center gap-3 text-gray-700">
-                              <CheckCircle className="w-5 h-5 text-gray-400" />
-                              <div>
-                                <p className="text-xs text-gray-500">Đã thanh toán</p>
-                                <p className="font-medium">{formatDateTime(payment.updatedAt)}</p>
+                          {/* Action Buttons */}
+                          {payment.status === "pending" && (
+                            <button
+                              onClick={() => handlePayNow(payment)}
+                              className="w-full px-6 py-4 text-white bg-primary rounded-xl hover:from-primary/90 transition-all hover:to-primary/80 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group"
+                            >
+                              <Wallet className="w-5 h-5" />
+                              Thanh toán ngay
+                              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            </button>
+                          )}
+
+                          {payment.status === "failed" && (
+                            <button
+                              onClick={() => handlePayNow(payment)}
+                              className="w-full px-6 py-4 bg-linear-to-r mb-6 from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            >
+                              <RefreshCw className="w-5 h-5" />
+                              Thử lại thanh toán
+                            </button>
+                          )}
+
+                          {payment.status === "completed" && (
+                            <div className="w-full text-center">
+                              <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-50 rounded-xl border-2 border-green-200">
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                                <span className="font-semibold text-green-700">Đã hoàn tất</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {payment.status === "refunded" && (
+                            <div className="w-full text-center">
+                              <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 rounded-xl border-2 border-primary/30">
+                                <RefreshCw className="w-5 h-5 text-primary" />
+                                <span className="font-semibold text-primary">Đã hoàn tiền</span>
                               </div>
                             </div>
                           )}
                         </div>
                       </div>
-
-                      {/* Right: Amount & Action */}
-                      <div className="lg:w-72 flex flex-col items-center justify-center gap-4 p-6 bg-linear-to-br from-gray-50 to-primary/5 rounded-xl border-2 border-gray-100">
-                        <div className="text-center">
-                          <p className="text-sm text-gray-600 font-medium mb-1">Số tiền</p>
-                          <p
-                            className={`text-3xl font-bold ${
-                              payment.billType === "refund" ? "text-green-600" : "text-red-600"
-                            }`}
-                          >
-                            {formatAmountWithSign(payment)}
-                          </p>
-                        </div>
-
-                        {/* Action Buttons */}
-                        {payment.status === "pending" && (
-                          <button
-                            onClick={() => handlePayNow(payment)}
-                            className="w-full px-6 py-4 text-white bg-primary rounded-xl hover:from-primary/90 transition-all hover:to-primary/80 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group"
-                          >
-                            <Wallet className="w-5 h-5" />
-                            Thanh toán ngay
-                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                          </button>
-                        )}
-
-                        {payment.status === "failed" && (
-                          <button
-                            onClick={() => handlePayNow(payment)}
-                            className="w-full px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                          >
-                            <RefreshCw className="w-5 h-5" />
-                            Thử lại thanh toán
-                          </button>
-                        )}
-
-                        {payment.status === "completed" && (
-                          <div className="w-full text-center">
-                            <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-50 rounded-xl border-2 border-green-200">
-                              <CheckCircle className="w-5 h-5 text-green-600" />
-                              <span className="font-semibold text-green-700">Đã hoàn tất</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {payment.status === "refunded" && (
-                          <div className="w-full text-center">
-                            <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/10 rounded-xl border-2 border-primary/30">
-                              <RefreshCw className="w-5 h-5 text-primary" />
-                              <span className="font-semibold text-primary">Đã hoàn tiền</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Payment Method Selection Modal */}
