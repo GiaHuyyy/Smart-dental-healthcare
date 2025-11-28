@@ -54,10 +54,6 @@ export function GlobalSocketProvider({ children }: { children: React.ReactNode }
 
     // Connection events
     newSocket.on("connect", () => {
-      console.log("✅ [GlobalSocket] Connected to /appointments namespace");
-      console.log("✅ [GlobalSocket] Socket ID:", newSocket.id);
-      console.log("✅ [GlobalSocket] User ID:", userId);
-      console.log("✅ [GlobalSocket] User role:", userRole);
       setIsConnected(true);
     });
 

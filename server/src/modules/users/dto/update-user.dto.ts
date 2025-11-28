@@ -5,6 +5,9 @@ import {
   IsString,
   IsDateString,
   MinLength,
+  IsNumber,
+  IsArray,
+  Min,
 } from 'class-validator';
 
 export class UpdateUserDto {
@@ -49,6 +52,50 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
+
+  // Doctor-specific fields
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Chuyên khoa không được để trống khi cung cấp' })
+  specialty?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({
+    message: 'Số chứng chỉ hành nghề không được để trống khi cung cấp',
+  })
+  licenseNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  licenseImageUrl?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'Số năm kinh nghiệm phải >= 0' })
+  experienceYears?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Bằng cấp không được để trống khi cung cấp' })
+  qualifications?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  services?: string[];
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({
+    message: 'Địa chỉ nơi làm việc không được để trống khi cung cấp',
+  })
+  workAddress?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'Phí tư vấn phải >= 0' })
+  consultationFee?: number;
 }
 
 export class ChangePasswordDto {
