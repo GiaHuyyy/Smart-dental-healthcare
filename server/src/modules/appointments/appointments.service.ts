@@ -1782,14 +1782,6 @@ export class AppointmentsService {
       });
 
       await suggestion.save();
-      console.log('✅ Suggestion saved:', suggestion._id);
-      console.log(
-        '🔗 Suggestion has parentAppointmentId:',
-        parentAppointmentId,
-      );
-      this.logger.log(
-        `🔔 Created follow-up suggestion ${String(suggestion._id)} for appointment ${String(parentAppointmentId)}`,
-      );
 
       // Populate suggestion for notification and email
       const populatedSuggestion = await this.followUpSuggestionModel
@@ -1853,22 +1845,6 @@ export class AppointmentsService {
       .populate('parentAppointmentId')
       .populate('voucherId')
       .sort({ createdAt: -1 });
-
-    this.logger.log(
-      `📋 Found ${suggestions.length} follow-up suggestions for patient ${patientId}`,
-    );
-
-    if (suggestions.length > 0) {
-      suggestions.forEach((s) => {
-        const parentId =
-          typeof s.parentAppointmentId === 'object'
-            ? (s.parentAppointmentId as any)?._id
-            : s.parentAppointmentId;
-        this.logger.log(
-          `  🔗 Suggestion ${String(s._id)} → parent: ${String(parentId)}`,
-        );
-      });
-    }
 
     return suggestions;
   }

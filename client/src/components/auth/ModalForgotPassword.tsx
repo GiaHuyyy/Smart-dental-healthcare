@@ -92,8 +92,14 @@ export default function ModalForgotPassword({ isModalOpen, setIsModalOpen }: Mod
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error("Mật khẩu phải có ít nhất 6 ký tự");
+    // Check password requirements: at least 8 chars, uppercase, lowercase, and number
+    const hasMinLength = newPassword.length >= 8;
+    const hasUppercase = /[A-Z]/.test(newPassword);
+    const hasLowercase = /[a-z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+
+    if (!hasMinLength || !hasUppercase || !hasLowercase || !hasNumber) {
+      toast.error("Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số");
       return;
     }
 
@@ -340,7 +346,8 @@ export default function ModalForgotPassword({ isModalOpen, setIsModalOpen }: Mod
 
             <div className="mt-4 p-3 bg-green-50 rounded-lg">
               <p className="text-xs text-green-700">
-                <span className="font-medium">Lưu ý:</span> Mật khẩu phải có ít nhất 6 ký tự.
+                <span className="font-medium">Lưu ý:</span> Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ
+                thường và số.
               </p>
             </div>
           </>

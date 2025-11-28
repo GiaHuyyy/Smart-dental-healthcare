@@ -17,18 +17,14 @@ export default function VoucherList() {
     try {
       const accessToken = (session as { access_token?: string })?.access_token;
       if (!accessToken) {
-        console.log("⚠️ No access token, waiting for session...", session);
         setLoading(false);
         return;
       }
 
-      console.log("🔄 Loading vouchers with token...");
       const result = await voucherService.getMyVouchers(accessToken);
-      console.log("✅ Voucher result:", result);
 
       if (result.success && result.data) {
         setVouchers(result.data);
-        console.log("✅ Loaded vouchers:", result.data.length);
       } else {
         console.error("❌ Voucher error:", result.error);
       }
@@ -53,7 +49,7 @@ export default function VoucherList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -91,14 +87,14 @@ export default function VoucherList() {
                   ? "border-gray-300 bg-gray-50 opacity-60"
                   : voucher.isUsed
                   ? "border-green-300 bg-green-50"
-                  : "border-blue-300 bg-gradient-to-br from-blue-50 to-purple-50"
+                  : "border-blue-300 bg-linear-to-br from-blue-50 to-purple-50"
               }`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Gift
                     className={`w-5 h-5 ${
-                      isExpired ? "text-gray-400" : voucher.isUsed ? "text-green-600" : "text-blue-600"
+                      isExpired ? "text-gray-400" : voucher.isUsed ? "text-green-600" : "text-primary"
                     }`}
                   />
                   <span
@@ -107,7 +103,7 @@ export default function VoucherList() {
                         ? "bg-gray-200 text-gray-600"
                         : voucher.isUsed
                         ? "bg-green-200 text-green-800"
-                        : "bg-blue-200 text-blue-800"
+                        : "bg-blue-200 text-primary"
                     }`}
                   >
                     {reasonText}
@@ -146,7 +142,7 @@ export default function VoucherList() {
                   {copiedCode === voucher.code ? (
                     <Check className="w-4 h-4 text-green-600" />
                   ) : (
-                    <span className="text-xs text-blue-600">Copy</span>
+                    <span className="text-xs text-primary">Copy</span>
                   )}
                 </div>
               </div>
@@ -177,7 +173,7 @@ export default function VoucherList() {
       </div>
 
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
+        <p className="text-sm text-primary">
           <strong>💡 Mẹo:</strong> Click vào mã voucher để sao chép. Áp dụng voucher khi đặt lịch tái khám để nhận ưu
           đãi!
         </p>
