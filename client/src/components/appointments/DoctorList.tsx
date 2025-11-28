@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense, lazy, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Users, Star, Calendar, Phone, MapPin, MessageSquare } from "lucide-react";
+import { Building2, Stethoscope, Star, Calendar, Phone, MapPin, MessageSquare } from "lucide-react";
 import { Doctor } from "@/types/appointment";
 import { useRealtimeChat } from "@/contexts/RealtimeChatContext";
 import realtimeChatService from "@/services/realtimeChatService";
@@ -274,7 +274,7 @@ export default function DoctorList({
                       className="w-14 h-14 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: "var(--color-primary-50)" }}
                     >
-                      <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
+                      <Stethoscope className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
                     </div>
                   )}
                   <div>

@@ -4,14 +4,13 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Users,
+  Stethoscope,
   Star,
   Calendar,
   Phone,
   Mail,
   MapPin,
   ArrowLeft,
-  Stethoscope,
   Clock,
   MessageSquare,
   Edit2,
@@ -290,13 +289,13 @@ export default function DoctorDetailsPage() {
           <div className="flex items-start gap-4">
             {doctor.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={doctor.avatarUrl} alt={name} className="w-20 h-20 rounded-full object-cover" />
+              <img src={doctor.avatarUrl} alt={name} className="w-14 h-14 rounded-full object-cover" />
             ) : (
               <div
-                className="w-20 h-20 rounded-full flex items-center justify-center"
+                className="w-14 h-14 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: "var(--color-primary-50)" }}
               >
-                <Users className="w-10 h-10" style={{ color: "var(--color-primary)" }} />
+                <Stethoscope className="w-7 h-7 text-primary" />
               </div>
             )}
             <div className="flex-1">
@@ -458,7 +457,7 @@ export default function DoctorDetailsPage() {
                         className="w-10 h-10 rounded-full flex items-center justify-center"
                         style={{ backgroundColor: "var(--color-primary-50)" }}
                       >
-                        <Users className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
+                        <Stethoscope className="w-5 h-5 text-primary" />
                       </div>
                       <div>
                         <div className="font-medium">{rname}</div>

@@ -39,6 +39,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: wrappedUser.email,
             fullName: wrappedUser.fullName,
             role: wrappedUser.role,
+            avatarUrl: wrappedUser.avatarUrl,
             access_token: wrappedToken,
           };
         }
@@ -50,6 +51,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: u.email,
             fullName: u.fullName,
             role: u.role,
+            avatarUrl: u.avatarUrl,
             access_token: directToken,
           };
         }

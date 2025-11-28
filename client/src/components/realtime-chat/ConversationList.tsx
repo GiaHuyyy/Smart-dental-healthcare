@@ -5,7 +5,7 @@ type UserWithOptionalSpecialization = {
   _id: string;
   firstName: string;
   lastName: string;
-  avatar?: string;
+  avatarUrl?: string;
   email: string;
   specialization?: string;
 };
@@ -16,14 +16,14 @@ interface Conversation {
     _id: string;
     firstName: string;
     lastName: string;
-    avatar?: string;
+    avatarUrl?: string;
     email: string;
   };
   doctorId: {
     _id: string;
     firstName: string;
     lastName: string;
-    avatar?: string;
+    avatarUrl?: string;
     email: string;
     specialization?: string;
   };

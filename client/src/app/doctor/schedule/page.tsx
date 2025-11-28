@@ -159,7 +159,7 @@ function DoctorScheduleContent() {
             patientId: apt.patientId,
             patientName: (apt.patientId as { fullName?: string })?.fullName || "N/A",
             patientAvatar:
-              (apt.patientId as { avatar?: string; fullName?: string })?.avatar ||
+              (apt.patientId as { avatarUrl?: string; fullName?: string })?.avatarUrl ||
               `https://ui-avatars.com/api/?name=${
                 (apt.patientId as { fullName?: string })?.fullName || "Patient"
               }&background=random`,

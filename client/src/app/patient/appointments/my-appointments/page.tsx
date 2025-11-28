@@ -20,7 +20,7 @@ import {
   MoreVertical,
   Search,
   Star,
-  User,
+  Stethoscope,
   Video,
   X,
   XCircle,
@@ -495,6 +495,7 @@ function MyAppointmentsContent() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
+  console.log("📄 Paginated appointments:", paginatedAppointments);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -782,16 +783,16 @@ function MyAppointmentsContent() {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-4 flex-1">
                         {/* Doctor Avatar */}
-                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          {appointment.doctor?.profileImage ? (
+                        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          {appointment.doctor?.avatarUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={appointment.doctor.profileImage}
+                              src={appointment.doctor.avatarUrl}
                               alt={appointment.doctor.fullName}
                               className="w-full h-full rounded-full object-cover"
                             />
                           ) : (
-                            <User className="w-8 h-8 text-primary" />
+                            <Stethoscope className="w-7 h-7 text-primary" />
                           )}
                         </div>
 
@@ -1035,16 +1036,16 @@ function MyAppointmentsContent() {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Doctor Info */}
               <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  {selectedAppointment.doctor?.profileImage ? (
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  {selectedAppointment.doctor?.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={selectedAppointment.doctor.profileImage}
+                      src={selectedAppointment.doctor.avatarUrl}
                       alt={selectedAppointment.doctor.fullName}
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : (
-                    <User className="w-10 h-10 text-primary" />
+                    <Stethoscope className="w-7 h-7 text-primary" />
                   )}
                 </div>
                 <div className="flex-1">
@@ -1068,7 +1069,7 @@ function MyAppointmentsContent() {
 
               {/* Appointment Details */}
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900">Thông tin lịch hẩn</h4>
+                <h4 className="font-semibold text-gray-900">Thông tin lịch hẹn</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-start gap-3">
                     <Calendar className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
@@ -1123,7 +1124,7 @@ function MyAppointmentsContent() {
                   <h4 className="font-semibold text-gray-900">Thông tin bệnh nhân</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-start gap-3">
-                      <User className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <Stethoscope className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="text-sm text-gray-500">Họ và tên</p>
                         <p className="font-medium text-gray-900">{selectedAppointment.patient.fullName}</p>

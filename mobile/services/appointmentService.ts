@@ -26,8 +26,7 @@ export interface Appointment {
     phone?: string;
     gender?: string;
     address?: string;
-    avatar?: string;
-    profileImage?: string;
+    avatarUrl?: string;
   };
   doctorId?: {
     _id: string;

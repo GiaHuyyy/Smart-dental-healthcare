@@ -11,7 +11,7 @@ import {
   FileText,
   Home,
   MapPin,
-  UserCircle2,
+  User,
   Video,
   X,
 } from "lucide-react";
@@ -732,11 +732,11 @@ function DoctorHeader({
   return (
     <div className="flex items-center gap-3">
       <div className="w-12 h-12 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center flex-shrink-0">
-        {doctor.profileImage ? (
+        {doctor.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={doctor.profileImage} alt={doctor.fullName} className="w-full h-full object-cover" />
+          <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
         ) : (
-          <UserCircle2 className="w-6 h-6 text-primary-600" />
+          <User className="w-6 h-6 text-primary-600" />
         )}
       </div>
       <div className="flex-1 min-w-0">

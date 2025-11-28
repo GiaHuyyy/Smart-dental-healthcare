@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Users, Star, Calendar, Phone, MapPin, MessageSquare } from "lucide-react";
+import { Stethoscope, Star, Calendar, Phone, MapPin, MessageSquare } from "lucide-react";
 
 interface Doctor {
   _id: string;
@@ -81,7 +81,7 @@ export default function DoctorCard({ doctor, onView, onBook, onChat, creatingCon
               className="w-14 h-14 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "var(--color-primary-50)" }}
             >
-              <Users className="w-7 h-7" style={{ color: "var(--color-primary)" }} />
+              <Stethoscope className="w-7 h-7 text-primary" />
             </div>
           )}
           <div>
@@ -113,7 +113,7 @@ export default function DoctorCard({ doctor, onView, onBook, onChat, creatingCon
                 e.stopPropagation();
                 onView && onView(doctor);
               }}
-              className="flex-1 cursor-pointer inline-flex items-center justify-center border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-xl py-3 px-4 text-sm font-medium hover:shadow-sm transition"
+              className="flex-1 cursor-pointer inline-flex items-center justify-center border-2 border-primary text-primary rounded-xl py-3 px-4 text-sm font-medium hover:shadow-sm transition"
             >
               Xem chi tiết
             </button>
@@ -121,7 +121,7 @@ export default function DoctorCard({ doctor, onView, onBook, onChat, creatingCon
 
           <button
             type="button"
-            className="flex-1 cursor-pointer inline-flex items-center justify-center bg-[var(--color-primary)] text-white rounded-xl py-3 px-6 text-sm font-semibold shadow-md hover:brightness-95 transition"
+            className="flex-1 cursor-pointer inline-flex items-center justify-center bg-primary text-white rounded-xl py-3 px-6 text-sm font-semibold shadow-md hover:brightness-95 transition"
             onClick={(e) => {
               e.stopPropagation();
               onBook && onBook(doctor);
@@ -137,11 +137,11 @@ export default function DoctorCard({ doctor, onView, onBook, onChat, creatingCon
               onChat && onChat(doctor);
             }}
             aria-label={`Chat với ${name}`}
-            className="inline-flex cursor-pointer items-center border-[var(--color-primary)] text-[var(--color-primary)] rounded-lg p-1"
+            className="inline-flex cursor-pointer items-center border-primary text-primary rounded-lg p-1"
           >
             <span className="w-10 h-10 flex items-center justify-center border rounded-lg">
               {creatingConvFor === id ? (
-                <svg className="w-5 h-5 animate-spin text-[var(--color-primary)]" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 animate-spin text-primary" viewBox="0 0 24 24">
                   <circle
                     className="opacity-25"
                     cx="12"

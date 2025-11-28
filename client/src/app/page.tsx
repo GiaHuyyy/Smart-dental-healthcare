@@ -8,22 +8,22 @@ import { Search, Star, Smile, Sparkles, Wrench, Hospital, Phone, Mail, MapPin, X
 export default function HomePage() {
   const services = [
     {
-      icon: <Smile className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
+      icon: <Smile className="w-8 h-8 text-primary" />,
       title: "Khám tổng quát",
       description: "Kiểm tra sức khỏe răng miệng định kỳ",
     },
     {
-      icon: <Sparkles className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
+      icon: <Sparkles className="w-8 h-8 text-primary" />,
       title: "Tẩy trắng răng",
       description: "Làm trắng răng an toàn, hiệu quả",
     },
     {
-      icon: <Wrench className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
+      icon: <Wrench className="w-8 h-8 text-primary" />,
       title: "Chỉnh nha",
       description: "Niềng răng, chỉnh hình hàm răng",
     },
     {
-      icon: <Hospital className="w-8 h-8" style={{ color: "var(--color-primary)" }} />,
+      icon: <Hospital className="w-8 h-8 text-primary" />,
       title: "Phẫu thuật",
       description: "Nhổ răng khôn, cấy ghép implant",
     },
@@ -171,9 +171,7 @@ export default function HomePage() {
               >
                 <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-4"></div>
                 <h4 className="text-xl font-semibold text-gray-900 mb-2">{doctor.name}</h4>
-                <p className="font-medium mb-1" style={{ color: "var(--color-primary)" }}>
-                  {doctor.specialty}
-                </p>
+                <p className="font-medium mb-1 text-primary">{doctor.specialty}</p>
                 <p className="text-gray-600 text-sm mb-3">{doctor.experience}</p>
                 <div className="flex items-center justify-center">
                   <Star className="text-yellow-400 w-5 h-5" />
@@ -230,27 +228,19 @@ export default function HomePage() {
                 <h4 className="text-2xl font-bold text-gray-900 mb-6">Thống kê hệ thống</h4>
                 <div className="grid grid-cols-2 gap-8">
                   <div>
-                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
-                      1000+
-                    </div>
+                    <div className="text-3xl font-bold text-primary">1000+</div>
                     <div className="text-gray-600">Bệnh nhân tin tưởng</div>
                   </div>
                   <div>
-                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
-                      50+
-                    </div>
+                    <div className="text-3xl font-bold text-primary">50+</div>
                     <div className="text-gray-600">Bác sĩ chuyên nghiệp</div>
                   </div>
                   <div>
-                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
-                      5+
-                    </div>
+                    <div className="text-3xl font-bold text-primary">5+</div>
                     <div className="text-gray-600">Năm kinh nghiệm</div>
                   </div>
                   <div>
-                    <div className="text-3xl font-bold" style={{ color: "var(--color-primary)" }}>
-                      98%
-                    </div>
+                    <div className="text-3xl font-bold text-primary">98%</div>
                     <div className="text-gray-600">Khách hàng hài lòng</div>
                   </div>
                 </div>

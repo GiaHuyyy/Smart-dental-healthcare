@@ -5,7 +5,7 @@ interface User {
   _id: string;
   firstName: string;
   lastName: string;
-  avatar?: string;
+  avatarUrl?: string;
   email: string;
   role: "patient" | "doctor";
   specialization?: string;

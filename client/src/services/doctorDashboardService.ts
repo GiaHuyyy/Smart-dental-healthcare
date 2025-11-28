@@ -23,7 +23,7 @@ export interface TodayAppointment {
   patient?: {
     _id: string;
     fullName: string;
-    profileImage?: string;
+    avatarUrl?: string;
   };
 }
 
@@ -64,13 +64,16 @@ export interface ChartDataPoint {
 const doctorDashboardService = {
   async getStats(doctorId: string, token?: string): Promise<DashboardResponse<DoctorStats>> {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}/stats`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}/stats`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -101,13 +104,16 @@ const doctorDashboardService = {
       console.log("Fetching appointments for today:", today);
 
       // Lấy tất cả appointments rồi filter ở client vì backend không support date filter
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}?populate=patientId`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}?populate=patientId`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       const data = await response.json();
       console.log("Today appointments - raw response:", data);
@@ -146,8 +152,8 @@ const doctorDashboardService = {
           apt.patientName ||
           "Bệnh nhân",
         patientAvatar:
-          (apt.patientId as { profileImage?: string })?.profileImage ||
-          (apt.patient as { profileImage?: string })?.profileImage ||
+          (apt.patientId as { avatarUrl?: string })?.avatarUrl ||
+          (apt.patient as { avatarUrl?: string })?.avatarUrl ||
           apt.patientAvatar,
       }));
 
@@ -169,13 +175,16 @@ const doctorDashboardService = {
 
   async getRecentActivities(doctorId: string, token?: string): Promise<DashboardResponse<RecentActivity[]>> {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}/recent-activities`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}/recent-activities`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -210,13 +219,16 @@ const doctorDashboardService = {
 
   async startAppointment(appointmentId: string, token?: string): Promise<DashboardResponse<TodayAppointment>> {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -243,13 +255,16 @@ const doctorDashboardService = {
 
   async completeAppointment(appointmentId: string, token?: string): Promise<DashboardResponse<TodayAppointment>> {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/complete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/${appointmentId}/complete`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -286,29 +301,38 @@ const doctorDashboardService = {
 
       console.log("Fetching dashboard stats for doctor:", doctorId);
 
-      // Lấy thống kê bệnh nhân (không cần doctorId vì đếm tất cả patients)
-      const patientsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/patients/stats`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      // Lấy thống kê bệnh nhân (gửi doctorId để chỉ lấy bệnh nhân có lịch hẹn completed với bác sĩ này)
+      const patientsRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/patients/stats?doctorId=${doctorId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       // Lấy tất cả appointments của bác sĩ
-      const appointmentsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const appointmentsRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctorId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       // Lấy thống kê đơn thuốc
-      const prescriptionsRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/prescriptions/stats?doctorId=${doctorId}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const prescriptionsRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/prescriptions/stats?doctorId=${doctorId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
 
       // Parse responses
       let patientsData = null;

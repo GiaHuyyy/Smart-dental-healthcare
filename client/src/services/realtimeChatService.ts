@@ -7,7 +7,7 @@ interface Message {
     _id: string;
     firstName: string;
     lastName: string;
-    avatar?: string;
+    avatarUrl?: string;
   };
   senderRole: "patient" | "doctor";
   messageType: "text" | "image" | "file" | "call";
@@ -21,14 +21,14 @@ interface Conversation {
     _id: string;
     firstName: string;
     lastName: string;
-    avatar?: string;
+    avatarUrl?: string;
     email: string;
   };
   doctorId: {
     _id: string;
     firstName: string;
     lastName: string;
-    avatar?: string;
+    avatarUrl?: string;
     email: string;
     specialization?: string;
   };

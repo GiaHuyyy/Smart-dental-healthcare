@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -719,8 +718,17 @@ export default function RevenuePage() {
                     <div className="grid grid-cols-12 gap-4 items-center">
                       {/* Patient with Avatar */}
                       <div className="col-span-2 flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <User className="w-6 h-6 text-primary" />
+                        <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                          {typeof revenue.patientId === "object" && revenue.patientId?.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={revenue.patientId.avatarUrl}
+                              alt={patientName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <User className="w-6 h-6 text-primary" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="text-[15px] font-medium text-gray-900 truncate">{patientName}</p>
@@ -825,8 +833,20 @@ export default function RevenuePage() {
             <div className="p-6 space-y-6">
               {/* Patient info */}
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="w-8 h-8 text-primary" />
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                  {typeof selectedRevenue.patientId === "object" && selectedRevenue.patientId?.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={selectedRevenue.patientId.avatarUrl}
+                      alt={
+                        (typeof selectedRevenue.patientId === "object" && selectedRevenue.patientId?.fullName) ||
+                        "Patient"
+                      }
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-8 h-8 text-primary" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
