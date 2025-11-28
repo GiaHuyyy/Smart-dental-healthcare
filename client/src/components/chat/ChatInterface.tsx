@@ -139,7 +139,7 @@ export default function ChatInterface({
   // Redux hooks
   const dispatch = useAppDispatch();
   // Client-side timeouts to avoid UI getting stuck when network/server hangs
-  const ANALYSIS_TIMEOUT_MS = 30_000; // 30s for image analysis HTTP call
+  const ANALYSIS_TIMEOUT_MS = 90_000; // 1m 30 for image analysis HTTP call
 
   const withTimeout = async <T,>(p: Promise<T>, ms: number, errorMessage = "Request timed out") => {
     let timer: NodeJS.Timeout | null = null;

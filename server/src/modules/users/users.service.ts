@@ -212,20 +212,30 @@ export class UsersService {
       phone,
       specialty,
       licenseNumber,
+      avatarUrl,
+      licenseImageUrl,
+      experienceYears,
+      qualifications,
+      services,
+      workAddress,
+      latitude,
+      longitude,
     } = createRegisterDto;
 
     // Check if email already exists
     const emailExists = await this.isEmailExists(email);
     if (emailExists) {
       throw new BadRequestException(
-        'Email ' + email + '. Vui lòng sử dụng email khác.',
+        'Email ' + email + ' đã tồn tại. Vui lòng sử dụng email khác.',
       );
     }
 
     // hash the password before saving
     const hashedPassword = await hashPasswordHelper(password);
     const codeId = uuidv4();
-    const user = await this.userModel.create({
+
+    // Build user data object
+    const userData: any = {
       fullName,
       email,
       password: hashedPassword,
@@ -234,12 +244,30 @@ export class UsersService {
       address,
       dateOfBirth,
       phone,
-      specialty,
-      licenseNumber,
       isActive: false,
       codeId: codeId,
       codeExpired: dayjs().add(1, 'hour'),
-    });
+    };
+
+    // Add optional avatar
+    if (avatarUrl) {
+      userData.avatarUrl = avatarUrl;
+    }
+
+    // Add doctor-specific fields
+    if (role === 'doctor') {
+      if (specialty) userData.specialty = specialty;
+      if (licenseNumber) userData.licenseNumber = licenseNumber;
+      if (licenseImageUrl) userData.licenseImageUrl = licenseImageUrl;
+      if (experienceYears) userData.experienceYears = experienceYears;
+      if (qualifications) userData.qualifications = qualifications;
+      if (services && services.length > 0) userData.services = services;
+      if (workAddress) userData.workAddress = workAddress;
+      if (latitude) userData.latitude = latitude;
+      if (longitude) userData.longitude = longitude;
+    }
+
+    const user = await this.userModel.create(userData);
 
     // send email to user
     await this.mailerService.sendMail({
@@ -397,6 +425,7 @@ export class UsersService {
 
   async handleVerifyResetCode(verifyResetCodeDto: VerifyResetCodeDto) {
     const { id, code } = verifyResetCodeDto;
+
     const user = await this.userModel.findOne({
       _id: id,
       codeIdPassword: code,

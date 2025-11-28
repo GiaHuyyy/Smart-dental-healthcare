@@ -43,8 +43,8 @@ export default function ModalForgotPassword({ isModalOpen, setIsModalOpen }: Mod
         body: { email },
       });
 
-      if (res.data) {
-        setUserId(res.data._id);
+      if (res._id) {
+        setUserId(res._id);
         setCurrentStep(2);
         setCountdown(60);
         toast.success("Mã xác thực đã được gửi đến email của bạn");
@@ -71,7 +71,8 @@ export default function ModalForgotPassword({ isModalOpen, setIsModalOpen }: Mod
         },
       });
 
-      if (res?.statusCode === 201) {
+      // Success response has message but no error/statusCode
+      if (res?.message && !res?.error) {
         setCurrentStep(3);
         toast.success("Mã xác thực hợp lệ");
       } else {
@@ -108,7 +109,8 @@ export default function ModalForgotPassword({ isModalOpen, setIsModalOpen }: Mod
         },
       });
 
-      if (res?.statusCode === 201) {
+      // Success response has message but no error/statusCode
+      if (res?.message && !res?.error) {
         toast.success("Đặt lại mật khẩu thành công! Bạn có thể đăng nhập ngay bây giờ.");
         handleCloseModal();
       } else {

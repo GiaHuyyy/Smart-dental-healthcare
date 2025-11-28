@@ -12,6 +12,18 @@ import ModalForgotPassword from "@/components/auth/ModalForgotPassword";
 import Image from "next/image";
 import tooth from "../../../../public/tooth.svg";
 
+// Validation patterns
+const VALIDATION = {
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+};
+
+// Required field label component
+const RequiredLabel = ({ children }: { children: React.ReactNode }) => (
+  <span>
+    {children} <span className="text-red-500">*</span>
+  </span>
+);
+
 export default function LoginPage() {
   const router = useRouter();
   const [userType, setUserType] = useState("patient");
@@ -22,6 +34,7 @@ export default function LoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isForgotPasswordModalOpen, setIsForgotPasswordModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -30,6 +43,23 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setErrors({});
+
+    // Validate email
+    if (!VALIDATION.email.test(formData.email)) {
+      setErrors((prev) => ({ ...prev, email: "Email không hợp lệ" }));
+      toast.error("Email không hợp lệ");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate password not empty
+    if (!formData.password || formData.password.length < 6) {
+      setErrors((prev) => ({ ...prev, password: "Mật khẩu phải có ít nhất 6 ký tự" }));
+      toast.error("Mật khẩu phải có ít nhất 6 ký tự");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // Simulate login API call
@@ -142,23 +172,26 @@ export default function LoginPage() {
               <div className="space-y-6">
                 <div>
                   <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Địa chỉ Email
+                    <RequiredLabel>Địa chỉ Email</RequiredLabel>
                   </label>
                   <input
                     id="email"
                     name="email"
                     type="email"
                     required
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                    className={`w-full border rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                      errors.email ? "border-red-500" : "border-gray-200"
+                    }`}
                     placeholder="Nhập địa chỉ email của bạn"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
 
                 <div>
                   <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Mật khẩu
+                    <RequiredLabel>Mật khẩu</RequiredLabel>
                   </label>
                   <div className="relative">
                     <input
@@ -166,7 +199,9 @@ export default function LoginPage() {
                       name="password"
                       type={showPassword ? "text" : "password"}
                       required
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                      className={`w-full border rounded-xl px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                        errors.password ? "border-red-500" : "border-gray-200"
+                      }`}
                       placeholder="Nhập mật khẩu của bạn"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -179,6 +214,7 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
+                  {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                 </div>
 
                 <div className="flex items-center justify-between">
