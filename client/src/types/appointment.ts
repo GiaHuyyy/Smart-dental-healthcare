@@ -26,7 +26,6 @@ export interface Doctor {
   languages?: string[];
   qualifications?: string[];
   acceptsInsurance?: boolean;
-  profileImage?: string;
   avatarUrl?: string;
 }
 

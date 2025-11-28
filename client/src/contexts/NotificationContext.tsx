@@ -54,9 +54,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
 
     try {
-      const url = `${
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"
-      }/api/v1/notifications?current=1&pageSize=50`;
+      // Sử dụng endpoint lấy thông báo theo userId
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8081"}/api/v1/notifications/user/${
+        session.user._id
+      }`;
 
       const response = await fetch(url, {
         headers: {
@@ -67,9 +68,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (response.ok) {
         const data = await response.json();
 
-        if (data.success && data.data?.results) {
-          setNotifications(data.data.results);
-          setUnreadCount(data.data.results.filter((n: Notification) => !n.isRead).length);
+        // findByUser trả về data là array trực tiếp, không phải object với results
+        if (data.success && data.data) {
+          const notificationsList = Array.isArray(data.data) ? data.data : data.data.results || [];
+          setNotifications(notificationsList);
+          setUnreadCount(notificationsList.filter((n: Notification) => !n.isRead).length);
         }
       } else {
         const errorText = await response.text();

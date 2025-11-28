@@ -162,6 +162,7 @@ export class RealtimeChatGateway
         patientId: conv.patientId?._id.toString(),
         patientName: conv.patientId?.fullName || 'Bệnh nhân',
         patientEmail: conv.patientId?.email,
+        patientAvatar: conv.patientId?.avatarUrl,
         lastMessage: conv.lastMessage?.content || 'Cuộc hội thoại mới',
         timestamp: conv.lastMessageAt || conv.updatedAt,
         unread: conv.unreadDoctorCount > 0,
@@ -174,6 +175,7 @@ export class RealtimeChatGateway
         id: convId,
         doctorId: conv.doctorId?._id.toString(),
         doctorName: conv.doctorId?.fullName || 'Bác sĩ',
+        doctorAvatar: conv.doctorId?.avatarUrl,
         specialty: conv.doctorId?.specialty || 'Nha khoa tổng quát',
         lastMessage: conv.lastMessage?.content || 'Cuộc hội thoại mới',
         timestamp: conv.lastMessageAt || conv.updatedAt,
@@ -435,6 +437,9 @@ export class RealtimeChatGateway
             patientEmail: conv.patientId
               ? (conv.patientId as any).email || ''
               : '',
+            patientAvatar: conv.patientId
+              ? (conv.patientId as any).avatarUrl || ''
+              : '',
             lastMessage: conv.lastMessage
               ? (() => {
                   switch ((conv.lastMessage as any).messageType) {
@@ -473,6 +478,9 @@ export class RealtimeChatGateway
                 `${(conv.doctorId as any).firstName || ''} ${(conv.doctorId as any).lastName || ''}`.trim() ||
                 'Bác sĩ'
               : 'Bác sĩ',
+            doctorAvatar: conv.doctorId
+              ? (conv.doctorId as any).avatarUrl || ''
+              : '',
             doctorSpecialty: conv.doctorId
               ? (conv.doctorId as any).specialty || 'Nha khoa tổng quát'
               : 'Nha khoa tổng quát',

@@ -35,7 +35,6 @@ export default function Header() {
   // Determine user role and dashboard path
   const getUserDashboardInfo = () => {
     if (!session?.user) return null;
-
     const userRole = session.user.role;
     if (userRole === "doctor") {
       return {
@@ -125,17 +124,24 @@ export default function Header() {
                 <div className="relative" ref={dropdownRef}>
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:block text-right">
-                      <div className="text-sm font-medium text-gray-900">
-                        {session.user.username || session.user.email}
-                      </div>
+                      <div className="text-sm font-medium text-gray-900">{session.user.fullName}</div>
                       <div className="text-xs text-gray-500">{session.user.email}</div>
                     </div>
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
-                      className="w-10 h-10 bg-linear-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center border-2 border-white shadow-md"
+                      className="w-10 h-10 bg-linear-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center border-2 border-white shadow-md overflow-hidden"
                       aria-label="User menu"
                     >
-                      <User className="w-5 h-5 text-gray-600 hover:text-[#00a6f4]" />
+                      {session.user.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={session.user.avatarUrl}
+                          alt={session.user.fullName || "User"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-5 h-5 text-gray-600 hover:text-[#00a6f4]" />
+                      )}
                     </button>
                   </div>
 
@@ -143,13 +149,22 @@ export default function Header() {
                   {showDropdown && (
                     <div className="absolute right-0 mt-3 w-80 healthcare-card-elevated shadow-xl border border-gray-100 rounded-xl overflow-hidden z-50">
                       {/* User Info Header */}
-                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
+                      <div className="p-4 bg-linear-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-linear-to-br from-blue-100 to-[#00a6f4] rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-white" />
+                          <div className="w-12 h-12 bg-linear-to-br from-blue-100 to-[#00a6f4] rounded-full flex items-center justify-center overflow-hidden">
+                            {session.user.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={session.user.avatarUrl}
+                                alt={session.user.fullName || "User"}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User className="w-6 h-6 text-white" />
+                            )}
                           </div>
                           <div>
-                            <div className="font-semibold text-gray-900">{session.user.username || "User"}</div>
+                            <div className="font-semibold text-gray-900">{session.user.fullName || "User"}</div>
                             <div className="text-sm text-gray-600">{session.user.email}</div>
                             {dashboardInfo && (
                               <div

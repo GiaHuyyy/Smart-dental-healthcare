@@ -13,6 +13,7 @@ export interface RevenueRecord {
     fullName: string;
     email: string;
     phone?: string;
+    avatarUrl?: string;
   };
   amount: number;
   platformFee: number;
@@ -112,7 +113,9 @@ class RevenueService {
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
 
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/summary?${params.toString()}`);
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/summary?${params.toString()}`
+      );
 
       return response.data;
     } catch (error: any) {
@@ -146,7 +149,9 @@ class RevenueService {
       if (filters?.startDate) params.append("revenueDate[$gte]", filters.startDate);
       if (filters?.endDate) params.append("revenueDate[$lte]", filters.endDate);
 
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?${params.toString()}`);
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?${params.toString()}`
+      );
 
       return response.data;
     } catch (error: any) {
@@ -172,7 +177,9 @@ class RevenueService {
 
       if (status) params.append("status", status);
 
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/range?${params.toString()}`);
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/range?${params.toString()}`
+      );
 
       return response.data;
     } catch (error: any) {

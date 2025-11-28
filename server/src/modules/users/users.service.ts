@@ -13,6 +13,7 @@ import {
 import { hashPasswordHelper } from 'src/helpers/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { AiChatHistoryService } from '../ai-chat-history/ai-chat-history.service';
+import { Appointment } from '../appointments/schemas/appointment.schemas';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
@@ -21,6 +22,7 @@ import { User } from './schemas/user.schemas';
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
     private readonly mailerService: MailerService,
     private readonly aiChatHistoryService: AiChatHistoryService,
   ) {}
@@ -391,7 +393,6 @@ export class UsersService {
 
   async handleForgotPassword(email: string) {
     const user = await this.userModel.findOne({ email });
-    console.log('Response from server:', user);
     if (!user) {
       throw new BadRequestException('Không tìm thấy tài khoản với email này');
     }
@@ -493,6 +494,70 @@ export class UsersService {
 
   async getPatientStats(doctorId?: string) {
     try {
+      // Nếu có doctorId, chỉ lấy bệnh nhân có lịch hẹn completed với bác sĩ đó
+      if (doctorId) {
+        // Lấy danh sách patientId có lịch hẹn completed với bác sĩ này
+        const completedAppointments = (await this.appointmentModel
+          .find({
+            doctorId: new mongoose.Types.ObjectId(doctorId),
+            status: 'completed',
+          })
+          .distinct('patientId')) as unknown as string[];
+
+        const patientIds = completedAppointments.map(
+          (id: string) => new mongoose.Types.ObjectId(id),
+        );
+
+        const totalPatients = patientIds.length;
+
+        const activePatients = await this.userModel.countDocuments({
+          _id: { $in: patientIds },
+          role: 'patient',
+          isActive: true,
+        });
+
+        // Lấy số bệnh nhân mới trong tháng này (có lịch hẹn completed đầu tiên trong tháng này)
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        // Tìm những bệnh nhân có lịch hẹn completed đầu tiên trong tháng này
+        const newPatientsThisMonth = await this.appointmentModel.aggregate([
+          {
+            $match: {
+              doctorId: new mongoose.Types.ObjectId(doctorId),
+              status: 'completed',
+            },
+          },
+          {
+            $group: {
+              _id: '$patientId',
+              firstCompletedDate: { $min: '$appointmentDate' },
+            },
+          },
+          {
+            $match: {
+              firstCompletedDate: { $gte: startOfMonth },
+            },
+          },
+          {
+            $count: 'count',
+          },
+        ]);
+
+        return {
+          success: true,
+          data: {
+            totalPatients,
+            activePatients,
+            newPatientsThisMonth: newPatientsThisMonth[0]?.count || 0,
+            inactivePatients: totalPatients - activePatients,
+          },
+          message: 'Lấy thống kê bệnh nhân thành công',
+        };
+      }
+
+      // Nếu không có doctorId, lấy tất cả bệnh nhân (cho admin)
       const totalPatients = await this.userModel.countDocuments({
         role: 'patient',
       });
@@ -501,7 +566,6 @@ export class UsersService {
         isActive: true,
       });
 
-      // Lấy số bệnh nhân mới trong tháng này
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
@@ -531,9 +595,47 @@ export class UsersService {
 
   async searchPatients(query: any) {
     try {
-      const { search, status, current = 1, pageSize = 10 } = query;
+      const { search, status, current = 1, pageSize = 10, doctorId } = query;
+
+      let patientIds: mongoose.Types.ObjectId[] | null = null;
+
+      // Nếu có doctorId, chỉ lấy bệnh nhân có lịch hẹn completed với bác sĩ đó
+      if (doctorId) {
+        const completedAppointments = (await this.appointmentModel
+          .find({
+            doctorId: new mongoose.Types.ObjectId(doctorId),
+            status: 'completed',
+          })
+          .distinct('patientId')) as unknown as string[];
+
+        patientIds = completedAppointments.map(
+          (id: string) => new mongoose.Types.ObjectId(id),
+        );
+
+        // Nếu không có bệnh nhân nào, trả về rỗng
+        if (patientIds.length === 0) {
+          return {
+            success: true,
+            data: {
+              patients: [],
+              pagination: {
+                current: +current,
+                pageSize: +pageSize,
+                totalItems: 0,
+                totalPages: 0,
+              },
+            },
+            message: 'Chưa có bệnh nhân nào',
+          };
+        }
+      }
 
       const filter: any = { role: 'patient' };
+
+      // Filter theo patientIds nếu có doctorId
+      if (patientIds) {
+        filter._id = { $in: patientIds };
+      }
 
       if (search) {
         filter.$or = [

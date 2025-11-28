@@ -17,6 +17,7 @@ interface Conversation {
   peerId: string;
   peerName: string;
   peerDetails: string; // Email bệnh nhân hoặc chuyên khoa bác sĩ
+  peerAvatar?: string; // Avatar URL của người đối diện
   lastMessage: string;
   timestamp: string;
   unread: boolean;
@@ -65,6 +66,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
           userRole === "doctor"
             ? newConversationData.patientEmail
             : newConversationData.specialty || newConversationData.doctorSpecialty,
+        peerAvatar: userRole === "doctor" ? newConversationData.patientAvatar : newConversationData.doctorAvatar,
         lastMessage: newConversationData.lastMessage,
         timestamp: newConversationData.timestamp,
         unread: newConversationData.unread,
@@ -125,6 +127,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
             peerId: userRole === "doctor" ? conv.patientId : conv.doctorId,
             peerName: userRole === "doctor" ? conv.patientName : conv.doctorName,
             peerDetails: userRole === "doctor" ? conv.patientEmail : conv.specialty || conv.doctorSpecialty,
+            peerAvatar: userRole === "doctor" ? conv.patientAvatar : conv.doctorAvatar,
             lastMessage: conv.lastMessage,
             timestamp: conv.timestamp,
             unread: conv.unread,
@@ -222,7 +225,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
 
       // Skip loading for newly created conversations (already have empty messages)
       if (newlyCreatedConvsRef.current.has(conversationId) && !forceReload) {
-        console.log('Skipping loadMessages for newly created conversation:', conversationId);
+        console.log("Skipping loadMessages for newly created conversation:", conversationId);
         return;
       }
 
@@ -236,7 +239,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
       }
       setLoadingMessages((prev) => ({ ...prev, [conversationId]: true }));
       realtimeChatService.loadMessages(conversationId, 100);
-      
+
       // Set timeout to stop loading if no response (for new conversations with no messages)
       setTimeout(() => {
         setLoadingMessages((prev) => ({ ...prev, [conversationId]: false }));
@@ -256,7 +259,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
         if (newConvDataRaw) {
           try {
             const conversationData = JSON.parse(newConvDataRaw);
-            console.log('Processing newConversation:', conversationData);
+            console.log("Processing newConversation:", conversationData);
             const userData = extractUserData(session);
 
             // If conversationData already contains a conversation id or full conversation object,
@@ -276,20 +279,25 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
             const existingConvId = tryExtractId(conversationData) || tryExtractId(convObj?.conversation as unknown);
 
             if (existingConvId) {
-              console.log('Found existing conversation ID:', existingConvId);
+              console.log("Found existing conversation ID:", existingConvId);
               setSelectedChat(existingConvId);
               localStorage.removeItem("newConversation");
               window.history.replaceState(null, "", userRole === "doctor" ? "/doctor/chat" : "/patient/chat");
-            } else if (conversationData && ((conversationData as unknown as Record<string, unknown>).doctorId || (conversationData as unknown as Record<string, unknown>).patientId)) {
+            } else if (
+              conversationData &&
+              ((conversationData as unknown as Record<string, unknown>).doctorId ||
+                (conversationData as unknown as Record<string, unknown>).patientId)
+            ) {
               // Check if conversation already exists in conversations list
-              const peerId = userRole === "doctor" 
-                ? (conversationData as unknown as Record<string, unknown>).patientId 
-                : (conversationData as unknown as Record<string, unknown>).doctorId;
-              
+              const peerId =
+                userRole === "doctor"
+                  ? (conversationData as unknown as Record<string, unknown>).patientId
+                  : (conversationData as unknown as Record<string, unknown>).doctorId;
+
               const existingConv = conversations.find((conv) => conv.peerId === String(peerId));
-              
+
               if (existingConv) {
-                console.log('Found existing conversation in list:', existingConv.id);
+                console.log("Found existing conversation in list:", existingConv.id);
                 setSelectedChat(existingConv.id);
                 localStorage.removeItem("newConversation");
                 window.history.replaceState(null, "", userRole === "doctor" ? "/doctor/chat" : "/patient/chat");
@@ -304,23 +312,24 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                   // For patient: current userId is patientId, peerId is doctorId → createConversation(patientId, doctorId)
                   const patientId = userRole === "doctor" ? String(peerId) : userData!.userId;
                   const doctorId = userRole === "doctor" ? userData!.userId : String(peerId);
-                  
-                  console.log('Creating new conversation - patientId:', patientId, 'doctorId:', doctorId);
+
+                  console.log("Creating new conversation - patientId:", patientId, "doctorId:", doctorId);
                   const resp = await realtimeChatService.createConversation(patientId, doctorId);
-                  console.log('Create conversation response:', resp);
+                  console.log("Create conversation response:", resp);
 
                   // Normalize response to id and add name if needed
                   let convId: string | null = null;
                   let respWithName: any = resp;
-                  
+
                   if (!resp) {
                     console.warn("createConversation returned empty response", resp);
                   } else if (typeof resp === "string") {
                     convId = resp;
                     // For new conversation without full data, add name from conversationData
-                    const peerName = userRole === "doctor" 
-                      ? (conversationData as unknown as Record<string, unknown>).patientName
-                      : (conversationData as unknown as Record<string, unknown>).doctorName;
+                    const peerName =
+                      userRole === "doctor"
+                        ? (conversationData as unknown as Record<string, unknown>).patientName
+                        : (conversationData as unknown as Record<string, unknown>).doctorName;
                     respWithName = {
                       id: resp,
                       [userRole === "doctor" ? "patientId" : "doctorId"]: peerId,
@@ -328,7 +337,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                       lastMessage: "",
                       timestamp: new Date().toISOString(),
                       unread: false,
-                      unreadCount: 0
+                      unreadCount: 0,
                     };
                   } else if (typeof resp === "object") {
                     const r = resp as Record<string, unknown>;
@@ -338,25 +347,30 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                       const inner = r.conversation as Record<string, unknown>;
                       if (inner.id) convId = String(inner.id);
                     }
-                    
+
                     // Add name if missing
                     if (resp) {
-                      const peerName = userRole === "doctor" 
-                        ? (conversationData as unknown as Record<string, unknown>).patientName
-                        : (conversationData as unknown as Record<string, unknown>).doctorName;
+                      const peerName =
+                        userRole === "doctor"
+                          ? (conversationData as unknown as Record<string, unknown>).patientName
+                          : (conversationData as unknown as Record<string, unknown>).doctorName;
                       if (peerName) {
                         respWithName = { ...resp, [userRole === "doctor" ? "patientName" : "doctorName"]: peerName };
                       }
                     }
                   }
 
-                  console.log('Response with name:', respWithName);
+                  console.log("Response with name:", respWithName);
 
                   // Initialize empty messages for new conversation
-                  const finalConvId = convId || (typeof resp === "object" && resp && (resp as Record<string, unknown>)?.id ? String((resp as Record<string, unknown>).id) : null);
-                  
+                  const finalConvId =
+                    convId ||
+                    (typeof resp === "object" && resp && (resp as Record<string, unknown>)?.id
+                      ? String((resp as Record<string, unknown>).id)
+                      : null);
+
                   if (finalConvId && typeof resp === "string") {
-                    console.log('Initializing new conversation with ID:', finalConvId);
+                    console.log("Initializing new conversation with ID:", finalConvId);
                     // Mark as newly created to skip auto-load messages
                     newlyCreatedConvsRef.current.add(finalConvId);
                     // Initialize messages array for new conversation
@@ -456,14 +470,14 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                 <div
                   className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
                     selectedChat === "ai"
-                      ? "bg-primary-100 !border-[var(--color-primary)]"
+                      ? "bg-primary-100 ring ring-primary"
                       : "bg-white hover:bg-gray-50"
                   }`}
                   onClick={() => setSelectedChat("ai")}
                 >
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-primary text-white">
-                      <Drone size={16} />
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center mr-3 bg-primary text-white">
+                      <Drone size={18} />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900">AI Tư vấn</h4>
@@ -485,8 +499,9 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                   <div
                     key={conv.id}
                     className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
-                      selectedChat === conv.id ? "bg-primary-100 !border-[var(--color-primary)]"
-                      : "bg-white hover:bg-gray-50"
+                      selectedChat === conv.id
+                        ? "bg-primary-100 ring ring-primary"
+                        : "bg-white hover:bg-gray-50"
                     }`}
                     onClick={() => {
                       setSelectedChat(conv.id);
@@ -494,8 +509,15 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                     }}
                   >
                     <div className="flex items-start">
-                      <div className="w-8 h-8 bg-primary-50 rounded-full flex items-center justify-center mr-3 text-primary">
-                        {userRole === "patient" ? <Stethoscope size={16} /> : <User size={16} />}
+                      <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center mr-3 text-primary overflow-hidden">
+                        {conv.peerAvatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={conv.peerAvatar} alt={conv.peerName} className="w-full h-full object-cover" />
+                        ) : userRole === "patient" ? (
+                          <Stethoscope className="text-white" size={18} />
+                        ) : (
+                          <User className="text-white" size={18} />
+                        )}
                       </div>
                       <div className="flex-1">
                         <div className="flex justify-between items-center">
@@ -568,8 +590,14 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                     patientName={userRole === "doctor" ? selectedConversation.peerName : getDisplayName(session?.user)}
                     patientId={userRole === "doctor" ? selectedConversation.peerId : userData?.userId || ""}
                     patientEmail={userRole === "doctor" ? selectedConversation.peerDetails : session?.user?.email || ""}
+                    patientAvatar={
+                      userRole === "doctor" ? selectedConversation.peerAvatar : (session?.user as any)?.avatarUrl
+                    }
                     doctorName={userRole === "patient" ? selectedConversation.peerName : getDisplayName(session?.user)}
                     doctorId={userRole === "patient" ? selectedConversation.peerId : userData?.userId || ""}
+                    doctorAvatar={
+                      userRole === "patient" ? selectedConversation.peerAvatar : (session?.user as any)?.avatarUrl
+                    }
                     specialty={
                       userRole === "patient"
                         ? selectedConversation.peerDetails

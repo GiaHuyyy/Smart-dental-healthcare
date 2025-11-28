@@ -161,6 +161,8 @@ export default function DoctorPatients() {
       if (selectedFilter && selectedFilter !== "all") params.append("status", selectedFilter);
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
+      // Thêm doctorId để chỉ lấy bệnh nhân có lịch hẹn completed với bác sĩ này
+      if (session?.user?._id) params.append("doctorId", session.user._id);
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/patients/search?${params}`);
       const data = await response.json();
 
@@ -194,6 +196,8 @@ export default function DoctorPatients() {
   const fetchStats = async () => {
     try {
       const params = new URLSearchParams();
+      // Thêm doctorId để chỉ lấy thống kê bệnh nhân có lịch hẹn completed với bác sĩ này
+      if (session?.user?._id) params.append("doctorId", session.user._id);
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/patients/stats?${params}`);
       const data = await response.json();
 
@@ -267,7 +271,9 @@ export default function DoctorPatients() {
 
   const fetchPatientAppointments = async (patientId: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/history?current=1&pageSize=50`);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/history?current=1&pageSize=50`
+      );
       const data = await response.json();
       if (data.success) {
         const appointments = data.data.appointments || [];
@@ -280,7 +286,9 @@ export default function DoctorPatients() {
 
   const fetchPatientMedicalRecords = async (patientId: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/patient/${patientId}`);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/patient/${patientId}`
+      );
       const data = await response.json();
       if (data && !data.error) {
         const records = data.data || data.results || data;
@@ -302,7 +310,9 @@ export default function DoctorPatients() {
       }
 
       // Fetch revenue data for doctor filtered by patient ID
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?patientId=${patientId}`);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?patientId=${patientId}`
+      );
       const data = await res.json();
 
       // Handle response format from revenue API
@@ -448,7 +458,7 @@ export default function DoctorPatients() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Tổng bệnh nhân</p>
-                <p className="text-2xl font-bold text-gray-900">{stats ? stats.totalPatients : "..."}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats ? stats.totalPatients ?? 0 : "..."}</p>
               </div>
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                 <Users className="w-6 h-6 text-primary" />
@@ -465,7 +475,7 @@ export default function DoctorPatients() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Đang hoạt động</p>
-                <p className="text-2xl font-bold text-emerald-600">{stats ? stats.activePatients : "..."}</p>
+                <p className="text-2xl font-bold text-emerald-600">{stats ? stats.activePatients ?? 0 : "..."}</p>
               </div>
               <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
                 <Check className="w-6 h-6 text-emerald-600" />
@@ -482,7 +492,7 @@ export default function DoctorPatients() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Mới tháng này</p>
-                <p className="text-2xl font-bold text-purple-600">{stats ? stats.newPatientsThisMonth : "..."}</p>
+                <p className="text-2xl font-bold text-purple-600">{stats ? stats.newPatientsThisMonth ?? 0 : "..."}</p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-purple-600" />
@@ -499,7 +509,7 @@ export default function DoctorPatients() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Không hoạt động</p>
-                <p className="text-2xl font-bold text-orange-600">{stats ? stats.inactivePatients : "..."}</p>
+                <p className="text-2xl font-bold text-orange-600">{stats ? stats.inactivePatients ?? 0 : "..."}</p>
               </div>
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                 <Activity className="w-6 h-6 text-orange-600" />

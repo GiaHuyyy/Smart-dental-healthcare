@@ -23,7 +23,7 @@ import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
-import { Lightbulb, Calendar, Wrench, Stethoscope, Check, FileText, X, Search, BarChart2 } from "lucide-react";
+import { Lightbulb, Calendar, Wrench, Stethoscope, Check, FileText, X, Search, BarChart2, User } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -1310,28 +1310,6 @@ export default function ChatInterface({
     return <Wrench className="w-4 h-4 mr-1" />;
   };
 
-  const getUrgencyBadge = () => {
-    const colors = {
-      high: "bg-red-100 text-red-800 border-red-300",
-      medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
-      low: "bg-green-100 text-green-800 border-green-300",
-    };
-
-    const labels = {
-      high: "Khẩn cấp",
-      medium: "Trung bình",
-      low: "Bình thường",
-    };
-
-    return (
-      <div
-        className={`inline-flex items-center px-2 py-1 text-xs font-medium border rounded-full ${colors[urgencyLevel]}`}
-      >
-        {labels[urgencyLevel]}
-      </div>
-    );
-  };
-
   const quickSuggestions = [
     "Sâu răng, ê buốt khi ăn đồ ngọt hoặc lạnh",
     "Răng mọc lệch, chen chúc, khớp cắn sai",
@@ -1380,15 +1358,6 @@ export default function ChatInterface({
         return colors[index];
       };
 
-      const getInitials = (name: string) => {
-        return name
-          .split(" ")
-          .map((word) => word.charAt(0))
-          .join("")
-          .slice(0, 2)
-          .toUpperCase();
-      };
-
       return (
         <div
           className="border-t border-x rounded-tl-md rounded-tr-md border-gray-200"
@@ -1396,7 +1365,7 @@ export default function ChatInterface({
         >
           <div className="px-4 py-2">
             <div className="flex items-center justify-between mb-1">
-              <h4 className="font-medium" style={{ color: "var(--color-primary-600)" }}>
+              <h4 className="font-medium text-primary">
                 Bác sĩ được đề xuất
               </h4>
               <button
@@ -1410,16 +1379,26 @@ export default function ChatInterface({
               <div className="flex items-start space-x-3">
                 {/* Doctor Avatar */}
                 <div
-                  className={`w-10 h-10 ${getAvatarColor(
-                    suggestedDoctor.fullName
-                  )} rounded-full flex items-center justify-center flex-shrink-0`}
+                  className={`w-10 h-10 ${
+                    (suggestedDoctor as any).avatarUrl ? "" : "bg-primary"
+                  } rounded-full flex items-center justify-center shrink-0 overflow-hidden`}
                 >
-                  <span className="text-white font-medium text-sm">{getInitials(suggestedDoctor.fullName)}</span>
+                  {(suggestedDoctor as any).avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={(suggestedDoctor as any).avatarUrl}
+                      alt={suggestedDoctor.fullName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="text-white w-5 h-5" />
+                    // <span className="text-white font-medium text-sm">{getInitials(suggestedDoctor.fullName)}</span>
+                  )}
                 </div>
 
                 {/* Doctor Info */}
                 <div className="flex-1">
-                  <h5 className="font-semibold" style={{ color: "var(--color-primary-600)" }}>
+                  <h5 className="font-semibold text-primary">
                     {suggestedDoctor.fullName}
                   </h5>
                   <p className="text-sm mb-3" style={{ color: "var(--color-primary-contrast)" }}>

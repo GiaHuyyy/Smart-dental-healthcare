@@ -65,11 +65,11 @@ export class RealtimeChatService {
 
     return await this.conversationModel
       .find(query)
-      .populate({ path: 'lastMessage', select: 'content fileUrl' }) 
-      .populate('patientId', 'fullName firstName lastName avatar email')
+      .populate({ path: 'lastMessage', select: 'content fileUrl' })
+      .populate('patientId', 'fullName firstName lastName avatarUrl email')
       .populate(
         'doctorId',
-        'fullName firstName lastName avatar email specialty',
+        'fullName firstName lastName avatarUrl email specialty',
       )
       .sort({ lastMessageAt: -1 });
   }
@@ -177,7 +177,7 @@ export class RealtimeChatService {
 
     const populatedMessage = await this.messageModel
       .findById(savedMessage._id)
-      .populate('senderId', 'firstName lastName avatar')
+      .populate('senderId', 'firstName lastName avatarUrl')
       .populate('replyTo');
 
     if (!populatedMessage) {
@@ -228,7 +228,7 @@ export class RealtimeChatService {
       .limit(limit)
       .populate({
         path: 'senderId',
-        select: 'fullName firstName lastName email avatar',
+        select: 'fullName firstName lastName email avatarUrl',
       })
       .lean()
       .exec();
@@ -323,8 +323,11 @@ export class RealtimeChatService {
   ): Promise<ConversationDocument> {
     const conversation = await this.conversationModel
       .findById(conversationId)
-      .populate('patientId', 'fullName firstName lastName avatar email')
-      .populate('doctorId', 'fullName firstName lastName avatar email specialization')
+      .populate('patientId', 'fullName firstName lastName avatarUrl email')
+      .populate(
+        'doctorId',
+        'fullName firstName lastName avatarUrl email specialty',
+      )
       .populate('lastMessage');
 
     if (!conversation) {
