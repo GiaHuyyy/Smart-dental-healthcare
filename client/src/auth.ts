@@ -76,11 +76,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     updateAge: 5 * 60, // Update session cookie every 5 minutes if user active
   },
   callbacks: {
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session: updatedSession }) {
       if (user) {
         token.user = user as IUser;
         token.access_token = (user as any).access_token;
         token.access_expire = Date.now() + 5 * 60 * 60 * 1000; // 5 hours from now
+      }
+
+      // Handle session update trigger (from updateSession in client)
+      if (trigger === "update" && updatedSession?.user) {
+        // Merge updated user data into token
+        token.user = {
+          ...(token.user as IUser),
+          ...updatedSession.user,
+        };
       }
 
       // Check if token expired

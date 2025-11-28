@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { sendRequest } from "@/utils/api";
 import { Settings, User, Lock, Save, Eye, EyeOff, Camera, Loader2, Bell, Shield, Upload, X } from "lucide-react";
@@ -72,6 +73,7 @@ export default function SettingsPage({
   subtitle = "Quản lý thông tin cá nhân và tùy chọn tài khoản",
 }: SettingsPageProps) {
   const { data: session, update: updateSession } = useSession();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
@@ -516,6 +518,9 @@ export default function SettingsPage({
             avatarUrl: avatarUrl,
           },
         });
+
+        // Force refresh to update Header with new session data
+        router.refresh();
 
         if (pendingAvatarFile) {
           URL.revokeObjectURL(previewAvatarUrl);
