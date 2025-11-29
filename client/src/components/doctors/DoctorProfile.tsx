@@ -28,7 +28,14 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import Image from "next/image";
 import ReviewModal from "@/components/appointments/ReviewModal";
+
+interface ClinicImage {
+  url: string;
+  caption?: string;
+  order?: number;
+}
 
 interface Doctor {
   _id: string;
@@ -51,6 +58,10 @@ interface Doctor {
   workAddress?: string;
   consultationFee?: number;
   workingHours?: WorkingHourItem[];
+  // Clinic info
+  clinicName?: string;
+  clinicDescription?: string;
+  clinicImages?: ClinicImage[];
 }
 
 interface WorkingHourItem {
@@ -121,6 +132,20 @@ export default function DoctorProfile({
   const [editHoursValue, setEditHoursValue] = useState<WorkingHourItem[]>([]);
   const [savingHours, setSavingHours] = useState(false);
 
+  // Inline edit states for Clinic Info
+  const [isEditingClinic, setIsEditingClinic] = useState(false);
+  const [editClinicName, setEditClinicName] = useState("");
+  const [editClinicDescription, setEditClinicDescription] = useState("");
+  const [editClinicImages, setEditClinicImages] = useState<ClinicImage[]>([]);
+  const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([]);
+  const [savingClinic, setSavingClinic] = useState(false);
+  const clinicImageInputRef = useRef<HTMLInputElement>(null);
+
+  // Image lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   // Default working hours
   const defaultWorkingHours: WorkingHourItem[] = [
     { day: "Thứ 2 - Thứ 7", time: "08:00 - 17:00" },
@@ -163,6 +188,9 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
                 ...item,
                 bio: profile.bio || item.bio,
                 workingHours: profile.workingHours || item.workingHours,
+                clinicName: profile.clinicName || item.clinicName,
+                clinicDescription: profile.clinicDescription || item.clinicDescription,
+                clinicImages: profile.clinicImages || item.clinicImages,
               };
             }
           }
@@ -431,6 +459,115 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
     }
   };
 
+  // Handle Clinic Info inline editing
+  const handleStartEditClinic = () => {
+    setEditClinicName(doctor?.clinicName || "");
+    setEditClinicDescription(doctor?.clinicDescription || "");
+    setEditClinicImages(doctor?.clinicImages || []);
+    setPendingImageFiles([]);
+    setIsEditingClinic(true);
+  };
+
+  const handleCancelEditClinic = () => {
+    setIsEditingClinic(false);
+    setEditClinicName("");
+    setEditClinicDescription("");
+    setEditClinicImages([]);
+    setPendingImageFiles([]);
+  };
+
+  const handleClinicImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newFiles = Array.from(files);
+    // Validate file types
+    const validFiles = newFiles.filter((file) => file.type.startsWith("image/"));
+    if (validFiles.length !== newFiles.length) {
+      toast.error("Chỉ được upload file ảnh");
+    }
+
+    setPendingImageFiles((prev) => [...prev, ...validFiles]);
+
+    // Reset input
+    if (clinicImageInputRef.current) {
+      clinicImageInputRef.current.value = "";
+    }
+  };
+
+  const handleRemovePendingImage = (index: number) => {
+    setPendingImageFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExistingImage = (imageUrl: string) => {
+    setEditClinicImages((prev) => prev.filter((img) => img.url !== imageUrl));
+  };
+
+  const handleSaveClinic = async () => {
+    if (!doctor || !session) return;
+
+    setSavingClinic(true);
+    try {
+      const accessToken = (session as unknown as { access_token?: string })?.access_token;
+
+      // Upload pending images first
+      const uploadedImages: ClinicImage[] = [];
+      for (const file of pendingImageFiles) {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-profile/me/clinic-images`, {
+          method: "POST",
+          headers: {
+            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+          },
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          if (uploadData.imageUrl) {
+            uploadedImages.push({ url: uploadData.imageUrl, order: editClinicImages.length + uploadedImages.length });
+          }
+        }
+      }
+
+      // Update clinic info
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-profile/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify({
+          clinicName: editClinicName,
+          clinicDescription: editClinicDescription,
+          clinicImages: [...editClinicImages, ...uploadedImages],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Không thể cập nhật thông tin phòng khám");
+      }
+
+      // Update local state
+      setDoctor({
+        ...doctor,
+        clinicName: editClinicName,
+        clinicDescription: editClinicDescription,
+        clinicImages: [...editClinicImages, ...uploadedImages],
+      });
+      setIsEditingClinic(false);
+      setPendingImageFiles([]);
+      toast.success("Đã cập nhật thông tin phòng khám!");
+    } catch (error) {
+      console.error("Update clinic error:", error);
+      toast.error("Không thể cập nhật thông tin phòng khám");
+    } finally {
+      setSavingClinic(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen p-6">
@@ -506,7 +643,7 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8 pb-6">
         {/* Doctor Information Section */}
         <div className="healthcare-card-elevated p-6">
           <div className="flex items-center justify-between mb-6">
@@ -765,7 +902,7 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
                 value={editBioValue}
                 onChange={(e) => setEditBioValue(e.target.value)}
                 placeholder="Nhập giới thiệu về bản thân..."
-                className="w-full min-h-[120px] p-3 border border-gray-300 rounded-lg text-sm text-gray-700 leading-6 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-y"
+                className="w-full min-h-[120px] p-3 border border-gray-300 rounded-lg text-sm text-gray-700 leading-6 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-y"
               />
             ) : (
               <p className="text-gray-700 text-sm leading-6 whitespace-pre-line">
@@ -821,7 +958,7 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
                       value={item.day}
                       onChange={(e) => handleUpdateHourItem(index, "day", e.target.value)}
                       placeholder="Ví dụ: Thứ 2 - Thứ 6"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                     />
                     <span className="text-gray-400">:</span>
                     <input
@@ -829,7 +966,7 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
                       value={item.time}
                       onChange={(e) => handleUpdateHourItem(index, "time", e.target.value)}
                       placeholder="Ví dụ: 08:00 - 17:00"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                     />
                     <button
                       onClick={() => handleRemoveHourItem(index)}
@@ -861,6 +998,199 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
               </div>
             )}
           </div>
+        </div>
+
+        {/* Clinic Info Section - Always visible for both */}
+        <div className="healthcare-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-gray-900">Về phòng khám</h3>
+            </div>
+            {viewMode === "doctor" && !isEditingClinic && (
+              <button
+                onClick={handleStartEditClinic}
+                className="text-sm text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                Chỉnh sửa
+              </button>
+            )}
+            {viewMode === "doctor" && isEditingClinic && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveClinic}
+                  disabled={savingClinic}
+                  className="text-sm text-white bg-primary hover:bg-primary/90 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                >
+                  {savingClinic ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Lưu
+                </button>
+                <button
+                  onClick={handleCancelEditClinic}
+                  disabled={savingClinic}
+                  className="text-sm text-gray-600 hover:text-gray-800 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Hủy
+                </button>
+              </div>
+            )}
+          </div>
+
+          {viewMode === "doctor" && isEditingClinic ? (
+            <div className="space-y-4">
+              {/* Clinic Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tên phòng khám</label>
+                <input
+                  type="text"
+                  value={editClinicName}
+                  onChange={(e) => setEditClinicName(e.target.value)}
+                  placeholder="Nhập tên phòng khám..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Clinic Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả phòng khám</label>
+                <textarea
+                  value={editClinicDescription}
+                  onChange={(e) => setEditClinicDescription(e.target.value)}
+                  placeholder="Nhập mô tả về phòng khám..."
+                  className="w-full min-h-20 p-3 border border-gray-300 rounded-lg text-sm text-gray-700 leading-6 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-y"
+                />
+              </div>
+
+              {/* Clinic Images */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hình ảnh phòng khám</label>
+
+                {/* Existing Images */}
+                {editClinicImages.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-3">
+                    {editClinicImages.map((img, index) => (
+                      <div
+                        key={`existing-${index}`}
+                        className="relative group aspect-video rounded-lg overflow-hidden border border-gray-200"
+                      >
+                        <Image
+                          src={img.url}
+                          alt={img.caption || `Ảnh phòng khám ${index + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          onClick={() => handleRemoveExistingImage(img.url)}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          title="Xóa ảnh"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pending Images Preview */}
+                {pendingImageFiles.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-3">
+                    {pendingImageFiles.map((file, index) => (
+                      <div
+                        key={`pending-${index}`}
+                        className="relative group aspect-video rounded-lg overflow-hidden border border-primary border-dashed"
+                      >
+                        <Image
+                          src={URL.createObjectURL(file)}
+                          alt={`Ảnh mới ${index + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                        <div className="absolute inset-0 bg-primary/10" />
+                        <span className="absolute bottom-1 left-1 text-xs bg-primary text-white px-1.5 py-0.5 rounded">
+                          Mới
+                        </span>
+                        <button
+                          onClick={() => handleRemovePendingImage(index)}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          title="Xóa ảnh"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload Button */}
+                <input
+                  ref={clinicImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleClinicImageSelect}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => clinicImageInputRef.current?.click()}
+                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Thêm ảnh phòng khám
+                </button>
+                <p className="text-xs text-gray-500 mt-1">Chỉ upload file ảnh. Ảnh sẽ được tải lên khi bấm Lưu.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Display clinic name and description */}
+              {doctor.clinicName && (
+                <div>
+                  <h4 className="font-medium text-gray-900">{doctor.clinicName}</h4>
+                  {doctor.clinicDescription && (
+                    <p className="text-gray-700 text-sm leading-6 mt-1 whitespace-pre-line">
+                      {doctor.clinicDescription}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Display clinic images */}
+              {doctor.clinicImages && doctor.clinicImages.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {doctor.clinicImages.map((img, index) => (
+                    <div
+                      key={index}
+                      className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 cursor-pointer"
+                      onClick={() => {
+                        setLightboxImages(doctor.clinicImages!.map((i) => i.url));
+                        setLightboxIndex(index);
+                        setLightboxOpen(true);
+                      }}
+                    >
+                      <Image
+                        src={img.url}
+                        alt={img.caption || `Ảnh phòng khám ${index + 1}`}
+                        fill
+                        className="object-cover hover:scale-105 transition-transform"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-gray-300 rounded-lg">
+                  <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">Chưa có thông tin phòng khám</p>
+                  {viewMode === "doctor" && (
+                    <p className="text-gray-400 text-xs mt-1">
+                      Thêm ảnh và mô tả để bệnh nhân hiểu rõ hơn về phòng khám của bạn
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Reviews Section */}
@@ -992,6 +1322,85 @@ Tôi cam kết mang đến dịch vụ chất lượng cao, an toàn và hiệu 
           isEditing={true}
           warningMessage="⚠️ Lưu ý: Một khi đã gửi chỉnh sửa, bạn sẽ không thể sửa lại lần nữa."
         />
+      )}
+
+      {/* Image Lightbox Modal */}
+      {lightboxOpen && lightboxImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={() => setLightboxOpen(false)}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 p-2 text-white hover:text-gray-300 transition-colors z-10"
+          >
+            <X className="w-8 h-8" />
+          </button>
+
+          {/* Image counter */}
+          <div className="absolute top-4 left-4 text-white text-sm z-10">
+            {lightboxIndex + 1} / {lightboxImages.length}
+          </div>
+
+          {/* Previous button */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxIndex((prev) => (prev === 0 ? lightboxImages.length - 1 : prev - 1));
+              }}
+              className="absolute left-4 p-2 text-white hover:text-gray-300 transition-colors z-10"
+            >
+              <ArrowLeft className="w-8 h-8" />
+            </button>
+          )}
+
+          {/* Next button */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setLightboxIndex((prev) => (prev === lightboxImages.length - 1 ? 0 : prev + 1));
+              }}
+              className="absolute right-4 p-2 text-white hover:text-gray-300 transition-colors z-10 rotate-180"
+            >
+              <ArrowLeft className="w-8 h-8" />
+            </button>
+          )}
+
+          {/* Main image */}
+          <div className="relative w-full h-full max-w-5xl max-h-[85vh] mx-4" onClick={(e) => e.stopPropagation()}>
+            <Image
+              src={lightboxImages[lightboxIndex]}
+              alt={`Ảnh phòng khám ${lightboxIndex + 1}`}
+              fill
+              className="object-contain"
+              sizes="(max-width: 1280px) 100vw, 1280px"
+              priority
+            />
+          </div>
+
+          {/* Thumbnail strip */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 overflow-x-auto max-w-[90vw] p-2">
+              {lightboxImages.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex(idx);
+                  }}
+                  className={`relative w-16 h-12 rounded overflow-hidden flex-shrink-0 border-2 transition-all ${
+                    idx === lightboxIndex ? "border-primary" : "border-transparent opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  <Image src={img} alt={`Thumbnail ${idx + 1}`} fill className="object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
