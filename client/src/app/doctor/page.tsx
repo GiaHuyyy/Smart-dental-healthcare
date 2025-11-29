@@ -27,8 +27,8 @@ export default function DoctorDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [loading, setLoading] = useState(true); // Loading cho cả trang (lần đầu)
-  const [chartLoading, setChartLoading] = useState(true); // === THÊM MỚI: Loading cho chart
+  const [loading, setLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
