@@ -10,6 +10,7 @@ import { AiChatHistoryModule } from './modules/ai-chat-history/ai-chat-history.m
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { DoctorProfileModule } from './modules/doctor-profile/doctor-profile.module';
 import { DoctorScheduleModule } from './modules/doctor-schedule/doctor-schedule.module';
 import { GeocodingModule } from './modules/geocoding/geocoding.module';
 import { ImageAnalysisModule } from './modules/image-analysis/image-analysis.module';
@@ -49,6 +50,7 @@ import { WebRTCModule } from './modules/webrtc/webrtc.module';
     ImageAnalysisModule,
     ChatModule,
     AppointmentsModule,
+    DoctorProfileModule,
     DoctorScheduleModule,
     MedicalRecordsModule,
     MedicationsModule,

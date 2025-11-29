@@ -2,7 +2,7 @@
 
 import Header from "@/components/Header";
 import ShellLayout from "@/components/ShellLayout";
-import { BarChart2, Calendar, MessageSquare, Settings, Stethoscope, Users, Wallet } from "lucide-react";
+import { BarChart2, Calendar, MessageSquare, Settings, Stethoscope, User, Users, Wallet } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -12,6 +12,7 @@ const navigation = [
   { name: "Bệnh nhân", href: "/doctor/patients", icon: <Users className="w-4 h-4" /> },
   { name: "Chat & Tư vấn", href: "/doctor/chat", icon: <MessageSquare className="w-4 h-4" /> },
   { name: "Doanh thu", href: "/doctor/revenue", icon: <Wallet className="w-4 h-4" /> },
+  { name: "Về tôi", href: "/doctor/about", icon: <User className="w-4 h-4" /> },
   { name: "Cài đặt", href: "/doctor/settings", icon: <Settings className="w-4 h-4" /> },
 ];
 
