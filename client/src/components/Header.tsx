@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import LogoutButton from "./auth/LogoutButton";
-import { User, Settings, Activity, Calendar, Home, FileText } from "lucide-react";
+import { User, Settings, Activity, Home, FileText, Drone } from "lucide-react";
 import Image from "next/image";
 import { PolicyModal } from "@/components/PolicyModal";
 import { NotificationButton } from "./NotificationButton";
@@ -100,7 +100,7 @@ export default function Header() {
             <div className="hidden sm:block">
               <PolicyModal
                 trigger={
-                  <button className="flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-blue-50 hover:text-[#00a6f4] transition-colors">
+                  <button className="flex items-center gap-2  px-3 py-2 rounded-lg text-sm font-medium ring bg-primary/10 ring-primary text-primary hover:opacity-75 transition-colors">
                     <FileText className="w-4 h-4" />
                     Chính sách Đặt lịch
                   </button>
@@ -109,13 +109,20 @@ export default function Header() {
             </div>
             {session?.user ? (
               <>
-                {/* Quick Actions for logged-in users */}
+                {/* Chat AI button - only for patients */}
+                {!isHomePage && session.user.role === "patient" && (
+                  <Link
+                    href="/patient/chat"
+                    className="flex items-center ring ring-primary gap-2 px-3 hover:opacity-75 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+                  >
+                    <Drone className="w-5 h-5" />
+                    <span className="hidden sm:inline">Chat AI</span>
+                  </Link>
+                )}
+
+                {/* Notification button for logged-in users */}
                 {!isHomePage && (
                   <div className="flex items-center gap-2">
-                    <button className="p-2.5 text-gray-600 hover:text-[#00a6f4] hover:bg-blue-50 rounded-lg transition-colors relative">
-                      <Calendar className="w-5 h-5" />
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full"></span>
-                    </button>
                     <NotificationButton />
                   </div>
                 )}
@@ -129,7 +136,7 @@ export default function Header() {
                     </div>
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
-                      className="w-10 h-10 bg-linear-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center border-2 border-white shadow-md overflow-hidden"
+                      className="w-10 h-10 bg-linear-to-br from-gray-100 to-gray-200 rounded-full hover:from-blue-50 hover:to-blue-100 transition-all duration-200 cursor-pointer flex items-center justify-center ring-2 ring-primary shadow-md overflow-hidden"
                       aria-label="User menu"
                     >
                       {session.user.avatarUrl ? (

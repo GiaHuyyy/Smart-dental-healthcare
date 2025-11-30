@@ -2,7 +2,7 @@
 "use client";
 
 import CallButton from "@/components/call/CallButton";
-import { User, Phone, Calendar, FileText, Video, Lightbulb, Lock, Zap, Drone } from "lucide-react";
+import { User, Phone, Calendar, FileText, Video, Lightbulb, Lock, Zap, Drone, ShieldCheck } from "lucide-react";
 
 interface ChatHeaderProps {
   type: "ai" | "doctor" | "patient";
@@ -95,10 +95,12 @@ export default function ChatHeader({
               <span className="inline-flex items-center space-x-2">
                 <Lightbulb className="w-4 h-4 text-primary" />
                 <span>Tư vấn 24/7</span> <Lock className="w-3 h-3 mx-2 text-primary" /> <span>Bảo mật thông tin</span>{" "}
-                <Zap className="w-3 h-3 mx-2 text-primary" /> <span>Phản hồi nhanh</span>
+                <Zap className="w-3 h-3 mx-2 text-primary" />
+                <span>Phản hồi nhanh</span>
               </span>
+              <ShieldCheck className="w-3 h-3 mx-2 text-primary" />
               <span>
-                Phiên bản <span className="text-primary">2.0</span>
+                Phiên bản<span className="text-primary ml-1">2.0</span>
               </span>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-medium ml-2 text-primary ring ring-primary">
