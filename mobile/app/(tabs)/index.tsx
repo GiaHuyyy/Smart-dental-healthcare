@@ -344,7 +344,7 @@ export default function PatientDashboard() {
         </View>
 
         {/* Stats Grid */}
-        <View className="mt-4 px-4">
+        <View className="mt-6 px-4">
           <View className="flex-row gap-3">
             {/* Next Appointment */}
             <TouchableOpacity
@@ -352,33 +352,31 @@ export default function PatientDashboard() {
               onPress={() => router.push('/(tabs)/appointments')}
               activeOpacity={0.7}
             >
-              <Card className="h-32">
-                <View className="flex-1 justify-between">
-                  <View className="flex-row items-start justify-between">
-                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[100] }}>
-                      <Ionicons name="calendar-outline" size={20} color={Colors.primary[600]} />
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.text.tertiary} />
+              <Card className="p-4" style={{ minHeight: 140 }}>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[100] }}>
+                    <Ionicons name="calendar-outline" size={20} color={Colors.primary[600]} />
                   </View>
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
-                      Lịch hẹn tiếp theo
-                    </Text>
-                    {stats?.nextAppointment ? (
-                      <>
-                        <Text className="mt-1 text-sm font-semibold" style={{ color: theme.text.primary }}>
-                          {stats.nextAppointment.date}
-                        </Text>
-                        <Text className="mt-0.5 text-xs" style={{ color: theme.text.tertiary }}>
-                          {stats.nextAppointment.time} • {stats.nextAppointment.doctor}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text className="mt-1 text-sm font-semibold" style={{ color: theme.text.tertiary }}>
-                        Chưa có lịch hẹn
+                  <Ionicons name="chevron-forward" size={16} color={theme.text.tertiary} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs font-medium mb-2" style={{ color: theme.text.secondary }}>
+                    Lịch hẹn tiếp theo
+                  </Text>
+                  {stats?.nextAppointment ? (
+                    <>
+                      <Text className="text-sm font-bold mb-1" style={{ color: theme.text.primary }}>
+                        {stats.nextAppointment.date}
                       </Text>
-                    )}
-                  </View>
+                      <Text className="text-xs leading-4" style={{ color: theme.text.tertiary }} numberOfLines={2}>
+                        {stats.nextAppointment.time} • {stats.nextAppointment.doctor}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text className="text-sm font-semibold" style={{ color: theme.text.tertiary }}>
+                      Chưa có lịch hẹn
+                    </Text>
+                  )}
                 </View>
               </Card>
             </TouchableOpacity>
@@ -389,30 +387,28 @@ export default function PatientDashboard() {
               onPress={() => router.push('/(tabs)/appointments')}
               activeOpacity={0.7}
             >
-              <Card className="h-32">
-                <View className="flex-1 justify-between">
-                  <View className="flex-row items-start justify-between">
-                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.success[100] }}>
-                      <Ionicons name="checkmark-done-outline" size={20} color={Colors.success[600]} />
+              <Card className="p-4" style={{ minHeight: 140 }}>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.success[100] }}>
+                    <Ionicons name="checkmark-done-outline" size={20} color={Colors.success[600]} />
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={theme.text.tertiary} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs font-medium mb-2" style={{ color: theme.text.secondary }}>
+                    Lượt khám hoàn thành
+                  </Text>
+                  <Text className="text-2xl font-bold mb-1" style={{ color: theme.text.primary }}>
+                    {stats?.completedAppointments || 0}
+                  </Text>
+                  {stats && stats.completedGrowth > 0 && (
+                    <View className="flex-row items-center">
+                      <Ionicons name="trending-up-outline" size={12} color={Colors.success[600]} />
+                      <Text className="ml-1 text-xs font-medium" style={{ color: Colors.success[600] }}>
+                        +{stats.completedGrowth} tháng này
+                      </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.text.tertiary} />
-                  </View>
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
-                      Lượt khám hoàn thành
-                    </Text>
-                    <Text className="mt-1 text-2xl font-bold" style={{ color: theme.text.primary }}>
-                      {stats?.completedAppointments || 0}
-                    </Text>
-                    {stats && stats.completedGrowth > 0 && (
-                      <View className="mt-1 flex-row items-center">
-                        <Ionicons name="trending-up-outline" size={12} color={Colors.success[600]} />
-                        <Text className="ml-1 text-xs font-medium" style={{ color: Colors.success[600] }}>
-                          +{stats.completedGrowth} tháng này
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                  )}
                 </View>
               </Card>
             </TouchableOpacity>
@@ -425,31 +421,29 @@ export default function PatientDashboard() {
               onPress={() => router.push('/(tabs)/records')}
               activeOpacity={0.7}
             >
-              <Card className="h-32">
-                <View className="flex-1 justify-between">
-                  <View className="flex-row items-start justify-between">
-                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.warning[100] }}>
-                      <Ionicons name="alert-circle-outline" size={20} color={Colors.warning[600]} />
+              <Card className="p-4" style={{ minHeight: 140 }}>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.warning[100] }}>
+                    <Ionicons name="alert-circle-outline" size={20} color={Colors.warning[600]} />
+                  </View>
+                  {stats && stats.followUpRequired > 0 && (
+                    <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.error[100] }}>
+                      <Text className="text-xs font-semibold" style={{ color: Colors.error[700] }}>
+                        {stats.followUpRequired}
+                      </Text>
                     </View>
-                    {stats && stats.followUpRequired > 0 && (
-                      <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.error[100] }}>
-                        <Text className="text-xs font-semibold" style={{ color: Colors.error[700] }}>
-                          {stats.followUpRequired}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
-                      Cần tái khám
-                    </Text>
-                    <Text className="mt-1 text-2xl font-bold" style={{ color: theme.text.primary }}>
-                      {stats?.followUpRequired || 0}
-                    </Text>
-                    <Text className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
-                      Lịch hẹn cần xác nhận
-                    </Text>
-                  </View>
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs font-medium mb-2" style={{ color: theme.text.secondary }}>
+                    Cần tái khám
+                  </Text>
+                  <Text className="text-2xl font-bold mb-1" style={{ color: theme.text.primary }}>
+                    {stats?.followUpRequired || 0}
+                  </Text>
+                  <Text className="text-xs" style={{ color: theme.text.tertiary }}>
+                    Lịch hẹn cần xác nhận
+                  </Text>
                 </View>
               </Card>
             </TouchableOpacity>
@@ -460,29 +454,27 @@ export default function PatientDashboard() {
               onPress={() => router.push('/(tabs)/records')}
               activeOpacity={0.7}
             >
-              <Card className="h-32">
-                <View className="flex-1 justify-between">
-                  <View className="flex-row items-start justify-between">
-                    <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[100] }}>
-                      <Ionicons name="fitness-outline" size={20} color={Colors.primary[600]} />
-                    </View>
-                    <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.success[100] }}>
-                      <Text className="text-xs font-semibold" style={{ color: Colors.success[700] }}>
-                        Tốt
-                      </Text>
-                    </View>
+              <Card className="p-4" style={{ minHeight: 140 }}>
+                <View className="flex-row items-center justify-between mb-3">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[100] }}>
+                    <Ionicons name="fitness-outline" size={20} color={Colors.primary[600]} />
                   </View>
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>
-                      Chỉ số sức khỏe
-                    </Text>
-                    <Text className="mt-1 text-2xl font-bold" style={{ color: theme.text.primary }}>
-                      {stats?.oralHealthScore || 0}%
-                    </Text>
-                    <Text className="mt-1 text-xs" style={{ color: theme.text.tertiary }}>
-                      Tình trạng răng miệng
+                  <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.success[100] }}>
+                    <Text className="text-xs font-semibold" style={{ color: Colors.success[700] }}>
+                      Tốt
                     </Text>
                   </View>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs font-medium mb-2" style={{ color: theme.text.secondary }}>
+                    Chỉ số sức khỏe
+                  </Text>
+                  <Text className="text-2xl font-bold mb-1" style={{ color: theme.text.primary }}>
+                    {stats?.oralHealthScore || 0}%
+                  </Text>
+                  <Text className="text-xs" style={{ color: theme.text.tertiary }}>
+                    Tình trạng răng miệng
+                  </Text>
                 </View>
               </Card>
             </TouchableOpacity>

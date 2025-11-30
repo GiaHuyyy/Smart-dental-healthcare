@@ -192,7 +192,7 @@ export default function ChatListScreen() {
 
   const handleChatWithAI = useCallback(() => {
     router.push({
-      pathname: '/chat/[id]',
+      pathname: '/(tabs)/chat/[id]' as any,
       params: { id: 'ai-bot', name: 'Smart Dental AI', type: 'ai' },
     });
   }, [router]);
@@ -200,11 +200,15 @@ export default function ChatListScreen() {
   const handleChatWithDoctor = useCallback(
     (conversation: Conversation) => {
       const doctor = conversation.doctorId;
+      if (!doctor) {
+        console.warn('⚠️ [ChatList] Doctor data is missing in conversation:', conversation._id);
+        return;
+      }
       const doctorId = doctor._id;
       const doctorName = doctor.fullName;
       const conversationId = conversation._id;
       router.push({
-        pathname: '/chat/[id]',
+        pathname: '/(tabs)/chat/[id]' as any,
         params: { 
           id: doctorId, 
           name: doctorName, 
@@ -233,9 +237,15 @@ export default function ChatListScreen() {
   };
 
   const filteredConversations = conversations.filter((conv) => {
+    // Skip conversations with missing doctor data
+    if (!conv.doctorId) {
+      console.warn('⚠️ [ChatList] Conversation missing doctorId:', conv._id);
+      return false;
+    }
+    
     if (!searchTerm.trim()) return true;
     const doctor = conv.doctorId;
-    const name = doctor.fullName;
+    const name = doctor.fullName || '';
     const specialty = doctor.specialty ?? '';
     const search = searchTerm.toLowerCase();
     return name.toLowerCase().includes(search) || specialty.toLowerCase().includes(search);
@@ -379,8 +389,14 @@ export default function ChatListScreen() {
               <View className="space-y-0">
                 {filteredConversations.map((conversation) => {
                   const doctor = conversation.doctorId;
+                  
+                  // Safety check - should not happen after filter, but extra protection
+                  if (!doctor) {
+                    return null;
+                  }
+                  
                   const doctorId = doctor._id;
-                  const doctorName = doctor.fullName;
+                  const doctorName = doctor.fullName || 'Bác sĩ';
                   const specialty = doctor.specialty ?? 'Chuyên khoa Răng Hàm Mặt';
                   
                   // Get last message info

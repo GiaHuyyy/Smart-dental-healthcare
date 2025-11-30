@@ -1,19 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-    Bell,
-    ChevronRight,
-    FileText,
-    HelpCircle,
-    Languages,
-    Lock,
-    LogOut,
-    Mail,
-    Palette,
-    ShieldCheck,
-    Trash2,
-    UserCircle,
-} from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import {
     Alert,
@@ -27,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EditProfileModal } from '@/components/settings/EditProfileModal';
+import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -34,66 +22,80 @@ const SUPPORT_LINK = 'https://smart-dental-healthcare.com/support';
 const PRIVACY_LINK = 'https://smart-dental-healthcare.com/privacy';
 const TERMS_LINK = 'https://smart-dental-healthcare.com/terms';
 
+// Theme definition
+const theme = {
+  surface: '#ffffff',
+  border: '#e5e7eb',
+  text: {
+    primary: '#1f2937',
+    secondary: '#6b7280',
+  },
+};
+
 function SettingRow({
-  icon: Icon,
+  icon,
   title,
   description,
   onPress,
+  showChevron = true,
 }: {
-  icon: typeof UserCircle;
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   description?: string;
   onPress?: () => void;
+  showChevron?: boolean;
 }) {
   return (
     <TouchableOpacity
-      className="flex-row items-center justify-between rounded-3xl border border-white/70 bg-white/95 p-4 shadow-sm shadow-blue-100"
-      activeOpacity={0.8}
+      className="flex-row items-center justify-between rounded-2xl border p-4"
+      style={{ borderColor: Colors.primary[100], backgroundColor: theme.surface }}
+      activeOpacity={0.7}
       onPress={onPress}
     >
-      <View className="flex-row items-center space-x-3">
-        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-blue-50">
-          <Icon color="#1d4ed8" size={22} />
+      <View className="flex-row items-center flex-1">
+        <View className="h-11 w-11 items-center justify-center rounded-xl mr-3" style={{ backgroundColor: Colors.primary[50] }}>
+          <Ionicons name={icon} color={Colors.primary[600]} size={20} />
         </View>
-        <View>
-          <Text className="text-sm font-semibold text-slate-900">{title}</Text>
-          {description ? <Text className="mt-1 text-xs text-slate-500">{description}</Text> : null}
+        <View className="flex-1">
+          <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{title}</Text>
+          {description ? <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>{description}</Text> : null}
         </View>
       </View>
-      <ChevronRight color="#94a3b8" size={18} />
+      {showChevron && <Ionicons name="chevron-forward" color={Colors.gray[400]} size={18} />}
     </TouchableOpacity>
   );
 }
 
 function ToggleRow({
-  icon: Icon,
+  icon,
   title,
   description,
   value,
   onValueChange,
 }: {
-  icon: typeof UserCircle;
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   description?: string;
   value: boolean;
   onValueChange: (next: boolean) => void;
 }) {
   return (
-    <View className="flex-row items-center justify-between rounded-3xl border border-white/70 bg-white/95 p-4 shadow-sm shadow-blue-100">
-      <View className="flex-row items-center space-x-3">
-        <View className="h-12 w-12 items-center justify-center rounded-2xl bg-blue-50">
-          <Icon color="#1d4ed8" size={22} />
+    <View className="flex-row items-center justify-between rounded-2xl border p-4" style={{ borderColor: Colors.primary[100], backgroundColor: theme.surface }}>
+      <View className="flex-row items-center flex-1">
+        <View className="h-11 w-11 items-center justify-center rounded-xl mr-3" style={{ backgroundColor: Colors.primary[50] }}>
+          <Ionicons name={icon} color={Colors.primary[600]} size={20} />
         </View>
-        <View>
-          <Text className="text-sm font-semibold text-slate-900">{title}</Text>
-          {description ? <Text className="mt-1 text-xs text-slate-500">{description}</Text> : null}
+        <View className="flex-1">
+          <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>{title}</Text>
+          {description ? <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>{description}</Text> : null}
         </View>
       </View>
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: '#cbd5f5', true: '#3b82f6' }}
-        thumbColor={value ? '#ffffff' : '#f1f5f9'}
+        trackColor={{ false: Colors.gray[300], true: Colors.primary[400] }}
+        thumbColor={value ? Colors.primary[600] : '#f4f3f4'}
+        ios_backgroundColor={Colors.gray[300]}
       />
     </View>
   );
@@ -204,115 +206,179 @@ export default function SettingsScreen() {
   }, []);
 
   return (
-    <LinearGradient colors={['#eef2ff', '#e0f2fe', '#fff']} className="flex-1">
+    <LinearGradient colors={['#f0f9ff', '#e0f2fe', '#fff']} className="flex-1">
       <SafeAreaView className="flex-1">
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, paddingTop: 12 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: 16 }}
           showsVerticalScrollIndicator={false}
         >
-          <View className="space-y-6">
-            <View className="rounded-3xl border border-white/70 bg-white/95 p-6 shadow-lg shadow-blue-100">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1 pr-6">
-                  <View className="h-16 w-16 items-center justify-center rounded-3xl bg-blue-600">
-                    <UserCircle color="#ffffff" size={36} />
+          {/* Profile Card */}
+          <View className="rounded-3xl border p-6 mb-6" style={{ borderColor: Colors.primary[100], backgroundColor: theme.surface }}>
+            <View className="flex-row items-start justify-between">
+              <View className="flex-1">
+                <View className="flex-row items-center mb-4">
+                  <View className="h-16 w-16 items-center justify-center rounded-2xl mr-4" style={{ backgroundColor: Colors.primary[600] }}>
+                    <Ionicons name="person" color="#ffffff" size={32} />
                   </View>
-                  <Text className="mt-5 text-2xl font-semibold text-slate-900">
-                    {profile?.fullName ?? profile?.email ?? 'Người dùng Smart Dental'}
-                  </Text>
-                  <Text className="mt-2 text-sm text-slate-600">{profile?.email ?? 'Chưa cập nhật email'}</Text>
-                  <Text className="mt-1 text-xs text-slate-400 uppercase tracking-wide">Vai trò: {profile?.role ?? 'Bệnh nhân'}</Text>
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>
+                      {profile?.fullName ?? 'Người dùng'}
+                    </Text>
+                    <Text className="text-sm mt-1" style={{ color: theme.text.secondary }}>
+                      {profile?.email ?? 'Chưa cập nhật email'}
+                    </Text>
+                    <View className="mt-1 rounded-full px-2 py-0.5 self-start" style={{ backgroundColor: Colors.primary[50] }}>
+                      <Text className="text-[10px] font-semibold uppercase" style={{ color: Colors.primary[700] }}>
+                        {profile?.role ?? 'Bệnh nhân'}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
                 <TouchableOpacity
-                  className="rounded-3xl border border-blue-200 bg-blue-50 px-4 py-2"
+                  className="rounded-xl py-2.5 items-center"
+                  style={{ backgroundColor: Colors.primary[600] }}
                   onPress={handleUpdateProfile}
                 >
-                  <Text className="text-xs font-semibold text-blue-700">Chỉnh sửa</Text>
+                  <Text className="text-sm font-semibold text-white">Chỉnh sửa hồ sơ</Text>
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
 
-            <View className="space-y-4">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Giao diện & ngôn ngữ</Text>
-              <SettingRow 
-                icon={Palette} 
-                title="Chế độ giao diện" 
-                description={darkMode ? 'Chế độ tối' : 'Chế độ sáng'}
-                onPress={handleThemeToggle} 
-              />
-              <SettingRow 
-                icon={Languages} 
-                title="Ngôn ngữ" 
-                description={selectedLanguage === 'vi' ? 'Tiếng Việt' : 'English'}
-                onPress={handleLanguageSelect} 
-              />
+          {/* Settings Sections */}
+          <View className="space-y-6">
+            {/* Giao diện & ngôn ngữ */}
+            <View>
+              <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
+                Giao diện & Ngôn ngữ
+              </Text>
+              <View className="space-y-3">
+                <SettingRow 
+                  icon="color-palette-outline"
+                  title="Chế độ giao diện" 
+                  description={darkMode ? 'Chế độ tối' : 'Chế độ sáng'}
+                  onPress={handleThemeToggle} 
+                />
+                <SettingRow 
+                  icon="language-outline"
+                  title="Ngôn ngữ" 
+                  description={selectedLanguage === 'vi' ? 'Tiếng Việt' : 'English'}
+                  onPress={handleLanguageSelect} 
+                />
+              </View>
             </View>
 
-            <View className="space-y-4">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thông báo & bảo mật</Text>
-              <ToggleRow
-                icon={Bell}
-                title="Thông báo đẩy"
-                description="Nhận nhắc lịch hẹn và tái khám"
-                value={pushEnabled}
-                onValueChange={(value) => {
-                  setPushEnabled(value);
-                  Alert.alert('Cập nhật thông báo', value ? 'Đã bật nhắc nhở thông báo.' : 'Đã tắt nhắc nhở thông báo.');
-                }}
-              />
-              <ToggleRow
-                icon={Mail}
-                title="Email cập nhật"
-                description="Tin tức và hướng dẫn chăm sóc răng miệng"
-                value={emailUpdatesEnabled}
-                onValueChange={(value) => {
-                  setEmailUpdatesEnabled(value);
-                  void updateUser({});
-                }}
-              />
-              <ToggleRow
-                icon={ShieldCheck}
-                title="Sinh trắc học"
-                description="Sử dụng Face ID / vân tay khi đăng nhập"
-                value={biometricEnabled}
-                onValueChange={(value) => {
-                  setBiometricEnabled(value);
-                  Alert.alert('Sinh trắc học', value ? 'Tính năng sẽ được kích hoạt khi khả dụng.' : 'Đã tắt sinh trắc học.');
-                }}
-              />
+            {/* Thông báo & Bảo mật */}
+            <View>
+              <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
+                Thông báo & Bảo mật
+              </Text>
+              <View className="space-y-3">
+                <ToggleRow
+                  icon="notifications-outline"
+                  title="Thông báo đẩy"
+                  description="Nhận nhắc lịch hẹn và tái khám"
+                  value={pushEnabled}
+                  onValueChange={(value) => {
+                    setPushEnabled(value);
+                    Alert.alert('Cập nhật thông báo', value ? 'Đã bật thông báo đẩy' : 'Đã tắt thông báo đẩy');
+                  }}
+                />
+                <ToggleRow
+                  icon="mail-outline"
+                  title="Email cập nhật"
+                  description="Tin tức và hướng dẫn chăm sóc"
+                  value={emailUpdatesEnabled}
+                  onValueChange={(value) => {
+                    setEmailUpdatesEnabled(value);
+                    void updateUser({});
+                  }}
+                />
+                <ToggleRow
+                  icon="finger-print-outline"
+                  title="Sinh trắc học"
+                  description="Face ID / Vân tay khi đăng nhập"
+                  value={biometricEnabled}
+                  onValueChange={(value) => {
+                    setBiometricEnabled(value);
+                    Alert.alert('Sinh trắc học', value ? 'Tính năng sẽ được kích hoạt' : 'Đã tắt sinh trắc học');
+                  }}
+                />
+              </View>
             </View>
 
-            <View className="space-y-4">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tài khoản</Text>
-              <SettingRow icon={Lock} title="Đổi mật khẩu" description="Bảo vệ tài khoản của bạn" onPress={handleChangePassword} />
+            {/* Tài khoản */}
+            <View>
+              <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
+                Tài khoản
+              </Text>
+              <View className="space-y-3">
+                <SettingRow 
+                  icon="lock-closed-outline"
+                  title="Đổi mật khẩu" 
+                  description="Bảo vệ tài khoản của bạn" 
+                  onPress={handleChangePassword} 
+                />
+              </View>
             </View>
 
-            <View className="space-y-4">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hỗ trợ & thông tin</Text>
-              <SettingRow icon={HelpCircle} title="Liên hệ hỗ trợ" description="Đội ngũ Smart Dental" onPress={handleContactSupport} />
-              <SettingRow icon={ShieldCheck} title="Chính sách bảo mật" onPress={() => handleOpenLink(PRIVACY_LINK)} />
-              <SettingRow icon={FileText} title="Điều khoản dịch vụ" onPress={() => handleOpenLink(TERMS_LINK)} />
+            {/* Hỗ trợ & Thông tin */}
+            <View>
+              <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
+                Hỗ trợ & Thông tin
+              </Text>
+              <View className="space-y-3">
+                <SettingRow 
+                  icon="help-circle-outline"
+                  title="Liên hệ hỗ trợ" 
+                  description="Đội ngũ Smart Dental" 
+                  onPress={handleContactSupport} 
+                />
+                <SettingRow 
+                  icon="shield-checkmark-outline"
+                  title="Chính sách bảo mật" 
+                  onPress={() => handleOpenLink(PRIVACY_LINK)} 
+                />
+                <SettingRow 
+                  icon="document-text-outline"
+                  title="Điều khoản dịch vụ" 
+                  onPress={() => handleOpenLink(TERMS_LINK)} 
+                />
+              </View>
             </View>
 
-            <View className="space-y-4">
-              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dữ liệu & lưu trữ</Text>
-              <SettingRow 
-                icon={Trash2} 
-                title="Xóa bộ nhớ cache" 
-                description="Giải phóng dung lượng lưu trữ"
-                onPress={handleClearCache} 
-              />
+            {/* Dữ liệu & Lưu trữ */}
+            <View>
+              <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
+                Dữ liệu & Lưu trữ
+              </Text>
+              <View className="space-y-3">
+                <SettingRow 
+                  icon="trash-outline"
+                  title="Xóa bộ nhớ cache" 
+                  description="Giải phóng dung lượng"
+                  onPress={handleClearCache} 
+                />
+              </View>
             </View>
 
+            {/* Logout Button */}
             <TouchableOpacity
-              className="mt-2 flex-row items-center justify-center rounded-3xl border border-red-200 bg-red-50 py-4"
+              className="flex-row items-center justify-center rounded-2xl py-4 mt-2"
+              style={{ backgroundColor: Colors.error[50], borderWidth: 1, borderColor: Colors.error[200] }}
               activeOpacity={0.7}
               onPress={handleLogout}
             >
-              <LogOut color="#b91c1c" size={20} />
-              <Text className="ml-2 text-base font-semibold text-red-700">Đăng xuất</Text>
+              <Ionicons name="log-out-outline" color={Colors.error[700]} size={20} />
+              <Text className="ml-2 text-base font-bold" style={{ color: Colors.error[700] }}>Đăng xuất</Text>
             </TouchableOpacity>
+
+            {/* App Version */}
+            <View className="items-center py-4">
+              <Text className="text-xs" style={{ color: theme.text.secondary }}>Smart Dental Healthcare</Text>
+              <Text className="text-xs mt-1" style={{ color: theme.text.secondary }}>Phiên bản 1.0.0</Text>
+            </View>
           </View>
         </ScrollView>
 

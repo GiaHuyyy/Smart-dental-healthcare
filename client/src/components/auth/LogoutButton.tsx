@@ -1,8 +1,9 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+import { chatStorage } from "@/utils/chatStorage";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
 
 interface LogoutButtonProps {
   className?: string;
@@ -13,8 +14,20 @@ export default function LogoutButton({ className }: LogoutButtonProps) {
 
   const handleLogout = async () => {
     try {
-      await signOut({ redirect: false });
-      router.push("/");
+      // Clear client-side stored tokens or cached data
+      try {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("accessToken");
+        sessionStorage.removeItem("access_token");
+        sessionStorage.removeItem("accessToken");
+        localStorage.removeItem("newConversation");
+        chatStorage.clearChat();
+      } catch {}
+
+      // Use NextAuth's redirect-based signOut to ensure cookies/session are cleared server-side
+      await signOut({ redirect: true, callbackUrl: "/auth/login" });
+      // Fallback navigation in case redirect is blocked
+      router.push("/auth/login");
     } catch (error) {
       console.error("Logout error:", error);
     }
