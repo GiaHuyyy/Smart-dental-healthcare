@@ -14,6 +14,7 @@ import {
   User,
   Video,
   X,
+  UserCircle2
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useMemo } from "react";

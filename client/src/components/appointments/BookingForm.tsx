@@ -581,14 +581,14 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
       )}
 
       {/* Voucher Section */}
-      <div className="healthcare-card p-6">
+      <div className="healthcare-card p-6 relative overflow-visible">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Tag className="w-5 h-5 text-primary" />
           Mã giảm giá
         </h3>
         <div className="space-y-3">
           {/* Voucher Input and Select */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative">
             <div className="flex-1 relative">
               <input
                 type="text"
@@ -613,7 +613,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
 
               {/* Voucher Dropdown */}
               {showVoucherDropdown && !voucherApplied && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {loadingVouchers ? (
                     <div className="p-4 text-center text-gray-500">
                       <div className="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
