@@ -105,16 +105,34 @@ class AiChatHistoryService {
   }
 
   async updateSession(sessionId: string, updateData: Partial<AiChatSession>): Promise<AiChatSession> {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/sessions/${sessionId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updateData),
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/sessions/${sessionId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Failed to update session: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async clearSessionMessages(sessionId: string): Promise<{ cleared: boolean; messagesDeleted: number }> {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat-history/sessions/${sessionId}/messages`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to clear session messages: ${response.statusText}`);
     }
 
     return await response.json();

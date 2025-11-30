@@ -18,14 +18,25 @@ import {
 } from "@/store/slices/imageAnalysisSlice";
 import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { sendRequest } from "@/utils/api";
-import { chatStorage } from "@/utils/chatStorage";
 import { imageAnalysisAPI } from "@/utils/imageAnalysis";
 import { extractUserData } from "@/utils/sessionHelpers";
 import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
-import { Lightbulb, Calendar, Wrench, Stethoscope, Check, FileText, X, Search, BarChart2, User } from "lucide-react";
+import {
+  Lightbulb,
+  Calendar,
+  Wrench,
+  Stethoscope,
+  Check,
+  FileText,
+  X,
+  Search,
+  BarChart2,
+  User,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -232,6 +243,10 @@ export default function ChatInterface({
 
   // Video call state
   const [showIncomingCallModal, setShowIncomingCallModal] = useState(false);
+
+  // Delete chat confirmation modal state
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
 
   // Doctor chat state
   const [conversationMessages, setConversationMessages] = useState<
@@ -1165,9 +1180,16 @@ export default function ChatInterface({
       };
       setMessages((prev) => [...prev, goodbyeMessage]);
 
-      setTimeout(() => {
+      setTimeout(async () => {
+        // Clear messages from database (keep session)
+        if (currentSession?._id) {
+          try {
+            await aiChatHistoryService.clearSessionMessages(currentSession._id);
+          } catch (error) {
+            console.error("Error clearing session messages:", error);
+          }
+        }
         setMessages([]);
-        chatStorage.clearChat();
         dispatch(clearAnalysisResult());
         dispatch(clearAppointmentData());
         setShowQuickSuggestions(true);
@@ -1601,9 +1623,7 @@ export default function ChatInterface({
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`${
-                    message.role === "user" ? "max-w-xs lg:max-w-2xl" : "max-w-[90%] lg:max-w-3xl"
-                  }
+                  className={`${message.role === "user" ? "max-w-xs lg:max-w-2xl" : "max-w-[90%] lg:max-w-3xl"}
                   px-4 py-3 rounded-lg ${
                     message.role === "user"
                       ? "msg-outgoing"
@@ -1684,9 +1704,7 @@ export default function ChatInterface({
                                     <ul className="space-y-0">
                                       {section.bullets.map((bullet: string, bulletIndex: number) => (
                                         <li key={bulletIndex} className="text-gray-700 flex items-start text-sm">
-                                          <span className="mr-1 mt-0 text-primary">
-                                            •
-                                          </span>
+                                          <span className="mr-1 mt-0 text-primary">•</span>
                                           <span>{bullet}</span>
                                         </li>
                                       ))}
@@ -1804,20 +1822,78 @@ export default function ChatInterface({
             {messages.length > 1 && (
               <div className="text-center">
                 <button
-                  onClick={() => {
-                    if (confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) {
-                      setMessages([]);
-                      chatStorage.clearChat();
-                      setShowQuickSuggestions(true);
-                      setSuggestedDoctor(null);
-                      dispatch(clearAnalysisResult());
-                      dispatch(clearAppointmentData());
-                    }
-                  }}
-                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm transition-colors"
+                  onClick={() => setShowDeleteConfirmModal(true)}
+                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm transition-colors flex items-center gap-2 mx-auto"
+                  disabled={isDeletingChat}
                 >
-                  🗑️ Xóa lịch sử chat
+                  <Trash2 className="w-4 h-4" />
+                  {isDeletingChat ? "Đang xóa..." : "Xóa lịch sử chat"}
                 </button>
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirmModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-red-100 rounded-full">
+                      <Trash2 className="w-6 h-6 text-red-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">Xóa lịch sử chat</h3>
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    Bạn có chắc muốn xóa toàn bộ lịch sử chat với AI? Hành động này không thể hoàn tác.
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={() => setShowDeleteConfirmModal(false)}
+                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      disabled={isDeletingChat}
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!currentSession?._id) {
+                          toast.error("Không tìm thấy phiên chat");
+                          return;
+                        }
+
+                        setIsDeletingChat(true);
+                        try {
+                          await aiChatHistoryService.clearSessionMessages(currentSession._id);
+                          setMessages([]);
+                          setShowQuickSuggestions(true);
+                          setSuggestedDoctor(null);
+                          dispatch(clearAnalysisResult());
+                          dispatch(clearAppointmentData());
+                          toast.success("Đã xóa lịch sử chat thành công");
+                        } catch (error) {
+                          console.error("Error clearing chat:", error);
+                          toast.error("Không thể xóa lịch sử chat");
+                        } finally {
+                          setIsDeletingChat(false);
+                          setShowDeleteConfirmModal(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                      disabled={isDeletingChat}
+                    >
+                      {isDeletingChat ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Đang xóa...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Xóa
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -132,6 +132,31 @@ export class AiChatHistoryService {
     return session;
   }
 
+  // Clear all messages in a session (keep the session itself)
+  async clearSessionMessages(
+    sessionId: string,
+  ): Promise<{ cleared: boolean; messagesDeleted: number }> {
+    const session = await this.aiChatSessionModel.findById(sessionId);
+    if (!session) {
+      throw new NotFoundException('AI chat session not found');
+    }
+
+    // Delete all messages belonging to this session
+    const deleteResult = await this.aiChatMessageModel.deleteMany({
+      sessionId: new Types.ObjectId(sessionId),
+    });
+
+    // Reset message count in session
+    await this.aiChatSessionModel.findByIdAndUpdate(sessionId, {
+      messageCount: 0,
+    });
+
+    return {
+      cleared: true,
+      messagesDeleted: deleteResult.deletedCount,
+    };
+  }
+
   async initializeUserSession(userId: string): Promise<AiChatSessionDocument> {
     // Check if user already has a session (active or inactive)
     const existingSession = await this.aiChatSessionModel
