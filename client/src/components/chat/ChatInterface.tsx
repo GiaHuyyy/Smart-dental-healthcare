@@ -500,8 +500,70 @@ export default function ChatInterface({
   );
 
   // Validate and add suggested doctor to list (max 3, no duplicates)
+  // If already 3 doctors, replace the oldest one with the new one
   const validateAndSetSuggestedDoctor = useCallback(
     (suggestedDoctor: DoctorSuggestion) => {
+      // If doctor already has _id from backend, use it directly (already validated)
+      if (suggestedDoctor._id) {
+        const validatedDoctor: DoctorSuggestion = {
+          _id: suggestedDoctor._id,
+          fullName: suggestedDoctor.fullName,
+          specialty: suggestedDoctor.specialty,
+          keywords: suggestedDoctor.keywords || [],
+          email: suggestedDoctor.email,
+          phone: suggestedDoctor.phone,
+          avatarUrl: suggestedDoctor.avatarUrl,
+        };
+
+        // Add to list: no duplicates, max 3 (replace oldest if full)
+        let newDoctorsList: DoctorSuggestion[] = [];
+        setSuggestedDoctors((prev) => {
+          // Check if already exists
+          const exists = prev.some((d) => d._id === validatedDoctor._id);
+          if (exists) {
+            newDoctorsList = prev;
+            return prev;
+          }
+
+          // If less than 3, just add
+          if (prev.length < 3) {
+            newDoctorsList = [...prev, validatedDoctor];
+            return newDoctorsList;
+          }
+
+          // If already 3, replace the first one (oldest)
+          newDoctorsList = [...prev.slice(1), validatedDoctor];
+          return newDoctorsList;
+        });
+
+        // Fetch rating for this doctor
+        if (validatedDoctor._id) {
+          fetchDoctorRating(validatedDoctor._id);
+        }
+
+        dispatch(setSelectedDoctor(validatedDoctor));
+
+        // Persist ALL suggested doctors to server session
+        (async () => {
+          try {
+            if (currentSession?._id && updateSession) {
+              await new Promise((resolve) => setTimeout(resolve, 100));
+              const doctorsToSave = newDoctorsList.length > 0 ? newDoctorsList : [validatedDoctor];
+              await updateSession(currentSession._id, {
+                suggestedDoctors: doctorsToSave,
+                suggestedDoctor: validatedDoctor as any,
+                suggestedDoctorId: (validatedDoctor as any)._id,
+              } as any);
+            }
+          } catch {
+            // ignore persistence errors
+          }
+        })();
+
+        return true;
+      }
+
+      // Fallback: validate with availableDoctors if no _id
       if (!doctorsLoaded || availableDoctors.length === 0) {
         return false;
       }
@@ -533,12 +595,25 @@ export default function ChatInterface({
           avatarUrl: matchingDoctor.avatarUrl,
         };
 
-        // Add to list if not already present (max 3)
+        // Add to list: no duplicates, max 3 (replace oldest if full)
+        let newDoctorsList: DoctorSuggestion[] = [];
         setSuggestedDoctors((prev) => {
+          // Check if already exists
           const exists = prev.some((d) => d._id === validatedDoctor._id);
-          if (exists) return prev;
-          if (prev.length >= 3) return prev;
-          return [...prev, validatedDoctor];
+          if (exists) {
+            newDoctorsList = prev;
+            return prev;
+          }
+
+          // If less than 3, just add
+          if (prev.length < 3) {
+            newDoctorsList = [...prev, validatedDoctor];
+            return newDoctorsList;
+          }
+
+          // If already 3, replace the first one (oldest)
+          newDoctorsList = [...prev.slice(1), validatedDoctor];
+          return newDoctorsList;
         });
 
         // Fetch rating for this doctor
@@ -548,11 +623,17 @@ export default function ChatInterface({
 
         dispatch(setSelectedDoctor(validatedDoctor));
 
-        // Persist suggestion to server session if available
+        // Persist ALL suggested doctors to server session (not just the latest one)
         (async () => {
           try {
             if (currentSession?._id && updateSession) {
+              // Wait a bit for state to update
+              await new Promise((resolve) => setTimeout(resolve, 100));
+              // Get the latest suggestedDoctors including the new one
+              const doctorsToSave = newDoctorsList.length > 0 ? newDoctorsList : [validatedDoctor];
               await updateSession(currentSession._id, {
+                suggestedDoctors: doctorsToSave,
+                // Keep legacy fields for backwards compatibility
                 suggestedDoctor: validatedDoctor as any,
                 suggestedDoctorId: (validatedDoctor as any)._id,
               } as any);
@@ -655,23 +736,39 @@ export default function ChatInterface({
       lastAiLengthRef.current = chatMessages.length;
 
       try {
-        const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
-        if (sd) {
-          if (typeof sd === "object" && sd.fullName) {
-            setSuggestedDoctors([sd as DoctorSuggestion]);
-            if (sd._id) fetchDoctorRating(sd._id);
-          } else if (typeof sd === "string" && availableDoctors.length > 0) {
-            const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
-            if (match) {
-              const doctor: DoctorSuggestion = {
-                _id: match._id || match.id,
-                fullName: match.fullName || match.name,
-                specialty: match.specialty,
-                keywords: [],
-                avatarUrl: match.avatarUrl,
-              };
-              setSuggestedDoctors([doctor]);
-              if (doctor._id) fetchDoctorRating(doctor._id);
+        // First try to load suggestedDoctors array (new format)
+        const suggestedDoctorsArray = (latestSession as any).suggestedDoctors;
+        if (suggestedDoctorsArray && Array.isArray(suggestedDoctorsArray) && suggestedDoctorsArray.length > 0) {
+          const validDoctors: DoctorSuggestion[] = suggestedDoctorsArray
+            .filter((d: any) => d && d.fullName)
+            .slice(0, 3) as DoctorSuggestion[];
+          if (validDoctors.length > 0) {
+            setSuggestedDoctors(validDoctors);
+            // Fetch ratings for all doctors
+            validDoctors.forEach((d) => {
+              if (d._id) fetchDoctorRating(d._id);
+            });
+          }
+        } else {
+          // Fallback: load legacy single suggestedDoctor
+          const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
+          if (sd) {
+            if (typeof sd === "object" && sd.fullName) {
+              setSuggestedDoctors([sd as DoctorSuggestion]);
+              if (sd._id) fetchDoctorRating(sd._id);
+            } else if (typeof sd === "string" && availableDoctors.length > 0) {
+              const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
+              if (match) {
+                const doctor: DoctorSuggestion = {
+                  _id: match._id || match.id,
+                  fullName: match.fullName || match.name,
+                  specialty: match.specialty,
+                  keywords: [],
+                  avatarUrl: match.avatarUrl,
+                };
+                setSuggestedDoctors([doctor]);
+                if (doctor._id) fetchDoctorRating(doctor._id);
+              }
             }
           }
         }
@@ -780,11 +877,32 @@ export default function ChatInterface({
           }
         }
 
-        // Always set a suggested doctor for testing if none provided
-        if (response.suggestedDoctor) {
+        // Handle suggested doctors (new: array of 1-3 doctors)
+        // Replace entire list with new suggestions from this response
+        if (response.suggestedDoctors && response.suggestedDoctors.length > 0) {
+          // Clear existing and set new doctors directly
+          const newDoctors: DoctorSuggestion[] = response.suggestedDoctors
+            .filter((d: DoctorSuggestion) => d._id && d.fullName)
+            .slice(0, 3);
+
+          if (newDoctors.length > 0) {
+            setSuggestedDoctors(newDoctors);
+            // Fetch ratings for all new doctors
+            newDoctors.forEach((d) => {
+              if (d._id) fetchDoctorRating(d._id);
+            });
+            // Persist to session
+            if (currentSession?._id && updateSession) {
+              updateSession(currentSession._id, {
+                suggestedDoctors: newDoctors,
+                suggestedDoctor: newDoctors[0] as any,
+                suggestedDoctorId: newDoctors[0]._id,
+              } as any).catch(() => {});
+            }
+          }
+        } else if (response.suggestedDoctor) {
+          // Fallback: single doctor (backwards compatible)
           validateAndSetSuggestedDoctor(response.suggestedDoctor);
-        } else {
-          // No fallback doctor - let the UI handle the case of no suggested doctor
         }
 
         // Add urgent message if needed
@@ -907,10 +1025,28 @@ export default function ChatInterface({
           }
         }
 
-        if (response.suggestedDoctor) {
+        // Handle suggested doctors (new: array of 1-3 doctors)
+        // Replace entire list with new suggestions from this response
+        if (response.suggestedDoctors && response.suggestedDoctors.length > 0) {
+          const newDoctors: DoctorSuggestion[] = response.suggestedDoctors
+            .filter((d: DoctorSuggestion) => d._id && d.fullName)
+            .slice(0, 3);
+
+          if (newDoctors.length > 0) {
+            setSuggestedDoctors(newDoctors);
+            newDoctors.forEach((d) => {
+              if (d._id) fetchDoctorRating(d._id);
+            });
+            if (currentSession?._id && updateSession) {
+              updateSession(currentSession._id, {
+                suggestedDoctors: newDoctors,
+                suggestedDoctor: newDoctors[0] as any,
+                suggestedDoctorId: newDoctors[0]._id,
+              } as any).catch(() => {});
+            }
+          }
+        } else if (response.suggestedDoctor) {
           validateAndSetSuggestedDoctor(response.suggestedDoctor);
-        } else {
-          // No fallback doctor - let the UI handle the case of no suggested doctor
         }
 
         if (urgency === "high") {
@@ -1065,11 +1201,28 @@ export default function ChatInterface({
         }
       }
 
-      // Always set a suggested doctor for image analysis
-      if (result.suggestedDoctor) {
+      // Handle suggested doctors from image analysis
+      // Replace entire list with new suggestions
+      if (result.suggestedDoctors && result.suggestedDoctors.length > 0) {
+        const newDoctors: DoctorSuggestion[] = result.suggestedDoctors
+          .filter((d: DoctorSuggestion) => d._id && d.fullName)
+          .slice(0, 3);
+
+        if (newDoctors.length > 0) {
+          setSuggestedDoctors(newDoctors);
+          newDoctors.forEach((d) => {
+            if (d._id) fetchDoctorRating(d._id);
+          });
+          if (currentSession?._id && updateSession) {
+            updateSession(currentSession._id, {
+              suggestedDoctors: newDoctors,
+              suggestedDoctor: newDoctors[0] as any,
+              suggestedDoctorId: newDoctors[0]._id,
+            } as any).catch(() => {});
+          }
+        }
+      } else if (result.suggestedDoctor) {
         validateAndSetSuggestedDoctor(result.suggestedDoctor);
-      } else {
-        // No fallback doctor - let the UI handle the case of no suggested doctor
       }
     } catch (error) {
       console.error("Error analyzing image:", error);

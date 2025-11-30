@@ -29,6 +29,7 @@ export interface AnalysisRichContent {
 export interface AnalysisData {
   richContent?: AnalysisRichContent;
   suggestedDoctor?: DoctorSuggestion;
+  suggestedDoctors?: DoctorSuggestion[];
   urgencyLevel?: "low" | "medium" | "high";
   analysis?: string;
 }
@@ -46,6 +47,7 @@ export interface DoctorSuggestion {
 export interface AiResponse {
   message: string;
   suggestedDoctor: DoctorSuggestion | null;
+  suggestedDoctors?: DoctorSuggestion[];
   timestamp: Date;
   context?: unknown;
   quickActions?: string[];

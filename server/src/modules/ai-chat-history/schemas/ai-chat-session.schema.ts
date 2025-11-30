@@ -21,10 +21,13 @@ export class AiChatSession {
   urgencyLevel: string; // 'low', 'medium', 'high'
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
-  suggestedDoctorId: Types.ObjectId; // Doctor suggested by AI
+  suggestedDoctorId: Types.ObjectId; // Doctor suggested by AI (legacy - single doctor)
 
   @Prop({ type: Object })
-  suggestedDoctor: any; // full suggested doctor object snapshot
+  suggestedDoctor: any; // full suggested doctor object snapshot (legacy - single doctor)
+
+  @Prop({ type: [Object], default: [] })
+  suggestedDoctors: any[]; // Array of suggested doctors (1-3 doctors)
 
   @Prop()
   finalAction: string; // 'appointment_booked', 'self_care', 'emergency_referral'

@@ -114,9 +114,14 @@ export class AiChatHistoryService {
       // If invalid id provided, let mongoose validation handle it or simply ignore conversion
     }
 
-    // Allow storing a suggestedDoctor snapshot object directly
+    // Allow storing a suggestedDoctor snapshot object directly (legacy - single doctor)
     if ((updateDto as any).suggestedDoctor) {
       updateData.suggestedDoctor = (updateDto as any).suggestedDoctor;
+    }
+
+    // Support array of suggested doctors (1-3 doctors)
+    if ((updateDto as any).suggestedDoctors) {
+      updateData.suggestedDoctors = (updateDto as any).suggestedDoctors;
     }
 
     const session = await this.aiChatSessionModel.findByIdAndUpdate(

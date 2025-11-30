@@ -47,6 +47,13 @@ export interface ImageAnalysisResult {
     specialty: string;
     keywords: string[];
   };
+  suggestedDoctors?: Array<{
+    _id?: string;
+    fullName: string;
+    specialty: string;
+    avatarUrl?: string;
+    keywords?: string[];
+  }>;
   // Thêm các trường cho Cloudinary
   cloudinaryUrl?: string;
   cloudinaryPublicId?: string;
@@ -67,13 +74,15 @@ export class ImageAnalysisService {
   ) {
     this.geminiApiKey =
       this.configService.get<string>('GEMINI_API_KEY') || 'your-gemini-api-key';
-  this.logger.log(`Initializing ImageAnalysisService with Gemini API`);
-  // Initialize SDK client and model
+    this.logger.log(`Initializing ImageAnalysisService with Gemini API`);
+    // Initialize SDK client and model
     try {
       this.genAI = new GoogleGenerativeAI(this.geminiApiKey);
       this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
     } catch (initError) {
-      this.logger.warn(`Failed to initialize Gemini SDK: ${initError?.message || initError}`);
+      this.logger.warn(
+        `Failed to initialize Gemini SDK: ${initError?.message || initError}`,
+      );
       // Keep service running; health checks will report issues.
       this.genAI = null as any;
       this.model = null as any;
@@ -92,7 +101,8 @@ export class ImageAnalysisService {
       );
 
       // Check if filePath is a URL or local path
-      const isUrl = filePath.startsWith('http://') || filePath.startsWith('https://');
+      const isUrl =
+        filePath.startsWith('http://') || filePath.startsWith('https://');
 
       if (!isUrl && !fs.existsSync(filePath)) {
         throw new BadRequestException('File không tồn tại');
@@ -162,6 +172,11 @@ export class ImageAnalysisService {
           'Hướng dẫn chăm sóc tại nhà',
           'Xem các trường hợp tương tự',
         ],
+        // Get multiple suggested doctors (1-3)
+        suggestedDoctors: await this.getSuggestedDoctorsForCondition(
+          String(analysisResult.diagnosis || ''),
+        ),
+        // Keep single suggestedDoctor for backwards compatibility
         suggestedDoctor: await this.getSuggestedDoctorForCondition(
           String(analysisResult.diagnosis || ''),
         ),
@@ -181,7 +196,8 @@ export class ImageAnalysisService {
       let base64Image: string;
 
       // Check if filePath is a URL or local path
-      const isUrl = filePath.startsWith('http://') || filePath.startsWith('https://');
+      const isUrl =
+        filePath.startsWith('http://') || filePath.startsWith('https://');
 
       if (isUrl) {
         // Download image from URL and convert to base64
@@ -190,7 +206,7 @@ export class ImageAnalysisService {
             this.httpService.get(filePath, {
               responseType: 'arraybuffer',
               timeout: 30000,
-            })
+            }),
           );
 
           if (!response.data || response.data.length === 0) {
@@ -202,9 +218,13 @@ export class ImageAnalysisService {
 
           // Log the content type for debugging
           const contentType = response.headers['content-type'];
-          this.logger.log(`Downloaded image content-type: ${contentType}, size: ${buffer.length} bytes`);
+          this.logger.log(
+            `Downloaded image content-type: ${contentType}, size: ${buffer.length} bytes`,
+          );
         } catch (downloadError) {
-          this.logger.error(`Failed to download image from URL: ${downloadError.message}`);
+          this.logger.error(
+            `Failed to download image from URL: ${downloadError.message}`,
+          );
           throw new Error(`Không thể tải ảnh từ URL: ${downloadError.message}`);
         }
       } else {
@@ -232,7 +252,9 @@ export class ImageAnalysisService {
       // Call Gemini via SDK to ensure correct request schema for inline data
       try {
         if (!this.model) {
-          throw new Error('Gemini SDK not initialized (missing GEMINI_API_KEY)');
+          throw new Error(
+            'Gemini SDK not initialized (missing GEMINI_API_KEY)',
+          );
         }
 
         const result = await this.model.generateContent([
@@ -257,7 +279,11 @@ export class ImageAnalysisService {
         const msg = String(sdkError?.message || sdkError);
         this.logger.error(`Gemini SDK call failed: ${msg}`);
 
-        if (msg.includes('API key expired') || msg.includes('API_KEY_INVALID') || msg.toLowerCase().includes('api key')) {
+        if (
+          msg.includes('API key expired') ||
+          msg.includes('API_KEY_INVALID') ||
+          msg.toLowerCase().includes('api key')
+        ) {
           // Throw a clear error that the controller can map to user-friendly text
           throw new Error(`GEMINI_API_KEY_INVALID_OR_EXPIRED: ${msg}`);
         }
@@ -613,6 +639,141 @@ Hãy trả về kết quả theo format JSON sau:
         specialty: 'Nha khoa tổng quát',
         keywords: ['khám tổng quát', 'tư vấn nha khoa', 'điều trị đa khoa'],
       };
+    }
+  }
+
+  /**
+   * Get multiple suggested doctors (1-3) for a condition
+   * Returns array of doctors based on diagnosis keywords matching
+   */
+  private async getSuggestedDoctorsForCondition(
+    diagnosis: string,
+  ): Promise<any[]> {
+    try {
+      const doctorsResponse = await this.usersService.findAllDoctors(null);
+      const doctors = doctorsResponse.data || [];
+
+      if (doctors.length === 0) {
+        return [];
+      }
+
+      const diagnosisLower = diagnosis.toLowerCase();
+
+      // Define specialty keywords mapping
+      const specialtyKeywords: { [key: string]: string[] } = {
+        'chỉnh nha': [
+          'niềng',
+          'khấp khểnh',
+          'chỉnh nha',
+          'răng hô',
+          'răng móm',
+          'cắn',
+          'khớp cắn',
+        ],
+        'phẫu thuật': [
+          'răng khôn',
+          'nhổ răng',
+          'phẫu thuật',
+          'mọc lệch',
+          'viêm xung quanh',
+          'áp xe',
+        ],
+        'nội nha': [
+          'sâu răng',
+          'trám răng',
+          'tủy răng',
+          'điều trị tủy',
+          'đau răng',
+          'khoang miệng',
+        ],
+        'nha chu': [
+          'nướu',
+          'viêm lợi',
+          'chảy máu',
+          'nha chu',
+          'cao răng',
+          'túi nha chu',
+        ],
+        'thẩm mỹ': [
+          'răng sứ',
+          'bọc răng',
+          'veneer',
+          'cầu răng',
+          'thẩm mỹ',
+          'tẩy trắng',
+          'ố vàng',
+          'xỉn màu',
+        ],
+        implant: ['implant', 'cấy ghép', 'mất răng', 'trồng răng', 'răng giả'],
+        'tổng quát': ['khám', 'tư vấn', 'tổng quát', 'kiểm tra'],
+      };
+
+      // Score each doctor
+      const doctorScores = doctors.map((doc: any) => {
+        let score = 0;
+        const docSpecialty = (doc.specialty || '').toLowerCase();
+
+        for (const [specialty, keywords] of Object.entries(specialtyKeywords)) {
+          const hasMatchingKeyword = keywords.some((keyword) =>
+            diagnosisLower.includes(keyword),
+          );
+          const hasMatchingSpecialty = docSpecialty.includes(specialty);
+
+          if (hasMatchingKeyword && hasMatchingSpecialty) {
+            score += 3;
+          } else if (hasMatchingSpecialty) {
+            score += 1;
+          }
+        }
+
+        // Check if doctor's name is mentioned
+        if (
+          doc.fullName &&
+          diagnosisLower.includes(doc.fullName.toLowerCase())
+        ) {
+          score += 5;
+        }
+
+        return { doctor: doc, score };
+      });
+
+      // Sort by score and take top 1-3
+      const topDoctors = doctorScores
+        .filter((d) => d.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map((d) => ({
+          _id: d.doctor._id,
+          fullName: d.doctor.fullName || 'BS. Nha khoa',
+          specialty: d.doctor.specialty || 'Nha khoa tổng quát',
+          avatarUrl: d.doctor.avatarUrl,
+          keywords: [],
+        }));
+
+      // If no matching doctors, return general dentist
+      if (topDoctors.length === 0) {
+        const generalDoctor =
+          doctors.find(
+            (doc: any) =>
+              doc.specialty?.toLowerCase().includes('tổng quát') ||
+              !doc.specialty,
+          ) || doctors[0];
+
+        if (generalDoctor) {
+          topDoctors.push({
+            _id: generalDoctor._id,
+            fullName: generalDoctor.fullName || 'BS. Nha khoa',
+            specialty: generalDoctor.specialty || 'Nha khoa tổng quát',
+            avatarUrl: generalDoctor.avatarUrl,
+            keywords: [],
+          });
+        }
+      }
+
+      return topDoctors;
+    } catch (error) {
+      this.logger.error(`Error getting doctor suggestions: ${error.message}`);
+      return [];
     }
   }
 
