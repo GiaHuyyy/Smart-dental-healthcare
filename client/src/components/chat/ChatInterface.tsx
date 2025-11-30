@@ -24,19 +24,7 @@ import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
-import {
-  Lightbulb,
-  Calendar,
-  Wrench,
-  Stethoscope,
-  Check,
-  FileText,
-  X,
-  Search,
-  BarChart2,
-  User,
-  Trash2,
-} from "lucide-react";
+import { Lightbulb, Calendar, Wrench, Stethoscope, FileText, X, Search, BarChart2, User, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -1003,11 +991,6 @@ export default function ChatInterface({
         timestamp: new Date(),
         isAnalysisResult: true,
         analysisData: result,
-        actionButtons:
-          result.richContent &&
-          (result.richContent.analysis || result.richContent.recommendations || result.richContent.sections)
-            ? ["Giải thích thêm", "Đặt lịch khám", "Hướng dẫn chăm sóc", "Gợi ý bác sĩ", "Kết thúc"]
-            : undefined,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -1164,41 +1147,6 @@ export default function ChatInterface({
 
   // Action handlers
   const handleAnalysisActionClick = async (action: string) => {
-    if (action.toLowerCase().includes("kết thúc")) {
-      const userMessage: ChatMessage = {
-        role: "user",
-        content: action,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-
-      const goodbyeMessage: ChatMessage = {
-        role: "assistant",
-        content:
-          "Cảm ơn bạn đã sử dụng dịch vụ tư vấn nha khoa! 🙏\n\nChúc bạn có răng miệng khỏe mạnh! 💊\n\nLịch sử chat sẽ được xóa sau 3 giây...",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, goodbyeMessage]);
-
-      setTimeout(async () => {
-        // Clear messages from database (keep session)
-        if (currentSession?._id) {
-          try {
-            await aiChatHistoryService.clearSessionMessages(currentSession._id);
-          } catch (error) {
-            console.error("Error clearing session messages:", error);
-          }
-        }
-        setMessages([]);
-        dispatch(clearAnalysisResult());
-        dispatch(clearAppointmentData());
-        setShowQuickSuggestions(true);
-        setSuggestedDoctor(null);
-      }, 3000);
-
-      return;
-    }
-
     if (action.toLowerCase().includes("đặt lịch khám")) {
       const symptoms = messages
         .filter((msg) => msg.role === "user")
@@ -1390,7 +1338,6 @@ export default function ChatInterface({
     if (buttonText.includes("Đặt lịch")) return <Calendar className="w-4 h-4 mr-1" />;
     if (buttonText.includes("Hướng dẫn")) return <Wrench className="w-4 h-4 mr-1" />;
     if (buttonText.includes("Gợi ý bác sĩ")) return <Stethoscope className="w-4 h-4 mr-1" />;
-    if (buttonText.includes("Kết thúc")) return <Check className="w-4 h-4 mr-1" />;
     return <Wrench className="w-4 h-4 mr-1" />;
   };
 
@@ -1751,20 +1698,22 @@ export default function ChatInterface({
                     <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
                   )}
 
-                  {/* Show action buttons if available */}
-                  {message.actionButtons && message.actionButtons.length > 0 && (
+                  {/* Show action buttons for analysis results */}
+                  {(message.isAnalysisResult || message.analysisData) && (
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {message.actionButtons.map((buttonText, buttonIndex) => (
-                        <button
-                          key={buttonIndex}
-                          onClick={() => handleAnalysisActionClick(buttonText)}
-                          className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
-                          style={{ background: "var(--color-primary)", color: "white" }}
-                        >
-                          <span className="mr-1">{getButtonIcon(buttonText)}</span>
-                          {buttonText}
-                        </button>
-                      ))}
+                      {["Giải thích thêm", "Đặt lịch khám", "Hướng dẫn chăm sóc", "Gợi ý bác sĩ"].map(
+                        (buttonText, buttonIndex) => (
+                          <button
+                            key={buttonIndex}
+                            onClick={() => handleAnalysisActionClick(buttonText)}
+                            className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
+                            style={{ background: "var(--color-primary)", color: "white" }}
+                          >
+                            <span className="mr-1">{getButtonIcon(buttonText)}</span>
+                            {buttonText}
+                          </button>
+                        )
+                      )}
                     </div>
                   )}
 
