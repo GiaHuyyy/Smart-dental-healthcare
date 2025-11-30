@@ -40,6 +40,7 @@ export interface DoctorSuggestion {
   keywords: string[];
   email?: string;
   phone?: string;
+  avatarUrl?: string;
 }
 
 export interface AiResponse {

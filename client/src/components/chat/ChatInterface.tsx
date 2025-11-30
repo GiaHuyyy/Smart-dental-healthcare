@@ -24,7 +24,19 @@ import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
-import { Lightbulb, Calendar, Wrench, Stethoscope, FileText, X, Search, BarChart2, User, Trash2 } from "lucide-react";
+import {
+  Lightbulb,
+  Calendar,
+  Wrench,
+  Stethoscope,
+  FileText,
+  X,
+  Search,
+  BarChart2,
+  User,
+  Trash2,
+  Star,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -223,7 +235,10 @@ export default function ChatInterface({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedFromDatabase, setHasLoadedFromDatabase] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
-  const [suggestedDoctor, setSuggestedDoctor] = useState<DoctorSuggestion | null>(null);
+  const [suggestedDoctors, setSuggestedDoctors] = useState<DoctorSuggestion[]>([]);
+  const [doctorRatings, setDoctorRatings] = useState<Record<string, { averageRating: number; totalReviews: number }>>(
+    {}
+  );
   const [showQuickSuggestions, setShowQuickSuggestions] = useState(true);
   const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
   const [doctorsLoaded, setDoctorsLoaded] = useState(false);
@@ -460,67 +475,100 @@ export default function ChatInterface({
     }
   };
 
-  // Validate and set suggested doctor
-  const validateAndSetSuggestedDoctor = (suggestedDoctor: DoctorSuggestion) => {
-    if (!doctorsLoaded || availableDoctors.length === 0) {
-      return false;
-    }
+  // Fetch doctor rating from API
+  const fetchDoctorRating = useCallback(
+    async (doctorId: string) => {
+      if (!doctorId || doctorRatings[doctorId]) return;
 
-    // Find matching doctor
-    const matchingDoctor = availableDoctors.find((doctor) => {
-      const doctorName = doctor.fullName || doctor.name || "";
-      const suggestedName = suggestedDoctor.fullName || "";
-
-      // Exact match
-      if (doctorName === suggestedName) return true;
-
-      // Case-insensitive match
-      if (doctorName.toLowerCase() === suggestedName.toLowerCase()) return true;
-
-      // Keyword match
-      const keywords = suggestedName.split(" ").filter((word) => word.length > 1);
-      return keywords.some((keyword) => doctorName.toLowerCase().includes(keyword.toLowerCase()));
-    });
-
-    if (matchingDoctor) {
-      const validatedDoctor = {
-        _id: matchingDoctor._id || matchingDoctor.id,
-        fullName: matchingDoctor.fullName || matchingDoctor.name,
-        specialty: matchingDoctor.specialty,
-        keywords: suggestedDoctor.keywords || [],
-        email: matchingDoctor.email,
-        phone: matchingDoctor.phone,
-      };
-
-      setSuggestedDoctor(validatedDoctor);
-      dispatch(setSelectedDoctor(validatedDoctor));
-
-      // Persist suggestion to server session if available
-      (async () => {
-        try {
-          if (currentSession?._id && updateSession) {
-            await updateSession(currentSession._id, {
-              suggestedDoctor: validatedDoctor as any,
-              suggestedDoctorId: (validatedDoctor as any)._id,
-            } as any);
-          }
-        } catch (err) {
-          // ignore persistence errors
-        }
-      })();
-
-      // Persist locally as a fallback
       try {
-        localStorage.setItem("sd_suggestedDoctor", JSON.stringify(validatedDoctor));
-      } catch {
-        // ignore
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/doctor/${doctorId}/rating`);
+        if (res.ok) {
+          const data = await res.json();
+          setDoctorRatings((prev) => ({
+            ...prev,
+            [doctorId]: {
+              averageRating: data?.averageRating || 0,
+              totalReviews: data?.totalReviews || 0,
+            },
+          }));
+        }
+      } catch (error) {
+        console.error(`Failed to fetch rating for doctor ${doctorId}:`, error);
+      }
+    },
+    [doctorRatings]
+  );
+
+  // Validate and add suggested doctor to list (max 3, no duplicates)
+  const validateAndSetSuggestedDoctor = useCallback(
+    (suggestedDoctor: DoctorSuggestion) => {
+      if (!doctorsLoaded || availableDoctors.length === 0) {
+        return false;
       }
 
-      return true;
-    } else {
-      return false;
-    }
-  };
+      // Find matching doctor
+      const matchingDoctor = availableDoctors.find((doctor) => {
+        const doctorName = doctor.fullName || doctor.name || "";
+        const suggestedName = suggestedDoctor.fullName || "";
+
+        // Exact match
+        if (doctorName === suggestedName) return true;
+
+        // Case-insensitive match
+        if (doctorName.toLowerCase() === suggestedName.toLowerCase()) return true;
+
+        // Keyword match
+        const keywords = suggestedName.split(" ").filter((word: string) => word.length > 1);
+        return keywords.some((keyword: string) => doctorName.toLowerCase().includes(keyword.toLowerCase()));
+      });
+
+      if (matchingDoctor) {
+        const validatedDoctor: DoctorSuggestion = {
+          _id: matchingDoctor._id || matchingDoctor.id,
+          fullName: matchingDoctor.fullName || matchingDoctor.name,
+          specialty: matchingDoctor.specialty,
+          keywords: suggestedDoctor.keywords || [],
+          email: matchingDoctor.email,
+          phone: matchingDoctor.phone,
+          avatarUrl: matchingDoctor.avatarUrl,
+        };
+
+        // Add to list if not already present (max 3)
+        setSuggestedDoctors((prev) => {
+          const exists = prev.some((d) => d._id === validatedDoctor._id);
+          if (exists) return prev;
+          if (prev.length >= 3) return prev;
+          return [...prev, validatedDoctor];
+        });
+
+        // Fetch rating for this doctor
+        if (validatedDoctor._id) {
+          fetchDoctorRating(validatedDoctor._id);
+        }
+
+        dispatch(setSelectedDoctor(validatedDoctor));
+
+        // Persist suggestion to server session if available
+        (async () => {
+          try {
+            if (currentSession?._id && updateSession) {
+              await updateSession(currentSession._id, {
+                suggestedDoctor: validatedDoctor as any,
+                suggestedDoctorId: (validatedDoctor as any)._id,
+              } as any);
+            }
+          } catch {
+            // ignore persistence errors
+          }
+        })();
+
+        return true;
+      } else {
+        return false;
+      }
+    },
+    [doctorsLoaded, availableDoctors, fetchDoctorRating, dispatch, currentSession, updateSession]
+  );
 
   // Initialization: removed auto-scroll and debug logs; pagination handles scrolling explicitly
 
@@ -609,15 +657,22 @@ export default function ChatInterface({
       try {
         const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
         if (sd) {
-          if (typeof sd === "object" && sd.fullName) setSuggestedDoctor(sd as any);
-          else if (typeof sd === "string" && availableDoctors.length > 0) {
+          if (typeof sd === "object" && sd.fullName) {
+            setSuggestedDoctors([sd as DoctorSuggestion]);
+            if (sd._id) fetchDoctorRating(sd._id);
+          } else if (typeof sd === "string" && availableDoctors.length > 0) {
             const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
-            if (match)
-              setSuggestedDoctor({
+            if (match) {
+              const doctor: DoctorSuggestion = {
                 _id: match._id || match.id,
                 fullName: match.fullName || match.name,
                 specialty: match.specialty,
-              } as any);
+                keywords: [],
+                avatarUrl: match.avatarUrl,
+              };
+              setSuggestedDoctors([doctor]);
+              if (doctor._id) fetchDoctorRating(doctor._id);
+            }
           }
         }
       } catch {
@@ -1153,7 +1208,7 @@ export default function ChatInterface({
         .map((msg) => msg.content)
         .join("; ");
 
-      navigateToAppointments(suggestedDoctor || undefined, symptoms);
+      navigateToAppointments(suggestedDoctors[0] || undefined, symptoms);
       return;
     }
 
@@ -1163,6 +1218,19 @@ export default function ChatInterface({
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
+
+    // Save user action message to database
+    if (currentSession && session?.user) {
+      try {
+        await saveMessage({
+          role: "user",
+          content: action,
+          urgencyLevel: "medium",
+        });
+      } catch (err) {
+        console.error("Failed to save action message:", err);
+      }
+    }
 
     setIsLoading(true);
 
@@ -1192,6 +1260,19 @@ export default function ChatInterface({
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Save AI response to database
+      if (currentSession && session?.user) {
+        try {
+          await saveMessage({
+            role: "assistant",
+            content: aiResponse.message,
+            urgencyLevel: "medium",
+          });
+        } catch (err) {
+          console.error("Failed to save AI response:", err);
+        }
+      }
 
       if (aiResponse.suggestedDoctor) {
         validateAndSetSuggestedDoctor(aiResponse.suggestedDoctor);
@@ -1381,21 +1462,15 @@ export default function ChatInterface({
       );
     }
 
-    // Valid doctor suggestion với avatar
-    if (suggestedDoctor) {
-      const getAvatarColor = (name: string) => {
-        const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500", "bg-yellow-500", "bg-indigo-500"];
-        const index = name.charCodeAt(0) % colors.length;
-        return colors[index];
-      };
-
+    // Valid doctor suggestions (1-3 doctors)
+    if (suggestedDoctors.length > 0) {
       return (
         <div
           className="border-t border-x rounded-tl-md rounded-tr-md border-gray-200"
           style={{ background: "var(--color-primary-outline)" }}
         >
-          <div className="px-4 py-2">
-            <div className="flex items-center justify-between mb-1">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium text-primary">Bác sĩ được đề xuất</h4>
               <button
                 onClick={() => setShowDoctorSuggestion(!showDoctorSuggestion)}
@@ -1405,68 +1480,80 @@ export default function ChatInterface({
               </button>
             </div>
             {showDoctorSuggestion && (
-              <div className="flex items-start space-x-3">
-                {/* Doctor Avatar */}
-                <div
-                  className={`w-10 h-10 ${
-                    (suggestedDoctor as any).avatarUrl ? "" : "bg-primary"
-                  } rounded-full flex items-center justify-center shrink-0 overflow-hidden`}
-                >
-                  {(suggestedDoctor as any).avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={(suggestedDoctor as any).avatarUrl}
-                      alt={suggestedDoctor.fullName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="text-white w-5 h-5" />
-                    // <span className="text-white font-medium text-sm">{getInitials(suggestedDoctor.fullName)}</span>
-                  )}
-                </div>
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {suggestedDoctors.map((doctor) => {
+                  const rating = doctorRatings[doctor._id || ""];
+                  const displayRating = rating?.averageRating ? rating.averageRating.toFixed(1) : null;
 
-                {/* Doctor Info */}
-                <div className="flex-1">
-                  <h5 className="font-semibold text-primary">{suggestedDoctor.fullName}</h5>
-                  <p className="text-sm mb-3" style={{ color: "var(--color-primary-contrast)" }}>
-                    {suggestedDoctor.specialty}
-                  </p>
+                  return (
+                    <div
+                      key={doctor._id}
+                      className="flex-shrink-0 bg-white rounded-lg p-3 shadow-sm border border-gray-100 min-w-[200px] max-w-[220px]"
+                    >
+                      {/* Doctor Avatar & Info */}
+                      <div className="flex items-center gap-3 mb-2">
+                        <div
+                          className={`w-10 h-10 ${
+                            doctor.avatarUrl ? "" : "bg-primary"
+                          } rounded-full flex items-center justify-center shrink-0 overflow-hidden`}
+                        >
+                          {doctor.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="text-white w-5 h-5" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-semibold text-primary text-sm truncate">{doctor.fullName}</h5>
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <span className="truncate">{doctor.specialty}</span>
+                            {displayRating && (
+                              <>
+                                <span>•</span>
+                                <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                                <span>{displayRating}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-                  {/* Action Buttons - No Icons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className="text-sm px-2 py-1 rounded-md transition-colors"
-                      style={{ background: "var(--color-primary)", color: "white" }}
-                      onClick={() => handleStartConversationWithDoctor(suggestedDoctor)}
-                    >
-                      Nhắn tin
-                    </button>
-                    <button
-                      className="text-sm px-2 py-1 rounded-md transition-colors"
-                      style={{ background: "var(--color-primary)", color: "white" }}
-                      onClick={() => {
-                        // Navigate to patient-facing doctor profile
-                        const id = (suggestedDoctor as any)?._id;
-                        if (id) router.push(`/patient/doctors/${id}`);
-                      }}
-                    >
-                      Hồ sơ
-                    </button>
-                    <button
-                      className="text-sm px-2 py-1 rounded-md transition-colors"
-                      style={{ background: "var(--color-primary)", color: "white" }}
-                      onClick={() => {
-                        const symptoms = messages
-                          .filter((msg) => msg.role === "user")
-                          .map((msg) => msg.content)
-                          .join("; ");
-                        navigateToAppointments(suggestedDoctor || undefined, symptoms);
-                      }}
-                    >
-                      Đặt lịch khám
-                    </button>
-                  </div>
-                </div>
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          className="text-xs px-2 py-1 rounded-md transition-colors"
+                          style={{ background: "var(--color-primary)", color: "white" }}
+                          onClick={() => handleStartConversationWithDoctor(doctor)}
+                        >
+                          Nhắn tin
+                        </button>
+                        <button
+                          className="text-xs px-2 py-1 rounded-md transition-colors"
+                          style={{ background: "var(--color-primary)", color: "white" }}
+                          onClick={() => {
+                            if (doctor._id) router.push(`/patient/doctors/${doctor._id}`);
+                          }}
+                        >
+                          Hồ sơ
+                        </button>
+                        <button
+                          className="text-xs px-2 py-1 rounded-md transition-colors"
+                          style={{ background: "var(--color-primary)", color: "white" }}
+                          onClick={() => {
+                            const symptoms = messages
+                              .filter((msg) => msg.role === "user")
+                              .map((msg) => msg.content)
+                              .join("; ");
+                            navigateToAppointments(doctor, symptoms);
+                          }}
+                        >
+                          Đặt lịch
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1814,7 +1901,7 @@ export default function ChatInterface({
                           await aiChatHistoryService.clearSessionMessages(currentSession._id);
                           setMessages([]);
                           setShowQuickSuggestions(true);
-                          setSuggestedDoctor(null);
+                          setSuggestedDoctors([]);
                           dispatch(clearAnalysisResult());
                           dispatch(clearAppointmentData());
                           toast.success("Đã xóa lịch sử chat thành công");
