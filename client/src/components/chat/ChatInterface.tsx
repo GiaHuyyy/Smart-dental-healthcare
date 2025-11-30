@@ -36,7 +36,7 @@ import {
   User,
   Trash2,
   Star,
-  Camera,
+  ScanSearch,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -1993,22 +1993,45 @@ export default function ChatInterface({
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 px-4 py-3 rounded-lg min-w-[250px]">
+                <div className="bg-gray-100 px-4 py-3 rounded-lg w-[calc(100%-260px)]">
                   {isAnalyzing ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600 font-medium">📷 Đang phân tích ảnh...</span>
+                        <div className="flex items-center gap-1.5">
+                          <ScanSearch className="w-4 h-4 text-primary" />
+                          <span className="text-sm text-gray-600 font-medium">Đang phân tích ảnh...</span>
+                        </div>
                         <span className="text-sm font-semibold text-primary">{analysisProgress}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all duration-200"
+                          className="h-full rounded-full transition-all duration-200 animate-stripes"
                           style={{
                             width: `${analysisProgress}%`,
-                            background: "var(--color-primary)",
+                            background: `repeating-linear-gradient(
+                              -45deg,
+                              var(--color-primary),
+                              var(--color-primary) 10px,
+                              #fff 10px,
+                              #fff 20px
+                            )`,
+                            backgroundSize: "28.28px 100%",
                           }}
                         />
                       </div>
+                      <style jsx>{`
+                        @keyframes stripes {
+                          from {
+                            background-position: 0 0;
+                          }
+                          to {
+                            background-position: 28.28px 0;
+                          }
+                        }
+                        .animate-stripes {
+                          animation: stripes 0.5s linear infinite;
+                        }
+                      `}</style>
                     </div>
                   ) : (
                     <div className="flex items-center space-x-2">
@@ -2153,7 +2176,7 @@ export default function ChatInterface({
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap disabled:opacity-50"
                   style={{ background: "var(--color-primary)", color: "white" }}
                 >
-                  <Camera className="w-4 h-4" />
+                  <ScanSearch className="w-4 h-4" />
                   Phân tích ảnh
                 </button>
                 <button
