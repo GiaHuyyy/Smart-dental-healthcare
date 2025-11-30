@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -6,13 +7,14 @@ import {
     ActivityIndicator,
     Alert,
     Modal,
+    Platform,
     RefreshControl,
     ScrollView,
     Share,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -60,11 +62,18 @@ type VitalSigns = {
   temperature?: number;
 };
 
+type DiagnosisGroup = {
+  diagnosis?: string;
+  treatmentPlans?: string[];
+};
+
 type MedicalRecord = {
   _id?: string;
   recordDate?: string | Date | null;
   chiefComplaint?: string;
+  chiefComplaints?: string[];
   diagnosis?: string;
+  diagnosisGroups?: DiagnosisGroup[];
   treatmentPlan?: string;
   status?: string;
   isFollowUpRequired?: boolean;
@@ -78,6 +87,7 @@ type MedicalRecord = {
   vitalSigns?: VitalSigns;
   doctorId?: PopulatedUser | string | null;
   appointmentId?: string | { _id?: string } | null;
+  parentRecordId?: string | { _id?: string } | null;
 };
 
 type PatientRecordStats = {
@@ -267,25 +277,81 @@ function MedicationsPreview({ medications, detailedMedications }: { medications?
   );
 }
 
-function RecordCard({ record, onViewDetail }: { record: MedicalRecord; onViewDetail?: (record: MedicalRecord) => void }) {
+function RecordCard({ 
+  record, 
+  onViewDetail,
+  isChild = false,
+  childIndex,
+  hasChildren = false,
+  isExpanded = false,
+  onToggleExpand,
+}: { 
+  record: MedicalRecord; 
+  onViewDetail?: (record: MedicalRecord) => void;
+  isChild?: boolean;
+  childIndex?: number;
+  hasChildren?: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
+}) {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const followUpRequired = Boolean(record.isFollowUpRequired && record.followUpDate);
+  
   return (
-    <Card shadow="sm" className="p-4">
+    <Card shadow="sm" className="p-4" style={isChild ? { 
+      marginLeft: 20, 
+      borderLeftWidth: 3, 
+      borderLeftColor: Colors.warning[300],
+      backgroundColor: Colors.warning[50]
+    } : undefined}>
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-3">
           <View className="flex-row items-center gap-2">
-            <View
-              className="h-10 w-10 items-center justify-center rounded-xl"
-              style={{ backgroundColor: Colors.primary[100] }}
-            >
-              <Ionicons name="medical-outline" size={20} color={Colors.primary[600]} />
-            </View>
+            {hasChildren && !isChild ? (
+              <TouchableOpacity
+                onPress={onToggleExpand}
+                className="h-12 w-12 items-center justify-center rounded-xl"
+                style={{ backgroundColor: Colors.primary[600] }}
+              >
+                <Ionicons 
+                  name={isExpanded ? "chevron-down" : "chevron-forward"} 
+                  size={24} 
+                  color="#ffffff" 
+                />
+              </TouchableOpacity>
+            ) : (
+              <View
+                className="h-10 w-10 items-center justify-center rounded-xl"
+                style={{ backgroundColor: isChild ? Colors.warning[100] : Colors.primary[100] }}
+              >
+                <Ionicons 
+                  name={isChild ? "return-down-forward" : "medical-outline"} 
+                  size={20} 
+                  color={isChild ? Colors.warning[700] : Colors.primary[600]} 
+                />
+              </View>
+            )}
             <View className="flex-1">
-              <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
-                Khám {formatDate(record.recordDate)}
-              </Text>
+              <View className="flex-row items-center gap-2 flex-wrap">
+                <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                  {isChild ? `Tái khám ${childIndex}` : `Khám ${formatDate(record.recordDate)}`}
+                </Text>
+                {hasChildren && (
+                  <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.primary[600] }}>
+                    <Text className="text-[10px] font-semibold text-white">
+                      📋 Có tái khám
+                    </Text>
+                  </View>
+                )}
+                {isChild && (
+                  <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: Colors.warning[600] }}>
+                    <Text className="text-[10px] font-semibold text-white">
+                      🔄 Tái khám
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text className="mt-0.5 text-[10px]" style={{ color: theme.text.secondary }}>
                 BS: {extractDoctorName(record.doctorId)}
               </Text>
@@ -294,6 +360,19 @@ function RecordCard({ record, onViewDetail }: { record: MedicalRecord; onViewDet
         </View>
         <RecordStatusPill status={record.status} />
       </View>
+
+      {/* Show expand instruction for parent with children */}
+      {hasChildren && !isChild && !isExpanded && (
+        <View 
+          className="mt-3 rounded-xl p-2.5 flex-row items-center gap-2"
+          style={{ backgroundColor: Colors.primary[100] }}
+        >
+          <Ionicons name="information-circle" size={16} color={Colors.primary[700]} />
+          <Text className="text-xs font-medium flex-1" style={{ color: Colors.primary[700] }}>
+            Nhấn nút mũi tên để xem các lần tái khám
+          </Text>
+        </View>
+      )}
 
       <View className="mt-3 space-y-2">
         {record.chiefComplaint ? (
@@ -310,24 +389,64 @@ function RecordCard({ record, onViewDetail }: { record: MedicalRecord; onViewDet
           </View>
         ) : null}
         
-        {/* Always show diagnosis section */}
-        <View className="flex-row items-start gap-2">
-          <Ionicons name="clipboard-outline" size={16} color={record.diagnosis ? Colors.primary[600] : Colors.error[500]} />
-          <View className="flex-1">
-            <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
-              Chẩn đoán
-            </Text>
-            {record.diagnosis ? (
+        {/* Diagnosis Groups (priority) or fallback to diagnosis */}
+        {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
+          <View className="flex-row items-start gap-2">
+            <Ionicons name="clipboard-outline" size={16} color={Colors.primary[600]} />
+            <View className="flex-1">
+              <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+                Chẩn đoán
+              </Text>
+              <View className="mt-1 space-y-1">
+                {record.diagnosisGroups.map((group, idx) => (
+                  <View key={idx} className="rounded-lg p-2" style={{ backgroundColor: Colors.primary[50] }}>
+                    <Text className="text-xs font-semibold" style={{ color: theme.text.primary }}>
+                      • {group.diagnosis}
+                    </Text>
+                    {group.treatmentPlans && group.treatmentPlans.length > 0 && (
+                      <View className="mt-1 ml-2">
+                        {group.treatmentPlans.map((plan, planIdx) => (
+                          <Text 
+                            key={planIdx} 
+                            className="text-[10px]" 
+                            style={{ color: theme.text.secondary }}
+                          >
+                            → {plan}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        ) : record.diagnosis ? (
+          <View className="flex-row items-start gap-2">
+            <Ionicons name="clipboard-outline" size={16} color={Colors.primary[600]} />
+            <View className="flex-1">
+              <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+                Chẩn đoán
+              </Text>
               <Text className="mt-0.5 text-xs" style={{ color: theme.text.primary }}>
                 {record.diagnosis}
               </Text>
-            ) : (
+            </View>
+          </View>
+        ) : (
+          <View className="flex-row items-start gap-2">
+            <Ionicons name="clipboard-outline" size={16} color={Colors.error[500]} />
+            <View className="flex-1">
+              <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
+                Chẩn đoán
+              </Text>
               <Text className="mt-0.5 text-xs italic" style={{ color: Colors.error[500] }}>
                 Chưa có chẩn đoán
               </Text>
-            )}
+            </View>
           </View>
-        </View>
+        )}
+
         {record.treatmentPlan ? (
           <View className="flex-row items-start gap-2">
             <Ionicons name="checkmark-circle-outline" size={16} color={Colors.success[600]} />
@@ -408,16 +527,151 @@ export default function RecordsScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'treated' | 'followUp'>('all');
   const [selectedStatFilter, setSelectedStatFilter] = useState<'total' | 'completed' | 'pending' | 'followup' | null>(null);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState<'start' | 'end' | null>(null);
+  const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
-  const [showRecordDetail, setShowRecordDetail] = useState(false);
-  
-  // Edit diagnosis state
-  const [isEditingDiagnosis, setIsEditingDiagnosis] = useState(false);
-  const [editedDiagnosis, setEditedDiagnosis] = useState('');
-  const [editedTreatmentPlan, setEditedTreatmentPlan] = useState('');
-  const [isSavingDiagnosis, setIsSavingDiagnosis] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  const buildSelectedRecordText = useCallback(() => {
+    if (!selectedRecord) return '';
+    let content = `HỒ SƠ ĐIỀU TRỊ\n`;
+    content += `Ngày: ${formatDateTime(selectedRecord.recordDate)}\n`;
+    content += `═══════════════════════════════════════\n\n`;
+
+    content += `THÔNG TIN BÁC SĨ\n`;
+    content += `Họ và tên: ${extractDoctorName(selectedRecord.doctorId)}\n`;
+    if (typeof selectedRecord.doctorId === 'object' && selectedRecord.doctorId?.specialty) {
+      content += `Chuyên khoa: ${selectedRecord.doctorId.specialty}\n`;
+    }
+    content += `\n`;
+
+    if (selectedRecord.chiefComplaint) {
+      content += `LÝ DO KHÁM\n${selectedRecord.chiefComplaint}\n\n`;
+    }
+
+    if (selectedRecord.diagnosisGroups && selectedRecord.diagnosisGroups.length > 0) {
+      content += `CHẨN ĐOÁN (${selectedRecord.diagnosisGroups.length} nhóm)\n`;
+      selectedRecord.diagnosisGroups.forEach((group, index) => {
+        content += `${index + 1}. ${group.diagnosis}\n`;
+        if (group.treatmentPlans && group.treatmentPlans.length > 0) {
+          content += `   Phương pháp điều trị:\n`;
+          group.treatmentPlans.forEach((plan) => {
+            content += `   → ${plan}\n`;
+          });
+        }
+      });
+      content += `\n`;
+    } else if (selectedRecord.diagnosis) {
+      content += `CHẨN ĐOÁN\n${selectedRecord.diagnosis}\n\n`;
+    }
+
+    if (selectedRecord.treatmentPlan) {
+      content += `KẾ HOẠCH ĐIỀU TRỊ\n${selectedRecord.treatmentPlan}\n\n`;
+    }
+
+    let meds: (MedicalRecordMedication | string)[] = [];
+    if (selectedRecord.detailedMedications && selectedRecord.detailedMedications.length > 0) {
+      meds = selectedRecord.detailedMedications;
+    } else if (selectedRecord.medications && selectedRecord.medications.length > 0) {
+      const firstItem = selectedRecord.medications[0];
+      if (typeof firstItem === 'string') {
+        meds = selectedRecord.medications as string[];
+      } else {
+        meds = selectedRecord.medications as MedicalRecordMedication[];
+      }
+    }
+
+    if (meds.length > 0) {
+      content += `THUỐC ĐƯỢC KÊ (${meds.length})\n`;
+      meds.forEach((med, index) => {
+        if (typeof med === 'string') {
+          content += `${index + 1}. ${med}\n`;
+        } else {
+          const medObj = med as MedicalRecordMedication;
+          content += `${index + 1}. ${medObj.name ?? 'Thuốc'}\n`;
+          if (medObj.dosage) content += `   Liều lượng: ${medObj.dosage}\n`;
+          if (medObj.frequency) content += `   Tần suất: ${medObj.frequency}\n`;
+          if (medObj.duration) content += `   Thời gian: ${medObj.duration}\n`;
+          if (medObj.instructions) content += `   Hướng dẫn: ${medObj.instructions}\n`;
+        }
+      });
+      content += `\n`;
+    }
+
+    if (selectedRecord.procedures && selectedRecord.procedures.length > 0) {
+      content += `THỦ THUẬT ĐÃ THỰC HIỆN (${selectedRecord.procedures.length})\n`;
+      selectedRecord.procedures.forEach((proc, index) => {
+        content += `${index + 1}. ${proc.name ?? 'Thủ thuật'}\n`;
+        if (proc.description) content += `   Mô tả: ${proc.description}\n`;
+        if (proc.date) content += `   Ngày: ${formatDate(proc.date)}\n`;
+        if (proc.cost) {
+          const cost = typeof proc.cost === 'number'
+            ? proc.cost.toLocaleString('vi-VN')
+            : Number(proc.cost)?.toLocaleString('vi-VN') || (proc.cost as string);
+          content += `   Chi phí: ${cost} VNĐ\n`;
+        }
+        if (proc.status) content += `   Trạng thái: ${proc.status}\n`;
+      });
+      content += `\n`;
+    }
+
+    if (selectedRecord.notes) {
+      content += `GHI CHÚ\n${selectedRecord.notes}\n\n`;
+    }
+
+    if (selectedRecord.isFollowUpRequired) {
+      content += `THÔNG TIN TÁI KHÁM\n`;
+      content += `Cần tái khám\n`;
+      if (selectedRecord.followUpDate) {
+        content += `Ngày tái khám: ${formatDate(selectedRecord.followUpDate)} ${selectedRecord.followUpTime ? `• ${selectedRecord.followUpTime}` : ''}\n`;
+      }
+      content += `\n`;
+    }
+
+    content += `═══════════════════════════════════════\n`;
+    content += `Smart Dental Healthcare\n`;
+    content += `Ngày in: ${new Date().toLocaleString('vi-VN')}\n`;
+    return content;
+  }, [selectedRecord]);
+
+  const handleShareSelectedRecord = useCallback(async () => {
+    if (!selectedRecord) return;
+    try {
+      const content = buildSelectedRecordText();
+      await Share.share({
+        message: content,
+        title: `Hồ sơ điều trị - ${formatDate(selectedRecord.recordDate)}`,
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+      Alert.alert('Lỗi', 'Không thể chia sẻ hồ sơ. Vui lòng thử lại sau.');
+    }
+  }, [buildSelectedRecordText, selectedRecord]);
+
+  const handlePrintSelectedRecord = useCallback(() => {
+    if (Platform.OS === 'web') {
+      try {
+        window.print?.();
+      } catch (error) {
+        console.error('Web print error:', error);
+        Alert.alert('Lỗi', 'Không thể in trên trình duyệt.');
+      }
+    } else {
+      Alert.alert(
+        'In hồ sơ',
+        'Tính năng in chưa hỗ trợ trên thiết bị di động. Vui lòng sử dụng nút Chia sẻ để gửi hoặc lưu hồ sơ.',
+        [
+          { text: 'Chia sẻ', onPress: () => void handleShareSelectedRecord() },
+          { text: 'Đóng', style: 'cancel' },
+        ]
+      );
+    }
+  }, [handleShareSelectedRecord]);
 
   const loadRecords = useCallback(
     async ({ viaRefresh = false, signal }: { viaRefresh?: boolean; signal?: AbortSignal } = {}) => {
@@ -434,18 +688,23 @@ export default function RecordsScreen() {
       }
 
       try {
-        const [recordsResponse, statsResponse] = await Promise.all([
-          apiRequest<MedicalRecord[]>(`/api/v1/medical-records/patient/records?patientId=${patientId}`, {
-            token,
-            abortSignal: signal,
-          }),
-          apiRequest<PatientRecordStats>(`/api/v1/medical-records/statistics/patient?patientId=${patientId}`, {
-            token,
-            abortSignal: signal,
-          }),
-        ]);
+        // Fetch records first (critical)
+        const recordsResponse = await apiRequest<MedicalRecord[] | { data: MedicalRecord[] }>(`/api/v1/medical-records/patient/${patientId}`, {
+          token,
+          abortSignal: signal,
+        });
 
-        const recordsData = ensureArray<MedicalRecord>(recordsResponse.data);
+        // Handle both array and object with data property
+        let recordsData: MedicalRecord[];
+        if (Array.isArray(recordsResponse.data)) {
+          recordsData = recordsResponse.data;
+        } else if (recordsResponse.data && typeof recordsResponse.data === 'object' && 'data' in recordsResponse.data) {
+          recordsData = ensureArray<MedicalRecord>((recordsResponse.data as any).data);
+        } else {
+          recordsData = ensureArray<MedicalRecord>(recordsResponse.data);
+        }
+        
+        console.log('📋 Fetched records count:', recordsData.length);
         
         // Debug: Log first record to check diagnosis field
         if (recordsData.length > 0) {
@@ -454,20 +713,36 @@ export default function RecordsScreen() {
             recordDate: recordsData[0].recordDate,
             chiefComplaint: recordsData[0].chiefComplaint,
             diagnosis: recordsData[0].diagnosis,
+            diagnosisGroups: recordsData[0].diagnosisGroups,
             treatmentPlan: recordsData[0].treatmentPlan,
-            hasComplaint: !!recordsData[0].chiefComplaint,
-            hasDiagnosis: !!recordsData[0].diagnosis,
-            hasTreatmentPlan: !!recordsData[0].treatmentPlan,
+            parentRecordId: recordsData[0].parentRecordId,
           });
         }
         
         setRecords(recordsData);
-        setStats(statsResponse.data ?? null);
         setErrorMessage(null);
+
+        // Try to fetch stats (optional, non-blocking)
+        try {
+          const statsResponse = await apiRequest<PatientRecordStats>(`/api/v1/medical-records/statistics/patient?patientId=${patientId}`, {
+            token,
+            abortSignal: signal,
+          });
+          setStats(statsResponse.data ?? null);
+        } catch (statsError) {
+          console.log('⚠️ Stats API failed, will calculate from records:', formatApiError(statsError));
+          setStats(null); // Will be calculated in quickStats useMemo
+        }
       } catch (error) {
         if (isAbortError(error)) {
           return;
         }
+        console.error('❌ Error loading medical records:', error);
+        console.error('Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          status: (error as any)?.status,
+          details: (error as any)?.details,
+        });
         setRecords([]);
         setStats(null);
         setErrorMessage(formatApiError(error, 'Không thể tải hồ sơ bệnh án.'));
@@ -498,242 +773,149 @@ export default function RecordsScreen() {
     void loadRecords({ viaRefresh: true });
   }, [patientId, token, loadRecords]);
 
-  // Use records directly as items
-  const allItems = useMemo(() => {
-    // Sort by date (most recent first)
-    return [...records].sort((a, b) => {
-      const dateA = a.recordDate;
-      const dateB = b.recordDate;
-      
-      if (!dateA && !dateB) return 0;
-      if (!dateA) return 1;
-      if (!dateB) return -1;
-      
-      const timestampA = new Date(dateA).getTime();
-      const timestampB = new Date(dateB).getTime();
-      return timestampB - timestampA; // Most recent first
+  // Use records directly as items, build hierarchy
+  const { parentRecords, childRecordsMap } = useMemo(() => {
+    const parents: MedicalRecord[] = [];
+    const childrenMap = new Map<string, MedicalRecord[]>();
+
+    records.forEach((record) => {
+      const parentId = typeof record.parentRecordId === 'string' 
+        ? record.parentRecordId 
+        : record.parentRecordId?._id;
+
+      if (parentId) {
+        // This is a child record (follow-up)
+        if (!childrenMap.has(parentId)) {
+          childrenMap.set(parentId, []);
+        }
+        childrenMap.get(parentId)!.push(record);
+      } else {
+        // This is a parent record
+        parents.push(record);
+      }
     });
+
+    // Sort children by date (oldest first)
+    childrenMap.forEach((children) => {
+      children.sort((a, b) => {
+        const dateA = a.recordDate ? new Date(a.recordDate).getTime() : 0;
+        const dateB = b.recordDate ? new Date(b.recordDate).getTime() : 0;
+        return dateA - dateB;
+      });
+    });
+
+    // Sort parents by date (newest first)
+    parents.sort((a, b) => {
+      const dateA = a.recordDate ? new Date(a.recordDate).getTime() : 0;
+      const dateB = b.recordDate ? new Date(b.recordDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    return { parentRecords: parents, childRecordsMap: childrenMap };
   }, [records]);
 
   const filteredItems = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     
-    return allItems.filter((record) => {
+    // Get all records (flatten hierarchy for filtering)
+    const allRecords: MedicalRecord[] = [];
+    parentRecords.forEach(parent => {
+      allRecords.push(parent);
+      const children = childRecordsMap.get(parent._id ?? '') || [];
+      allRecords.push(...children);
+    });
+    
+    return allRecords.filter((record) => {
+      // Apply status filter
+      if (statusFilter === 'treated') {
+        if (record.isFollowUpRequired) return false;
+      } else if (statusFilter === 'followUp') {
+        if (!record.isFollowUpRequired) return false;
+      }
+      
       // Apply stat filter
       if (selectedStatFilter) {
-        if (selectedStatFilter === 'total') {
-          // Show all - no filter
-        } else if (selectedStatFilter === 'completed') {
+        if (selectedStatFilter === 'completed') {
           const status = (record.status ?? '').trim().toLowerCase();
-          if (status !== 'completed') {
-            return false;
-          }
+          if (status !== 'completed') return false;
         } else if (selectedStatFilter === 'pending') {
           const status = (record.status ?? '').trim().toLowerCase();
-          if (status !== 'pending') {
-            return false;
-          }
+          if (status !== 'pending') return false;
         } else if (selectedStatFilter === 'followup') {
-          if (!record.isFollowUpRequired) {
-            return false;
-          }
+          if (!record.isFollowUpRequired) return false;
         }
+      }
+      
+      // Apply date filter
+      if (startDate && !endDate) {
+        // Only start date - filter exact date
+        if (!record.recordDate) return false;
+        const recordDate = new Date(record.recordDate);
+        recordDate.setHours(0, 0, 0, 0);
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (recordDate.getTime() !== start.getTime()) return false;
+      } else if (!startDate && endDate) {
+        // Only end date - filter exact date
+        if (!record.recordDate) return false;
+        const recordDate = new Date(record.recordDate);
+        recordDate.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(0, 0, 0, 0);
+        if (recordDate.getTime() !== end.getTime()) return false;
+      } else if (startDate && endDate) {
+        // Both dates - filter range
+        if (!record.recordDate) return false;
+        const recordDate = new Date(record.recordDate);
+        recordDate.setHours(0, 0, 0, 0);
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(endDate);
+        end.setHours(0, 0, 0, 0);
+        if (recordDate < start || recordDate > end) return false;
       }
       
       // Apply search term
-      if (!term) {
-        return true;
+      if (term) {
+        const doctorName = extractDoctorName(record.doctorId).toLowerCase();
+        const haystack = [
+          record.chiefComplaint, 
+          record.diagnosis, 
+          record.treatmentPlan, 
+          doctorName
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!haystack.includes(term)) return false;
       }
       
-      const doctorName = extractDoctorName(record.doctorId).toLowerCase();
-      const haystack = [record.chiefComplaint, record.diagnosis, record.treatmentPlan, doctorName].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(term);
+      return true;
     });
-  }, [allItems, searchTerm, selectedStatFilter]);
+  }, [parentRecords, childRecordsMap, searchTerm, selectedStatFilter, statusFilter, startDate, endDate]);
+
+  const toggleExpand = useCallback((recordId: string) => {
+    setExpandedRecords((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(recordId)) {
+        newSet.delete(recordId);
+      } else {
+        newSet.add(recordId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setSearchTerm('');
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setStatusFilter('all');
+    setSelectedStatFilter(null);
+  }, []);
 
   const handleViewRecordDetail = useCallback((record: MedicalRecord) => {
+    if (!record._id) return;
     setSelectedRecord(record);
-    setShowRecordDetail(true);
+    setShowDetailModal(true);
   }, []);
-
-  const handleCloseRecordDetail = useCallback(() => {
-    setShowRecordDetail(false);
-    setSelectedRecord(null);
-    setIsEditingDiagnosis(false);
-    setEditedDiagnosis('');
-    setEditedTreatmentPlan('');
-  }, []);
-
-  const handleStartEditDiagnosis = useCallback(() => {
-    if (selectedRecord) {
-      setEditedDiagnosis(selectedRecord.diagnosis || '');
-      setEditedTreatmentPlan(selectedRecord.treatmentPlan || '');
-      setIsEditingDiagnosis(true);
-    }
-  }, [selectedRecord]);
-
-  const handleCancelEditDiagnosis = useCallback(() => {
-    setIsEditingDiagnosis(false);
-    setEditedDiagnosis('');
-    setEditedTreatmentPlan('');
-  }, []);
-
-  const handleSaveDiagnosis = useCallback(async () => {
-    if (!selectedRecord?._id || !token) return;
-
-    setIsSavingDiagnosis(true);
-    try {
-      const response = await apiRequest(
-        `/api/v1/medical-records/${selectedRecord._id}`,
-        {
-          method: 'PATCH',
-          token,
-          body: {
-            diagnosis: editedDiagnosis.trim(),
-            treatmentPlan: editedTreatmentPlan.trim(),
-          },
-        }
-      );
-
-      // Update local state
-      const updatedRecord = (response.data || response) as MedicalRecord;
-      setRecords((prev) =>
-        prev.map((r) => (r._id === selectedRecord._id ? { ...r, diagnosis: updatedRecord.diagnosis, treatmentPlan: updatedRecord.treatmentPlan } : r))
-      );
-      setSelectedRecord((prev) => (prev ? { ...prev, diagnosis: updatedRecord.diagnosis, treatmentPlan: updatedRecord.treatmentPlan } : null));
-      
-      setIsEditingDiagnosis(false);
-      Alert.alert('Thành công', 'Đã cập nhật chẩn đoán và kế hoạch điều trị');
-    } catch (error) {
-      console.error('Error saving diagnosis:', error);
-      Alert.alert('Lỗi', formatApiError(error, 'Không thể cập nhật chẩn đoán. Vui lòng thử lại sau.'));
-    } finally {
-      setIsSavingDiagnosis(false);
-    }
-  }, [selectedRecord, token, editedDiagnosis, editedTreatmentPlan]);
-
-  const handlePrintRecord = useCallback(async () => {
-    if (!selectedRecord) return;
-    
-    try {
-      // Generate text content for sharing/printing
-      let content = `HỒ SƠ ĐIỀU TRỊ\n`;
-      content += `Ngày: ${formatDateTime(selectedRecord.recordDate)}\n`;
-      content += `═══════════════════════════════════════\n\n`;
-      
-      content += `THÔNG TIN BÁC SĨ\n`;
-      content += `Họ và tên: ${extractDoctorName(selectedRecord.doctorId)}\n`;
-      if (typeof selectedRecord.doctorId === 'object' && selectedRecord.doctorId?.specialty) {
-        content += `Chuyên khoa: ${selectedRecord.doctorId.specialty}\n`;
-      }
-      content += `\n`;
-      
-      if (selectedRecord.chiefComplaint) {
-        content += `LÝ DO KHÁM\n${selectedRecord.chiefComplaint}\n\n`;
-      }
-      
-      if (selectedRecord.diagnosis) {
-        content += `CHẨN ĐOÁN\n${selectedRecord.diagnosis}\n\n`;
-      }
-      
-      if (selectedRecord.treatmentPlan) {
-        content += `KẾ HOẠCH ĐIỀU TRỊ\n${selectedRecord.treatmentPlan}\n\n`;
-      }
-      
-      // Medications
-      let meds: (MedicalRecordMedication | string)[] = [];
-      if (selectedRecord.detailedMedications && selectedRecord.detailedMedications.length > 0) {
-        meds = selectedRecord.detailedMedications;
-      } else if (selectedRecord.medications && selectedRecord.medications.length > 0) {
-        const firstItem = selectedRecord.medications[0];
-        if (typeof firstItem === 'string') {
-          meds = selectedRecord.medications as string[];
-        } else {
-          meds = selectedRecord.medications as MedicalRecordMedication[];
-        }
-      }
-      
-      if (meds.length > 0) {
-        content += `THUỐC ĐƯỢC KÊ (${meds.length})\n`;
-        meds.forEach((med, index) => {
-          if (typeof med === 'string') {
-            content += `${index + 1}. ${med}\n`;
-          } else {
-            const medObj = med as MedicalRecordMedication;
-            content += `${index + 1}. ${medObj.name ?? 'Thuốc'}\n`;
-            if (medObj.dosage) content += `   Liều lượng: ${medObj.dosage}\n`;
-            if (medObj.frequency) content += `   Tần suất: ${medObj.frequency}\n`;
-            if (medObj.duration) content += `   Thời gian: ${medObj.duration}\n`;
-            if (medObj.instructions) content += `   Hướng dẫn: ${medObj.instructions}\n`;
-          }
-        });
-        content += `\n`;
-      }
-      
-      // Procedures
-      if (selectedRecord.procedures && selectedRecord.procedures.length > 0) {
-        content += `THỦ THUẬT ĐÃ THỰC HIỆN (${selectedRecord.procedures.length})\n`;
-        selectedRecord.procedures.forEach((proc, index) => {
-          content += `${index + 1}. ${proc.name ?? 'Thủ thuật'}\n`;
-          if (proc.description) content += `   Mô tả: ${proc.description}\n`;
-          if (proc.date) content += `   Ngày: ${formatDate(proc.date)}\n`;
-          if (proc.cost) {
-            const cost = typeof proc.cost === 'number' 
-              ? proc.cost.toLocaleString('vi-VN')
-              : Number(proc.cost)?.toLocaleString('vi-VN') || proc.cost;
-            content += `   Chi phí: ${cost} VNĐ\n`;
-          }
-          if (proc.status) content += `   Trạng thái: ${proc.status}\n`;
-        });
-        content += `\n`;
-      }
-      
-      // Dental Chart
-      if (selectedRecord.dentalChart && selectedRecord.dentalChart.length > 0) {
-        content += `SƠ ĐỒ RĂNG (${selectedRecord.dentalChart.length})\n`;
-        selectedRecord.dentalChart.forEach((tooth, index) => {
-          content += `Răng ${tooth.toothNumber ?? 'N/A'}: `;
-          if (tooth.condition) content += `${tooth.condition} `;
-          if (tooth.treatment) content += `- Điều trị: ${tooth.treatment} `;
-          if (tooth.notes) content += `- Ghi chú: ${tooth.notes}`;
-          content += `\n`;
-        });
-        content += `\n`;
-      }
-      
-      if (selectedRecord.notes) {
-        content += `GHI CHÚ\n${selectedRecord.notes}\n\n`;
-      }
-      
-      if (selectedRecord.isFollowUpRequired) {
-        content += `THÔNG TIN TÁI KHÁM\n`;
-        content += `Cần tái khám\n`;
-        if (selectedRecord.followUpDate) {
-          content += `Ngày tái khám: ${formatDate(selectedRecord.followUpDate)} ${selectedRecord.followUpTime ? `• ${selectedRecord.followUpTime}` : ''}\n`;
-        }
-        content += `\n`;
-      }
-      
-      content += `═══════════════════════════════════════\n`;
-      content += `Hồ sơ được tạo bởi Smart Dental Healthcare\n`;
-      content += `Ngày in: ${new Date().toLocaleString('vi-VN')}\n`;
-      
-      // Use Share API for mobile
-      const result = await Share.share({
-        message: content,
-        title: `Hồ sơ điều trị - ${formatDate(selectedRecord.recordDate)}`,
-      });
-      
-      if (result.action === Share.sharedAction) {
-        // User shared successfully
-      } else if (result.action === Share.dismissedAction) {
-        // User dismissed
-      }
-    } catch (error) {
-      console.error('Print/Share error:', error);
-      Alert.alert('Lỗi', 'Không thể chia sẻ hóa đơn. Vui lòng thử lại sau.');
-    }
-  }, [selectedRecord]);
 
   const quickStats = useMemo(() => {
     const total = stats?.totalRecords ?? records.length;
@@ -952,6 +1134,103 @@ export default function RecordsScreen() {
             </View>
           </Card>
 
+          {/* Date & Status Filters */}
+          <Card shadow="sm" className="p-3 space-y-3">
+            {/* Date Filter Row */}
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="calendar-outline" size={16} color={Colors.primary[600]} />
+              <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
+                Từ
+              </Text>
+              <TouchableOpacity
+                className="flex-1 rounded-xl p-2"
+                style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
+                onPress={() => setShowDatePicker('start')}
+              >
+                <Text className="text-xs" style={{ color: startDate ? theme.text.primary : theme.text.secondary }}>
+                  {startDate ? formatDate(startDate) : 'Chọn ngày'}
+                </Text>
+              </TouchableOpacity>
+              <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
+                đến
+              </Text>
+              <TouchableOpacity
+                className="flex-1 rounded-xl p-2"
+                style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
+                onPress={() => setShowDatePicker('end')}
+              >
+                <Text className="text-xs" style={{ color: endDate ? theme.text.primary : theme.text.secondary }}>
+                  {endDate ? formatDate(endDate) : 'Chọn ngày'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Status Filter Buttons */}
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                className="flex-1 rounded-xl px-3 py-2"
+                style={{ 
+                  backgroundColor: statusFilter === 'all' ? Colors.primary[600] : Colors.primary[50],
+                  borderWidth: 1,
+                  borderColor: statusFilter === 'all' ? Colors.primary[600] : Colors.primary[100]
+                }}
+                onPress={() => setStatusFilter('all')}
+              >
+                <Text 
+                  className="text-xs font-semibold text-center" 
+                  style={{ color: statusFilter === 'all' ? '#ffffff' : Colors.primary[600] }}
+                >
+                  Tất cả
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 rounded-xl px-3 py-2"
+                style={{ 
+                  backgroundColor: statusFilter === 'treated' ? Colors.success[600] : Colors.success[50],
+                  borderWidth: 1,
+                  borderColor: statusFilter === 'treated' ? Colors.success[600] : Colors.success[100]
+                }}
+                onPress={() => setStatusFilter('treated')}
+              >
+                <Text 
+                  className="text-xs font-semibold text-center" 
+                  style={{ color: statusFilter === 'treated' ? '#ffffff' : Colors.success[700] }}
+                >
+                  Đã điều trị
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 rounded-xl px-3 py-2"
+                style={{ 
+                  backgroundColor: statusFilter === 'followUp' ? Colors.warning[600] : Colors.warning[50],
+                  borderWidth: 1,
+                  borderColor: statusFilter === 'followUp' ? Colors.warning[600] : Colors.warning[100]
+                }}
+                onPress={() => setStatusFilter('followUp')}
+              >
+                <Text 
+                  className="text-xs font-semibold text-center" 
+                  style={{ color: statusFilter === 'followUp' ? '#ffffff' : Colors.warning[700] }}
+                >
+                  Tái khám
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Clear Filters Button */}
+            {(searchTerm || startDate || endDate || statusFilter !== 'all' || selectedStatFilter) && (
+              <TouchableOpacity
+                className="rounded-xl py-2"
+                style={{ backgroundColor: Colors.error[50], borderWidth: 1, borderColor: Colors.error[100] }}
+                onPress={clearFilters}
+              >
+                <Text className="text-xs font-semibold text-center" style={{ color: Colors.error[700] }}>
+                  Xóa bộ lọc
+                </Text>
+              </TouchableOpacity>
+            )}
+          </Card>
+
           {/* Error Message */}
           {errorMessage ? (
             <Card
@@ -993,524 +1272,469 @@ export default function RecordsScreen() {
             </Card>
           ) : (
             <View className="space-y-3">
-              {filteredItems.map((record) => (
-                <RecordCard 
-                  key={record._id ?? `record-${record.recordDate}-${extractDoctorName(record.doctorId)}`} 
-                  record={record}
-                  onViewDetail={handleViewRecordDetail}
-                />
-              ))}
+              {(() => {
+                // Build filtered parent records with their children
+                const filteredIds = new Set(filteredItems.map(r => r._id));
+                const visibleParents = parentRecords.filter(parent => 
+                  filteredIds.has(parent._id) || 
+                  (childRecordsMap.get(parent._id ?? '') || []).some(child => filteredIds.has(child._id))
+                );
+
+                return visibleParents.map((parent) => {
+                  const children = childRecordsMap.get(parent._id ?? '') || [];
+                  const visibleChildren = children.filter(child => filteredIds.has(child._id));
+                  const hasChildren = visibleChildren.length > 0;
+                  const isExpanded = expandedRecords.has(parent._id ?? '');
+                  const showParent = filteredIds.has(parent._id);
+
+                  return (
+                    <View key={parent._id ?? `parent-${parent.recordDate}`} className="space-y-2">
+                      {/* Parent Record */}
+                      {showParent && (
+                        <RecordCard 
+                          record={parent}
+                          onViewDetail={handleViewRecordDetail}
+                          hasChildren={hasChildren}
+                          isExpanded={isExpanded}
+                          onToggleExpand={() => toggleExpand(parent._id ?? '')}
+                        />
+                      )}
+
+                      {/* Child Records - Show when expanded */}
+                      {hasChildren && isExpanded && visibleChildren.map((child, index) => (
+                        <RecordCard 
+                          key={child._id ?? `child-${child.recordDate}-${index}`}
+                          record={child}
+                          onViewDetail={handleViewRecordDetail}
+                          isChild={true}
+                          childIndex={index + 1}
+                        />
+                      ))}
+                    </View>
+                  );
+                });
+              })()}
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Record Detail Modal */}
-      <Modal
-        visible={showRecordDetail}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={handleCloseRecordDetail}
-      >
-        <View className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-          <View 
-            className="w-full max-w-2xl rounded-3xl"
-            style={{ 
-              backgroundColor: theme.background,
-              maxHeight: '90%',
-            }}
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        Platform.OS === 'ios' ? (
+          <Modal
+            visible={true}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowDatePicker(null)}
           >
-            {/* Modal Header */}
-            <View className="flex-row items-center justify-between p-6 border-b" style={{ borderBottomColor: theme.border }}>
-              <View className="flex-1">
-                <Text className="text-2xl font-bold" style={{ color: theme.text.primary }}>
-                  Chi tiết hồ sơ điều trị
-                </Text>
-                <Text className="mt-1 text-sm" style={{ color: theme.text.secondary }}>
-                  {selectedRecord?.recordDate ? formatDateTime(selectedRecord.recordDate) : ''}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={handleCloseRecordDetail}
-                className="h-10 w-10 items-center justify-center rounded-full"
-                style={{ backgroundColor: Colors.error[50] }}
-              >
-                <Ionicons name="close" size={24} color={Colors.error[600]} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView 
-              className="flex-1"
-              contentContainerStyle={{ padding: 20, paddingBottom: 20 }}
-              showsVerticalScrollIndicator={false}
+            <TouchableOpacity 
+              className="flex-1 bg-black/50 justify-end"
+              activeOpacity={1}
+              onPress={() => setShowDatePicker(null)}
             >
-              {selectedRecord && (
-                <View className="space-y-6">
-                  {/* Doctor Info */}
-                  <Card className="p-4" style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}>
-                    <Text className="text-lg font-semibold mb-4" style={{ color: theme.text.primary }}>
-                      Thông tin bác sĩ
+              <View 
+                className="bg-white rounded-t-3xl p-4"
+                onStartShouldSetResponder={() => true}
+              >
+                <View className="flex-row justify-between items-center mb-3">
+                  <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
+                    {showDatePicker === 'start' ? 'Chọn ngày bắt đầu' : 'Chọn ngày kết thúc'}
+                  </Text>
+                  <TouchableOpacity onPress={() => setShowDatePicker(null)}>
+                    <Ionicons name="close" size={24} color={theme.text.primary} />
+                  </TouchableOpacity>
+                </View>
+                
+                <DateTimePicker
+                  value={showDatePicker === 'start' ? (startDate || new Date()) : (endDate || new Date())}
+                  mode="date"
+                  display="spinner"
+                  onChange={(event, selectedDate) => {
+                    if (event.type === 'set' && selectedDate) {
+                      if (showDatePicker === 'start') {
+                        setStartDate(selectedDate);
+                      } else {
+                        setEndDate(selectedDate);
+                      }
+                    }
+                  }}
+                  locale="vi-VN"
+                />
+
+                <View className="flex-row gap-2 mt-4">
+                  <TouchableOpacity
+                    className="flex-1 rounded-xl py-3"
+                    style={{ backgroundColor: Colors.error[50] }}
+                    onPress={() => {
+                      if (showDatePicker === 'start') {
+                        setStartDate(undefined);
+                      } else {
+                        setEndDate(undefined);
+                      }
+                      setShowDatePicker(null);
+                    }}
+                  >
+                    <Text className="text-center text-sm font-semibold" style={{ color: Colors.error[700] }}>
+                      Xóa
                     </Text>
-                    <View className="flex-row flex-wrap gap-4">
-                      <View className="flex-1" style={{ minWidth: '48%' }}>
-                        <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                          Họ và tên:
-                        </Text>
-                        <Text className="text-base font-medium" style={{ color: theme.text.primary }}>
-                          {extractDoctorName(selectedRecord.doctorId)}
-                        </Text>
-                      </View>
-                      {typeof selectedRecord.doctorId === 'object' && selectedRecord.doctorId?.specialty && (
-                        <View className="flex-1" style={{ minWidth: '48%' }}>
-                          <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                            Chuyên khoa:
-                          </Text>
-                          <Text className="text-base font-medium" style={{ color: theme.text.primary }}>
-                            {selectedRecord.doctorId.specialty}
-                          </Text>
-                        </View>
-                      )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="flex-1 rounded-xl py-3"
+                    style={{ backgroundColor: Colors.primary[600] }}
+                    onPress={() => setShowDatePicker(null)}
+                  >
+                    <Text className="text-center text-sm font-semibold text-white">
+                      Xong
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        ) : (
+          // Android uses native date picker
+          <DateTimePicker
+            value={showDatePicker === 'start' ? (startDate || new Date()) : (endDate || new Date())}
+            mode="date"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowDatePicker(null);
+              if (event.type === 'set' && selectedDate) {
+                if (showDatePicker === 'start') {
+                  setStartDate(selectedDate);
+                } else {
+                  setEndDate(selectedDate);
+                }
+              }
+            }}
+          />
+        )
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedRecord && (
+        <Modal
+          visible={true}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowDetailModal(false);
+            setSelectedRecord(null);
+          }}
+        >
+          <View className="flex-1 bg-black/50">
+            <TouchableOpacity 
+              className="flex-1"
+              activeOpacity={1}
+              onPress={() => {
+                setShowDetailModal(false);
+                setSelectedRecord(null);
+              }}
+            />
+            <View 
+              className="bg-white rounded-t-3xl"
+              style={{ 
+                maxHeight: '85%',
+                backgroundColor: theme.card,
+              }}
+            >
+              {/* Modal Header */}
+              <View 
+                className="flex-row items-center justify-between p-4 border-b"
+                style={{ borderBottomColor: theme.border }}
+              >
+                <View className="flex-1">
+                  <Text className="text-lg font-bold" style={{ color: theme.text.primary }}>
+                    Chi tiết hồ sơ điều trị
+                  </Text>
+                  <Text className="text-xs mt-0.5" style={{ color: theme.text.secondary }}>
+                    {formatDateTime(selectedRecord.recordDate)}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  <TouchableOpacity
+                    onPress={handleShareSelectedRecord}
+                    className="h-8 w-8 items-center justify-center rounded-full"
+                    style={{ backgroundColor: Colors.primary[100] }}
+                  >
+                    <Ionicons name="share-social-outline" size={18} color={Colors.primary[700]} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handlePrintSelectedRecord}
+                    className="h-8 w-8 items-center justify-center rounded-full"
+                    style={{ backgroundColor: Colors.primary[100] }}
+                  >
+                    <Ionicons name="print-outline" size={18} color={Colors.primary[700]} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowDetailModal(false);
+                      setSelectedRecord(null);
+                    }}
+                    className="h-8 w-8 items-center justify-center rounded-full"
+                    style={{ backgroundColor: Colors.error[100] }}
+                  >
+                    <Ionicons name="close" size={20} color={Colors.error[700]} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Modal Content */}
+              <ScrollView 
+                className="flex-1"
+                contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+                showsVerticalScrollIndicator={false}
+              >
+                <View className="space-y-4">
+                  {/* Doctor Info */}
+                  <Card className="p-3" style={{ backgroundColor: Colors.primary[50] }}>
+                    <View className="flex-row items-center gap-2 mb-2">
+                      <Ionicons name="person" size={16} color={Colors.primary[700]} />
+                      <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                        Thông tin bác sĩ
+                      </Text>
                     </View>
+                    <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
+                      {extractDoctorName(selectedRecord.doctorId)}
+                    </Text>
+                    {typeof selectedRecord.doctorId === 'object' && selectedRecord.doctorId?.specialty && (
+                      <Text className="text-xs mt-1" style={{ color: theme.text.secondary }}>
+                        {selectedRecord.doctorId.specialty}
+                      </Text>
+                    )}
                   </Card>
 
-                  {/* Vital Signs */}
-                  {selectedRecord.vitalSigns && (
-                    <Card className="p-4">
-                      <Text className="text-lg font-semibold mb-4" style={{ color: theme.text.primary }}>
-                        Dấu hiệu sinh tồn
-                      </Text>
-                      <View className="flex-row flex-wrap gap-4">
-                        {selectedRecord.vitalSigns.bloodPressure && (
-                          <View className="flex-1" style={{ minWidth: '48%' }}>
-                            <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                              Huyết áp:
-                            </Text>
-                            <Text className="text-base font-medium" style={{ color: theme.text.primary }}>
-                              {selectedRecord.vitalSigns.bloodPressure}
-                            </Text>
-                          </View>
-                        )}
-                        {selectedRecord.vitalSigns.heartRate && (
-                          <View className="flex-1" style={{ minWidth: '48%' }}>
-                            <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                              Nhịp tim:
-                            </Text>
-                            <Text className="text-base font-medium" style={{ color: theme.text.primary }}>
-                              {selectedRecord.vitalSigns.heartRate} bpm
-                            </Text>
-                          </View>
-                        )}
-                        {selectedRecord.vitalSigns.temperature && (
-                          <View className="flex-1" style={{ minWidth: '48%' }}>
-                            <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                              Nhiệt độ:
-                            </Text>
-                            <Text className="text-base font-medium" style={{ color: theme.text.primary }}>
-                              {selectedRecord.vitalSigns.temperature}°C
-                            </Text>
-                          </View>
-                        )}
+                  {/* Chief Complaint */}
+                  {selectedRecord.chiefComplaint && (
+                    <Card className="p-3" style={{ backgroundColor: Colors.warning[50] }}>
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <Ionicons name="alert-circle" size={16} color={Colors.warning[700]} />
+                        <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
+                          Lý do khám
+                        </Text>
                       </View>
+                      <Text className="text-sm" style={{ color: theme.text.primary }}>
+                        {selectedRecord.chiefComplaint}
+                      </Text>
                     </Card>
                   )}
 
-                  {/* Clinical Information */}
-                  <View className="space-y-4">
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
-                        Thông tin lâm sàng
-                      </Text>
-                      {/* Only show edit button for doctors */}
-                      {!isEditingDiagnosis && userRole === 'doctor' && (
-                        <TouchableOpacity
-                          onPress={handleStartEditDiagnosis}
-                          className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                          style={{ backgroundColor: Colors.primary[100] }}
-                        >
-                          <Ionicons name="create-outline" size={16} color={Colors.primary[700]} />
-                          <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
-                            Chỉnh sửa
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    {/* Info for patients */}
-                    {userRole !== 'doctor' && (
-                      <Card className="p-3" style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}>
-                        <View className="flex-row items-center gap-2">
-                          <Ionicons name="information-circle-outline" size={16} color={Colors.primary[600]} />
-                          <Text className="text-xs flex-1" style={{ color: Colors.primary[700] }}>
-                            Chỉ bác sĩ mới có thể cập nhật chẩn đoán và kế hoạch điều trị
-                          </Text>
-                        </View>
-                      </Card>
-                    )}
-
-                    {selectedRecord.chiefComplaint && (
-                      <Card className="p-4" style={{ backgroundColor: Colors.primary[50] }}>
-                        <Text className="text-sm font-semibold mb-2" style={{ color: theme.text.primary }}>
-                          Lý do khám
+                  {/* Diagnosis Groups or Diagnosis */}
+                  {selectedRecord.diagnosisGroups && selectedRecord.diagnosisGroups.length > 0 ? (
+                    <View className="space-y-2">
+                      <View className="flex-row items-center gap-2 mb-1">
+                        <Ionicons name="clipboard" size={16} color={Colors.primary[700]} />
+                        <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                          Chẩn đoán
                         </Text>
-                        <Text className="text-base" style={{ color: theme.text.primary }}>
-                          {selectedRecord.chiefComplaint}
-                        </Text>
-                      </Card>
-                    )}
-
-                    {/* Diagnosis - Editable */}
-                    <Card className="p-4" style={{ 
-                      backgroundColor: isEditingDiagnosis ? theme.card : Colors.primary[50], 
-                      borderWidth: 1, 
-                      borderColor: isEditingDiagnosis ? Colors.primary[300] : Colors.primary[100], 
-                      borderLeftWidth: 4, 
-                      borderLeftColor: Colors.primary[600] 
-                    }}>
-                      <Text className="text-sm font-semibold mb-2" style={{ color: Colors.primary[700] }}>
-                        Chẩn đoán
-                      </Text>
-                      {isEditingDiagnosis ? (
-                        <TextInput
-                          value={editedDiagnosis}
-                          onChangeText={setEditedDiagnosis}
-                          placeholder="Nhập chẩn đoán..."
-                          placeholderTextColor={theme.text.secondary}
-                          multiline
-                          numberOfLines={4}
-                          className="text-base p-3 rounded-lg"
-                          style={{ 
-                            backgroundColor: theme.background, 
-                            color: theme.text.primary,
-                            borderWidth: 1,
-                            borderColor: Colors.primary[200],
-                            minHeight: 100,
-                            textAlignVertical: 'top'
-                          }}
-                        />
-                      ) : selectedRecord.diagnosis ? (
-                        <Text className="text-base font-medium" style={{ color: theme.text.primary }}>
-                          {selectedRecord.diagnosis}
-                        </Text>
-                      ) : (
-                        <Text className="text-base italic" style={{ color: Colors.error[500] }}>
-                          Chưa có chẩn đoán
-                        </Text>
-                      )}
-                    </Card>
-
-                    {/* Treatment Plan - Editable */}
-                    <Card className="p-4" style={{ 
-                      backgroundColor: isEditingDiagnosis ? theme.card : Colors.success[50], 
-                      borderWidth: 1, 
-                      borderColor: isEditingDiagnosis ? Colors.success[100] : Colors.success[100] 
-                    }}>
-                      <Text className="text-sm font-semibold mb-2" style={{ color: Colors.success[700] }}>
-                        Kế hoạch điều trị
-                      </Text>
-                      {isEditingDiagnosis ? (
-                        <TextInput
-                          value={editedTreatmentPlan}
-                          onChangeText={setEditedTreatmentPlan}
-                          placeholder="Nhập kế hoạch điều trị..."
-                          placeholderTextColor={theme.text.secondary}
-                          multiline
-                          numberOfLines={4}
-                          className="text-base p-3 rounded-lg"
-                          style={{ 
-                            backgroundColor: theme.background, 
-                            color: theme.text.primary,
-                            borderWidth: 1,
-                            borderColor: Colors.success[100],
-                            minHeight: 100,
-                            textAlignVertical: 'top'
-                          }}
-                        />
-                      ) : selectedRecord.treatmentPlan ? (
-                        <Text className="text-base" style={{ color: theme.text.primary }}>
-                          {selectedRecord.treatmentPlan}
-                        </Text>
-                      ) : (
-                        <Text className="text-base italic" style={{ color: Colors.error[500] }}>
-                          Chưa có kế hoạch điều trị
-                        </Text>
-                      )}
-                    </Card>
-
-                    {/* Edit Actions */}
-                    {isEditingDiagnosis && (
-                      <View className="flex-row gap-3">
-                        <TouchableOpacity
-                          onPress={handleCancelEditDiagnosis}
-                          className="flex-1 items-center justify-center rounded-2xl py-3"
-                          style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
-                          disabled={isSavingDiagnosis}
-                        >
-                          <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
-                            Hủy
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={handleSaveDiagnosis}
-                          className="flex-1 items-center justify-center rounded-2xl py-3 flex-row gap-2"
-                          style={{ backgroundColor: Colors.primary[600] }}
-                          disabled={isSavingDiagnosis}
-                        >
-                          {isSavingDiagnosis ? (
-                            <ActivityIndicator color="#ffffff" size="small" />
-                          ) : (
-                            <>
-                              <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />
-                              <Text className="text-base font-semibold text-white">
-                                Lưu
-                              </Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
                       </View>
-                    )}
-                  </View>
+                      {selectedRecord.diagnosisGroups.map((group, index) => (
+                        <Card 
+                          key={index}
+                          className="p-3" 
+                          style={{ 
+                            backgroundColor: Colors.primary[50],
+                            borderLeftWidth: 3,
+                            borderLeftColor: Colors.primary[600]
+                          }}
+                        >
+                          <View className="flex-row items-start gap-2">
+                            <View 
+                              className="h-5 w-5 rounded-full items-center justify-center"
+                              style={{ backgroundColor: Colors.primary[600] }}
+                            >
+                              <Text className="text-[10px] font-bold text-white">
+                                {index + 1}
+                              </Text>
+                            </View>
+                            <View className="flex-1">
+                              <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                                {group.diagnosis}
+                              </Text>
+                              {group.treatmentPlans && group.treatmentPlans.length > 0 && (
+                                <View className="mt-2 space-y-1">
+                                  <Text className="text-xs font-medium" style={{ color: theme.text.secondary }}>
+                                    Phương pháp điều trị:
+                                  </Text>
+                                  {group.treatmentPlans.map((plan, planIdx) => (
+                                    <Text 
+                                      key={planIdx} 
+                                      className="text-xs ml-2"
+                                      style={{ color: theme.text.primary }}
+                                    >
+                                      • {plan}
+                                    </Text>
+                                  ))}
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </Card>
+                      ))}
+                    </View>
+                  ) : selectedRecord.diagnosis ? (
+                    <Card className="p-3" style={{ 
+                      backgroundColor: Colors.primary[50],
+                      borderLeftWidth: 3,
+                      borderLeftColor: Colors.primary[600]
+                    }}>
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <Ionicons name="clipboard" size={16} color={Colors.primary[700]} />
+                        <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                          Chẩn đoán
+                        </Text>
+                      </View>
+                      <Text className="text-sm" style={{ color: theme.text.primary }}>
+                        {selectedRecord.diagnosis}
+                      </Text>
+                    </Card>
+                  ) : null}
+
+                  {/* Treatment Plan */}
+                  {selectedRecord.treatmentPlan && (
+                    <Card className="p-3" style={{ backgroundColor: Colors.success[50] }}>
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <Ionicons name="checkmark-circle" size={16} color={Colors.success[700]} />
+                        <Text className="text-sm font-semibold" style={{ color: Colors.success[700] }}>
+                          Kế hoạch điều trị
+                        </Text>
+                      </View>
+                      <Text className="text-sm" style={{ color: theme.text.primary }}>
+                        {selectedRecord.treatmentPlan}
+                      </Text>
+                    </Card>
+                  )}
 
                   {/* Medications */}
                   {(() => {
-                    // Use detailedMedications if available, otherwise process medications
                     let meds: (MedicalRecordMedication | string)[] = [];
-                    
                     if (selectedRecord.detailedMedications && selectedRecord.detailedMedications.length > 0) {
                       meds = selectedRecord.detailedMedications;
                     } else if (selectedRecord.medications && selectedRecord.medications.length > 0) {
-                      // Check if medications is string array or object array
-                      const firstItem = selectedRecord.medications[0];
-                      if (typeof firstItem === 'string') {
-                        meds = selectedRecord.medications as string[];
-                      } else {
-                        meds = selectedRecord.medications as MedicalRecordMedication[];
-                      }
+                      meds = selectedRecord.medications;
                     }
                     
                     if (meds.length === 0) return null;
                     
                     return (
-                      <View className="space-y-4">
-                        <View className="flex-row items-center space-x-2">
-                          <Ionicons name="medkit-outline" size={20} color={Colors.primary[600]} />
-                          <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
-                            Thuốc được kê ({meds.length})
+                      <View className="space-y-2">
+                        <View className="flex-row items-center gap-2">
+                          <Ionicons name="medkit" size={16} color={Colors.success[700]} />
+                          <Text className="text-sm font-semibold" style={{ color: Colors.success[700] }}>
+                            Thuốc kê đơn ({meds.length})
                           </Text>
                         </View>
-                        <View className="space-y-3">
-                          {meds.map((med, index) => {
-                            // Handle string medications
-                            if (typeof med === 'string') {
-                              return (
-                                <Card key={`${med}-${index}`} className="p-4" style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}>
-                                  <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
-                                    {med}
-                                  </Text>
-                                </Card>
-                              );
-                            }
-                            
-                            // Handle object medications
-                            const medObj = med as MedicalRecordMedication;
+                        {meds.map((med, index) => {
+                          if (typeof med === 'string') {
                             return (
-                              <Card key={`${medObj.name ?? index}-${index}`} className="p-4" style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}>
-                                <Text className="text-base font-semibold mb-3" style={{ color: theme.text.primary }}>
-                                  {medObj.name ?? 'Thuốc'}
+                              <Card key={index} className="p-3" style={{ backgroundColor: Colors.success[50] }}>
+                                <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
+                                  {index + 1}. {med}
                                 </Text>
-                                <View className="flex-row flex-wrap gap-4">
-                                  {medObj.dosage && (
-                                    <View className="flex-1" style={{ minWidth: '48%' }}>
-                                      <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                                        Liều lượng:
-                                      </Text>
-                                      <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
-                                        {medObj.dosage}
-                                      </Text>
-                                    </View>
-                                  )}
-                                  {medObj.frequency && (
-                                    <View className="flex-1" style={{ minWidth: '48%' }}>
-                                      <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                                        Tần suất:
-                                      </Text>
-                                      <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
-                                        {medObj.frequency}
-                                      </Text>
-                                    </View>
-                                  )}
-                                  {medObj.duration && (
-                                    <View className="flex-1" style={{ minWidth: '48%' }}>
-                                      <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
-                                        Thời gian:
-                                      </Text>
-                                      <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
-                                        {medObj.duration}
-                                      </Text>
-                                    </View>
-                                  )}
-                                </View>
-                                {medObj.instructions && (
-                                  <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: theme.card }}>
-                                    <Text className="text-xs font-semibold mb-1" style={{ color: Colors.primary[700] }}>
-                                      Hướng dẫn:
-                                    </Text>
-                                    <Text className="text-sm" style={{ color: theme.text.primary }}>
-                                      {medObj.instructions}
-                                    </Text>
-                                  </View>
-                                )}
                               </Card>
                             );
-                          })}
-                        </View>
+                          }
+                          const medObj = med as MedicalRecordMedication;
+                          return (
+                            <Card key={index} className="p-3" style={{ backgroundColor: Colors.success[50] }}>
+                              <Text className="text-sm font-semibold mb-1" style={{ color: theme.text.primary }}>
+                                {index + 1}. {medObj.name}
+                              </Text>
+                              {(medObj.dosage || medObj.frequency || medObj.duration) && (
+                                <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                                  {[medObj.dosage, medObj.frequency, medObj.duration].filter(Boolean).join(' • ')}
+                                </Text>
+                              )}
+                              {medObj.instructions && (
+                                <Text className="text-xs mt-1 italic" style={{ color: theme.text.secondary }}>
+                                  💊 {medObj.instructions}
+                                </Text>
+                              )}
+                            </Card>
+                          );
+                        })}
                       </View>
                     );
                   })()}
 
-                  {/* Dental Chart */}
-                  {selectedRecord.dentalChart && selectedRecord.dentalChart.length > 0 && (
-                    <View className="space-y-4">
-                      <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
-                        Sơ đồ răng ({selectedRecord.dentalChart.length})
-                      </Text>
-                      <View className="flex-row flex-wrap gap-3">
-                        {selectedRecord.dentalChart.map((tooth, index) => (
-                          <Card key={`tooth-${tooth.toothNumber ?? index}-${index}`} className="p-4 flex-1" style={{ minWidth: '48%' }}>
-                            <View className="flex-row items-center justify-between mb-2">
-                              <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
-                                Răng {tooth.toothNumber ?? 'N/A'}
-                              </Text>
-                              {tooth.condition && (
-                                <View className="px-2 py-1 rounded-full" style={{ backgroundColor: Colors.warning[50] }}>
-                                  <Text className="text-xs font-semibold" style={{ color: Colors.warning[700] }}>
-                                    {tooth.condition}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            {tooth.treatment && (
-                              <Text className="text-sm mb-1" style={{ color: theme.text.secondary }}>
-                                <Text className="font-semibold">Điều trị: </Text>
-                                {tooth.treatment}
-                              </Text>
-                            )}
-                            {tooth.notes && (
-                              <Text className="text-sm" style={{ color: theme.text.secondary }}>
-                                <Text className="font-semibold">Ghi chú: </Text>
-                                {tooth.notes}
-                              </Text>
-                            )}
-                          </Card>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
                   {/* Procedures */}
                   {selectedRecord.procedures && selectedRecord.procedures.length > 0 && (
-                    <View className="space-y-4">
-                      <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
-                        Thủ thuật đã thực hiện ({selectedRecord.procedures.length})
-                      </Text>
-                      <View className="space-y-3">
-                        {selectedRecord.procedures.map((procedure, index) => (
-                          <Card key={`${procedure.name ?? index}-${index}`} className="p-4">
-                            <View className="flex-row items-center justify-between mb-2">
-                              <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
-                                {procedure.name ?? 'Thủ thuật'}
-                              </Text>
-                              {procedure.cost && (
-                                <Text className="text-base font-semibold" style={{ color: Colors.primary[600] }}>
-                                  {typeof procedure.cost === 'number' 
-                                    ? `${procedure.cost.toLocaleString('vi-VN')} VNĐ`
-                                    : `${Number(procedure.cost)?.toLocaleString('vi-VN') || procedure.cost} VNĐ`}
-                                </Text>
-                              )}
-                            </View>
-                            {procedure.description && (
-                              <Text className="text-sm mb-2" style={{ color: theme.text.secondary }}>
-                                {procedure.description}
+                    <View className="space-y-2">
+                      <View className="flex-row items-center gap-2">
+                        <Ionicons name="build" size={16} color={Colors.primary[700]} />
+                        <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                          Thủ thuật ({selectedRecord.procedures.length})
+                        </Text>
+                      </View>
+                      {selectedRecord.procedures.map((proc, index) => (
+                        <Card key={index} className="p-3">
+                          <Text className="text-sm font-semibold mb-1" style={{ color: theme.text.primary }}>
+                            {index + 1}. {proc.name ?? 'Thủ thuật'}
+                          </Text>
+                          {proc.description && (
+                            <Text className="text-xs mb-1" style={{ color: theme.text.secondary }}>
+                              {proc.description}
+                            </Text>
+                          )}
+                          <View className="flex-row items-center justify-between mt-1">
+                            {proc.date && (
+                              <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                                {formatDate(proc.date)}
                               </Text>
                             )}
-                            <View className="flex-row items-center gap-4">
-                              {procedure.date && (
-                                <Text className="text-xs" style={{ color: theme.text.secondary }}>
-                                  Ngày: {formatDate(procedure.date)}
-                                </Text>
-                              )}
-                              {procedure.status && (
-                                <View className="px-2 py-1 rounded-full" style={{ backgroundColor: Colors.primary[50] }}>
-                                  <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
-                                    {procedure.status}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          </Card>
-                        ))}
-                      </View>
+                            {proc.cost && (
+                              <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
+                                {typeof proc.cost === 'number' 
+                                  ? proc.cost.toLocaleString('vi-VN')
+                                  : proc.cost} VNĐ
+                              </Text>
+                            )}
+                          </View>
+                        </Card>
+                      ))}
                     </View>
                   )}
 
                   {/* Notes */}
                   {selectedRecord.notes && (
-                    <Card className="p-4" style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}>
-                      <Text className="text-sm font-semibold mb-2" style={{ color: Colors.warning[700] }}>
-                        Ghi chú
-                      </Text>
-                      <Text className="text-base" style={{ color: theme.text.primary }}>
+                    <Card className="p-3" style={{ backgroundColor: Colors.warning[50] }}>
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <Ionicons name="document-text" size={16} color={Colors.warning[700]} />
+                        <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
+                          Ghi chú
+                        </Text>
+                      </View>
+                      <Text className="text-sm" style={{ color: theme.text.primary }}>
                         {selectedRecord.notes}
                       </Text>
                     </Card>
                   )}
 
-                  {/* Follow-up */}
-                  {selectedRecord.isFollowUpRequired && (
-                    <Card className="p-4" style={{ backgroundColor: Colors.error[50], borderWidth: 1, borderColor: Colors.error[100] }}>
-                      <View className="flex-row items-center space-x-2 mb-2">
-                        <Ionicons name="alert-circle-outline" size={18} color={Colors.error[700]} />
+                  {/* Follow Up */}
+                  {selectedRecord.isFollowUpRequired && selectedRecord.followUpDate && (
+                    <Card className="p-3" style={{ 
+                      backgroundColor: Colors.error[50],
+                      borderWidth: 1,
+                      borderColor: Colors.error[200]
+                    }}>
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <Ionicons name="time" size={16} color={Colors.error[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.error[700] }}>
-                          Cần tái khám
+                          Lịch tái khám
                         </Text>
                       </View>
-                      {selectedRecord.followUpDate && (
-                        <Text className="text-base mt-1" style={{ color: Colors.error[700] }}>
-                          Ngày tái khám: {formatDate(selectedRecord.followUpDate)} {selectedRecord.followUpTime ? `• ${selectedRecord.followUpTime}` : ''}
-                        </Text>
-                      )}
+                      <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
+                        {formatDate(selectedRecord.followUpDate)} {selectedRecord.followUpTime ? `• ${selectedRecord.followUpTime}` : ''}
+                      </Text>
                     </Card>
                   )}
                 </View>
-              )}
-            </ScrollView>
-
-            {/* Modal Footer */}
-            <View className="border-t p-6" style={{ borderTopColor: theme.border }}>
-              <View className="flex-row gap-3">
-                <TouchableOpacity
-                  onPress={handlePrintRecord}
-                  className="flex-1 items-center justify-center rounded-2xl py-3 flex-row space-x-2"
-                  style={{ backgroundColor: Colors.primary[600] }}
-                >
-                  <Ionicons name="print-outline" size={20} color="#ffffff" />
-                  <Text className="text-base font-semibold text-white">
-                    In hóa đơn
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleCloseRecordDetail}
-                  className="flex-1 items-center justify-center rounded-2xl py-3"
-                  style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
-                >
-                  <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
-                    Đóng
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              </ScrollView>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
 
       <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
     </>

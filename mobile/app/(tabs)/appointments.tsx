@@ -128,9 +128,21 @@ function getAppointmentDateTime(appointment: Record<string, any>): Date | null {
 }
 
 function extractDoctorName(appointment: Record<string, any>): string {
+  // Try different paths where doctor name might be
+  // Backend populates into doctorId field (when populated), otherwise it's just the ID string
+  const doctor = appointment.doctorId || appointment.doctor;
+  
+  // If doctor is an object (populated), get fullName
+  if (doctor && typeof doctor === 'object') {
+    return (
+      doctor.fullName ??
+      doctor.name ??
+      'Bác sĩ Smart Dental'
+    );
+  }
+  
+  // Fallback to other fields if doctorId wasn't populated
   return (
-    appointment.doctor?.fullName ??
-    appointment.doctor?.name ??
     appointment.doctorName ??
     appointment.doctorFullName ??
     appointment.doctorInfo?.fullName ??
@@ -139,6 +151,20 @@ function extractDoctorName(appointment: Record<string, any>): string {
 }
 
 function extractLocation(appointment: Record<string, any>): string {
+  // Backend populates into doctorId field
+  const doctor = appointment.doctorId || appointment.doctor;
+  
+  // If doctor is an object (populated), get clinic address
+  if (doctor && typeof doctor === 'object') {
+    return (
+      doctor.clinicAddress ??
+      doctor.address ??
+      doctor.clinicName ??
+      'Phòng khám Smart Dental'
+    );
+  }
+  
+  // Fallback to appointment-level fields
   return (
     appointment.location ??
     appointment.clinicLocation ??
@@ -149,7 +175,19 @@ function extractLocation(appointment: Record<string, any>): string {
 }
 
 function extractTitle(appointment: Record<string, any>): string {
-  return appointment.appointmentType ?? appointment.title ?? 'Lịch hẹn nha khoa';
+  // Try to get doctor specialty first, then fall back to appointment type
+  const doctor = appointment.doctorId || appointment.doctor;
+  
+  // If doctor is an object (populated), get specialty
+  if (doctor && typeof doctor === 'object') {
+    const specialty = doctor.specialty || doctor.specialization;
+    if (specialty) {
+      return specialty;
+    }
+  }
+  
+  // If no specialty, use chief complaint or appointment type
+  return appointment.chiefComplaint ?? appointment.appointmentType ?? appointment.title ?? 'Lịch hẹn nha khoa';
 }
 
 function isVirtualMode(type?: string, location?: string): boolean {
@@ -176,6 +214,14 @@ function mapStatus(status?: string): { label: string; variant: keyof typeof STAT
 }
 
 function buildAppointmentDisplay(appointment: Record<string, any>): AppointmentDisplay {
+  // Debug log to see doctor structure
+  console.log('🔍 Appointment doctor data:', {
+    doctor: appointment.doctor,
+    doctorId: appointment.doctorId,
+    doctorName: appointment.doctorName,
+    doctorFullName: appointment.doctorFullName
+  });
+  
   const dateString = getAppointmentDateRaw(appointment);
   const startTime = normalizeTimeString(appointment.startTime ?? appointment.time ?? appointment.appointmentTime);
   const endTime = normalizeTimeString(appointment.endTime ?? appointment.finishTime ?? appointment.expectedEndTime);
@@ -218,10 +264,12 @@ function AppointmentStatusPill({ label, variant }: { label: string; variant: key
 function AppointmentCard({
   appointment,
   onCancel,
+  onChat,
   cancelling,
 }: {
   appointment: AppointmentDisplay;
   onCancel: (item: AppointmentDisplay) => void;
+  onChat: (item: AppointmentDisplay) => void;
   cancelling: boolean;
 }) {
   const colorScheme = useColorScheme();
@@ -268,12 +316,7 @@ function AppointmentCard({
           <TouchableOpacity
             className="flex-1 items-center justify-center rounded-2xl py-3"
             style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[200] }}
-            onPress={() =>
-              Alert.alert(
-                'Liên hệ bác sĩ',
-                'Tính năng trao đổi trực tiếp đang được phát triển trên ứng dụng di động. Vui lòng sử dụng cổng web để trò chuyện với bác sĩ.',
-              )
-            }
+            onPress={() => onChat(appointment)}
           >
             <View className="flex-row items-center gap-2">
               <Ionicons name="chatbubble-outline" size={18} color={Colors.primary[600]} />
@@ -473,7 +516,7 @@ export default function AppointmentsScreen() {
         setAppointmentsLoading(true);
       }
       try {
-        const response = await apiRequest<any>(`/api/v1/appointments/patient/${patientId}`, {
+        const response = await apiRequest<any>(`/api/v1/appointments/patient/${patientId}?populate=doctorId,patientId`, {
           token,
         });
         const payload = response.data as any;
@@ -484,6 +527,7 @@ export default function AppointmentsScreen() {
             : Array.isArray(payload?.data)
               ? payload.data
               : [];
+        console.log('📋 Appointments data:', JSON.stringify(list[0], null, 2));
         setAppointments(list);
         setErrorMessage(null);
       } catch (error) {
@@ -773,6 +817,85 @@ export default function AppointmentsScreen() {
       setShowCancelModal(true);
     },
     [token],
+  );
+
+  const handleChatWithDoctor = useCallback(
+    async (appointment: AppointmentDisplay) => {
+      try {
+        // Extract doctor info from appointment
+        const rawDoctor = appointment.raw.doctorId || appointment.raw.doctor;
+        let doctorId: string | undefined;
+        let doctorName: string = appointment.doctorName;
+        
+        if (typeof rawDoctor === 'string') {
+          // doctorId is just the ID string (not populated)
+          doctorId = rawDoctor;
+        } else if (rawDoctor && typeof rawDoctor === 'object') {
+          // doctorId is populated with full doctor object
+          doctorId = rawDoctor._id || rawDoctor.id;
+          doctorName = rawDoctor.fullName || rawDoctor.name || doctorName;
+        }
+        
+        if (!doctorId) {
+          Alert.alert('Lỗi', 'Không tìm thấy thông tin bác sĩ');
+          return;
+        }
+
+        if (!session?.token || !session?.user?._id) {
+          Alert.alert('Lỗi', 'Vui lòng đăng nhập để tiếp tục');
+          return;
+        }
+
+        // Try to find existing conversation with this doctor
+        try {
+          const userId = session.user._id;
+          const userRole = session.user.role;
+          
+          const response = await apiRequest<any>(
+            `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
+            {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${session.token}`,
+              },
+            }
+          );
+
+          const conversations: any[] = Array.isArray(response.data) ? response.data : [];
+          const existingConversation = conversations.find(
+            (conv) => (conv.doctorId?._id || conv.doctorId) === doctorId
+          );
+
+          const conversationId = existingConversation?._id;
+
+          router.push({
+            pathname: '/chat/[id]',
+            params: {
+              id: doctorId,
+              name: doctorName,
+              type: 'doctor',
+              ...(conversationId ? { conversationId } : {}),
+            },
+          });
+        } catch (error) {
+          console.warn('Failed to fetch conversations, navigating without conversationId:', error);
+          // If fetch fails, still navigate but without conversationId
+          // Chat screen will create/find conversation automatically
+          router.push({
+            pathname: '/chat/[id]',
+            params: {
+              id: doctorId,
+              name: doctorName,
+              type: 'doctor',
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error navigating to chat:', error);
+        Alert.alert('Lỗi', 'Không thể mở trang chat. Vui lòng thử lại.');
+      }
+    },
+    [session, router],
   );
 
   const handleConfirmCancel = useCallback(
@@ -1359,6 +1482,7 @@ export default function AppointmentsScreen() {
                   key={appointment.id}
                   appointment={appointment}
                   onCancel={handleCancelAppointment}
+                  onChat={handleChatWithDoctor}
                   cancelling={cancellingId === appointment.id}
                 />
               ))}
@@ -1379,31 +1503,6 @@ export default function AppointmentsScreen() {
               </Text>
             </View>
           )}
-        </Card>
-
-        {/* Prepare for visit */}
-        <Card className="mb-6">
-          <SectionHeader title="Chuẩn bị cho buổi khám" />
-          <View className="mt-5 gap-3">
-            <View className="flex-row items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: Colors.primary[50] }}>
-              <Ionicons name="time-outline" size={18} color={Colors.primary[600]} />
-              <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
-                Đến sớm 10 phút để hoàn tất thủ tục và khai báo y tế.
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: Colors.primary[50] }}>
-              <Ionicons name="card-outline" size={18} color={Colors.primary[600]} />
-              <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
-                Mang theo thẻ BHYT, giấy tờ tùy thân và hồ sơ khám trước đó.
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: Colors.primary[50] }}>
-              <Ionicons name="videocam-outline" size={18} color={Colors.primary[600]} />
-              <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
-                Kiểm tra đường truyền và thiết bị nếu thực hiện tư vấn trực tuyến.
-              </Text>
-            </View>
-          </View>
         </Card>
 
         {/* History */}

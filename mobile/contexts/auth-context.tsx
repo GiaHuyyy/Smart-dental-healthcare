@@ -8,6 +8,11 @@ type AuthUser = {
   email: string;
   fullName?: string;
   role: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  avatarUrl?: string;
 };
 
 type AuthSession = {

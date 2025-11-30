@@ -55,6 +55,27 @@ class PaymentService {
       throw new Error(error?.message || 'Không thể kiểm tra trạng thái thanh toán');
     }
   }
+
+  async createMoMoPaymentFromExisting(
+    paymentId: string,
+    token: string
+  ): Promise<MoMoPaymentResponse> {
+    try {
+      const response = await apiRequest<any>(`/api/v1/payments/momo/create-from-payment/${paymentId}`, {
+        method: 'POST',
+        token,
+      });
+
+      return {
+        success: true,
+        message: response.message || 'Tạo thanh toán thành công',
+        data: response.data || response,
+      };
+    } catch (error: any) {
+      console.error('❌ MoMo payment from existing error:', error);
+      throw new Error(error?.message || 'Không thể tạo thanh toán MoMo');
+    }
+  }
 }
 
 export default new PaymentService();

@@ -255,15 +255,17 @@ class RealtimeChatService {
 
   // Conversation actions
   joinConversation(conversationId: string) {
-    if (this.socket && conversationId) {
+    if (this.socket && this.socket.connected && conversationId) {
       console.log(`🚪 [Socket] Joining conversation: ${conversationId}`);
       this.socket.emit('joinConversation', { conversationId });
       this.joinedRooms.add(conversationId);
+    } else {
+      console.warn('⚠️ [Socket] Cannot join conversation - socket not connected');
     }
   }
 
   leaveConversation(conversationId: string) {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       console.log(`🚪 [Socket] Leaving conversation: ${conversationId}`);
       this.socket.emit('leaveConversation', { conversationId });
       this.joinedRooms.delete(conversationId);
@@ -280,7 +282,7 @@ class RealtimeChatService {
     fileType?: string,
     fileSize?: number
   ): Promise<void> {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       return new Promise<void>((resolve, reject) => {
         console.log(`📤 [Socket] Sending message to ${conversationId}`);
         
@@ -312,7 +314,7 @@ class RealtimeChatService {
 
   // Load conversations
   loadConversations(): Promise<void> {
-    if (this.socket && this.userId && this.userRole) {
+    if (this.socket && this.socket.connected && this.userId && this.userRole) {
       return new Promise<void>((resolve, reject) => {
         console.log(`📋 [Socket] Loading conversations for ${this.userId} (${this.userRole})`);
 
@@ -345,7 +347,7 @@ class RealtimeChatService {
 
   // Load messages for a conversation
   loadMessages(conversationId: string, limit: number = 100): Promise<void> {
-    if (this.socket && this.userId && this.userRole) {
+    if (this.socket && this.socket.connected && this.userId && this.userRole) {
       return new Promise<void>((resolve, reject) => {
         console.log(`📨 [Socket] Loading messages for conversation: ${conversationId}`);
 
@@ -380,7 +382,7 @@ class RealtimeChatService {
   }
 
   markMessageAsRead(conversationId: string, messageId: string) {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       this.socket.emit('markMessageRead', {
         conversationId,
         messageId,
@@ -390,7 +392,7 @@ class RealtimeChatService {
 
   // Mark all messages in a conversation as read
   markConversationAsRead(conversationId: string) {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       console.log(`✓ [Socket] Marking conversation as read: ${conversationId}`);
       this.socket.emit('markConversationAsRead', { conversationId });
     }
@@ -398,7 +400,7 @@ class RealtimeChatService {
 
   // Create a new conversation
   createConversation(patientId: string, doctorId: string): Promise<any> {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       return new Promise<any>((resolve, reject) => {
         console.log(`➕ [Socket] Creating conversation: patient=${patientId}, doctor=${doctorId}`);
         
@@ -422,7 +424,7 @@ class RealtimeChatService {
 
   // Typing indicator
   sendTypingStatus(conversationId: string, isTyping: boolean) {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       this.socket.emit('typing', {
         conversationId,
         isTyping,
@@ -437,7 +439,7 @@ class RealtimeChatService {
     fileName: string,
     fileType: string
   ): Promise<{ success: boolean; url?: string; public_id?: string; error?: string }> {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       return new Promise<{ success: boolean; url?: string; public_id?: string; error?: string }>((resolve) => {
         console.log(`📤 [Socket] Uploading image: ${fileName}`);
         
