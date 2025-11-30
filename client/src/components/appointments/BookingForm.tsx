@@ -12,13 +12,13 @@ import {
   Phone,
   User,
   Wallet,
-  Brain,
   Sparkles,
   Tag,
   Check,
   ChevronDown,
   X,
   Gift,
+  Drone,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
@@ -258,16 +258,16 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     <>
       {/* AI Data Summary - Show if coming from AI chat */}
       {appointmentDataFromAI && appointmentDataFromAI.symptoms && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+        <div className="bg-linear-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-600">
-              <Brain className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-primary">
+              <Drone className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-semibold text-gray-900">Thông tin từ tư vấn AI</h3>
-                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  <Sparkles className="w-5 h-5 text-primary" />
                 </div>
                 <button
                   type="button"
@@ -276,7 +276,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
                     formData.includeAIData
                       ? "bg-green-600 text-white cursor-default"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
+                      : "bg-primary text-white hover:bg-primary/80"
                   }`}
                 >
                   {formData.includeAIData ? (
@@ -810,7 +810,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
             />
             <div className="p-4 border-2 border-gray-300 rounded-lg peer-checked:border-blue-500 peer-checked:bg-blue-50 transition-all hover:border-blue-300">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center shrink-0">
                   <CreditCard className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
@@ -819,7 +819,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                 </div>
                 <div className="shrink-0">
                   {formData.paymentMethod === "cash" && (
-                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                       <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path
                           fillRule="evenodd"

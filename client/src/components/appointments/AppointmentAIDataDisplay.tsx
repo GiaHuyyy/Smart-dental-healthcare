@@ -63,17 +63,17 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
         {/* Chẩn đoán */}
         {analysis && (
           <div
-            className="p-3 rounded-r-lg"
+            className="p-2 rounded-lg"
             style={{
               background: "linear-gradient(90deg, var(--color-primary-outline), var(--color-primary-surface))",
               borderLeft: "3px solid var(--color-primary-600)",
             }}
           >
-            <h4 className="text-sm font-bold mb-1 flex items-center" style={{ color: "var(--color-primary-600)" }}>
-              <FileText className="w-4 h-4 mr-1.5" />
+            <h4 className="text-xs font-bold mb-1 flex items-center" style={{ color: "var(--color-primary-600)" }}>
+              <FileText className="w-3 h-3 mr-1" />
               CHẨN ĐOÁN
             </h4>
-            <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--color-primary-contrast)" }}>
+            <p className="text-xs font-medium leading-relaxed" style={{ color: "var(--color-primary-contrast)" }}>
               {analysis}
             </p>
           </div>
@@ -81,25 +81,25 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
 
         {/* Chi tiết phân tích */}
         {sections && sections.length > 0 && (
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-l-3 border-emerald-500 p-3 rounded-r-lg">
-            <h4 className="text-sm font-bold text-emerald-800 mb-2 flex items-center">
-              <BarChart2 className="w-4 h-4 mr-1.5" />
+          <div className="bg-gray-50  border-l-3 border-gray-500 p-2 rounded-lg">
+            <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center">
+              <BarChart2 className="w-3 h-3 mr-1" />
               CHI TIẾT PHÂN TÍCH
             </h4>
             <div className="space-y-2">
               {sections.map((section: AnalysisSection, index: number) => (
-                <div key={index} className="bg-white/60 p-2 rounded-lg border border-emerald-200">
+                <div key={index} className="bg-white p-2 rounded border border-gray-200">
                   {section.heading && (
-                    <h5 className="text-xs font-semibold text-emerald-900 mb-1">
+                    <h5 className="font-semibold text-gray-800 mb-1 text-xs">
                       {index + 1}. {section.heading}
                     </h5>
                   )}
-                  {section.text && <p className="text-emerald-800 text-xs leading-relaxed mb-1">{section.text}</p>}
+                  {section.text && <p className="text-gray-700 text-xs leading-relaxed mb-1">{section.text}</p>}
                   {section.bullets && section.bullets.length > 0 && (
                     <ul className="space-y-0.5">
                       {section.bullets.map((bullet: string, bulletIndex: number) => (
-                        <li key={bulletIndex} className="flex items-start text-xs text-emerald-700">
-                          <span className="text-emerald-500 mr-1.5 mt-0.5">•</span>
+                        <li key={bulletIndex} className="flex items-start text-xs text-gray-700">
+                          <span className="text-gray-500 mr-1.5 mt-0.5">•</span>
                           {bullet}
                         </li>
                       ))}
@@ -113,16 +113,16 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
 
         {/* Khuyến nghị */}
         {recommendations && recommendations.length > 0 && (
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-3 border-amber-500 p-3 rounded-r-lg">
-            <h4 className="text-sm font-bold text-amber-800 mb-2 flex items-center">
-              <Lightbulb className="w-4 h-4 mr-1.5" />
+          <div className="bg-green-50 border-l-3 border-green-500 p-2 rounded-lg">
+            <h4 className="text-xs font-bold text-green-800 mb-2 flex items-center">
+              <Lightbulb className="w-3 h-3 mr-1" />
               KHUYẾN NGHỊ
             </h4>
             <ul className="space-y-1.5">
               {recommendations.map((rec: string, index: number) => (
-                <li key={index} className="flex items-start bg-white/60 p-2 rounded-lg border border-amber-200">
-                  <span className="text-amber-500 mr-2 mt-0.5 text-sm">•</span>
-                  <span className="text-amber-900 text-xs font-medium leading-relaxed">{rec}</span>
+                <li key={index} className="flex text-green-800 items-start bg-white/60">
+                  <span className="mr-1 text-xs text-green-600 ">•</span>
+                  <span className="text-xs leading-normal">{rec}</span>
                 </li>
               ))}
             </ul>
@@ -136,7 +136,7 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
         <div className="p-1.5 bg-blue-100 rounded-lg">
-          <Brain className="w-4 h-4 text-blue-600" />
+          <Brain className="w-4 h-4 text-primary" />
         </div>
         <h4 className="font-semibold text-gray-900 text-sm">Thông tin từ tư vấn AI</h4>
       </div>
@@ -144,7 +144,7 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
       {/* Symptoms */}
       {aiData.symptoms && (
         <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-xs font-medium text-blue-900 mb-1">Triệu chứng:</p>
+          <p className="text-xs font-medium text-primary mb-1">Triệu chứng:</p>
           <p className="text-sm text-gray-700 line-clamp-2">{aiData.symptoms}</p>
         </div>
       )}
@@ -161,7 +161,7 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
       {/* X-ray Image - Collapsible */}
       {aiData.uploadedImage && (
         <details className="group">
-          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
+          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 hover:text-primary transition-colors">
             <ImageIcon className="w-4 h-4" />
             <span>Hình ảnh X-quang</span>
             <svg
@@ -173,7 +173,7 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
-          <div className="mt-2 relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden">
+          <div className="mt-2 relative h-48 bg-linear-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden">
             <Image src={aiData.uploadedImage} alt="X-ray" fill className="object-contain" />
           </div>
         </details>
@@ -182,7 +182,7 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
       {/* AI Analysis Result - Collapsible */}
       {aiData.analysisResult && (
         <details className="group">
-          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors mb-2">
+          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 hover:text-primary transition-colors mb-2">
             <FileText className="w-4 h-4" />
             <span>Kết quả phân tích AI</span>
             <svg

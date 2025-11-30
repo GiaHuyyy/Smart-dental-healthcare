@@ -41,7 +41,7 @@ export default function AIAnalysisSummary({ analysisResult, uploadedImage }: AIA
               borderLeft: "3px solid var(--color-primary-600)",
             }}
           >
-            <h4 className="text-xs font-bold mb-1 flex items-center" style={{ color: "var(--color-primary-600)" }}>
+            <h4 className="text-xs font-bold mb-1 flex items-center text-primary">
               <FileText className="w-3 h-3 mr-1" />
               KẾT QUẢ PHÂN TÍCH
             </h4>
@@ -61,7 +61,7 @@ export default function AIAnalysisSummary({ analysisResult, uploadedImage }: AIA
         {/* Chẩn đoán - COMPACT */}
         {analysis && (
           <div
-            className="p-2 rounded-r-lg"
+            className="p-2 rounded-lg"
             style={{
               background: "linear-gradient(90deg, var(--color-primary-outline), var(--color-primary-surface))",
               borderLeft: "3px solid var(--color-primary-600)",
@@ -79,25 +79,25 @@ export default function AIAnalysisSummary({ analysisResult, uploadedImage }: AIA
 
         {/* Chi tiết phân tích - COMPACT */}
         {sections && sections.length > 0 && (
-          <div className="bg-linear-to-r from-emerald-50 to-teal-50 border-l-3 border-emerald-500 p-2 rounded-r-lg">
-            <h4 className="text-xs font-bold text-emerald-800 mb-2 flex items-center">
+          <div className="bg-gray-50  border-l-3 border-gray-500 p-2 rounded-lg">
+            <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center">
               <BarChart2 className="w-3 h-3 mr-1" />
               CHI TIẾT PHÂN TÍCH
             </h4>
             <div className="space-y-2">
               {sections.map((section: AnalysisSection, index: number) => (
-                <div key={index} className="bg-white/60 p-2 rounded border border-emerald-200">
+                <div key={index} className="bg-white p-2 rounded border border-gray-200">
                   {section.heading && (
-                    <h5 className="font-semibold text-emerald-900 mb-1 text-xs">
+                    <h5 className="font-semibold text-gray-800 mb-1 text-xs">
                       {index + 1}. {section.heading}
                     </h5>
                   )}
-                  {section.text && <p className="text-emerald-800 text-xs leading-tight mb-1">{section.text}</p>}
+                  {section.text && <p className="text-gray-700 text-xs leading-tight mb-1">{section.text}</p>}
                   {section.bullets && section.bullets.length > 0 && (
                     <ul className="space-y-0.5">
                       {section.bullets.map((bullet: string, bulletIndex: number) => (
-                        <li key={bulletIndex} className="flex items-start text-xs text-emerald-700">
-                          <span className="text-emerald-500 mr-1">•</span>
+                        <li key={bulletIndex} className="flex items-start text-xs text-gray-700">
+                          <span className="text-primary mr-1">•</span>
                           {bullet}
                         </li>
                       ))}
@@ -111,16 +111,16 @@ export default function AIAnalysisSummary({ analysisResult, uploadedImage }: AIA
 
         {/* Khuyến nghị - COMPACT */}
         {recommendations && recommendations.length > 0 && (
-          <div className="bg-linear-to-r from-amber-50 to-orange-50 border-l-3 border-amber-500 p-2 rounded-r-lg">
-            <h4 className="text-xs font-bold text-amber-800 mb-2 flex items-center">
+          <div className="bg-green-50 border-l-3 border-green-500 p-2 rounded-lg">
+            <h4 className="text-xs font-bold text-green-800 mb-2 flex items-center">
               <Lightbulb className="w-3 h-3 mr-1" />
               KHUYẾN NGHỊ
             </h4>
             <ul className="space-y-1">
               {recommendations.map((rec: string, index: number) => (
-                <li key={index} className="flex items-start bg-white/60 p-2 rounded border border-amber-200">
-                  <span className="text-amber-500 mr-1 text-xs">•</span>
-                  <span className="text-amber-900 text-xs font-medium leading-tight">{rec}</span>
+                <li key={index} className="flex text-green-800 items-start bg-white/60">
+                  <span className="mr-1 text-xs text-green-600">•</span>
+                  <span className="text-xs leading-normal">{rec}</span>
                 </li>
               ))}
             </ul>

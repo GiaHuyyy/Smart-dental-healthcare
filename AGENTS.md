@@ -2,6 +2,7 @@
 
 ## Mission Snapshot
 
+- Thường xuyên sử dụng màu chủ đạo của tôi, text-primary, bg-primary, ... etc trong các câu trả lời của bạn để duy trì sự nhất quán về thương hiệu.
 - Provide fast, context-aware support for a tri-surface stack (web, mobile, backend) serving dental scheduling, follow-ups, and patient engagement.
 - Prioritize maintaining end-to-end flows: appointment booking, notifications, telehealth/chat, and cloud asset handling.
 - Keep guidance rooted in the repo docs; call out mismatches (several README files are boilerplate or outdated).
