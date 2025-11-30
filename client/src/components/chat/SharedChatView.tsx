@@ -43,7 +43,8 @@ interface SharedChatViewProps {
 export default function SharedChatView({ userRole }: SharedChatViewProps) {
   const { data: session } = useSession();
 
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  // Mở chat AI mặc định cho patient khi vào trang
+  const [selectedChat, setSelectedChat] = useState<string | null>(userRole === "patient" ? "ai" : null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
@@ -469,9 +470,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
               {userRole === "patient" && (
                 <div
                   className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
-                    selectedChat === "ai"
-                      ? "bg-primary-100 ring ring-primary"
-                      : "bg-white hover:bg-gray-50"
+                    selectedChat === "ai" ? "bg-primary-100 ring ring-primary" : "bg-white hover:bg-gray-50"
                   }`}
                   onClick={() => setSelectedChat("ai")}
                 >
@@ -499,9 +498,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                   <div
                     key={conv.id}
                     className={`p-3 border border-gray-200 rounded-lg cursor-pointer transition-colors ${
-                      selectedChat === conv.id
-                        ? "bg-primary-100 ring ring-primary"
-                        : "bg-white hover:bg-gray-50"
+                      selectedChat === conv.id ? "bg-primary-100 ring ring-primary" : "bg-white hover:bg-gray-50"
                     }`}
                     onClick={() => {
                       setSelectedChat(conv.id);
@@ -570,49 +567,45 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
       {/* --- Main Chat Area --- */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Header với Sidebar Toggle */}
-        <div className="flex items-center p-4 border-b border-gray-200 bg-white">
-          <button
-            onClick={() => setShowSidebar(!showSidebar)}
-            className="p-2 text-primary hover:opacity-75 mr-3"
-            title="Ẩn/hiện sidebar"
-          >
-            <Menu size={20} />
-          </button>
+        {selectedChat && (
+          <div className="flex items-center p-4 border-b border-gray-200 bg-white">
+            <button
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="p-2 text-primary hover:opacity-75 mr-3"
+              title="Ẩn/hiện sidebar"
+            >
+              <Menu size={20} />
+            </button>
 
-          <div className="flex-1 min-w-0">
-            {/* ✅ BƯỚC 3: CHỈ HIỂN THỊ HEADER KHI ĐÃ CHỌN CUỘC HỘI THOẠI */}
-            {selectedChat && (
-              <>
-                {selectedChat === "ai" && userRole === "patient" ? (
-                  <ChatHeader type="ai" />
-                ) : selectedConversation ? (
-                  <ChatHeader
-                    type={userRole === "doctor" ? "patient" : "doctor"}
-                    patientName={userRole === "doctor" ? selectedConversation.peerName : getDisplayName(session?.user)}
-                    patientId={userRole === "doctor" ? selectedConversation.peerId : userData?.userId || ""}
-                    patientEmail={userRole === "doctor" ? selectedConversation.peerDetails : session?.user?.email || ""}
-                    patientAvatar={
-                      userRole === "doctor" ? selectedConversation.peerAvatar : (session?.user as any)?.avatarUrl
-                    }
-                    doctorName={userRole === "patient" ? selectedConversation.peerName : getDisplayName(session?.user)}
-                    doctorId={userRole === "patient" ? selectedConversation.peerId : userData?.userId || ""}
-                    doctorAvatar={
-                      userRole === "patient" ? selectedConversation.peerAvatar : (session?.user as any)?.avatarUrl
-                    }
-                    specialty={
-                      userRole === "patient"
-                        ? selectedConversation.peerDetails
-                        : ((session?.user as unknown as Record<string, unknown>)?.specialty as string | undefined) || ""
-                    }
-                    isOnline={true}
-                    embedded={true}
-                  />
-                ) : null}
-              </>
-            )}
+            <div className="flex-1 min-w-0">
+              {selectedChat === "ai" && userRole === "patient" ? (
+                <ChatHeader type="ai" />
+              ) : selectedConversation ? (
+                <ChatHeader
+                  type={userRole === "doctor" ? "patient" : "doctor"}
+                  patientName={userRole === "doctor" ? selectedConversation.peerName : getDisplayName(session?.user)}
+                  patientId={userRole === "doctor" ? selectedConversation.peerId : userData?.userId || ""}
+                  patientEmail={userRole === "doctor" ? selectedConversation.peerDetails : session?.user?.email || ""}
+                  patientAvatar={
+                    userRole === "doctor" ? selectedConversation.peerAvatar : (session?.user as any)?.avatarUrl
+                  }
+                  doctorName={userRole === "patient" ? selectedConversation.peerName : getDisplayName(session?.user)}
+                  doctorId={userRole === "patient" ? selectedConversation.peerId : userData?.userId || ""}
+                  doctorAvatar={
+                    userRole === "patient" ? selectedConversation.peerAvatar : (session?.user as any)?.avatarUrl
+                  }
+                  specialty={
+                    userRole === "patient"
+                      ? selectedConversation.peerDetails
+                      : ((session?.user as unknown as Record<string, unknown>)?.specialty as string | undefined) || ""
+                  }
+                  isOnline={true}
+                  embedded={true}
+                />
+              ) : null}
+            </div>
           </div>
-
-        </div>
+        )}
 
         <div className="flex-1 min-h-0">
           {selectedChat === "ai" && userRole === "patient" ? (
