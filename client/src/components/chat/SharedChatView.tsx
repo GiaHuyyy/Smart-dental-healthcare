@@ -573,7 +573,8 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
         <div className="flex items-center p-4 border-b border-gray-200 bg-white">
           <button
             onClick={() => setShowSidebar(!showSidebar)}
-            className="p-2 text-gray-500 hover:text-gray-700 md:hidden mr-3"
+            className="p-2 text-primary hover:opacity-75 mr-3"
+            title="Ẩn/hiện sidebar"
           >
             <Menu size={20} />
           </button>
@@ -610,6 +611,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
               </>
             )}
           </div>
+
         </div>
 
         <div className="flex-1 min-h-0">

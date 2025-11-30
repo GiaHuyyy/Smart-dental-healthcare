@@ -163,7 +163,9 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
           fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctor._id}/available-slots?date=${selectedDate}&duration=${duration}`
           ),
-          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-schedule/${doctor._id}/available-slots?date=${selectedDate}`),
+          fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-schedule/${doctor._id}/available-slots?date=${selectedDate}`
+          ),
         ]);
 
         // Process booked appointments
@@ -327,37 +329,52 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-3">Hình thức khám</label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[ConsultType.TELEVISIT, ConsultType.ON_SITE, ConsultType.HOME_VISIT].map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => {
-                setSelectedConsultType(type as ConsultType);
-                onConsultTypeChange?.(type as ConsultType);
-              }}
-              className={`flex-1 px-4 py-4 rounded-xl border-2 transition-all ${
-                selectedConsultType === type
-                  ? "border-primary bg-primary/10 text-primary-700 shadow-md"
-                  : "border-gray-200 text-gray-700 hover:border-gray-300 hover:shadow-sm"
-              }`}
-            >
-              <div className="space-y-2">
-                <div className="font-semibold">
-                  {type === ConsultType.TELEVISIT && "Tư vấn từ xa"}
-                  {type === ConsultType.ON_SITE && "Khám tại phòng khám"}
-                  {type === ConsultType.HOME_VISIT && "Khám tại nhà"}
+          {[ConsultType.TELEVISIT, ConsultType.ON_SITE, ConsultType.HOME_VISIT].map((type) => {
+            const isDisabled = type === ConsultType.TELEVISIT;
+            return (
+              <button
+                key={type}
+                type="button"
+                disabled={isDisabled}
+                onClick={() => {
+                  if (!isDisabled) {
+                    setSelectedConsultType(type as ConsultType);
+                    onConsultTypeChange?.(type as ConsultType);
+                  }
+                }}
+                className={`flex-1 px-4 py-4 rounded-xl border-2 transition-all ${
+                  isDisabled
+                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-60"
+                    : selectedConsultType === type
+                    ? "border-primary bg-primary/10 text-primary-700 shadow-md"
+                    : "border-gray-200 text-gray-700 hover:border-gray-300 hover:shadow-sm"
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="font-semibold flex items-center justify-center gap-2">
+                    {type === ConsultType.TELEVISIT && "Tư vấn từ xa"}
+                    {type === ConsultType.ON_SITE && "Khám tại phòng khám"}
+                    {type === ConsultType.HOME_VISIT && "Khám tại nhà"}
+                    {/* {isDisabled && (
+                      <span className="text-xs bg-gray-300 text-gray-600 px-2 py-0.5 rounded">Sắp ra mắt</span>
+                    )} */}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {type === ConsultType.TELEVISIT && "Video call online"}
+                    {type === ConsultType.ON_SITE && "Đến phòng khám"}
+                    {type === ConsultType.HOME_VISIT && "Bác sĩ đến tận nơi"}
+                  </div>
+                  <div
+                    className={`text-sm font-bold ${
+                      isDisabled ? "text-gray-400" : selectedConsultType === type ? "text-primary" : "text-gray-900"
+                    }`}
+                  >
+                    {formatFee(calculateConsultationFee(type as ConsultType, doctor.consultationFee))}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">
-                  {type === ConsultType.TELEVISIT && "Video call online"}
-                  {type === ConsultType.ON_SITE && "Đến phòng khám"}
-                  {type === ConsultType.HOME_VISIT && "Bác sĩ đến tận nơi"}
-                </div>
-                <div className={`text-sm font-bold ${selectedConsultType === type ? "text-primary" : "text-gray-900"}`}>
-                  {formatFee(calculateConsultationFee(type as ConsultType, doctor.consultationFee))}
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -50,7 +50,7 @@ export default function ChatHeader({
       {/* --- Thông tin người dùng (bên trái) --- */}
       <div className="flex items-center min-w-0 flex-1">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center mr-3 flex-shrink-0 overflow-hidden"
+          className="w-10 h-10 rounded-full flex items-center justify-center mr-3 shrink-0 overflow-hidden"
           style={{
             background:
               type === "ai" || !peerAvatar
@@ -74,7 +74,7 @@ export default function ChatHeader({
         <div className="min-w-0 flex-1">
           <div className="flex items-center space-x-2">
             <h3 className="font-semibold text-gray-900 text-lg truncate">{type === "ai" ? "AI Tư vấn" : peerName}</h3>
-            {isOnline && type !== "ai" && <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></span>}
+            {isOnline && type !== "ai" && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0"></span>}
           </div>
           <p className="text-sm text-gray-600 truncate">
             {type === "ai"
@@ -87,22 +87,21 @@ export default function ChatHeader({
       </div>
 
       {/* --- Các nút hành động (bên phải) --- */}
-      <div className="flex items-center ml-4 flex-shrink-0 space-x-2">
+      <div className="flex items-center ml-4 shrink-0 space-x-2">
         {/* Nút hành động cho AI Chat */}
         {type === "ai" && (
           <div className="flex items-center space-x-2">
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span className="inline-flex items-center space-x-2">
-                <Lightbulb className="w-4 h-4" />
-                <span>Tư vấn 24/7</span> <Lock className="w-3 h-3 mx-2" /> <span>Bảo mật thông tin</span>{" "}
-                <Zap className="w-3 h-3 mx-2" /> <span>Phản hồi nhanh</span>
+                <Lightbulb className="w-4 h-4 text-primary" />
+                <span>Tư vấn 24/7</span> <Lock className="w-3 h-3 mx-2 text-primary" /> <span>Bảo mật thông tin</span>{" "}
+                <Zap className="w-3 h-3 mx-2 text-primary" /> <span>Phản hồi nhanh</span>
               </span>
-              <span>Phiên bản 2.0</span>
+              <span>
+                Phiên bản <span className="text-primary">2.0</span>
+              </span>
             </div>
-            <span
-              className="px-3 py-1 rounded-full text-xs font-medium ml-2"
-              style={{ background: "var(--color-primary-outline)", color: "var(--color-primary-600)" }}
-            >
+            <span className="px-3 py-1 rounded-full text-xs font-medium ml-2 text-primary ring ring-primary">
               Miễn phí
             </span>
           </div>
@@ -120,8 +119,7 @@ export default function ChatHeader({
                 recipientRole={isPatientViewingDoctor ? "doctor" : "patient"}
                 isVideoCall={false}
                 showIcon={false}
-                className="flex items-center space-x-1.5 pl-3 pr-2 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
-                style={{ color: "var(--color-primary-600)" }}
+                className="text-primary flex items-center space-x-1.5 pl-3 pr-2 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
                 title="Gọi thoại"
               >
                 <Phone size={16} />
@@ -129,7 +127,7 @@ export default function ChatHeader({
               </CallButton>
 
               {/* Divider */}
-              <div className="border-l h-8" style={{ borderColor: "rgba(var(--color-primary-rgb), 0.2)" }}></div>
+              <div className="border-l h-8 border-primary"></div>
 
               {/* Nút Gọi Video */}
               <CallButton
@@ -138,8 +136,7 @@ export default function ChatHeader({
                 recipientRole={isPatientViewingDoctor ? "doctor" : "patient"}
                 isVideoCall={true}
                 showIcon={false}
-                className="flex items-center space-x-1.5 pl-2 pr-3 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
-                style={{ color: "var(--color-primary-600)" }}
+                className="text-primary flex items-center space-x-1.5 pl-2 pr-3 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
                 title="Gọi video"
               >
                 <Video size={16} />
@@ -151,9 +148,8 @@ export default function ChatHeader({
             {isPatientViewingDoctor && (
               <button
                 onClick={onBookAppointment}
-                className="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap hover:opacity-80 transition-opacity"
+                className="flex text-primary items-center space-x-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap hover:opacity-80 transition-opacity"
                 title="Đặt lịch hẹn"
-                style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
               >
                 <Calendar size={16} />
                 <span className="hidden sm:inline">Đặt lịch</span>
@@ -163,9 +159,8 @@ export default function ChatHeader({
             {/* Nút Hồ sơ */}
             <button
               onClick={onViewProfile}
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap hover:opacity-80 transition-opacity"
+              className="flex text-primary items-center space-x-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap hover:opacity-80 transition-opacity"
               title={isPatientViewingDoctor ? "Xem hồ sơ bác sĩ" : "Xem hồ sơ bệnh nhân"}
-              style={{ background: "var(--color-accent)", color: "var(--color-primary-600)" }}
             >
               <FileText size={16} />
               <span className="hidden sm:inline">Hồ sơ</span>

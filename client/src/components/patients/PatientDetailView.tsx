@@ -162,7 +162,7 @@ export default function PatientDetailView({
       {/* Header */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1">
             <button
               onClick={onBack}
               className="p-2 hover:bg-primary/10 rounded-lg transition-colors"
@@ -170,9 +170,11 @@ export default function PatientDetailView({
             >
               <ArrowLeft className="w-5 h-5 text-primary" />
             </button>
-            <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-primary font-semibold">
-              {patient.fullName.charAt(0).toUpperCase()}
-            </div>
+              <img
+                src={patient.avatarUrl}
+                alt={`${patient.fullName} avatar`}
+                className="rounded-full w-10 h-10 object-cover"
+              />
             <div>
               <h2 className="text-base font-semibold text-gray-900">{patient.fullName}</h2>
               <p className="text-gray-500 text-xs mt-0.5">

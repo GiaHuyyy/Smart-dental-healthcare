@@ -15,7 +15,8 @@ export interface ChatContext {
 
 export interface EnhancedAiResponse {
   message: string;
-  suggestedDoctor: any | null;
+  suggestedDoctor: any | null; // backwards compatible single doctor
+  suggestedDoctors?: any[]; // new: array of 1-3 doctors
   timestamp: Date;
   context: Partial<ChatContext>;
   quickActions?: string[];
@@ -100,6 +101,7 @@ export class AiChatService {
         fullName: doctor.fullName,
         email: doctor.email,
         phone: doctor.phone,
+        avatarUrl: (doctor as any).avatarUrl,
         specialty: doctor.specialty || 'Nha khoa tổng quát',
         keywords: this.getKeywordsForSpecialty(doctor.specialty || ''),
       }));
@@ -148,10 +150,17 @@ export class AiChatService {
 
       // Enhanced analysis
       const urgencyLevel = await this.analyzeUrgency(userMessage);
-      const suggestedDoctor = await this.extractDoctorSuggestion(
+      // Get multiple suggested doctors (1-3)
+      const suggestedDoctors = await this.extractDoctorSuggestions(
         aiResponse,
         context,
       );
+
+      // Debug log
+      // Keep single suggestedDoctor for backwards compatibility
+      const suggestedDoctor =
+        suggestedDoctors.length > 0 ? suggestedDoctors[0] : null;
+
       const quickActions = this.generateQuickActions(context, aiResponse);
       const followUpQuestions = this.generateFollowUpQuestions(
         context,
@@ -162,13 +171,17 @@ export class AiChatService {
       // Update context
       context.urgencyLevel = urgencyLevel;
       context.lastInteraction = new Date();
-      if (suggestedDoctor) {
-        context.suggestedDoctors.push(suggestedDoctor);
-      }
+      // Add all suggested doctors to context (avoid duplicates)
+      suggestedDoctors.forEach((doctor) => {
+        if (!context.suggestedDoctors.find((d) => d._id === doctor._id)) {
+          context.suggestedDoctors.push(doctor);
+        }
+      });
 
       return {
         message: aiResponse,
-        suggestedDoctor,
+        suggestedDoctor, // backwards compatible single doctor
+        suggestedDoctors, // new: array of 1-3 doctors
         timestamp: new Date(),
         context: {
           conversationType: context.conversationType,
@@ -188,6 +201,7 @@ export class AiChatService {
         message:
           'Xin lỗi, tôi đang gặp sự cố kỹ thuật. Vui lòng thử lại sau hoặc liên hệ trực tiếp với phòng khám.',
         suggestedDoctor: null,
+        suggestedDoctors: [],
         timestamp: new Date(),
         context: { conversationType: 'initial', urgencyLevel: 'low' },
         quickActions: ['Thử lại', 'Gọi điện', 'Liên hệ hỗ trợ'],
@@ -393,24 +407,98 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
     return Math.min(confidence, 1.0);
   }
 
+  /**
+   * Extract suggested doctors from AI response
+   * Returns array of 1-3 matching doctors based on keywords in response
+   */
+  private async extractDoctorSuggestions(
+    aiResponse: string,
+    context: ChatContext,
+  ): Promise<any[]> {
+    // Get current doctors from database
+    const doctors = await this.getDoctorsFromDatabase();
+    const responseLower = aiResponse.toLowerCase();
+
+    // Score each doctor based on keyword matches
+    const doctorScores = doctors.map((doctor) => {
+      let score = 0;
+      const matchedKeywords: string[] = [];
+      let nameMatchType = '';
+
+      for (const keyword of doctor.keywords) {
+        if (responseLower.includes(keyword.toLowerCase())) {
+          score++;
+          matchedKeywords.push(keyword);
+        }
+      }
+
+      // Also check if doctor's specialty is mentioned
+      if (
+        doctor.specialty &&
+        responseLower.includes(doctor.specialty.toLowerCase())
+      ) {
+        score += 2;
+      }
+
+      // Check if doctor's name is mentioned (multiple ways)
+      if (doctor.fullName) {
+        const fullNameLower = doctor.fullName.toLowerCase();
+
+        // Direct match
+        if (responseLower.includes(fullNameLower)) {
+          score += 10;
+          nameMatchType = 'direct';
+        }
+
+        // Match with "BS. " prefix
+        if (responseLower.includes(`bs. ${fullNameLower}`)) {
+          score += 10;
+          nameMatchType = 'bs_prefix';
+        }
+
+        // Match without common prefixes (extract core name)
+        const coreName = fullNameLower
+          .replace(/^(bs\.|bác sĩ|dr\.?)\s*/i, '')
+          .trim();
+        if (coreName && responseLower.includes(coreName)) {
+          score += 10;
+          nameMatchType = 'core_name';
+        }
+
+        // Partial name match (last 2 words of name - usually family + given name)
+        const nameParts = fullNameLower.split(' ').filter((p) => p.length > 1);
+        if (nameParts.length >= 2) {
+          const lastName = nameParts.slice(-2).join(' ');
+          if (responseLower.includes(lastName)) {
+            score += 8;
+            nameMatchType = 'partial_name';
+          }
+        }
+      }
+
+      return { doctor, score, matchedKeywords, nameMatchType };
+    });
+
+    // Sort by score descending and take top 1-3
+    const sortedDoctors = doctorScores
+      .filter((d) => d.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((d) => d.doctor);
+
+    return sortedDoctors;
+  }
+
+  /**
+   * @deprecated Use extractDoctorSuggestions for multiple doctors
+   * Kept for backwards compatibility
+   */
   private async extractDoctorSuggestion(
     aiResponse: string,
     context: ChatContext,
   ): Promise<any> {
-    // Get current doctors from database
-    const doctors = await this.getDoctorsFromDatabase();
-
-    for (const doctor of doctors) {
-      if (
-        doctor.keywords.some((keyword) =>
-          aiResponse.toLowerCase().includes(keyword),
-        )
-      ) {
-        return doctor;
-      }
-    }
-
-    return null;
+    const doctors = await this.extractDoctorSuggestions(aiResponse, context);
+    return doctors.length > 0 ? doctors[0] : null;
   }
 
   async getQuickSuggestions(symptom: string) {

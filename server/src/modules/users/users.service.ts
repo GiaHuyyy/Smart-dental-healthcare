@@ -515,7 +515,7 @@ export class UsersService {
         role: 'doctor',
         isActive: true,
       })
-      .select('fullName email specialty phone')
+      .select('fullName email specialty phone avatarUrl')
       .exec();
   }
 
