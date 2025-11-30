@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -59,6 +60,11 @@ export class AiChatHistoryController {
     @Body() updateDto: UpdateAiChatSessionDto,
   ) {
     return await this.aiChatHistoryService.updateSession(sessionId, updateDto);
+  }
+
+  @Delete('sessions/:sessionId/messages')
+  async clearSessionMessages(@Param('sessionId') sessionId: string) {
+    return await this.aiChatHistoryService.clearSessionMessages(sessionId);
   }
 
   // Essential message endpoints

@@ -114,9 +114,14 @@ export class AiChatHistoryService {
       // If invalid id provided, let mongoose validation handle it or simply ignore conversion
     }
 
-    // Allow storing a suggestedDoctor snapshot object directly
+    // Allow storing a suggestedDoctor snapshot object directly (legacy - single doctor)
     if ((updateDto as any).suggestedDoctor) {
       updateData.suggestedDoctor = (updateDto as any).suggestedDoctor;
+    }
+
+    // Support array of suggested doctors (1-3 doctors)
+    if ((updateDto as any).suggestedDoctors) {
+      updateData.suggestedDoctors = (updateDto as any).suggestedDoctors;
     }
 
     const session = await this.aiChatSessionModel.findByIdAndUpdate(
@@ -130,6 +135,31 @@ export class AiChatHistoryService {
     }
 
     return session;
+  }
+
+  // Clear all messages in a session (keep the session itself)
+  async clearSessionMessages(
+    sessionId: string,
+  ): Promise<{ cleared: boolean; messagesDeleted: number }> {
+    const session = await this.aiChatSessionModel.findById(sessionId);
+    if (!session) {
+      throw new NotFoundException('AI chat session not found');
+    }
+
+    // Delete all messages belonging to this session
+    const deleteResult = await this.aiChatMessageModel.deleteMany({
+      sessionId: new Types.ObjectId(sessionId),
+    });
+
+    // Reset message count in session
+    await this.aiChatSessionModel.findByIdAndUpdate(sessionId, {
+      messageCount: 0,
+    });
+
+    return {
+      cleared: true,
+      messagesDeleted: deleteResult.deletedCount,
+    };
   }
 
   async initializeUserSession(userId: string): Promise<AiChatSessionDocument> {

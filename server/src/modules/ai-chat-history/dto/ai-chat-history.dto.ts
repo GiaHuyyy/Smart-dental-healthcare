@@ -132,5 +132,9 @@ export class UpdateAiChatSessionDto {
 
   @IsOptional()
   @IsArray()
+  suggestedDoctors?: any[];
+
+  @IsOptional()
+  @IsArray()
   tags?: string[];
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   clearAppointmentData,
@@ -16,14 +18,26 @@ import {
 } from "@/store/slices/imageAnalysisSlice";
 import { aiChatAPI, ChatMessage, DoctorSuggestion } from "@/utils/aiChat";
 import { sendRequest } from "@/utils/api";
-import { chatStorage } from "@/utils/chatStorage";
 import { imageAnalysisAPI } from "@/utils/imageAnalysis";
 import { extractUserData } from "@/utils/sessionHelpers";
 import { useAiChatHistory } from "@/hooks/useAiChatHistory";
 import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import { uploadService } from "@/services/uploadService";
 import Image from "next/image";
-import { Lightbulb, Calendar, Wrench, Stethoscope, Check, FileText, X, Search, BarChart2, User } from "lucide-react";
+import {
+  Lightbulb,
+  Calendar,
+  Wrench,
+  Stethoscope,
+  FileText,
+  X,
+  Search,
+  BarChart2,
+  User,
+  Trash2,
+  Star,
+  ScanSearch,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -44,6 +58,66 @@ function formatTimestampLocalized(input: Date | string): string {
   const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   if (sameDay) return time; // HH:mm for today
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${time}`; // dd/MM HH:mm for other days
+}
+
+// Markdown content component for AI messages
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        // Headings
+        h1: ({ children }) => <h1 className="text-lg font-bold text-primary mb-2 mt-3 first:mt-0">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base font-bold text-primary mb-2 mt-3 first:mt-0">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm font-semibold text-gray-800 mb-1 mt-2 first:mt-0">{children}</h3>,
+        // Paragraphs - inline display to keep with list numbers
+        p: ({ children }) => <span className="leading-relaxed">{children}</span>,
+        // Lists
+        ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-2">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-3">{children}</ol>,
+        li: ({ children }) => <li className="text-gray-700 leading-relaxed">{children}</li>,
+        // Strong and emphasis
+        strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+        em: ({ children }) => <em className="italic text-gray-700">{children}</em>,
+        // Code
+        code: ({ children }) => (
+          <code className="bg-gray-100 text-primary px-1 py-0.5 rounded text-sm font-mono">{children}</code>
+        ),
+        // Blockquote
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-4 border-primary pl-3 py-1 my-2 bg-primary/5 italic">{children}</blockquote>
+        ),
+        // Links
+        a: ({ href, children }) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80 transition-colors"
+          >
+            {children}
+          </a>
+        ),
+        // Horizontal rule
+        hr: () => <hr className="my-3 border-gray-200" />,
+        // Tables
+        table: ({ children }) => (
+          <div className="overflow-x-auto my-2">
+            <table className="min-w-full border border-gray-200 rounded-lg text-sm">{children}</table>
+          </div>
+        ),
+        thead: ({ children }) => <thead className="bg-primary/10">{children}</thead>,
+        tbody: ({ children }) => <tbody className="divide-y divide-gray-200">{children}</tbody>,
+        tr: ({ children }) => <tr>{children}</tr>,
+        th: ({ children }) => (
+          <th className="px-3 py-2 text-left font-semibold text-gray-800 border-b border-gray-200">{children}</th>
+        ),
+        td: ({ children }) => <td className="px-3 py-2 text-gray-700">{children}</td>,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
 }
 
 // Filter out system/call messages without visible content
@@ -162,7 +236,10 @@ export default function ChatInterface({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [hasLoadedFromDatabase, setHasLoadedFromDatabase] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
-  const [suggestedDoctor, setSuggestedDoctor] = useState<DoctorSuggestion | null>(null);
+  const [suggestedDoctors, setSuggestedDoctors] = useState<DoctorSuggestion[]>([]);
+  const [doctorRatings, setDoctorRatings] = useState<Record<string, { averageRating: number; totalReviews: number }>>(
+    {}
+  );
   const [showQuickSuggestions, setShowQuickSuggestions] = useState(true);
   const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
   const [doctorsLoaded, setDoctorsLoaded] = useState(false);
@@ -170,6 +247,10 @@ export default function ChatInterface({
 
   // Video call state
   const [showIncomingCallModal, setShowIncomingCallModal] = useState(false);
+
+  // Delete chat confirmation modal state
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [isDeletingChat, setIsDeletingChat] = useState(false);
 
   // Doctor chat state
   const [conversationMessages, setConversationMessages] = useState<
@@ -191,6 +272,7 @@ export default function ChatInterface({
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<number>(0);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -395,67 +477,181 @@ export default function ChatInterface({
     }
   };
 
-  // Validate and set suggested doctor
-  const validateAndSetSuggestedDoctor = (suggestedDoctor: DoctorSuggestion) => {
-    if (!doctorsLoaded || availableDoctors.length === 0) {
-      return false;
-    }
+  // Fetch doctor rating from API
+  const fetchDoctorRating = useCallback(
+    async (doctorId: string) => {
+      if (!doctorId || doctorRatings[doctorId]) return;
 
-    // Find matching doctor
-    const matchingDoctor = availableDoctors.find((doctor) => {
-      const doctorName = doctor.fullName || doctor.name || "";
-      const suggestedName = suggestedDoctor.fullName || "";
-
-      // Exact match
-      if (doctorName === suggestedName) return true;
-
-      // Case-insensitive match
-      if (doctorName.toLowerCase() === suggestedName.toLowerCase()) return true;
-
-      // Keyword match
-      const keywords = suggestedName.split(" ").filter((word) => word.length > 1);
-      return keywords.some((keyword) => doctorName.toLowerCase().includes(keyword.toLowerCase()));
-    });
-
-    if (matchingDoctor) {
-      const validatedDoctor = {
-        _id: matchingDoctor._id || matchingDoctor.id,
-        fullName: matchingDoctor.fullName || matchingDoctor.name,
-        specialty: matchingDoctor.specialty,
-        keywords: suggestedDoctor.keywords || [],
-        email: matchingDoctor.email,
-        phone: matchingDoctor.phone,
-      };
-
-      setSuggestedDoctor(validatedDoctor);
-      dispatch(setSelectedDoctor(validatedDoctor));
-
-      // Persist suggestion to server session if available
-      (async () => {
-        try {
-          if (currentSession?._id && updateSession) {
-            await updateSession(currentSession._id, {
-              suggestedDoctor: validatedDoctor as any,
-              suggestedDoctorId: (validatedDoctor as any)._id,
-            } as any);
-          }
-        } catch (err) {
-          // ignore persistence errors
-        }
-      })();
-
-      // Persist locally as a fallback
       try {
-        localStorage.setItem("sd_suggestedDoctor", JSON.stringify(validatedDoctor));
-      } catch {
-        // ignore
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/doctor/${doctorId}/rating`);
+        if (res.ok) {
+          const data = await res.json();
+          setDoctorRatings((prev) => ({
+            ...prev,
+            [doctorId]: {
+              averageRating: data?.averageRating || 0,
+              totalReviews: data?.totalReviews || 0,
+            },
+          }));
+        }
+      } catch (error) {
+        console.error(`Failed to fetch rating for doctor ${doctorId}:`, error);
+      }
+    },
+    [doctorRatings]
+  );
+
+  // Validate and add suggested doctor to list (max 3, no duplicates)
+  // If already 3 doctors, replace the oldest one with the new one
+  const validateAndSetSuggestedDoctor = useCallback(
+    (suggestedDoctor: DoctorSuggestion) => {
+      // If doctor already has _id from backend, use it directly (already validated)
+      if (suggestedDoctor._id) {
+        const validatedDoctor: DoctorSuggestion = {
+          _id: suggestedDoctor._id,
+          fullName: suggestedDoctor.fullName,
+          specialty: suggestedDoctor.specialty,
+          keywords: suggestedDoctor.keywords || [],
+          email: suggestedDoctor.email,
+          phone: suggestedDoctor.phone,
+          avatarUrl: suggestedDoctor.avatarUrl,
+        };
+
+        // Add to list: no duplicates, max 3 (replace oldest if full)
+        let newDoctorsList: DoctorSuggestion[] = [];
+        setSuggestedDoctors((prev) => {
+          // Check if already exists
+          const exists = prev.some((d) => d._id === validatedDoctor._id);
+          if (exists) {
+            newDoctorsList = prev;
+            return prev;
+          }
+
+          // If less than 3, just add
+          if (prev.length < 3) {
+            newDoctorsList = [...prev, validatedDoctor];
+            return newDoctorsList;
+          }
+
+          // If already 3, replace the first one (oldest)
+          newDoctorsList = [...prev.slice(1), validatedDoctor];
+          return newDoctorsList;
+        });
+
+        // Fetch rating for this doctor
+        if (validatedDoctor._id) {
+          fetchDoctorRating(validatedDoctor._id);
+        }
+
+        dispatch(setSelectedDoctor(validatedDoctor));
+
+        // Persist ALL suggested doctors to server session
+        (async () => {
+          try {
+            if (currentSession?._id && updateSession) {
+              await new Promise((resolve) => setTimeout(resolve, 100));
+              const doctorsToSave = newDoctorsList.length > 0 ? newDoctorsList : [validatedDoctor];
+              await updateSession(currentSession._id, {
+                suggestedDoctors: doctorsToSave,
+                suggestedDoctor: validatedDoctor as any,
+                suggestedDoctorId: (validatedDoctor as any)._id,
+              } as any);
+            }
+          } catch {
+            // ignore persistence errors
+          }
+        })();
+
+        return true;
       }
 
-      return true;
-    } else {
-      return false;
-    }
-  };
+      // Fallback: validate with availableDoctors if no _id
+      if (!doctorsLoaded || availableDoctors.length === 0) {
+        return false;
+      }
+
+      // Find matching doctor
+      const matchingDoctor = availableDoctors.find((doctor) => {
+        const doctorName = doctor.fullName || doctor.name || "";
+        const suggestedName = suggestedDoctor.fullName || "";
+
+        // Exact match
+        if (doctorName === suggestedName) return true;
+
+        // Case-insensitive match
+        if (doctorName.toLowerCase() === suggestedName.toLowerCase()) return true;
+
+        // Keyword match
+        const keywords = suggestedName.split(" ").filter((word: string) => word.length > 1);
+        return keywords.some((keyword: string) => doctorName.toLowerCase().includes(keyword.toLowerCase()));
+      });
+
+      if (matchingDoctor) {
+        const validatedDoctor: DoctorSuggestion = {
+          _id: matchingDoctor._id || matchingDoctor.id,
+          fullName: matchingDoctor.fullName || matchingDoctor.name,
+          specialty: matchingDoctor.specialty,
+          keywords: suggestedDoctor.keywords || [],
+          email: matchingDoctor.email,
+          phone: matchingDoctor.phone,
+          avatarUrl: matchingDoctor.avatarUrl,
+        };
+
+        // Add to list: no duplicates, max 3 (replace oldest if full)
+        let newDoctorsList: DoctorSuggestion[] = [];
+        setSuggestedDoctors((prev) => {
+          // Check if already exists
+          const exists = prev.some((d) => d._id === validatedDoctor._id);
+          if (exists) {
+            newDoctorsList = prev;
+            return prev;
+          }
+
+          // If less than 3, just add
+          if (prev.length < 3) {
+            newDoctorsList = [...prev, validatedDoctor];
+            return newDoctorsList;
+          }
+
+          // If already 3, replace the first one (oldest)
+          newDoctorsList = [...prev.slice(1), validatedDoctor];
+          return newDoctorsList;
+        });
+
+        // Fetch rating for this doctor
+        if (validatedDoctor._id) {
+          fetchDoctorRating(validatedDoctor._id);
+        }
+
+        dispatch(setSelectedDoctor(validatedDoctor));
+
+        // Persist ALL suggested doctors to server session (not just the latest one)
+        (async () => {
+          try {
+            if (currentSession?._id && updateSession) {
+              // Wait a bit for state to update
+              await new Promise((resolve) => setTimeout(resolve, 100));
+              // Get the latest suggestedDoctors including the new one
+              const doctorsToSave = newDoctorsList.length > 0 ? newDoctorsList : [validatedDoctor];
+              await updateSession(currentSession._id, {
+                suggestedDoctors: doctorsToSave,
+                // Keep legacy fields for backwards compatibility
+                suggestedDoctor: validatedDoctor as any,
+                suggestedDoctorId: (validatedDoctor as any)._id,
+              } as any);
+            }
+          } catch {
+            // ignore persistence errors
+          }
+        })();
+
+        return true;
+      } else {
+        return false;
+      }
+    },
+    [doctorsLoaded, availableDoctors, fetchDoctorRating, dispatch, currentSession, updateSession]
+  );
 
   // Initialization: removed auto-scroll and debug logs; pagination handles scrolling explicitly
 
@@ -542,17 +738,40 @@ export default function ChatInterface({
       lastAiLengthRef.current = chatMessages.length;
 
       try {
-        const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
-        if (sd) {
-          if (typeof sd === "object" && sd.fullName) setSuggestedDoctor(sd as any);
-          else if (typeof sd === "string" && availableDoctors.length > 0) {
-            const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
-            if (match)
-              setSuggestedDoctor({
-                _id: match._id || match.id,
-                fullName: match.fullName || match.name,
-                specialty: match.specialty,
-              } as any);
+        // First try to load suggestedDoctors array (new format)
+        const suggestedDoctorsArray = (latestSession as any).suggestedDoctors;
+        if (suggestedDoctorsArray && Array.isArray(suggestedDoctorsArray) && suggestedDoctorsArray.length > 0) {
+          const validDoctors: DoctorSuggestion[] = suggestedDoctorsArray
+            .filter((d: any) => d && d.fullName)
+            .slice(0, 3) as DoctorSuggestion[];
+          if (validDoctors.length > 0) {
+            setSuggestedDoctors(validDoctors);
+            // Fetch ratings for all doctors
+            validDoctors.forEach((d) => {
+              if (d._id) fetchDoctorRating(d._id);
+            });
+          }
+        } else {
+          // Fallback: load legacy single suggestedDoctor
+          const sd = (latestSession as any).suggestedDoctor || (latestSession as any).suggestedDoctorId;
+          if (sd) {
+            if (typeof sd === "object" && sd.fullName) {
+              setSuggestedDoctors([sd as DoctorSuggestion]);
+              if (sd._id) fetchDoctorRating(sd._id);
+            } else if (typeof sd === "string" && availableDoctors.length > 0) {
+              const match = availableDoctors.find((d) => d._id === sd || d.id === sd);
+              if (match) {
+                const doctor: DoctorSuggestion = {
+                  _id: match._id || match.id,
+                  fullName: match.fullName || match.name,
+                  specialty: match.specialty,
+                  keywords: [],
+                  avatarUrl: match.avatarUrl,
+                };
+                setSuggestedDoctors([doctor]);
+                if (doctor._id) fetchDoctorRating(doctor._id);
+              }
+            }
           }
         }
       } catch {
@@ -660,11 +879,32 @@ export default function ChatInterface({
           }
         }
 
-        // Always set a suggested doctor for testing if none provided
-        if (response.suggestedDoctor) {
+        // Handle suggested doctors (new: array of 1-3 doctors)
+        // Replace entire list with new suggestions from this response
+        if (response.suggestedDoctors && response.suggestedDoctors.length > 0) {
+          // Clear existing and set new doctors directly
+          const newDoctors: DoctorSuggestion[] = response.suggestedDoctors
+            .filter((d: DoctorSuggestion) => d._id && d.fullName)
+            .slice(0, 3);
+
+          if (newDoctors.length > 0) {
+            setSuggestedDoctors(newDoctors);
+            // Fetch ratings for all new doctors
+            newDoctors.forEach((d) => {
+              if (d._id) fetchDoctorRating(d._id);
+            });
+            // Persist to session
+            if (currentSession?._id && updateSession) {
+              updateSession(currentSession._id, {
+                suggestedDoctors: newDoctors,
+                suggestedDoctor: newDoctors[0] as any,
+                suggestedDoctorId: newDoctors[0]._id,
+              } as any).catch(() => {});
+            }
+          }
+        } else if (response.suggestedDoctor) {
+          // Fallback: single doctor (backwards compatible)
           validateAndSetSuggestedDoctor(response.suggestedDoctor);
-        } else {
-          // No fallback doctor - let the UI handle the case of no suggested doctor
         }
 
         // Add urgent message if needed
@@ -787,10 +1027,28 @@ export default function ChatInterface({
           }
         }
 
-        if (response.suggestedDoctor) {
+        // Handle suggested doctors (new: array of 1-3 doctors)
+        // Replace entire list with new suggestions from this response
+        if (response.suggestedDoctors && response.suggestedDoctors.length > 0) {
+          const newDoctors: DoctorSuggestion[] = response.suggestedDoctors
+            .filter((d: DoctorSuggestion) => d._id && d.fullName)
+            .slice(0, 3);
+
+          if (newDoctors.length > 0) {
+            setSuggestedDoctors(newDoctors);
+            newDoctors.forEach((d) => {
+              if (d._id) fetchDoctorRating(d._id);
+            });
+            if (currentSession?._id && updateSession) {
+              updateSession(currentSession._id, {
+                suggestedDoctors: newDoctors,
+                suggestedDoctor: newDoctors[0] as any,
+                suggestedDoctorId: newDoctors[0]._id,
+              } as any).catch(() => {});
+            }
+          }
+        } else if (response.suggestedDoctor) {
           validateAndSetSuggestedDoctor(response.suggestedDoctor);
-        } else {
-          // No fallback doctor - let the UI handle the case of no suggested doctor
         }
 
         if (urgency === "high") {
@@ -854,6 +1112,18 @@ export default function ChatInterface({
 
     dispatch(setIsAnalyzing(true));
     setIsLoading(true);
+    setAnalysisProgress(0);
+
+    // Simulate progress while waiting for API
+    const progressInterval = setInterval(() => {
+      setAnalysisProgress((prev) => {
+        // Slow down as it approaches 90%
+        if (prev >= 90) return prev;
+        if (prev >= 70) return prev + 1;
+        if (prev >= 50) return prev + 2;
+        return prev + 5;
+      });
+    }, 200);
 
     // Create temporary URL for immediate display
     const tempImageUrl = URL.createObjectURL(file);
@@ -919,6 +1189,10 @@ export default function ChatInterface({
       const result = analysisResponse.data;
       dispatch(setAnalysisResult(result));
 
+      // Complete progress
+      clearInterval(progressInterval);
+      setAnalysisProgress(100);
+
       // Tạo message với format gọn hơn
       const aiMessage: ChatMessage = {
         role: "assistant",
@@ -926,11 +1200,6 @@ export default function ChatInterface({
         timestamp: new Date(),
         isAnalysisResult: true,
         analysisData: result,
-        actionButtons:
-          result.richContent &&
-          (result.richContent.analysis || result.richContent.recommendations || result.richContent.sections)
-            ? ["Giải thích thêm", "Đặt lịch khám", "Hướng dẫn chăm sóc", "Gợi ý bác sĩ", "Kết thúc"]
-            : undefined,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -950,14 +1219,35 @@ export default function ChatInterface({
         }
       }
 
-      // Always set a suggested doctor for image analysis
-      if (result.suggestedDoctor) {
+      // Handle suggested doctors from image analysis
+      // Replace entire list with new suggestions
+      if (result.suggestedDoctors && result.suggestedDoctors.length > 0) {
+        const newDoctors: DoctorSuggestion[] = result.suggestedDoctors
+          .filter((d: DoctorSuggestion) => d._id && d.fullName)
+          .slice(0, 3);
+
+        if (newDoctors.length > 0) {
+          setSuggestedDoctors(newDoctors);
+          newDoctors.forEach((d) => {
+            if (d._id) fetchDoctorRating(d._id);
+          });
+          if (currentSession?._id && updateSession) {
+            updateSession(currentSession._id, {
+              suggestedDoctors: newDoctors,
+              suggestedDoctor: newDoctors[0] as any,
+              suggestedDoctorId: newDoctors[0]._id,
+            } as any).catch(() => {});
+          }
+        }
+      } else if (result.suggestedDoctor) {
         validateAndSetSuggestedDoctor(result.suggestedDoctor);
-      } else {
-        // No fallback doctor - let the UI handle the case of no suggested doctor
       }
     } catch (error) {
       console.error("Error analyzing image:", error);
+
+      // Clear progress interval on error
+      clearInterval(progressInterval);
+      setAnalysisProgress(0);
 
       // Xử lý lỗi Cloudinary cụ thể
       let errorContent = `❌ Lỗi phân tích ảnh: ${
@@ -987,6 +1277,8 @@ export default function ChatInterface({
     } finally {
       dispatch(setIsAnalyzing(false));
       setIsLoading(false);
+      // Reset progress after a short delay to show 100%
+      setTimeout(() => setAnalysisProgress(0), 500);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -1087,41 +1379,13 @@ export default function ChatInterface({
 
   // Action handlers
   const handleAnalysisActionClick = async (action: string) => {
-    if (action.toLowerCase().includes("kết thúc")) {
-      const userMessage: ChatMessage = {
-        role: "user",
-        content: action,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
-
-      const goodbyeMessage: ChatMessage = {
-        role: "assistant",
-        content:
-          "Cảm ơn bạn đã sử dụng dịch vụ tư vấn nha khoa! 🙏\n\nChúc bạn có răng miệng khỏe mạnh! 💊\n\nLịch sử chat sẽ được xóa sau 3 giây...",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, goodbyeMessage]);
-
-      setTimeout(() => {
-        setMessages([]);
-        chatStorage.clearChat();
-        dispatch(clearAnalysisResult());
-        dispatch(clearAppointmentData());
-        setShowQuickSuggestions(true);
-        setSuggestedDoctor(null);
-      }, 3000);
-
-      return;
-    }
-
     if (action.toLowerCase().includes("đặt lịch khám")) {
       const symptoms = messages
         .filter((msg) => msg.role === "user")
         .map((msg) => msg.content)
         .join("; ");
 
-      navigateToAppointments(suggestedDoctor || undefined, symptoms);
+      navigateToAppointments(suggestedDoctors[0] || undefined, symptoms);
       return;
     }
 
@@ -1131,6 +1395,19 @@ export default function ChatInterface({
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMessage]);
+
+    // Save user action message to database
+    if (currentSession && session?.user) {
+      try {
+        await saveMessage({
+          role: "user",
+          content: action,
+          urgencyLevel: "medium",
+        });
+      } catch (err) {
+        console.error("Failed to save action message:", err);
+      }
+    }
 
     setIsLoading(true);
 
@@ -1160,6 +1437,19 @@ export default function ChatInterface({
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Save AI response to database
+      if (currentSession && session?.user) {
+        try {
+          await saveMessage({
+            role: "assistant",
+            content: aiResponse.message,
+            urgencyLevel: "medium",
+          });
+        } catch (err) {
+          console.error("Failed to save AI response:", err);
+        }
+      }
 
       if (aiResponse.suggestedDoctor) {
         validateAndSetSuggestedDoctor(aiResponse.suggestedDoctor);
@@ -1306,7 +1596,6 @@ export default function ChatInterface({
     if (buttonText.includes("Đặt lịch")) return <Calendar className="w-4 h-4 mr-1" />;
     if (buttonText.includes("Hướng dẫn")) return <Wrench className="w-4 h-4 mr-1" />;
     if (buttonText.includes("Gợi ý bác sĩ")) return <Stethoscope className="w-4 h-4 mr-1" />;
-    if (buttonText.includes("Kết thúc")) return <Check className="w-4 h-4 mr-1" />;
     return <Wrench className="w-4 h-4 mr-1" />;
   };
 
@@ -1350,24 +1639,16 @@ export default function ChatInterface({
       );
     }
 
-    // Valid doctor suggestion với avatar
-    if (suggestedDoctor) {
-      const getAvatarColor = (name: string) => {
-        const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500", "bg-yellow-500", "bg-indigo-500"];
-        const index = name.charCodeAt(0) % colors.length;
-        return colors[index];
-      };
-
+    // Valid doctor suggestions (1-3 doctors)
+    if (suggestedDoctors.length > 0) {
       return (
         <div
           className="border-t border-x rounded-tl-md rounded-tr-md border-gray-200"
           style={{ background: "var(--color-primary-outline)" }}
         >
-          <div className="px-4 py-2">
-            <div className="flex items-center justify-between mb-1">
-              <h4 className="font-medium text-primary">
-                Bác sĩ được đề xuất
-              </h4>
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-primary">Bác sĩ được đề xuất</h4>
               <button
                 onClick={() => setShowDoctorSuggestion(!showDoctorSuggestion)}
                 className="text-sm font-medium text-primary"
@@ -1376,70 +1657,80 @@ export default function ChatInterface({
               </button>
             </div>
             {showDoctorSuggestion && (
-              <div className="flex items-start space-x-3">
-                {/* Doctor Avatar */}
-                <div
-                  className={`w-10 h-10 ${
-                    (suggestedDoctor as any).avatarUrl ? "" : "bg-primary"
-                  } rounded-full flex items-center justify-center shrink-0 overflow-hidden`}
-                >
-                  {(suggestedDoctor as any).avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={(suggestedDoctor as any).avatarUrl}
-                      alt={suggestedDoctor.fullName}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="text-white w-5 h-5" />
-                    // <span className="text-white font-medium text-sm">{getInitials(suggestedDoctor.fullName)}</span>
-                  )}
-                </div>
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {suggestedDoctors.map((doctor) => {
+                  const rating = doctorRatings[doctor._id || ""];
+                  const displayRating = rating?.averageRating ? rating.averageRating.toFixed(1) : null;
 
-                {/* Doctor Info */}
-                <div className="flex-1">
-                  <h5 className="font-semibold text-primary">
-                    {suggestedDoctor.fullName}
-                  </h5>
-                  <p className="text-sm mb-3" style={{ color: "var(--color-primary-contrast)" }}>
-                    {suggestedDoctor.specialty}
-                  </p>
+                  return (
+                    <div
+                      key={doctor._id}
+                      className="flex-shrink-0 bg-white rounded-lg p-3 shadow-sm border border-gray-100 min-w-[200px] max-w-[220px]"
+                    >
+                      {/* Doctor Avatar & Info */}
+                      <div className="flex items-center gap-3 mb-2">
+                        <div
+                          className={`w-10 h-10 ${
+                            doctor.avatarUrl ? "" : "bg-primary"
+                          } rounded-full flex items-center justify-center shrink-0 overflow-hidden`}
+                        >
+                          {doctor.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="text-white w-5 h-5" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-semibold text-primary text-sm truncate">{doctor.fullName}</h5>
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <span className="truncate">{doctor.specialty}</span>
+                            {displayRating && (
+                              <>
+                                <span>•</span>
+                                <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                                <span>{displayRating}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-                  {/* Action Buttons - No Icons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      className="text-sm px-2 py-1 rounded-md transition-colors"
-                      style={{ background: "var(--color-primary)", color: "white" }}
-                      onClick={() => handleStartConversationWithDoctor(suggestedDoctor)}
-                    >
-                      Nhắn tin
-                    </button>
-                    <button
-                      className="text-sm px-2 py-1 rounded-md transition-colors"
-                      style={{ background: "var(--color-primary)", color: "white" }}
-                      onClick={() => {
-                        // Navigate to patient-facing doctor profile
-                        const id = (suggestedDoctor as any)?._id;
-                        if (id) router.push(`/patient/doctors/${id}`);
-                      }}
-                    >
-                      Hồ sơ
-                    </button>
-                    <button
-                      className="text-sm px-2 py-1 rounded-md transition-colors"
-                      style={{ background: "var(--color-primary)", color: "white" }}
-                      onClick={() => {
-                        const symptoms = messages
-                          .filter((msg) => msg.role === "user")
-                          .map((msg) => msg.content)
-                          .join("; ");
-                        navigateToAppointments(suggestedDoctor || undefined, symptoms);
-                      }}
-                    >
-                      Đặt lịch khám
-                    </button>
-                  </div>
-                </div>
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          className="text-xs px-2 py-1 rounded-md transition-colors"
+                          style={{ background: "var(--color-primary)", color: "white" }}
+                          onClick={() => handleStartConversationWithDoctor(doctor)}
+                        >
+                          Nhắn tin
+                        </button>
+                        <button
+                          className="text-xs px-2 py-1 rounded-md transition-colors"
+                          style={{ background: "var(--color-primary)", color: "white" }}
+                          onClick={() => {
+                            if (doctor._id) router.push(`/patient/doctors/${doctor._id}`);
+                          }}
+                        >
+                          Hồ sơ
+                        </button>
+                        <button
+                          className="text-xs px-2 py-1 rounded-md transition-colors"
+                          style={{ background: "var(--color-primary)", color: "white" }}
+                          onClick={() => {
+                            const symptoms = messages
+                              .filter((msg) => msg.role === "user")
+                              .map((msg) => msg.content)
+                              .join("; ");
+                            navigateToAppointments(doctor, symptoms);
+                          }}
+                        >
+                          Đặt lịch
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1543,7 +1834,8 @@ export default function ChatInterface({
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-xs lg:max-w-2xl px-4 py-3 rounded-lg ${
+                  className={`${message.role === "user" ? "max-w-xs lg:max-w-2xl" : "max-w-[90%] lg:max-w-3xl"}
+                  px-4 py-3 rounded-lg ${
                     message.role === "user"
                       ? "msg-outgoing"
                       : message.actionButtons && message.actionButtons.length > 0
@@ -1623,9 +1915,7 @@ export default function ChatInterface({
                                     <ul className="space-y-0">
                                       {section.bullets.map((bullet: string, bulletIndex: number) => (
                                         <li key={bulletIndex} className="text-gray-700 flex items-start text-sm">
-                                          <span className="mr-1 mt-0" style={{ color: "var(--color-primary)" }}>
-                                            •
-                                          </span>
+                                          <span className="mr-1 mt-0 text-primary">•</span>
                                           <span>{bullet}</span>
                                         </li>
                                       ))}
@@ -1663,25 +1953,31 @@ export default function ChatInterface({
                         </p>
                       </div>
                     </div>
+                  ) : /* Regular AI message content with Markdown formatting */
+                  message.role === "assistant" ? (
+                    <div className="prose prose-sm max-w-none">
+                      <MarkdownContent content={message.content} />
+                    </div>
                   ) : (
-                    /* Regular AI message content */
                     <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
                   )}
 
-                  {/* Show action buttons if available */}
-                  {message.actionButtons && message.actionButtons.length > 0 && (
+                  {/* Show action buttons for analysis results */}
+                  {(message.isAnalysisResult || message.analysisData) && (
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {message.actionButtons.map((buttonText, buttonIndex) => (
-                        <button
-                          key={buttonIndex}
-                          onClick={() => handleAnalysisActionClick(buttonText)}
-                          className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
-                          style={{ background: "var(--color-primary)", color: "white" }}
-                        >
-                          <span className="mr-1">{getButtonIcon(buttonText)}</span>
-                          {buttonText}
-                        </button>
-                      ))}
+                      {["Giải thích thêm", "Đặt lịch khám", "Hướng dẫn chăm sóc", "Gợi ý bác sĩ"].map(
+                        (buttonText, buttonIndex) => (
+                          <button
+                            key={buttonIndex}
+                            onClick={() => handleAnalysisActionClick(buttonText)}
+                            className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center shadow-sm hover:shadow-md transform hover:scale-105"
+                            style={{ background: "var(--color-primary)", color: "white" }}
+                          >
+                            <span className="mr-1">{getButtonIcon(buttonText)}</span>
+                            {buttonText}
+                          </button>
+                        )
+                      )}
                     </div>
                   )}
 
@@ -1697,23 +1993,62 @@ export default function ChatInterface({
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 px-4 py-2 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
+                <div className="bg-gray-100 px-4 py-3 rounded-lg w-[calc(100%-260px)]">
+                  {isAnalyzing ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <ScanSearch className="w-4 h-4 text-primary" />
+                          <span className="text-sm text-gray-600 font-medium">Đang phân tích ảnh...</span>
+                        </div>
+                        <span className="text-sm font-semibold text-primary">{analysisProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-200 animate-stripes"
+                          style={{
+                            width: `${analysisProgress}%`,
+                            background: `repeating-linear-gradient(
+                              -45deg,
+                              var(--color-primary),
+                              var(--color-primary) 10px,
+                              #fff 10px,
+                              #fff 20px
+                            )`,
+                            backgroundSize: "28.28px 100%",
+                          }}
+                        />
+                      </div>
+                      <style jsx>{`
+                        @keyframes stripes {
+                          from {
+                            background-position: 0 0;
+                          }
+                          to {
+                            background-position: 28.28px 0;
+                          }
+                        }
+                        .animate-stripes {
+                          animation: stripes 0.5s linear infinite;
+                        }
+                      `}</style>
                     </div>
-                    <span className="text-sm text-gray-600">
-                      {isAnalyzing ? "Đang phân tích ảnh..." : "Đang soạn tin nhắn..."}
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
+                      <span className="text-sm text-gray-600">Đang soạn tin nhắn...</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1739,20 +2074,78 @@ export default function ChatInterface({
             {messages.length > 1 && (
               <div className="text-center">
                 <button
-                  onClick={() => {
-                    if (confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) {
-                      setMessages([]);
-                      chatStorage.clearChat();
-                      setShowQuickSuggestions(true);
-                      setSuggestedDoctor(null);
-                      dispatch(clearAnalysisResult());
-                      dispatch(clearAppointmentData());
-                    }
-                  }}
-                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm transition-colors"
+                  onClick={() => setShowDeleteConfirmModal(true)}
+                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm transition-colors flex items-center gap-2 mx-auto"
+                  disabled={isDeletingChat}
                 >
-                  🗑️ Xóa lịch sử chat
+                  <Trash2 className="w-4 h-4" />
+                  {isDeletingChat ? "Đang xóa..." : "Xóa lịch sử chat"}
                 </button>
+              </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirmModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-red-100 rounded-full">
+                      <Trash2 className="w-6 h-6 text-red-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">Xóa lịch sử chat</h3>
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    Bạn có chắc muốn xóa toàn bộ lịch sử chat với AI? Hành động này không thể hoàn tác.
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={() => setShowDeleteConfirmModal(false)}
+                      className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      disabled={isDeletingChat}
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!currentSession?._id) {
+                          toast.error("Không tìm thấy phiên chat");
+                          return;
+                        }
+
+                        setIsDeletingChat(true);
+                        try {
+                          await aiChatHistoryService.clearSessionMessages(currentSession._id);
+                          setMessages([]);
+                          setShowQuickSuggestions(true);
+                          setSuggestedDoctors([]);
+                          dispatch(clearAnalysisResult());
+                          dispatch(clearAppointmentData());
+                          toast.success("Đã xóa lịch sử chat thành công");
+                        } catch (error) {
+                          console.error("Error clearing chat:", error);
+                          toast.error("Không thể xóa lịch sử chat");
+                        } finally {
+                          setIsDeletingChat(false);
+                          setShowDeleteConfirmModal(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                      disabled={isDeletingChat}
+                    >
+                      {isDeletingChat ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Đang xóa...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Xóa
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1776,7 +2169,16 @@ export default function ChatInterface({
                   disabled={isLoading}
                 />
               </div>
-              <div className="flex flex-col space-y-1">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleImageUploadClick}
+                  disabled={isLoading || isAnalyzing}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap disabled:opacity-50"
+                  style={{ background: "var(--color-primary)", color: "white" }}
+                >
+                  <ScanSearch className="w-4 h-4" />
+                  Phân tích ảnh
+                </button>
                 <button
                   onClick={handleSendMessageAI}
                   disabled={!inputMessage.trim() || isLoading}
@@ -1784,13 +2186,6 @@ export default function ChatInterface({
                   style={{ background: "var(--color-primary)", color: "white" }}
                 >
                   ➤
-                </button>
-                <button
-                  onClick={handleImageUploadClick}
-                  disabled={isLoading || isAnalyzing}
-                  className="px-4 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs"
-                >
-                  📎 File
                 </button>
               </div>
             </div>
@@ -2073,10 +2468,10 @@ export default function ChatInterface({
               <button
                 onClick={handleUserSendMessage}
                 disabled={isInputFocusedLoading || (!Input.trim() && !selectedFile)}
-                className="px-6 py-2 rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "var(--color-primary)", color: "white", outlineColor: "var(--color-primary-600)" }}
               >
-                {isInputFocusedLoading ? "..." : "Gửi"}
+                {isInputFocusedLoading ? "..." : "➤"}
               </button>
             </div>
           </div>

@@ -22,7 +22,6 @@ import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
 import DoctorCalendar from "@/components/Calendar/DoctorCalendar";
 import { View } from "react-big-calendar";
-import Image from "next/image";
 import { toast } from "sonner";
 import appointmentService from "@/services/appointmentService";
 import TreatmentModal from "@/components/appointments/TreatmentModal";
@@ -1113,12 +1112,10 @@ function DoctorScheduleContent() {
                       <div className="grid grid-cols-12 gap-4 items-center">
                         {/* Patient Info */}
                         <div className="col-span-3 flex items-center gap-3">
-                          <Image
+                          <img
                             src={apt.patientAvatar}
                             alt={apt.patientName}
-                            width={40}
-                            height={40}
-                            className="rounded-full"
+                            className="rounded-full w-10 h-10 object-cover"
                           />
                           <div>
                             <div className="flex items-center gap-2">
@@ -1250,12 +1247,12 @@ function DoctorScheduleContent() {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Patient info */}
               <div className="flex items-center gap-4">
-                <Image
+                <img
                   src={selectedAppointment.patientAvatar}
                   alt={selectedAppointment.patientName}
-                  width={64}
-                  height={64}
-                  className="rounded-full"
+                  // width={64}
+                  // height={64}
+                  className="rounded-full w-16 h-16 object-cover"
                 />
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{selectedAppointment.patientName}</h3>
