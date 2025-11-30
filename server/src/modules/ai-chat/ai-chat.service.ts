@@ -157,14 +157,6 @@ export class AiChatService {
       );
 
       // Debug log
-      console.log('🔍 AI Response extract doctors:', {
-        responseLength: aiResponse.length,
-        foundDoctors: suggestedDoctors.map((d) => ({
-          name: d.fullName,
-          specialty: d.specialty,
-        })),
-      });
-
       // Keep single suggestedDoctor for backwards compatibility
       const suggestedDoctor =
         suggestedDoctors.length > 0 ? suggestedDoctors[0] : null;
@@ -427,11 +419,6 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
     const doctors = await this.getDoctorsFromDatabase();
     const responseLower = aiResponse.toLowerCase();
 
-    console.log(
-      '🔍 Extracting doctors from response. Available doctors:',
-      doctors.map((d) => ({ name: d.fullName, specialty: d.specialty })),
-    );
-
     // Score each doctor based on keyword matches
     const doctorScores = doctors.map((doctor) => {
       let score = 0;
@@ -491,17 +478,6 @@ Hãy trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin.`;
 
       return { doctor, score, matchedKeywords, nameMatchType };
     });
-
-    // Debug log scores
-    console.log(
-      '🔍 Doctor scores:',
-      doctorScores.map((d) => ({
-        name: d.doctor.fullName,
-        score: d.score,
-        matchedKeywords: d.matchedKeywords,
-        nameMatchType: d.nameMatchType,
-      })),
-    );
 
     // Sort by score descending and take top 1-3
     const sortedDoctors = doctorScores

@@ -36,6 +36,7 @@ import {
   User,
   Trash2,
   Star,
+  Camera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -271,6 +272,7 @@ export default function ChatInterface({
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<number>(0);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1110,6 +1112,18 @@ export default function ChatInterface({
 
     dispatch(setIsAnalyzing(true));
     setIsLoading(true);
+    setAnalysisProgress(0);
+
+    // Simulate progress while waiting for API
+    const progressInterval = setInterval(() => {
+      setAnalysisProgress((prev) => {
+        // Slow down as it approaches 90%
+        if (prev >= 90) return prev;
+        if (prev >= 70) return prev + 1;
+        if (prev >= 50) return prev + 2;
+        return prev + 5;
+      });
+    }, 200);
 
     // Create temporary URL for immediate display
     const tempImageUrl = URL.createObjectURL(file);
@@ -1175,6 +1189,10 @@ export default function ChatInterface({
       const result = analysisResponse.data;
       dispatch(setAnalysisResult(result));
 
+      // Complete progress
+      clearInterval(progressInterval);
+      setAnalysisProgress(100);
+
       // Tạo message với format gọn hơn
       const aiMessage: ChatMessage = {
         role: "assistant",
@@ -1227,6 +1245,10 @@ export default function ChatInterface({
     } catch (error) {
       console.error("Error analyzing image:", error);
 
+      // Clear progress interval on error
+      clearInterval(progressInterval);
+      setAnalysisProgress(0);
+
       // Xử lý lỗi Cloudinary cụ thể
       let errorContent = `❌ Lỗi phân tích ảnh: ${
         error instanceof Error ? error.message : "Lỗi không xác định"
@@ -1255,6 +1277,8 @@ export default function ChatInterface({
     } finally {
       dispatch(setIsAnalyzing(false));
       setIsLoading(false);
+      // Reset progress after a short delay to show 100%
+      setTimeout(() => setAnalysisProgress(0), 500);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -1969,23 +1993,39 @@ export default function ChatInterface({
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 px-4 py-2 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
+                <div className="bg-gray-100 px-4 py-3 rounded-lg min-w-[250px]">
+                  {isAnalyzing ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 font-medium">📷 Đang phân tích ảnh...</span>
+                        <span className="text-sm font-semibold text-primary">{analysisProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-200"
+                          style={{
+                            width: `${analysisProgress}%`,
+                            background: "var(--color-primary)",
+                          }}
+                        />
+                      </div>
                     </div>
-                    <span className="text-sm text-gray-600">
-                      {isAnalyzing ? "Đang phân tích ảnh..." : "Đang soạn tin nhắn..."}
-                    </span>
-                  </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
+                      <span className="text-sm text-gray-600">Đang soạn tin nhắn...</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -2106,7 +2146,16 @@ export default function ChatInterface({
                   disabled={isLoading}
                 />
               </div>
-              <div className="flex flex-col space-y-1">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleImageUploadClick}
+                  disabled={isLoading || isAnalyzing}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap disabled:opacity-50"
+                  style={{ background: "var(--color-primary)", color: "white" }}
+                >
+                  <Camera className="w-4 h-4" />
+                  Phân tích ảnh
+                </button>
                 <button
                   onClick={handleSendMessageAI}
                   disabled={!inputMessage.trim() || isLoading}
@@ -2114,13 +2163,6 @@ export default function ChatInterface({
                   style={{ background: "var(--color-primary)", color: "white" }}
                 >
                   ➤
-                </button>
-                <button
-                  onClick={handleImageUploadClick}
-                  disabled={isLoading || isAnalyzing}
-                  className="px-4 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-xs"
-                >
-                  📎 File
                 </button>
               </div>
             </div>
@@ -2403,10 +2445,10 @@ export default function ChatInterface({
               <button
                 onClick={handleUserSendMessage}
                 disabled={isInputFocusedLoading || (!Input.trim() && !selectedFile)}
-                className="px-6 py-2 rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: "var(--color-primary)", color: "white", outlineColor: "var(--color-primary-600)" }}
               >
-                {isInputFocusedLoading ? "..." : "Gửi"}
+                {isInputFocusedLoading ? "..." : "➤"}
               </button>
             </div>
           </div>
