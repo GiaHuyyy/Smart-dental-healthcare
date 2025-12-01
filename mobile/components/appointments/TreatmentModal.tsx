@@ -581,12 +581,11 @@ export default function TreatmentModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+        style={{ flex: 1 }}
       >
-        <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View
-            className="rounded-t-3xl"
-            style={{ backgroundColor: theme.background, maxHeight: '95%' }}
+            style={{ backgroundColor: theme.background, maxHeight: '95%', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}
           >
             {/* Header */}
             <View
@@ -606,7 +605,7 @@ export default function TreatmentModal({
             </View>
 
             {/* Content */}
-            <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ flex: 1, padding: 16 }} showsVerticalScrollIndicator={false}>
               {/* Chief Complaints */}
               <View className="mb-6">
                 <Text className="text-sm font-bold mb-2" style={{ color: theme.text.primary }}>

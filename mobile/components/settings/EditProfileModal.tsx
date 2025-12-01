@@ -192,9 +192,9 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
       transparent={true}
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/50">
-        <View className="flex-1 mt-20">
-          <View className="flex-1 bg-white rounded-t-3xl">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <View style={{ flex: 1, marginTop: 80 }}>
+          <View style={{ flex: 1, backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
             {/* Header */}
             <View className="flex-row items-center justify-between p-4 border-b border-gray-200">
               <Text className="text-xl font-bold text-gray-900">
@@ -411,8 +411,8 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
           animationType="fade"
           onRequestClose={() => setShowDatePicker(false)}
         >
-          <View className="flex-1 bg-black/50 items-center justify-center">
-            <View className="bg-white rounded-2xl p-4 mx-5" style={{ width: '90%' }}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginHorizontal: 20, width: '90%' }}>
               <Text className="text-lg font-bold mb-4" style={{ color: Colors.gray[900] }}>
                 Chọn ngày sinh
               </Text>

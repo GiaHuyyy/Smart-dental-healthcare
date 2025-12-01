@@ -55,8 +55,7 @@ export class PaymentsService {
 
       // Get URLs from config
       const clientUrl =
-        this.configService.get<string>('CLIENT_URL') ||
-        'http://localhost:3000';
+        this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
       const backendUrl =
         this.configService.get<string>('BACKEND_URL') ||
         'http://localhost:8081';
@@ -65,12 +64,14 @@ export class PaymentsService {
       const notifyUrl = `${backendUrl}/api/v1/payments/momo/callback`;
 
       // Create payment record in DB (pending)
+      // IMPORTANT: amount must be NEGATIVE for patient charges (patient pays money)
       const payment = await this.paymentModel.create({
         patientId: new mongoose.Types.ObjectId(patientId),
         doctorId: new mongoose.Types.ObjectId(doctorId),
-        amount,
+        amount: -Math.abs(amount), // Số âm = bệnh nhân bị trừ tiền
         status: 'pending',
         type: 'appointment',
+        billType: 'consultation_fee', // Phí khám bệnh
         refId: new mongoose.Types.ObjectId(appointmentId),
         refModel: 'Appointment',
         paymentMethod: 'momo',
@@ -400,19 +401,21 @@ export class PaymentsService {
           if (!appointment) {
             this.logger.error('Appointment not found:', appointmentId);
           } else {
-            // Only update if appointment is in pending_payment or pending status
+            // Only update paymentStatus if appointment is in pending_payment or pending status
+            // NOTE: Do NOT change appointment status to 'confirmed' - let doctor confirm manually
             if (['pending_payment', 'pending'].includes(appointment.status)) {
               await this.appointmentModel.findByIdAndUpdate(appointmentId, {
-                status: 'confirmed',
+                // status: 'confirmed', // REMOVED - keep pending until doctor confirms
                 paymentStatus: 'paid',
                 paymentId: updatedPayment._id,
               });
 
-              this.logger.log('✅ ========== APPOINTMENT CONFIRMED ==========');
+              this.logger.log(
+                '✅ ========== APPOINTMENT PAYMENT UPDATED ==========',
+              );
               this.logger.log('📅 Appointment updated:', {
                 appointmentId,
-                previousStatus: appointment.status,
-                newStatus: 'confirmed',
+                status: appointment.status, // Keep original status
                 paymentStatus: 'paid',
               });
 
@@ -496,9 +499,6 @@ export class PaymentsService {
    */
   async queryMomoPayment(orderId: string) {
     try {
-      this.logger.log('🔍 ========== QUERYING PAYMENT STATUS ==========');
-      this.logger.log('📝 Order ID:', orderId);
-
       // Try to find payment by transactionId
       let payment = await this.paymentModel
         .findOne({
@@ -508,7 +508,6 @@ export class PaymentsService {
 
       // If not found, try to extract appointmentId from orderId (format: APT_{appointmentId}_{timestamp})
       if (!payment && orderId.startsWith('APT_')) {
-        this.logger.log('🔍 Trying to find by appointment ID from orderId...');
         const parts = orderId.split('_');
         if (parts.length >= 2) {
           const appointmentId = parts[1]; // APT_68fa749e..._1761244318717 -> 68fa749e...
@@ -527,8 +526,6 @@ export class PaymentsService {
 
       // If still not found, try searching by similar transactionId pattern
       if (!payment) {
-        this.logger.log('🔍 Trying to find by transaction ID pattern...');
-
         // Try to find payment with transactionId starting with PAY_ for the same reference
         if (orderId.startsWith('APT_')) {
           const parts = orderId.split('_');
@@ -555,21 +552,12 @@ export class PaymentsService {
         throw new BadRequestException('Không tìm thấy thanh toán');
       }
 
-      this.logger.log('💾 Found payment:', {
-        paymentId: payment._id,
-        transactionId: payment.transactionId,
-        status: payment.status,
-        amount: payment.amount,
-      });
-
       // Query MoMo for latest status
       const requestId = `QUERY_${orderId}_${Date.now()}`;
       const momoResponse = await this.momoService.queryTransaction(
         orderId,
         requestId,
       );
-
-      this.logger.log('📊 MoMo response:', momoResponse);
 
       // Update payment if MoMo says it's completed but our DB says pending
       if (momoResponse.resultCode === 0 && payment.status === 'pending') {
@@ -647,16 +635,20 @@ export class PaymentsService {
           // Don't fail the query if revenue creation fails
         }
 
-        // Also update appointment
+        // Also update appointment payment status (NOT appointment status)
+        // NOTE: Do NOT change appointment status to 'confirmed' - let doctor confirm manually
         const appointmentId = (payment.refId as any)?._id || payment.refId;
         if (appointmentId) {
           await this.appointmentModel.findByIdAndUpdate(appointmentId, {
-            status: 'confirmed',
+            // status: 'confirmed', // REMOVED - keep pending until doctor confirms
             paymentStatus: 'paid',
             paymentId: payment._id,
           });
 
-          this.logger.log('✅ Appointment confirmed via query:', appointmentId);
+          this.logger.log(
+            '✅ Appointment payment status updated via query:',
+            appointmentId,
+          );
         }
       }
 

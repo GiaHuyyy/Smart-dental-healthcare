@@ -825,10 +825,10 @@ function DoctorScheduleContent() {
                 {/* Action buttons */}
                 <button
                   onClick={handleExportExcel}
-                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-primary rounded-lg text-sm font-medium text-white hover:bg-primary/90 flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">Xuất Excel</span>
+                  <span className="hidden sm:inline">Xuất lịch làm việc</span>
                 </button>
 
                 <button

@@ -294,47 +294,47 @@ function AppointmentCard({
         </Badge>
       </View>
 
-      <View className="mt-4 gap-3">
-        <View className="flex-row items-center gap-3">
+      <View style={{ marginTop: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Ionicons name="calendar-outline" size={18} color={Colors.primary[600]} />
-          <Text className="text-sm font-medium" style={{ color: theme.text.primary }}>
+          <Text className="text-sm font-medium" style={{ color: theme.text.primary, marginLeft: 12 }}>
             {appointment.dateLabel} • {appointment.timeLabel}
           </Text>
         </View>
-        <View className="flex-row items-center gap-3">
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
           <Ionicons name="location-outline" size={18} color={Colors.primary[600]} />
-          <Text className="flex-1 text-sm" style={{ color: theme.text.secondary }}>
+          <Text className="flex-1 text-sm" style={{ color: theme.text.secondary, marginLeft: 12 }}>
             {appointment.location}
           </Text>
         </View>
-        <AppointmentStatusPill label={appointment.statusLabel} variant={appointment.statusVariant} />
+        <View style={{ marginTop: 12 }}>
+          <AppointmentStatusPill label={appointment.statusLabel} variant={appointment.statusVariant} />
+        </View>
       </View>
 
       {/* Action Buttons - Only show if appointment can be cancelled */}
       {appointment.canCancel !== false && (
-        <View className="mt-5 flex-row gap-3">
+        <View style={{ marginTop: 20, flexDirection: 'row' }}>
           <TouchableOpacity
-            className="flex-1 items-center justify-center rounded-2xl py-3"
-            style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[200] }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 12, backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[200], marginRight: 12 }}
             onPress={() => onChat(appointment)}
           >
-            <View className="flex-row items-center gap-2">
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="chatbubble-outline" size={18} color={Colors.primary[600]} />
-              <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+              <Text className="text-sm font-semibold" style={{ color: Colors.primary[700], marginLeft: 8 }}>
                 Trao đổi
               </Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            className="flex-1 items-center justify-center rounded-2xl py-3"
-            style={{ backgroundColor: Colors.error[50] }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 12, backgroundColor: Colors.error[50] }}
             onPress={() => onCancel(appointment)}
             disabled={cancelling}
           >
             {cancelling ? (
-              <View className="flex-row items-center gap-2">
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <ActivityIndicator color={Colors.error[600]} />
-                <Text className="text-sm font-semibold" style={{ color: Colors.error[700] }}>
+                <Text className="text-sm font-semibold" style={{ color: Colors.error[700], marginLeft: 8 }}>
                   Đang hủy...
                 </Text>
               </View>
@@ -390,9 +390,9 @@ function DoctorSelectModal({
   
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-        <View className="max-h-[70%] w-11/12 rounded-3xl p-5 shadow-2xl" style={{ backgroundColor: theme.card }}>
-          <View className="mb-4 flex-row items-center justify-between">
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <View style={{ backgroundColor: theme.card, maxHeight: '70%', width: '92%', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 }}>
+          <View style={{ marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
               Chọn bác sĩ
             </Text>
@@ -402,15 +402,18 @@ function DoctorSelectModal({
               </Text>
             </TouchableOpacity>
           </View>
-          <ScrollView className="max-h-96">
+          <ScrollView style={{ maxHeight: 384 }}>
             {doctors.map((doctor) => {
               const id = doctor._id ?? doctor.id ?? '';
               const isActive = id === selectedDoctorId;
               return (
                 <TouchableOpacity
                   key={id}
-                  className="mb-3 rounded-2xl px-4 py-3"
                   style={{
+                    borderRadius: 16,
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    marginBottom: 12,
                     borderWidth: 1,
                     borderColor: isActive ? Colors.primary[500] : Colors[colorScheme ?? 'light'].border,
                     backgroundColor: isActive ? Colors.primary[50] : theme.card,
@@ -424,7 +427,7 @@ function DoctorSelectModal({
                     {doctor.fullName ?? doctor.name ?? 'Bác sĩ'}
                   </Text>
                   {doctor.specialty && (
-                    <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
+                    <Text style={{ marginTop: 4, fontSize: 12, color: theme.text.secondary }}>
                       {doctor.specialty}
                     </Text>
                   )}
@@ -432,7 +435,7 @@ function DoctorSelectModal({
               );
             })}
             {doctors.length === 0 && (
-              <View className="items-center py-6">
+              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
                 <Text className="text-sm text-slate-500">Không có bác sĩ nào khả dụng</Text>
               </View>
             )}

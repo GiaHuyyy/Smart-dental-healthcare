@@ -242,11 +242,14 @@ function MyAppointmentsContent() {
 
     try {
       // Get ALL reviews of patient in ONE API call
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/patient/${patientId}?page=1&limit=200`, {
-        headers: {
-          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/reviews/patient/${patientId}?page=1&limit=200`,
+        {
+          headers: {
+            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -326,14 +329,17 @@ function MyAppointmentsContent() {
 
       toast.success("Cảm ơn bạn đã đánh giá!");
 
+      // Store appointmentId before closing modal (since appointmentToReview will be null after)
+      const reviewedAppointmentId = appointmentToReview._id;
+
       // Immediately update appointmentReviews state without reload
-      if (newReview && appointmentToReview._id) {
+      if (reviewedAppointmentId) {
         setAppointmentReviews((prev) => ({
           ...prev,
-          [appointmentToReview._id!]: {
-            _id: newReview._id,
-            rating: newReview.rating,
-            comment: newReview.comment,
+          [reviewedAppointmentId]: {
+            _id: newReview?._id || "temp-id",
+            rating: newReview?.rating || rating,
+            comment: newReview?.comment || comment,
           },
         }));
       }
@@ -495,7 +501,6 @@ function MyAppointmentsContent() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedAppointments = filteredAppointments.slice(startIndex, endIndex);
-  console.log("📄 Paginated appointments:", paginatedAppointments);
 
   // Reset to page 1 when filter changes
   useEffect(() => {
@@ -783,7 +788,7 @@ function MyAppointmentsContent() {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-4 flex-1">
                         {/* Doctor Avatar */}
-                        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                           {appointment.doctor?.avatarUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -840,7 +845,7 @@ function MyAppointmentsContent() {
 
                           {appointment.chiefComplaint && (
                             <div className="flex items-start gap-2 text-sm text-gray-600 mb-3">
-                              <FileText className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                               <span className="line-clamp-2">{appointment.chiefComplaint}</span>
                             </div>
                           )}
@@ -1015,7 +1020,7 @@ function MyAppointmentsContent() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
             {/* Header - Fixed */}
-            <div className="flex-shrink-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
+            <div className="shrink-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-semibold text-primary">
                   {(selectedAppointment as any).followUpParentId ? "Chi tiết lịch hẹn tái khám" : "Chi tiết lịch hẹn"}
@@ -1036,7 +1041,7 @@ function MyAppointmentsContent() {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Doctor Info */}
               <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   {selectedAppointment.doctor?.avatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1072,7 +1077,7 @@ function MyAppointmentsContent() {
                 <h4 className="font-semibold text-gray-900">Thông tin lịch hẹn</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Calendar className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm text-gray-500">Ngày khám</p>
                       <p className="font-medium text-gray-900">
@@ -1086,7 +1091,7 @@ function MyAppointmentsContent() {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Clock className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Clock className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm text-gray-500">Giờ khám</p>
                       <p className="font-medium text-gray-900">
@@ -1108,7 +1113,7 @@ function MyAppointmentsContent() {
                   </div>
                   {selectedAppointment.doctor?.clinicAddress && (
                     <div className="flex items-start gap-3">
-                      <MapPin className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                       <div className="flex-1">
                         <p className="text-sm text-gray-500">Địa điểm</p>
                         <p className="font-medium text-gray-900">{selectedAppointment.doctor.clinicAddress}</p>
@@ -1124,7 +1129,7 @@ function MyAppointmentsContent() {
                   <h4 className="font-semibold text-gray-900">Thông tin bệnh nhân</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex items-start gap-3">
-                      <Stethoscope className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <Stethoscope className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                       <div>
                         <p className="text-sm text-gray-500">Họ và tên</p>
                         <p className="font-medium text-gray-900">{selectedAppointment.patient.fullName}</p>
@@ -1132,7 +1137,7 @@ function MyAppointmentsContent() {
                     </div>
                     {selectedAppointment.patient.phone && (
                       <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                        <FileText className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                         <div>
                           <p className="text-sm text-gray-500">Số điện thoại</p>
                           <p className="font-medium text-gray-900">{selectedAppointment.patient.phone}</p>
@@ -1141,7 +1146,7 @@ function MyAppointmentsContent() {
                     )}
                     {selectedAppointment.patient.email && (
                       <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                        <FileText className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                         <div>
                           <p className="text-sm text-gray-500">Email</p>
                           <p className="font-medium text-gray-900">{selectedAppointment.patient.email}</p>
@@ -1150,7 +1155,7 @@ function MyAppointmentsContent() {
                     )}
                     {selectedAppointment.patient.dateOfBirth && (
                       <div className="flex items-start gap-3">
-                        <Calendar className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                        <Calendar className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                         <div>
                           <p className="text-sm text-gray-500">Ngày sinh</p>
                           <p className="font-medium text-gray-900">
@@ -1169,7 +1174,7 @@ function MyAppointmentsContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {selectedAppointment.bookingId && (
                     <div className="flex items-start gap-3">
-                      <FileText className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <FileText className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                       <div>
                         <p className="text-sm text-gray-500">Mã đặt lịch</p>
                         <p className="font-medium text-gray-900 font-mono">{selectedAppointment.bookingId}</p>
@@ -1178,7 +1183,7 @@ function MyAppointmentsContent() {
                   )}
                   {selectedAppointment.createdAt && (
                     <div className="flex items-start gap-3">
-                      <Clock className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <Clock className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                       <div>
                         <p className="text-sm text-gray-500">Thời gian đặt</p>
                         <p className="font-medium text-gray-900">
@@ -1234,7 +1239,7 @@ function MyAppointmentsContent() {
             </div>
 
             {/* Footer - Fixed */}
-            <div className="flex-shrink-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
+            <div className="shrink-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
               <button
                 onClick={() => {
                   setDetailDialogOpen(false);

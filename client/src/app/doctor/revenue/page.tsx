@@ -64,6 +64,17 @@ export default function RevenuePage() {
   const [selectedRevenue, setSelectedRevenue] = useState<RevenueRecord | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
 
+  // Withdrawal modal states
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState<string>("");
+  const [momoPhone, setMomoPhone] = useState<string>("");
+  const [momoName, setMomoName] = useState<string>("");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawableBalance, setWithdrawableBalance] = useState<number>(0);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<number>(0);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
+  const [showWithdrawalHistory, setShowWithdrawalHistory] = useState(false);
+
   // WebSocket connection
   const { isConnected, registerRefreshCallback, unregisterRefreshCallback } = useRevenueSocket();
 
@@ -104,6 +115,122 @@ export default function RevenuePage() {
       setLoading(false);
     }
   }, [doctorId, toast]); // Removed statusFilter from dependency
+
+  // Fetch withdrawable balance and withdrawal requests
+  const fetchWithdrawalData = useCallback(async () => {
+    if (!doctorId) return;
+
+    try {
+      const [balanceRes, requestsRes] = await Promise.all([
+        revenueService.getWithdrawableBalance(doctorId),
+        revenueService.getWithdrawalRequests(doctorId, 1, 20),
+      ]);
+
+      if (balanceRes.success) {
+        setWithdrawableBalance(balanceRes.data.withdrawableBalance);
+        setPendingWithdrawals(balanceRes.data.pendingWithdrawals);
+      }
+
+      if (requestsRes.success) {
+        setWithdrawalRequests(requestsRes.data.requests);
+      }
+    } catch (error) {
+      console.error("Error fetching withdrawal data:", error);
+    }
+  }, [doctorId]);
+
+  // Handle open withdraw modal
+  const handleOpenWithdrawModal = async () => {
+    await fetchWithdrawalData();
+    setIsWithdrawModalOpen(true);
+  };
+
+  // Handle submit withdrawal request
+  const handleSubmitWithdrawal = async () => {
+    if (!doctorId) return;
+
+    const amount = parseFloat(withdrawAmount);
+    if (!amount || amount < 10000) {
+      toast({
+        title: "Lỗi",
+        description: "Số tiền rút tối thiểu là 10,000 VNĐ",
+      });
+      return;
+    }
+
+    if (!momoPhone) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng nhập số điện thoại MoMo",
+      });
+      return;
+    }
+
+    const availableBalance = withdrawableBalance - pendingWithdrawals;
+    if (amount > availableBalance) {
+      toast({
+        title: "Lỗi",
+        description: `Số tiền yêu cầu vượt quá số dư khả dụng (${formatCurrency(availableBalance)})`,
+      });
+      return;
+    }
+
+    setWithdrawLoading(true);
+    try {
+      const response = await revenueService.createWithdrawalRequest(doctorId, {
+        amount,
+        withdrawMethod: "momo",
+        momoPhone,
+        momoName: momoName || undefined,
+      });
+
+      if (response.success) {
+        toast({
+          title: "Thành công",
+          description: response.message,
+        });
+        setIsWithdrawModalOpen(false);
+        setWithdrawAmount("");
+        setMomoPhone("");
+        setMomoName("");
+        await fetchWithdrawalData();
+      } else {
+        toast({
+          title: "Lỗi",
+          description: response.message,
+        });
+      }
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      toast({
+        title: "Lỗi",
+        description: axiosError.response?.data?.message || "Có lỗi xảy ra",
+      });
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
+  // Handle cancel withdrawal request
+  const handleCancelWithdrawal = async (requestId: string) => {
+    if (!doctorId) return;
+
+    try {
+      const response = await revenueService.cancelWithdrawalRequest(doctorId, requestId);
+      if (response.success) {
+        toast({
+          title: "Thành công",
+          description: "Đã hủy yêu cầu rút tiền",
+        });
+        await fetchWithdrawalData();
+      }
+    } catch {
+      toast({
+        title: "Lỗi",
+        description: "Không thể hủy yêu cầu",
+      });
+    }
+  };
 
   // Register refresh callback for socket events (like appointment pattern)
   useEffect(() => {
@@ -298,6 +425,191 @@ export default function RevenuePage() {
     setCurrentPage(1);
   };
 
+  // Export to Excel
+  const handleExportExcel = async () => {
+    try {
+      // Get data to export (filtered transactions)
+      const dataToExport = filteredTransactions;
+
+      if (dataToExport.length === 0) {
+        toast({
+          title: "Lỗi",
+          description: "Không có dữ liệu để xuất",
+        });
+        return;
+      }
+
+      // Helper function to get status text
+      const getStatusText = (revenue: RevenueRecord) => {
+        if ((revenue.netAmount || 0) < 0) return "Hoàn tiền";
+        if (revenue.status === "completed") return "Đã thanh toán";
+        if (revenue.status === "pending") return "Chờ xử lý";
+        return revenue.status;
+      };
+
+      // Helper function to get bill type text
+      const getBillTypeText = (billType?: string) => {
+        switch (billType) {
+          case "consultation_fee":
+            return "Phí khám bệnh";
+          case "cancellation_charge":
+            return "Phí hủy lịch";
+          case "reservation_fee":
+            return "Phí giữ chỗ";
+          case "refund":
+            return "Hoàn tiền";
+          default:
+            return billType || "N/A";
+        }
+      };
+
+      // Create CSV content
+      const headers = [
+        "STT",
+        "Bệnh nhân",
+        "Email",
+        "Ngày tạo",
+        "Ngày thanh toán",
+        "Loại giao dịch",
+        "Số tiền (VNĐ)",
+        "Phí nền tảng (VNĐ)",
+        "Thực nhận (VNĐ)",
+        "Trạng thái",
+      ];
+
+      const rows = dataToExport.map((revenue, index) => {
+        const patientName = (typeof revenue.patientId === "object" && revenue.patientId?.fullName) || "N/A";
+        const patientEmail = (typeof revenue.patientId === "object" && revenue.patientId?.email) || "N/A";
+        const createdDate = new Date(revenue.createdAt).toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const paymentDate = revenue.revenueDate
+          ? new Date(revenue.revenueDate).toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "Chưa thanh toán";
+
+        return [
+          index + 1,
+          patientName,
+          patientEmail,
+          createdDate,
+          paymentDate,
+          getBillTypeText(revenue.billType),
+          revenue.amount || 0,
+          revenue.platformFee || 0,
+          revenue.netAmount || 0,
+          getStatusText(revenue),
+        ];
+      });
+
+      // Add summary rows
+      const summaryRows = [
+        [],
+        ["=== TỔNG KẾT ==="],
+        ["Tổng số giao dịch:", dataToExport.length],
+        [
+          "Tổng doanh thu (trước phí):",
+          "",
+          "",
+          "",
+          "",
+          "",
+          allRevenues.filter((r) => (r.amount || 0) > 0).reduce((sum, r) => sum + (r.amount || 0), 0),
+        ],
+        ["Tổng phí nền tảng:", "", "", "", "", "", "", platformFee],
+        ["Doanh thu chờ:", "", "", "", "", "", "", "", pendingTotal],
+        ["Doanh thu thực nhận:", "", "", "", "", "", "", "", completedTotal],
+        ["Đã hoàn tiền:", "", "", "", "", "", "", "", refundTotal],
+        ["Tổng doanh thu thực:", "", "", "", "", "", "", "", totalAmount],
+      ];
+
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+        ...summaryRows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+      ].join("\n");
+
+      // Add BOM for UTF-8 support in Excel
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+
+      // Generate filename with date range if filtered
+      let filename = "bao-cao-doanh-thu";
+      if (startFilterDate && endFilterDate) {
+        filename += `_${startFilterDate}_den_${endFilterDate}`;
+      } else if (startFilterDate) {
+        filename += `_${startFilterDate}`;
+      } else {
+        filename += `_${new Date().toISOString().split("T")[0]}`;
+      }
+
+      // Check if File System Access API is available
+      if ("showSaveFilePicker" in window) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: `${filename}.csv`,
+            types: [
+              {
+                description: "CSV Files",
+                accept: { "text/csv": [".csv"] },
+              },
+            ],
+          });
+
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+
+          toast({
+            title: "Thành công",
+            description: "Đã xuất file báo cáo thành công",
+          });
+        } catch (err) {
+          // User cancelled or error occurred
+          if (err instanceof Error && err.name !== "AbortError") {
+            console.error("Save file error:", err);
+            toast({
+              title: "Lỗi",
+              description: "Có lỗi xảy ra khi lưu file",
+            });
+          }
+        }
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${filename}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Thành công",
+          description: "Đã xuất file báo cáo thành công",
+        });
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi xuất file",
+      });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -315,11 +627,11 @@ export default function RevenuePage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" className="gap-2 text-white">
+              <Button size="sm" className="gap-2 text-white" onClick={handleExportExcel}>
                 <DownloadIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Xuất báo cáo</span>
               </Button>
-              <Button size="sm" className="gap-2 text-white">
+              <Button size="sm" className="gap-2 text-white" onClick={handleOpenWithdrawModal}>
                 <WalletIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Yêu cầu rút tiền</span>
               </Button>
@@ -997,6 +1309,213 @@ export default function RevenuePage() {
                     <CalendarDays className="w-4 h-4" />
                     Xem lịch hẹn liên quan
                   </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdrawal Modal */}
+      {isWithdrawModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-primary">Yêu cầu rút tiền</h2>
+              <button
+                onClick={() => {
+                  setIsWithdrawModalOpen(false);
+                  setShowWithdrawalHistory(false);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Balance Info */}
+              <div className="bg-linear-to-br from-primary/10 to-purple-50 rounded-xl p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Doanh thu đã thanh toán</p>
+                    <p className="text-2xl font-bold text-primary">{formatCurrency(withdrawableBalance)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Đang chờ rút</p>
+                    <p className="text-2xl font-bold text-yellow-600">{formatCurrency(pendingWithdrawals)}</p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600">Số dư khả dụng</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(Math.max(0, withdrawableBalance - pendingWithdrawals))}
+                  </p>
+                </div>
+              </div>
+
+              {/* Toggle between form and history */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowWithdrawalHistory(false)}
+                  className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                    !showWithdrawalHistory ? "bg-primary text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Rút tiền mới
+                </button>
+                <button
+                  onClick={() => setShowWithdrawalHistory(true)}
+                  className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                    showWithdrawalHistory ? "bg-primary text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  Lịch sử ({withdrawalRequests.length})
+                </button>
+              </div>
+
+              {!showWithdrawalHistory ? (
+                /* Withdrawal Form */
+                <div className="space-y-4">
+                  {/* Amount Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền muốn rút</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        placeholder="Nhập số tiền (tối thiểu 10,000đ)"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        min={10000}
+                        max={withdrawableBalance - pendingWithdrawals}
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">VNĐ</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Tối đa: {formatCurrency(Math.max(0, withdrawableBalance - pendingWithdrawals))}
+                    </p>
+                  </div>
+
+                  {/* MoMo Phone */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Số điện thoại MoMo <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={momoPhone}
+                      onChange={(e) => setMomoPhone(e.target.value)}
+                      placeholder="Nhập số điện thoại đăng ký MoMo"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* MoMo Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên tài khoản MoMo</label>
+                    <input
+                      type="text"
+                      value={momoName}
+                      onChange={(e) => setMomoName(e.target.value)}
+                      placeholder="Nhập tên tài khoản (không bắt buộc)"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Info Note */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Lưu ý:</strong> Yêu cầu rút tiền sẽ được xử lý trong vòng 1-3 ngày làm việc. Admin sẽ
+                      chuyển tiền vào ví MoMo của bạn sau khi xác nhận.
+                    </p>
+                  </div>
+
+                  {/* Submit Button */}
+                  <Button
+                    onClick={handleSubmitWithdrawal}
+                    disabled={withdrawLoading || !withdrawAmount || !momoPhone}
+                    className="w-full gap-2"
+                  >
+                    {withdrawLoading ? (
+                      <>
+                        <Loader2Icon className="w-4 h-4 animate-spin" />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      <>
+                        <WalletIcon className="w-4 h-4 text-white" />
+                        <span className="text-white">Gửi yêu cầu rút tiền</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                /* Withdrawal History */
+                <div className="space-y-3">
+                  {withdrawalRequests.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <WalletIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>Chưa có yêu cầu rút tiền nào</p>
+                    </div>
+                  ) : (
+                    withdrawalRequests.map((request) => (
+                      <div key={request._id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold text-gray-900">{formatCurrency(request.amount)}</p>
+                            <p className="text-sm text-gray-600">MoMo: {request.momoPhone}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(request.createdAt).toLocaleDateString("vi-VN", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-1 rounded-md text-xs font-medium ${
+                                request.status === "completed"
+                                  ? "bg-green-100 text-green-700"
+                                  : request.status === "approved"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : request.status === "rejected"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-yellow-100 text-yellow-700"
+                              }`}
+                            >
+                              {request.status === "completed"
+                                ? "Đã chuyển"
+                                : request.status === "approved"
+                                ? "Đã duyệt"
+                                : request.status === "rejected"
+                                ? "Từ chối"
+                                : "Chờ duyệt"}
+                            </span>
+                            {request.status === "pending" && (
+                              <button
+                                onClick={() => handleCancelWithdrawal(request._id)}
+                                className="p-1 hover:bg-red-50 rounded text-red-500"
+                                title="Hủy yêu cầu"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {request.rejectionReason && (
+                          <p className="mt-2 text-sm text-red-600">Lý do: {request.rejectionReason}</p>
+                        )}
+                        {request.transactionId && (
+                          <p className="mt-2 text-sm text-gray-600">Mã GD: {request.transactionId}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>

@@ -41,16 +41,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     (async () => {
       try {
+        console.log('🔐 Auth: Loading stored session...');
         const raw = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-        if (!raw) return;
+        if (!raw) {
+          console.log('🔐 Auth: No stored session found');
+          return;
+        }
         const parsed = JSON.parse(raw) as AuthSession;
+        console.log('🔐 Auth: Session loaded:', { 
+          email: parsed.user?.email, 
+          role: parsed.user?.role,
+          hasToken: !!parsed.token 
+        });
         if (isMounted) {
           setSessionState(parsed);
         }
       } catch (error) {
-        console.warn('Không thể nạp phiên đăng nhập đã lưu', error);
+        console.warn('⚠️ Auth: Could not load stored session', error);
       } finally {
         if (isMounted) {
+          console.log('🔐 Auth: Hydration complete');
           setIsHydrating(false);
         }
       }

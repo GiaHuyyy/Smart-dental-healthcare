@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   Request,
@@ -111,6 +112,13 @@ export class WalletController {
     logger.log('✅ Callback processed result:', result);
 
     return result;
+  }
+
+  // GET /api/v1/wallet/momo/query/:orderId - Query MoMo wallet payment status
+  @Get('momo/query/:orderId')
+  @Public()
+  async queryMomoWalletPayment(@Param('orderId') orderId: string) {
+    return this.walletService.queryMomoWalletPayment(orderId);
   }
 
   // TEST: GET endpoint để test callback URL

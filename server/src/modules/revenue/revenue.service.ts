@@ -5,8 +5,13 @@ import mongoose, { Model } from 'mongoose';
 import { Payment } from '../payments/schemas/payment.schemas';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
+import { CreateWithdrawalRequestDto } from './dto/create-withdrawal-request.dto';
 import { RevenueGateway } from './revenue.gateway';
 import { Revenue } from './schemas/revenue.schemas';
+import {
+  WithdrawalRequest,
+  WithdrawalRequestDocument,
+} from './schemas/withdrawal-request.schema';
 
 @Injectable()
 export class RevenueService {
@@ -15,6 +20,8 @@ export class RevenueService {
   constructor(
     @InjectModel(Revenue.name) private revenueModel: Model<Revenue>,
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
+    @InjectModel(WithdrawalRequest.name)
+    private withdrawalRequestModel: Model<WithdrawalRequestDocument>,
     private readonly revenueGateway: RevenueGateway,
   ) {
     this.logger.log('✅ RevenueService initialized');
@@ -57,26 +64,184 @@ export class RevenueService {
         );
       }
 
-      // Check if revenue already exists for this payment
-      this.logger.log('🔍 Checking if revenue already exists...');
+      // Check if revenue already exists for this payment (by paymentId)
+      this.logger.log('🔍 Checking if revenue already exists by paymentId...');
       const existingRevenue = await this.revenueModel
         .findOne({ paymentId })
         .exec();
 
       if (existingRevenue) {
-        this.logger.warn('⚠️ Revenue already exists for payment:', paymentId);
-        this.logger.log('📊 Existing revenue:', {
+        this.logger.log('📊 Found existing revenue for payment:', {
           revenueId: existingRevenue._id,
           doctorId: existingRevenue.doctorId,
           amount: existingRevenue.amount,
           status: existingRevenue.status,
         });
 
+        // 🆕 If existing revenue is PENDING, update it to COMPLETED
+        if (existingRevenue.status === 'pending') {
+          this.logger.log(
+            '✅ Updating existing pending revenue to completed...',
+          );
+
+          const updatedRevenue = await this.revenueModel.findByIdAndUpdate(
+            existingRevenue._id,
+            {
+              status: 'completed',
+              revenueDate: payment.paymentDate || new Date(),
+              notes: `Doanh thu từ thanh toán #${payment._id.toString()}`,
+            },
+            { new: true },
+          );
+
+          // Populate revenue before emit
+          const populatedRevenue = await this.revenueModel
+            .findById(updatedRevenue?._id)
+            .populate('patientId', 'fullName email phone')
+            .populate('paymentId', 'transactionId paymentMethod')
+            .exec();
+
+          // Emit realtime event for updated revenue
+          const doctorIdStr: string =
+            typeof existingRevenue.doctorId === 'string'
+              ? existingRevenue.doctorId
+              : (existingRevenue.doctorId as any)?._id?.toString() ||
+                String(existingRevenue.doctorId);
+
+          if (this.revenueGateway && this.revenueGateway.server) {
+            this.revenueGateway.emitRevenueUpdate(
+              doctorIdStr,
+              populatedRevenue,
+            );
+            this.logger.log(
+              '✅ Emitted revenue:update event for existing pending revenue',
+            );
+          }
+
+          this.logger.log(
+            '✅ ========== EXISTING PENDING REVENUE UPDATED TO COMPLETED ==========',
+          );
+
+          return {
+            success: true,
+            data: populatedRevenue,
+            message: 'Cập nhật doanh thu pending thành công',
+          };
+        }
+
+        // Already completed - just return
+        this.logger.warn(
+          '⚠️ Revenue already completed for payment:',
+          paymentId,
+        );
         return {
           success: true,
           data: existingRevenue,
-          message: 'Doanh thu đã tồn tại cho thanh toán này',
+          message: 'Doanh thu đã tồn tại và đã hoàn thành',
         };
+      }
+
+      // 🆕 CHECK: Find pending revenue by refId (appointmentId) and doctorId
+      // This handles case when pending revenue was created during booking with "pay later"
+      const appointmentId = payment.refId;
+      const doctorId = payment.doctorId;
+
+      this.logger.log(
+        '🔍 Checking for existing pending revenue by appointment...',
+      );
+      this.logger.log('   - appointmentId:', appointmentId);
+      this.logger.log('   - doctorId:', doctorId);
+
+      if (appointmentId && doctorId) {
+        // Convert to string for proper MongoDB query
+        const appointmentIdStr: string =
+          typeof appointmentId === 'string'
+            ? appointmentId
+            : (appointmentId as any)?._id?.toString() || String(appointmentId);
+        const doctorIdStr: string =
+          typeof doctorId === 'string'
+            ? doctorId
+            : (doctorId as any)?._id?.toString() || String(doctorId);
+
+        this.logger.log('   - appointmentIdStr:', appointmentIdStr);
+        this.logger.log('   - doctorIdStr:', doctorIdStr);
+
+        // Use ObjectId for query to ensure proper matching
+        const pendingRevenue = await this.revenueModel
+          .findOne({
+            refId: new mongoose.Types.ObjectId(appointmentIdStr),
+            doctorId: new mongoose.Types.ObjectId(doctorIdStr),
+            status: 'pending',
+          })
+          .exec();
+
+        this.logger.log(
+          '   - pendingRevenue found:',
+          pendingRevenue ? pendingRevenue._id : 'null',
+        );
+
+        if (pendingRevenue) {
+          this.logger.log(
+            '✅ Found pending revenue - updating to completed...',
+          );
+          this.logger.log('📊 Pending revenue:', {
+            revenueId: pendingRevenue._id,
+            doctorId: pendingRevenue.doctorId,
+            amount: pendingRevenue.amount,
+            status: pendingRevenue.status,
+          });
+
+          // Update pending revenue to completed and link paymentId
+          const updatedRevenue = await this.revenueModel.findByIdAndUpdate(
+            pendingRevenue._id,
+            {
+              status: 'completed',
+              paymentId: payment._id,
+              revenueDate: payment.paymentDate || new Date(),
+              notes: `Doanh thu từ thanh toán #${payment._id.toString()}`,
+            },
+            { new: true },
+          );
+
+          if (!updatedRevenue) {
+            this.logger.error('❌ Failed to update pending revenue');
+            throw new Error('Failed to update pending revenue');
+          }
+
+          // Populate revenue before emit
+          const populatedRevenue = await this.revenueModel
+            .findById(updatedRevenue._id)
+            .populate('patientId', 'fullName email phone')
+            .populate('paymentId', 'transactionId paymentMethod')
+            .exec();
+
+          // Emit realtime event for updated revenue
+          if (this.revenueGateway && this.revenueGateway.server) {
+            this.revenueGateway.emitRevenueUpdate(
+              doctorIdStr,
+              populatedRevenue,
+            );
+            this.logger.log(
+              '✅ Emitted revenue:update event for completed pending revenue',
+            );
+          }
+
+          this.logger.log(
+            '✅ ========== PENDING REVENUE UPDATED TO COMPLETED ==========',
+          );
+
+          return {
+            success: true,
+            data: populatedRevenue,
+            message: 'Cập nhật doanh thu pending thành công',
+          };
+        } else {
+          this.logger.log('⚠️ No pending revenue found - will create new one');
+        }
+      } else {
+        this.logger.log(
+          '⚠️ Missing appointmentId or doctorId - will create new revenue',
+        );
       }
 
       // FIXED: Xử lý payment amount có thể âm (cancellation_charge)
@@ -147,14 +312,14 @@ export class RevenueService {
         .exec();
 
       // Emit realtime event cho bác sĩ
-      const doctorId =
+      const emitDoctorId =
         typeof payment.doctorId === 'string'
           ? payment.doctorId
           : (payment.doctorId as any)?._id?.toString() ||
-            payment.doctorId.toString();
+            (payment.doctorId as any)?.toString();
 
       this.logger.log('🔔 Preparing to emit socket event...');
-      this.logger.log(`   - Doctor ID: ${doctorId}`);
+      this.logger.log(`   - Doctor ID: ${emitDoctorId}`);
       this.logger.log(
         `   - RevenueGateway available: ${!!this.revenueGateway}`,
       );
@@ -167,7 +332,7 @@ export class RevenueService {
       } else if (!this.revenueGateway.server) {
         this.logger.error('❌ RevenueGateway.server is not available!');
       } else {
-        this.revenueGateway.emitNewRevenue(doctorId, populatedRevenue);
+        this.revenueGateway.emitNewRevenue(emitDoctorId, populatedRevenue);
         this.logger.log('✅ Socket event emitted successfully');
       }
 
@@ -886,6 +1051,251 @@ export class RevenueService {
       return {
         success: false,
         message: error.message || 'Có lỗi xảy ra khi xóa doanh thu',
+      };
+    }
+  }
+
+  // ===================== WITHDRAWAL REQUEST METHODS =====================
+
+  /**
+   * Lấy số dư khả dụng (có thể rút) của bác sĩ
+   * Chỉ tính các revenue đã completed và chưa được rút (withdrawn)
+   */
+  async getWithdrawableBalance(doctorId: string) {
+    try {
+      this.logger.log('💰 Getting withdrawable balance for doctor:', doctorId);
+
+      if (!mongoose.isValidObjectId(doctorId)) {
+        throw new BadRequestException('Doctor ID không hợp lệ');
+      }
+
+      // Get completed revenues that haven't been withdrawn
+      const completedRevenues = await this.revenueModel
+        .find({
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          status: 'completed',
+          netAmount: { $gt: 0 }, // Only positive amounts (not refunds)
+        })
+        .exec();
+
+      const withdrawableBalance = completedRevenues.reduce(
+        (sum, r) => sum + (r.netAmount || 0),
+        0,
+      );
+
+      // Get pending withdrawal requests
+      const pendingWithdrawals = await this.withdrawalRequestModel
+        .find({
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          status: { $in: ['pending', 'approved'] },
+        })
+        .exec();
+
+      const pendingAmount = pendingWithdrawals.reduce(
+        (sum, w) => sum + w.amount,
+        0,
+      );
+
+      // Available = completed revenue - pending withdrawals
+      const availableBalance = withdrawableBalance - pendingAmount;
+
+      this.logger.log('💰 Withdrawable balance:', {
+        completedRevenue: withdrawableBalance,
+        pendingWithdrawals: pendingAmount,
+        availableBalance,
+      });
+
+      return {
+        success: true,
+        data: {
+          withdrawableBalance,
+          pendingWithdrawals: pendingAmount,
+          availableBalance: Math.max(0, availableBalance),
+        },
+        message: 'Lấy số dư khả dụng thành công',
+      };
+    } catch (error) {
+      this.logger.error('Error getting withdrawable balance:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy số dư',
+      };
+    }
+  }
+
+  /**
+   * Tạo yêu cầu rút tiền
+   */
+  async createWithdrawalRequest(
+    doctorId: string,
+    dto: CreateWithdrawalRequestDto,
+  ) {
+    try {
+      this.logger.log('💸 Creating withdrawal request:', { doctorId, dto });
+
+      if (!mongoose.isValidObjectId(doctorId)) {
+        throw new BadRequestException('Doctor ID không hợp lệ');
+      }
+
+      // Validate MoMo info
+      if (dto.withdrawMethod === 'momo' && !dto.momoPhone) {
+        throw new BadRequestException('Vui lòng nhập số điện thoại MoMo');
+      }
+
+      // Get available balance
+      const balanceResult = await this.getWithdrawableBalance(doctorId);
+      if (!balanceResult.success) {
+        throw new BadRequestException(balanceResult.message);
+      }
+
+      const availableBalance = balanceResult.data?.availableBalance || 0;
+
+      if (dto.amount > availableBalance) {
+        throw new BadRequestException(
+          `Số tiền yêu cầu (${dto.amount.toLocaleString('vi-VN')}đ) vượt quá số dư khả dụng (${availableBalance.toLocaleString('vi-VN')}đ)`,
+        );
+      }
+
+      // Get completed revenues to mark for withdrawal
+      const completedRevenues = await this.revenueModel
+        .find({
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          status: 'completed',
+          netAmount: { $gt: 0 },
+        })
+        .sort({ createdAt: 1 }) // FIFO - oldest first
+        .exec();
+
+      // Select revenues to cover withdrawal amount
+      let remainingAmount = dto.amount;
+      const selectedRevenueIds: mongoose.Types.ObjectId[] = [];
+
+      for (const revenue of completedRevenues) {
+        if (remainingAmount <= 0) break;
+        selectedRevenueIds.push(revenue._id);
+        remainingAmount -= revenue.netAmount || 0;
+      }
+
+      // Create withdrawal request
+      const withdrawalRequest = await this.withdrawalRequestModel.create({
+        doctorId: new mongoose.Types.ObjectId(doctorId),
+        amount: dto.amount,
+        status: 'pending',
+        withdrawMethod: dto.withdrawMethod,
+        momoPhone: dto.momoPhone,
+        momoName: dto.momoName,
+        bankName: dto.bankName,
+        bankAccountNumber: dto.bankAccountNumber,
+        bankAccountName: dto.bankAccountName,
+        notes: dto.notes,
+        revenueIds: selectedRevenueIds,
+      });
+
+      this.logger.log('✅ Withdrawal request created:', withdrawalRequest._id);
+
+      return {
+        success: true,
+        data: withdrawalRequest,
+        message:
+          'Yêu cầu rút tiền đã được gửi thành công. Vui lòng chờ admin xử lý.',
+      };
+    } catch (error) {
+      this.logger.error('Error creating withdrawal request:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi tạo yêu cầu rút tiền',
+      };
+    }
+  }
+
+  /**
+   * Lấy danh sách yêu cầu rút tiền của bác sĩ
+   */
+  async getWithdrawalRequests(doctorId: string, page = 1, limit = 10) {
+    try {
+      this.logger.log('📋 Getting withdrawal requests for doctor:', doctorId);
+
+      if (!mongoose.isValidObjectId(doctorId)) {
+        throw new BadRequestException('Doctor ID không hợp lệ');
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [requests, total] = await Promise.all([
+        this.withdrawalRequestModel
+          .find({ doctorId: new mongoose.Types.ObjectId(doctorId) })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .exec(),
+        this.withdrawalRequestModel
+          .countDocuments({ doctorId: new mongoose.Types.ObjectId(doctorId) })
+          .exec(),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          requests,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+        message: 'Lấy danh sách yêu cầu rút tiền thành công',
+      };
+    } catch (error) {
+      this.logger.error('Error getting withdrawal requests:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra',
+      };
+    }
+  }
+
+  /**
+   * Hủy yêu cầu rút tiền (chỉ khi status = pending)
+   */
+  async cancelWithdrawalRequest(doctorId: string, requestId: string) {
+    try {
+      this.logger.log('❌ Cancelling withdrawal request:', {
+        doctorId,
+        requestId,
+      });
+
+      if (
+        !mongoose.isValidObjectId(doctorId) ||
+        !mongoose.isValidObjectId(requestId)
+      ) {
+        throw new BadRequestException('ID không hợp lệ');
+      }
+
+      const request = await this.withdrawalRequestModel.findOne({
+        _id: requestId,
+        doctorId: new mongoose.Types.ObjectId(doctorId),
+      });
+
+      if (!request) {
+        throw new BadRequestException('Không tìm thấy yêu cầu rút tiền');
+      }
+
+      if (request.status !== 'pending') {
+        throw new BadRequestException('Chỉ có thể hủy yêu cầu đang chờ xử lý');
+      }
+
+      await this.withdrawalRequestModel.findByIdAndDelete(requestId);
+
+      return {
+        success: true,
+        message: 'Đã hủy yêu cầu rút tiền',
+      };
+    } catch (error) {
+      this.logger.error('Error cancelling withdrawal request:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra',
       };
     }
   }

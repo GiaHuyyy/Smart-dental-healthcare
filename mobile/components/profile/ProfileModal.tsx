@@ -141,14 +141,15 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
       transparent
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/50">
-        <Pressable className="flex-1" onPress={onClose} />
+      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
         
         <View
-          className="rounded-t-3xl"
           style={{
             backgroundColor: theme.background,
             maxHeight: '85%',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
           }}
         >
           {/* Header */}

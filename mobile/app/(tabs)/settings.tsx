@@ -104,7 +104,7 @@ function ToggleRow({
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { session, logout, updateUser } = useAuth();
+  const { session, logout, updateUser, clearSession } = useAuth();
   const colorScheme = useColorScheme();
 
   const profile = useMemo(() => session?.user ?? null, [session?.user]);
@@ -114,6 +114,8 @@ export default function SettingsScreen() {
   const [darkMode, setDarkMode] = useState(colorScheme === 'dark');
   const [selectedLanguage, setSelectedLanguage] = useState('vi');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+
+  console.log('⚙️ Settings screen render:', { hasProfile: !!profile, email: profile?.email });
 
   const handleLogout = useCallback(async () => {
     console.log('handleLogout called');
@@ -232,10 +234,13 @@ export default function SettingsScreen() {
   }, []);
 
   return (
-    <LinearGradient colors={['#f0f9ff', '#e0f2fe', '#fff']} className="flex-1">
-      <SafeAreaView className="flex-1">
+    <LinearGradient 
+      colors={['#f0f9ff', '#e0f2fe', '#fff']} 
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <ScrollView
-          className="flex-1"
+          style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: 16 }}
           showsVerticalScrollIndicator={false}
         >

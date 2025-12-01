@@ -70,48 +70,72 @@ function NotificationItem({ notification, onPress }: { notification: Notificatio
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <View 
-        className="p-3 border-b"
         style={{ 
-          borderBottomColor: theme.border,
-          backgroundColor: notification.isRead ? 'transparent' : Colors.primary[50] + '40',
+          padding: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.border || '#e5e7eb',
+          backgroundColor: notification.isRead ? (theme.card || '#ffffff') : (Colors.primary[50] + '40'),
         }}
       >
-        <View className="flex-row items-start space-x-3">
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
           <View
-            className="h-10 w-10 items-center justify-center rounded-full mt-0.5"
-            style={{ backgroundColor: iconConfig.bg }}
+            style={{ 
+              height: 40, 
+              width: 40, 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              borderRadius: 20, 
+              marginTop: 2,
+              backgroundColor: iconConfig.bg 
+            }}
           >
             <Ionicons name={iconConfig.name} size={20} color={iconConfig.color} />
           </View>
           
-          <View className="flex-1">
-            <View className="flex-row items-start justify-between mb-0.5">
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
               <Text 
-                className="flex-1 text-sm font-semibold pr-2"
-                style={{ color: theme.text.primary }}
+                style={{ 
+                  flex: 1, 
+                  fontSize: 14, 
+                  fontWeight: '600', 
+                  paddingRight: 8,
+                  color: theme.text.primary || '#000000'
+                }}
                 numberOfLines={1}
               >
                 {notification.title || 'Thông báo'}
               </Text>
               {!notification.isRead && (
                 <View 
-                  className="h-2 w-2 rounded-full mt-1"
-                  style={{ backgroundColor: Colors.primary[600] }}
+                  style={{ 
+                    height: 8, 
+                    width: 8, 
+                    borderRadius: 4, 
+                    marginTop: 4,
+                    backgroundColor: Colors.primary[600] 
+                  }}
                 />
               )}
             </View>
             
             <Text 
-              className="text-xs mb-1"
-              style={{ color: theme.text.secondary }}
+              style={{ 
+                fontSize: 12, 
+                marginBottom: 4,
+                color: theme.text.secondary || '#666666'
+              }}
               numberOfLines={2}
             >
               {notification.message || 'Không có nội dung'}
             </Text>
             
             <Text 
-              className="text-xs"
-              style={{ color: theme.text.secondary, opacity: 0.6 }}
+              style={{ 
+                fontSize: 12,
+                color: theme.text.secondary || '#666666', 
+                opacity: 0.6 
+              }}
             >
               {formatDateTime(notification.createdAt)}
             </Text>
@@ -197,6 +221,8 @@ export function NotificationModal({ visible, onClose }: NotificationModalProps) 
 
   const unreadCount = localNotifications.filter((n) => !n.isRead).length;
 
+  
+
   return (
     <Modal
       visible={visible}
@@ -205,39 +231,45 @@ export function NotificationModal({ visible, onClose }: NotificationModalProps) 
       onRequestClose={onClose}
     >
       <TouchableOpacity 
-        className="flex-1" 
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
         activeOpacity={1}
         onPress={onClose}
       >
-        <View className="flex-1 items-end pt-16 px-4">
+        <View style={{ flex: 1, alignItems: 'flex-end', paddingTop: 64, paddingHorizontal: 16 }}>
           <TouchableOpacity 
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-3xl shadow-2xl overflow-hidden"
             style={{ 
-              backgroundColor: theme.surface,
-              maxHeight: '80%',
+              width: '100%',
+              maxWidth: 448,
+              backgroundColor: theme.surface || theme.card || '#ffffff',
+              height: '80%',
+              borderRadius: 24,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.3,
+              shadowRadius: 20,
+              elevation: 10,
+              overflow: 'hidden',
             }}
           >
             {/* Header */}
-            <View className="px-5 pt-5 pb-3 border-b" style={{ borderBottomColor: theme.border }}>
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>
+            <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: theme.text.primary }}>
                   Thông báo
                 </Text>
                 <TouchableOpacity
                   onPress={onClose}
-                  className="w-8 h-8 items-center justify-center rounded-full"
-                  style={{ backgroundColor: Colors.primary[50] }}
+                  style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: Colors.primary[50] }}
                 >
                   <Ionicons name="close" size={20} color={Colors.primary[600]} />
                 </TouchableOpacity>
               </View>
 
               {/* Stats & Actions */}
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs" style={{ color: theme.text.secondary }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 12, color: theme.text.secondary }}>
                   {localNotifications.length} thông báo
                   {unreadCount > 0 && ` • ${unreadCount} chưa đọc`}
                 </Text>
@@ -246,13 +278,12 @@ export function NotificationModal({ visible, onClose }: NotificationModalProps) 
                   <TouchableOpacity
                     onPress={handleMarkAllAsRead}
                     disabled={loading}
-                    className="px-3 py-1.5 rounded-full"
-                    style={{ backgroundColor: Colors.primary[50] }}
+                    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: Colors.primary[50] }}
                   >
                     {loading ? (
                       <ActivityIndicator size="small" color={Colors.primary[600]} />
                     ) : (
-                      <Text className="text-xs font-semibold" style={{ color: Colors.primary[600] }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.primary[600] }}>
                         Đánh dấu tất cả
                       </Text>
                     )}
@@ -261,31 +292,33 @@ export function NotificationModal({ visible, onClose }: NotificationModalProps) 
               </View>
 
               {/* Filter Tabs */}
-              <View className="flex-row gap-2 mt-3">
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
                 <TouchableOpacity
                   onPress={() => setFilter('all')}
-                  className="px-4 py-1.5 rounded-full"
                   style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 6,
+                    borderRadius: 16,
                     backgroundColor: filter === 'all' ? Colors.primary[600] : Colors.primary[50],
                   }}
                 >
                   <Text
-                    className="text-xs font-semibold"
-                    style={{ color: filter === 'all' ? '#ffffff' : Colors.primary[700] }}
+                    style={{ fontSize: 12, fontWeight: '600', color: filter === 'all' ? '#ffffff' : Colors.primary[700] }}
                   >
                     Tất cả
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setFilter('unread')}
-                  className="px-4 py-1.5 rounded-full"
                   style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 6,
+                    borderRadius: 16,
                     backgroundColor: filter === 'unread' ? Colors.primary[600] : Colors.primary[50],
                   }}
                 >
                   <Text
-                    className="text-xs font-semibold"
-                    style={{ color: filter === 'unread' ? '#ffffff' : Colors.primary[700] }}
+                    style={{ fontSize: 12, fontWeight: '600', color: filter === 'unread' ? '#ffffff' : Colors.primary[700] }}
                   >
                     Chưa đọc {unreadCount > 0 && `(${unreadCount})`}
                   </Text>
@@ -295,38 +328,40 @@ export function NotificationModal({ visible, onClose }: NotificationModalProps) 
 
             {/* Notifications List */}
             <ScrollView 
-              className="flex-1"
+              style={{ flex: 1 }}
               showsVerticalScrollIndicator={false}
             >
               {filteredNotifications.length === 0 ? (
-                <View className="items-center justify-center py-12 px-6">
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 24 }}>
                   <Ionicons 
                     name={filter === 'unread' ? 'checkmark-circle-outline' : 'notifications-off-outline'} 
                     size={48} 
                     color={Colors.primary[300]} 
                   />
-                  <Text className="mt-4 text-sm font-semibold text-center" style={{ color: theme.text.primary }}>
+                  <Text style={{ marginTop: 16, fontSize: 14, fontWeight: '600', textAlign: 'center', color: theme.text.primary }}>
                     {filter === 'unread' ? 'Tất cả đã đọc!' : 'Chưa có thông báo'}
                   </Text>
-                  <Text className="mt-1 text-xs text-center" style={{ color: theme.text.secondary }}>
+                  <Text style={{ marginTop: 4, fontSize: 12, textAlign: 'center', color: theme.text.secondary }}>
                     {filter === 'unread'
                       ? 'Bạn không có thông báo chưa đọc'
                       : 'Thông báo sẽ xuất hiện ở đây'}
                   </Text>
                 </View>
               ) : (
-                <View>
-                  {filteredNotifications.map((notification) => (
-                    <NotificationItem
-                      key={notification._id ?? `notif-${notification.createdAt}`}
-                      notification={notification}
-                      onPress={() => {
-                        if (notification._id && !notification.isRead) {
-                          void handleMarkAsRead(notification._id);
-                        }
-                      }}
-                    />
-                  ))}
+                <View style={{ flex: 1 }}>
+                  {filteredNotifications.map((notification, index) => {
+                    return (
+                      <NotificationItem
+                        key={notification._id ?? `notif-${notification.createdAt}`}
+                        notification={notification}
+                        onPress={() => {
+                          if (notification._id && !notification.isRead) {
+                            void handleMarkAsRead(notification._id);
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </View>
               )}
             </ScrollView>

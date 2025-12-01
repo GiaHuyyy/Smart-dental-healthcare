@@ -29,15 +29,29 @@ const rawBaseUrl = (envBaseUrl ?? fallbackBaseUrl).replace(/\/+$/, '');
 export const API_BASE_URL = rawBaseUrl.endsWith('/api/v1') ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
 
 const normalizePath = (path: string): string => {
-  if (!path.startsWith('/')) {
-    return `/${path}`;
+  if (!path) return '/';
+  // If absolute URL, return as-is
+  if (/^https?:\/\//i.test(path)) return path;
+
+  let p = path.trim();
+  if (!p.startsWith('/')) p = `/${p}`;
+
+  // Avoid duplicating /api/v1 when base already contains it
+  const baseHasApiV1 = API_BASE_URL.toLowerCase().endsWith('/api/v1');
+  if (baseHasApiV1 && p.toLowerCase().startsWith('/api/v1')) {
+    p = p.slice('/api/v1'.length);
+    if (!p.startsWith('/')) p = `/${p}`;
   }
-  return path;
+
+  return p;
 };
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<ApiResponse<T>> {
   const { method = 'GET', body, headers = {}, token, abortSignal } = options;
-  const targetUrl = `${API_BASE_URL}${normalizePath(path)}`;
+  const normalized = normalizePath(path);
+  const targetUrl = /^https?:\/\//i.test(normalized)
+    ? normalized
+    : `${API_BASE_URL}${normalized}`;
 
   const response = await fetch(targetUrl, {
     method,

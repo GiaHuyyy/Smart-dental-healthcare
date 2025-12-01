@@ -370,7 +370,7 @@ export default function BookingFlowModal({
                   <div className="space-y-6">
                     <AppointmentConfirmationContent confirmation={confirmation} />
                     {/* MoMo Payment Button - Only show if NOT paid with wallet */}
-                    {bookingData.paymentMethod !== "wallet" && (
+                    {/* {bookingData.paymentMethod !== "wallet" && (
                       <div className="bg-pink-50 border border-pink-200 rounded-lg p-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Thanh toán phí khám</h3>
                         <div className="flex items-center justify-between">
@@ -399,7 +399,7 @@ export default function BookingFlowModal({
                           </button>
                         </div>
                       </div>
-                    )}
+                    )} */}
                   </div>
                 ) : (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">

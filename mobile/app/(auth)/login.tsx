@@ -56,6 +56,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
+    console.log('🔐 Login screen mounted');
     if (prefilledEmail) {
       setEmail(prefilledEmail);
     }
@@ -71,6 +72,7 @@ export default function LoginScreen() {
     setError(null);
 
     try {
+      console.log('🔐 Attempting login with:', { email, userType });
       const response = await apiRequest<LoginResponse>('/auth/login', {
         method: 'POST',
         body: {
@@ -112,16 +114,21 @@ export default function LoginScreen() {
     }
   };
 
+  console.log('🎨 Login render:', { email, userType, isLoading, hasError: !!error });
+
   return (
-    <LinearGradient colors={['#eff6ff', '#e0f2fe', '#dbeafe']} className="flex-1">
-      <SafeAreaView className="flex-1">
+    <LinearGradient 
+      colors={['#eff6ff', '#e0f2fe', '#dbeafe']} 
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
-          className="flex-1"
+          style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.select({ ios: 0, android: -200, default: 0 }) ?? 0}
         >
           <ScrollView
-            className="flex-1"
+            style={{ flex: 1 }}
             contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 32 }}
             keyboardShouldPersistTaps="handled"
           >
