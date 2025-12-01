@@ -76,7 +76,7 @@ export interface Appointment {
   suggestedFollowUpTime?: string; // Doctor's suggested time
   appliedVoucherId?: string; // Applied voucher ID
 
-  // AI Analysis Data - Thông tin từ tư vấn AI
+  // AI Analysis Data - Thông tin phân tích AI
   aiAnalysisData?: {
     symptoms?: string;
     uploadedImage?: string;

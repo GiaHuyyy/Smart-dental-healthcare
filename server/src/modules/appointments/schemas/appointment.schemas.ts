@@ -116,7 +116,7 @@ export class Appointment {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Voucher' })
   appliedVoucherId?: MongooseSchema.Types.ObjectId; // Voucher đã sử dụng
 
-  // AI Analysis Data - Thông tin từ tư vấn AI
+  // AI Analysis Data - Thông tin phân tích AI
   @Prop({ type: MongooseSchema.Types.Mixed })
   aiAnalysisData?: {
     symptoms?: string; // Triệu chứng từ chat
