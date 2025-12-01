@@ -22,7 +22,6 @@ import { PolicyButton, PolicyModal } from '@/components/policy';
 import { Card } from '@/components/ui/Card';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import paymentService from '@/services/paymentService';
 import walletService from '@/services/walletService';
 import { apiRequest, formatApiError } from '@/utils/api';
@@ -204,8 +203,14 @@ function PaymentBadge({ status }: { status?: string }) {
 }
 
 function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Payment) => void }) {
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  // Fixed light theme colors
+  const theme = {
+    surface: '#ffffff',
+    border: '#e2e8f0',
+    text: {
+      secondary: '#64748b'
+    }
+  };
   
   // Determine amount color - green for refund (+), red for charge (-)
   const isRefund = payment.billType === 'refund';
@@ -310,8 +315,18 @@ function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Pa
 export default function PaymentsScreen() {
   const router = useRouter();
   const { session, isAuthenticated, isHydrating } = useAuth();
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  
+  // Fixed light theme colors (not affected by dark mode)
+  const theme = {
+    background: '#f8fafc',
+    surface: '#ffffff',
+    border: '#e2e8f0',
+    text: {
+      primary: '#0f172a',
+      secondary: '#64748b',
+      tertiary: '#94a3b8'
+    }
+  };
 
   const patientId = session?.user?._id ?? '';
   const token = session?.token ?? '';
@@ -359,7 +374,7 @@ export default function PaymentsScreen() {
       }
 
       try {
-        const response = await apiRequest<Payment[]>(`/api/v1/payments/patient/${patientId}`, {
+        const response = await apiRequest<Payment[]>(`/payments/patient/${patientId}`, {
           token,
           abortSignal: signal,
         });
@@ -607,43 +622,8 @@ export default function PaymentsScreen() {
         }
       >
         <View className="space-y-6">
-          <Card className="p-6">
-            <View className="flex-row items-start justify-between">
-              <View className="flex-1 pr-4">
-                <View 
-                  className="h-14 w-14 items-center justify-center rounded-2xl"
-                  style={{ backgroundColor: Colors.primary[600] }}
-                >
-                  <Ionicons name="cash-outline" size={28} color="#ffffff" />
-                </View>
-                <Text className="mt-5 text-2xl font-semibold" style={{ color: theme.text.primary }}>
-                  Quản lý thanh toán
-                </Text>
-                <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>
-                  Theo dõi các khoản chi phí điều trị, tình trạng thanh toán và yêu cầu hoá đơn chỉ trong vài bước.
-                </Text>
-              </View>
-              <View className="w-28 space-y-3">
-                <View className="rounded-2xl px-3 py-2" style={{ backgroundColor: Colors.primary[50] }}>
-                  <Text className="text-[11px] font-semibold" style={{ color: Colors.primary[600] }}>
-                    Số đơn
-                  </Text>
-                  <Text className="text-lg font-bold" style={{ color: Colors.primary[700] }}>
-                    {payments.length}
-                  </Text>
-                </View>
-                <View className="rounded-2xl px-3 py-2" style={{ backgroundColor: Colors.success[50] }}>
-                  <Text className="text-[11px] font-semibold" style={{ color: Colors.success[600] }}>
-                    Đã thanh toán
-                  </Text>
-                  <Text className="text-lg font-bold" style={{ color: Colors.success[700] }}>
-                    {stats.completedCount}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View className="mt-6 space-y-3">
+          <Card className="p-4">
+            <View className="space-y-3">
               <View 
                 className="rounded-2xl border p-3"
                 style={{ 
@@ -710,43 +690,35 @@ export default function PaymentsScreen() {
               <TouchableOpacity
                 onPress={() => setStatusFilter('all')}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'all' ? '#ef4444' : '#e5e7eb', backgroundColor: '#fff' }}
+                style={{ borderColor: statusFilter === 'all' ? '#ef4444' : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
               >
-                <View className="flex-row items-start justify-between">
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>Tổng chi tiêu</Text>
-                    <Text className="mt-1 text-2xl font-bold" style={{ color: '#dc2626' }}>
-                      {formatCurrency(stats.totalSpending)}
-                    </Text>
-                    <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
-                      {stats.completedCount + stats.pendingCount} giao dịch
-                    </Text>
-                  </View>
-                  <View className="h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: '#fee2e2' }}>
-                    <Ionicons name="cash-outline" color="#dc2626" size={22} />
-                  </View>
+                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: '#fee2e2' }}>
+                  <Ionicons name="cash-outline" color="#dc2626" size={22} />
                 </View>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>Tổng chi tiêu</Text>
+                <Text className="mt-1 text-xl font-bold" style={{ color: '#dc2626' }}>
+                  {formatCurrency(stats.totalSpending)}
+                </Text>
+                <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
+                  {stats.completedCount + stats.pendingCount} giao dịch
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setStatusFilter('pending')}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'pending' ? '#f59e0b' : '#e5e7eb', backgroundColor: '#fff' }}
+                style={{ borderColor: statusFilter === 'pending' ? '#f59e0b' : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
               >
-                <View className="flex-row items-start justify-between">
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>Chờ thanh toán</Text>
-                    <Text className="mt-1 text-2xl font-bold" style={{ color: '#d97706' }}>
-                      {formatCurrency(stats.pendingTotal)}
-                    </Text>
-                    <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
-                      {stats.pendingCount} giao dịch
-                    </Text>
-                  </View>
-                  <View className="h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: '#fef3c7' }}>
-                    <Ionicons name="time-outline" color="#d97706" size={22} />
-                  </View>
+                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: '#fef3c7' }}>
+                  <Ionicons name="time-outline" color="#d97706" size={22} />
                 </View>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>Chờ thanh toán</Text>
+                <Text className="mt-1 text-xl font-bold" style={{ color: '#d97706' }}>
+                  {formatCurrency(stats.pendingTotal)}
+                </Text>
+                <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
+                  {stats.pendingCount} giao dịch
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -754,43 +726,35 @@ export default function PaymentsScreen() {
               <TouchableOpacity
                 onPress={() => setStatusFilter('completed')}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'completed' ? '#10b981' : '#e5e7eb', backgroundColor: '#fff' }}
+                style={{ borderColor: statusFilter === 'completed' ? '#10b981' : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
               >
-                <View className="flex-row items-start justify-between">
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>Đã thanh toán</Text>
-                    <Text className="mt-1 text-2xl font-bold" style={{ color: '#059669' }}>
-                      {formatCurrency(stats.completedTotal)}
-                    </Text>
-                    <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
-                      {stats.completedCount} giao dịch
-                    </Text>
-                  </View>
-                  <View className="h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: '#d1fae5' }}>
-                    <Ionicons name="checkmark-circle-outline" color="#059669" size={22} />
-                  </View>
+                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: '#d1fae5' }}>
+                  <Ionicons name="checkmark-circle-outline" color="#059669" size={22} />
                 </View>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>Đã thanh toán</Text>
+                <Text className="mt-1 text-xl font-bold" style={{ color: '#059669' }}>
+                  {formatCurrency(stats.completedTotal)}
+                </Text>
+                <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
+                  {stats.completedCount} giao dịch
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setStatusFilter('refunded')}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'refunded' ? Colors.primary[600] : '#e5e7eb', backgroundColor: '#fff' }}
+                style={{ borderColor: statusFilter === 'refunded' ? Colors.primary[600] : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
               >
-                <View className="flex-row items-start justify-between">
-                  <View>
-                    <Text className="text-xs" style={{ color: theme.text.secondary }}>Đã hoàn tiền</Text>
-                    <Text className="mt-1 text-2xl font-bold" style={{ color: Colors.primary[600] }}>
-                      +{formatCurrency(stats.refundedTotal)}
-                    </Text>
-                    <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
-                      {stats.refundedCount} giao dịch
-                    </Text>
-                  </View>
-                  <View className="h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[50] }}>
-                    <Ionicons name="refresh-outline" color={Colors.primary[600]} size={22} />
-                  </View>
+                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: Colors.primary[50] }}>
+                  <Ionicons name="refresh-outline" color={Colors.primary[600]} size={22} />
                 </View>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>Đã hoàn tiền</Text>
+                <Text className="mt-1 text-xl font-bold" style={{ color: Colors.primary[600] }}>
+                  +{formatCurrency(stats.refundedTotal)}
+                </Text>
+                <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
+                  {stats.refundedCount} giao dịch
+                </Text>
               </TouchableOpacity>
             </View>
 

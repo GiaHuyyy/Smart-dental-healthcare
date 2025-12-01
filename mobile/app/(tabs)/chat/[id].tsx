@@ -4,17 +4,17 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,15 +29,15 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import realtimeChatService, { ChatMessage as RealtimeChatMessage } from '@/services/realtimeChatService';
 import uploadService from '@/services/uploadService';
 import {
-  AiAssistantResponse,
-  fetchAiAdvice,
-  fetchQuickSuggestions,
-  fetchSuggestedQuestions,
-  formatUrgencyLabel,
-  ImageAnalysisResult,
-  startChatSession,
-  SuggestedDoctor,
-  uploadAnalysisImage,
+    AiAssistantResponse,
+    fetchAiAdvice,
+    fetchQuickSuggestions,
+    fetchSuggestedQuestions,
+    formatUrgencyLabel,
+    ImageAnalysisResult,
+    startChatSession,
+    SuggestedDoctor,
+    uploadAnalysisImage,
 } from '@/utils/ai-chat';
 import { formatApiError } from '@/utils/api';
 import { clearChatState, loadChatState, persistChatState, StoredChatMessage } from '@/utils/chat-storage';
@@ -813,7 +813,7 @@ export default function ChatConversationScreen() {
             try {
               const { apiRequest } = await import('@/utils/api');
               const convResponse = await apiRequest<any>(
-                `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=patient`,
+                `/realtime-chat/conversations?userId=${userId}&userRole=patient`,
                 {
                   method: 'GET',
                   headers: {
@@ -846,7 +846,7 @@ export default function ChatConversationScreen() {
           try {
             const { apiRequest } = await import('@/utils/api');
             const response = await apiRequest<ChatMessage[]>(
-              `/api/v1/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&limit=100`,
+              `/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&limit=100`,
               {
                 method: 'GET',
                 headers: {

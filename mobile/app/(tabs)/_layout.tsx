@@ -123,12 +123,6 @@ export default function PatientTabLayout() {
       
       {/* Hidden screens - not shown in tab bar but accessible */}
       <Tabs.Screen
-        name="index"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
         name="chat/[id]"
         options={{
           href: null,
@@ -136,6 +130,12 @@ export default function PatientTabLayout() {
       />
       <Tabs.Screen
         name="prescriptions"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="index"
         options={{
           href: null,
         }}

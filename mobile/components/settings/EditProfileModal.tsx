@@ -45,7 +45,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
   useEffect(() => {
     if (visible && user?._id && session?.token) {
       setFetching(true);
-      apiRequest(`/api/v1/users/${user._id}`, {
+      apiRequest(`/users/${user._id}`, {
         method: 'GET',
         token: session.token,
       })
@@ -154,7 +154,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
         }
       }
 
-      const response = await apiRequest(`/api/v1/users/${user?._id}`, {
+      const response = await apiRequest(`/users/${user?._id}`, {
         method: 'PATCH',
         token: session?.token,
         body: {

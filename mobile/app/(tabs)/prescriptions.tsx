@@ -298,7 +298,7 @@ export default function PrescriptionsScreen() {
 
       try {
         const response = await apiRequest<Prescription[]>(
-          `/api/v1/prescriptions/patient-prescriptions?patientId=${patientId}&limit=50`,
+          `/prescriptions/patient-prescriptions?patientId=${patientId}&limit=50`,
           { token, abortSignal: signal },
         );
         setPrescriptions(ensureArray<Prescription>(response.data));

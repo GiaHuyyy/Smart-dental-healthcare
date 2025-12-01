@@ -423,19 +423,19 @@ function DoctorSelectModal({
                   <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
                     {doctor.fullName ?? doctor.name ?? 'Bác sĩ'}
                   </Text>
-                  {doctor.specialty ? (
+                  {doctor.specialty && (
                     <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
                       {doctor.specialty}
                     </Text>
-                  ) : null}
+                  )}
                 </TouchableOpacity>
               );
             })}
-            {doctors.length === 0 ? (
+            {doctors.length === 0 && (
               <View className="items-center py-6">
-                <Text className="text-sm text-slate-500">Không có bác sĩ nào khả dụng.</Text>
+                <Text className="text-sm text-slate-500">Không có bác sĩ nào khả dụng</Text>
               </View>
-            ) : null}
+            )}
           </ScrollView>
         </View>
       </View>
@@ -485,7 +485,7 @@ export default function AppointmentsScreen() {
     if (!isAuthenticated) return;
     setDoctorsLoading(true);
     try {
-      const response = await apiRequest<any>('/api/v1/users/doctors', { token });
+      const response = await apiRequest<any>('/users/doctors', { token });
       const payload = response.data as any;
       const list: Doctor[] = Array.isArray(payload)
         ? payload
@@ -516,7 +516,7 @@ export default function AppointmentsScreen() {
         setAppointmentsLoading(true);
       }
       try {
-        const response = await apiRequest<any>(`/api/v1/appointments/patient/${patientId}?populate=doctorId,patientId`, {
+        const response = await apiRequest<any>(`/appointments/patient/${patientId}?populate=doctorId,patientId`, {
           token,
         });
         const payload = response.data as any;
@@ -1383,7 +1383,7 @@ export default function AppointmentsScreen() {
           )}
         </Card>
 
-        {errorMessage ? (
+        {errorMessage && (
           <Card className="mb-6" style={{ backgroundColor: Colors.warning[50] }}>
             <View className="flex-row items-center gap-2">
               <Ionicons name="warning" size={20} color={Colors.warning[600]} />
@@ -1392,7 +1392,7 @@ export default function AppointmentsScreen() {
               </Text>
             </View>
           </Card>
-        ) : null}
+        )}
 
         {/* Booking Form - Simplified */}
         <Card className="mb-6">
@@ -1520,7 +1520,7 @@ export default function AppointmentsScreen() {
             </View>
           ) : (
             <Text className="mt-4 text-sm" style={{ color: theme.text.secondary }}>
-              Chưa có lịch sử khám nào. Khi bạn hoàn thành buổi khám, lịch sử sẽ xuất hiện tại đây.
+              Chưa có lịch sử khám nào. Khi bạn hoàn thành buổi khám, lịch sử sẽ xuất hiện tại đây
             </Text>
           )}
         </Card>
@@ -1734,8 +1734,7 @@ function CancelAppointmentModal({
                       ⚠️ Hủy lịch cận giờ
                     </Text>
                     <Text className="text-sm mb-2" style={{ color: Colors.warning[700] }}>
-                      Hủy lúc này sẽ bị trừ{' '}
-                      <Text className="font-bold">{feeAmount.toLocaleString('vi-VN')} VND</Text> phí giữ chỗ.
+                      Hủy lúc này sẽ bị trừ <Text className="font-bold">{feeAmount.toLocaleString('vi-VN')} VND</Text> phí giữ chỗ
                     </Text>
                     <Text className="text-xs mt-2 font-medium" style={{ color: Colors.warning[700] }}>
                       Bạn có chắc chắn muốn tiếp tục?

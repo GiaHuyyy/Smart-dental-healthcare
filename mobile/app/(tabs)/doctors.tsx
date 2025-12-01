@@ -152,7 +152,7 @@ export default function DoctorsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiRequest<any>('/api/v1/users/doctors', { token });
+      const response = await apiRequest<any>('/users/doctors', { token });
       const payload = response.data as any;
       const list: Doctor[] = Array.isArray(payload)
         ? payload
@@ -236,7 +236,7 @@ export default function DoctorsScreen() {
       const userRole = session.user.role;
       
       const response = await apiRequest<any>(
-        `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
+        `/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
         {
           method: 'GET',
           headers: {

@@ -8,12 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -101,21 +101,21 @@ export default function PatientDashboard() {
       // Fetch stats - matching client service
       const [appointmentsRes, completedRes, activitiesRes] = await Promise.all([
         // Next appointment
-        fetch(`${API_BASE_URL}/api/v1/appointments/patient/${userId}?status=confirmed&limit=1`, {
+        fetch(`${API_BASE_URL}/appointments/patient/${userId}?status=confirmed&limit=1`, {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
         }),
         // Completed appointments
-        fetch(`${API_BASE_URL}/api/v1/appointments/patient/${userId}?status=completed`, {
+        fetch(`${API_BASE_URL}/appointments/patient/${userId}?status=completed`, {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
         }),
         // Recent activities
-        fetch(`${API_BASE_URL}/api/v1/appointments/patient/${userId}/history?pageSize=3`, {
+        fetch(`${API_BASE_URL}/appointments/patient/${userId}/history?pageSize=3`, {
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,

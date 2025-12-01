@@ -689,7 +689,7 @@ export default function RecordsScreen() {
 
       try {
         // Fetch records first (critical)
-        const recordsResponse = await apiRequest<MedicalRecord[] | { data: MedicalRecord[] }>(`/api/v1/medical-records/patient/${patientId}`, {
+        const recordsResponse = await apiRequest<MedicalRecord[] | { data: MedicalRecord[] }>(`/medical-records/patient/${patientId}`, {
           token,
           abortSignal: signal,
         });
@@ -724,7 +724,7 @@ export default function RecordsScreen() {
 
         // Try to fetch stats (optional, non-blocking)
         try {
-          const statsResponse = await apiRequest<PatientRecordStats>(`/api/v1/medical-records/statistics/patient?patientId=${patientId}`, {
+          const statsResponse = await apiRequest<PatientRecordStats>(`/medical-records/statistics/patient?patientId=${patientId}`, {
             token,
             abortSignal: signal,
           });

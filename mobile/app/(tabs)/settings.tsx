@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
     Alert,
     Linking,
+    Platform,
     ScrollView,
     Switch,
     Text,
@@ -103,7 +104,7 @@ function ToggleRow({
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { session, clearSession, updateUser } = useAuth();
+  const { session, logout, updateUser } = useAuth();
   const colorScheme = useColorScheme();
 
   const profile = useMemo(() => session?.user ?? null, [session?.user]);
@@ -114,19 +115,44 @@ export default function SettingsScreen() {
   const [selectedLanguage, setSelectedLanguage] = useState('vi');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
-  const handleLogout = useCallback(() => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất khỏi tài khoản Smart Dental?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: async () => {
-          await clearSession();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
-  }, [clearSession, router]);
+  const handleLogout = useCallback(async () => {
+    console.log('handleLogout called');
+    
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Bạn có chắc muốn đăng xuất khỏi tài khoản Smart Dental?')
+      : await new Promise((resolve) => {
+          Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất khỏi tài khoản Smart Dental?', [
+            { text: 'Hủy', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Đăng xuất', style: 'destructive', onPress: () => resolve(true) },
+          ]);
+        });
+    
+    if (!confirmed) {
+      console.log('Logout cancelled');
+      return;
+    }
+    
+    try {
+      console.log('Logout button pressed');
+      await logout();
+      console.log('Logout successful, navigating...');
+      // Clear navigation stack and force redirect
+      if (Platform.OS === 'web') {
+        window.location.href = '/';
+      } else {
+        router.dismissAll();
+        router.replace('/');
+      }
+      console.log('Navigation called');
+    } catch (error) {
+      console.error('Logout error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Không thể đăng xuất. Vui lòng thử lại.');
+      } else {
+        Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+      }
+    }
+  }, [logout, router]);
 
   const handleUpdateProfile = useCallback(() => {
     setShowEditProfileModal(true);

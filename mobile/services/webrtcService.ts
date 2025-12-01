@@ -1,12 +1,14 @@
-import { API_BASE_URL } from '@/utils/api';
 import {
     mediaDevices,
-    MediaStream,
     RTCIceCandidate,
     RTCPeerConnection,
-    RTCSessionDescription,
+    RTCSessionDescription
 } from '@/services/webrtc';
 import { io, Socket } from 'socket.io-client';
+
+// Socket.IO server is NOT under /api/v1, so use raw URL without API prefix
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081';
+const SOCKET_BASE_URL = BASE_URL.replace(/\/api\/v1$/, '');
 
 // WebRTC Configuration
 const configuration = {
@@ -64,11 +66,11 @@ class WebRTCService {
         this.userRole = userRole;
         this.userName = userName;
 
-        console.log(`🔌 [WebRTC] Connecting to ${API_BASE_URL}/webrtc`);
+        console.log(`🔌 [WebRTC] Connecting to ${SOCKET_BASE_URL}/webrtc`);
 
         const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
 
-        this.socket = io(`${API_BASE_URL}/webrtc`, {
+        this.socket = io(`${SOCKET_BASE_URL}/webrtc`, {
           auth: {
             token: formattedToken,
             userId,

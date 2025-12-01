@@ -152,7 +152,7 @@ export function NotificationModal({ visible, onClose }: NotificationModalProps) 
       if (!token) return;
 
       try {
-        await apiRequest(`/api/v1/notifications/${notificationId}/read`, {
+        await apiRequest(`/notifications/${notificationId}/read`, {
           method: 'PATCH',
           token,
         });
@@ -174,7 +174,7 @@ export function NotificationModal({ visible, onClose }: NotificationModalProps) 
 
     setLoading(true);
     try {
-      await apiRequest(`/api/v1/notifications/user/${userId}/read-all`, {
+      await apiRequest(`/notifications/user/${userId}/read-all`, {
         method: 'PATCH',
         token,
       });

@@ -7,15 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 export type BookingStep = 'doctor-time' | 'patient-info' | 'confirmation';
@@ -313,7 +313,7 @@ export default function BookingStepModal({
       try {
         const doctorId = doctor._id || doctor.id;
         const response = await apiRequest<any>(
-          `/api/v1/appointments/doctor/${doctorId}/available-slots?date=${formData.appointmentDate}&duration=${duration}`
+          `/appointments/doctor/${doctorId}/available-slots?date=${formData.appointmentDate}&duration=${duration}`
         );
         
         const bookedSlotsArray = response.data?.bookedSlots || [];

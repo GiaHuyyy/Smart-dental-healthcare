@@ -25,7 +25,8 @@ const envBaseUrl = [
   .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
   .at(0);
 
-export const API_BASE_URL = (envBaseUrl ?? fallbackBaseUrl).replace(/\/+$/, '');
+const rawBaseUrl = (envBaseUrl ?? fallbackBaseUrl).replace(/\/+$/, '');
+export const API_BASE_URL = rawBaseUrl.endsWith('/api/v1') ? rawBaseUrl : `${rawBaseUrl}/api/v1`;
 
 const normalizePath = (path: string): string => {
   if (!path.startsWith('/')) {

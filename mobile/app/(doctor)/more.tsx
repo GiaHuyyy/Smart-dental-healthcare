@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { SafeContainer } from '@/components/layout/SafeContainer';
@@ -72,30 +72,48 @@ export default function DoctorMore() {
   const userEmail = user?.email || '';
   const userInitial = userName.charAt(0).toUpperCase();
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Đăng xuất',
-      'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?',
-      [
-        {
-          text: 'Hủy',
-          style: 'cancel',
-        },
-        {
-          text: 'Đăng xuất',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/(auth)/login');
-            } catch (error) {
-              Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+  const handleLogout = async () => {
+    console.log('Doctor more handleLogout called');
+    
+    const confirmed = Platform.OS === 'web' 
+      ? window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?')
+      : await new Promise((resolve) => {
+          Alert.alert(
+            'Đăng xuất',
+            'Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?',
+            [
+              { text: 'Hủy', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Đăng xuất', style: 'destructive', onPress: () => resolve(true) },
+            ],
+            { cancelable: true, onDismiss: () => resolve(false) }
+          );
+        });
+    
+    if (!confirmed) {
+      console.log('Logout cancelled');
+      return;
+    }
+    
+    try {
+      console.log('Doctor more logout button pressed');
+      await logout();
+      console.log('Doctor more logout successful');
+      // Clear navigation stack and force redirect
+      if (Platform.OS === 'web') {
+        window.location.href = '/';
+      } else {
+        router.dismissAll();
+        router.replace('/');
+      }
+      console.log('Doctor more navigation called');
+    } catch (error) {
+      console.error('Doctor more logout error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Không thể đăng xuất. Vui lòng thử lại.');
+      } else {
+        Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+      }
+    }
   };
 
   return (

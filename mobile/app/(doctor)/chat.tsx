@@ -63,7 +63,7 @@ export default function DoctorChat() {
       console.log('📡 [Doctor Chat] Loading conversations from REST API...');
       
       const response = await apiRequest<ChatConversation[]>(
-        `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=${userRole}&populate=lastMessage,patientId,doctorId`,
+        `/realtime-chat/conversations?userId=${userId}&userRole=${userRole}&populate=lastMessage,patientId,doctorId`,
         {
           method: 'GET',
           headers: {
@@ -105,6 +105,12 @@ export default function DoctorChat() {
           firstName: patient?.firstName,
           lastName: patient?.lastName,
         });
+        
+        // Skip conversation if patient is not populated
+        if (!patient || !patient._id) {
+          console.warn('⚠️ Skipping conversation with unpopulated patient:', conv._id);
+          return null;
+        }
         
         // Debug lastMessage structure
         console.log('🔍 Last message structure:', {
@@ -178,7 +184,9 @@ export default function DoctorChat() {
           lastMessageTime: conv.lastMessage?.createdAt || conv.updatedAt,
           unreadCount: conv.unreadDoctorCount || 0,
         };
-      });
+      }).filter((item): item is ConversationItem => item !== null);
+      
+      console.log(`✅ [Doctor Chat] Processed ${items.length} valid conversations`);
       
       setConversations(items);
       setFilteredConversations(items);
@@ -195,7 +203,7 @@ export default function DoctorChat() {
         const fetchPromises = itemsWithUnpopulatedMessage.map(async (item) => {
           try {
             const messagesResponse = await apiRequest<any>(
-              `/api/v1/realtime-chat/conversations/${item.id}/messages?limit=1&sort=-createdAt&userId=${userId}&userRole=${userRole}`,
+              `/realtime-chat/conversations/${item.id}/messages?limit=1&sort=-createdAt&userId=${userId}&userRole=${userRole}`,
               {
                 method: 'GET',
                 headers: {

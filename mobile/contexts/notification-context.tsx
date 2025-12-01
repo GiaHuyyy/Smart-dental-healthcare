@@ -42,7 +42,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setLoading(true);
     try {
       console.log('🔔 Loading notifications for user:', userId);
-      const response = await apiRequest<Notification[]>(`/api/v1/notifications/user/${userId}`, {
+      const response = await apiRequest<Notification[]>(`/notifications/user/${userId}`, {
         token,
       });
       const data = Array.isArray(response.data) ? response.data : [];

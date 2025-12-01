@@ -71,7 +71,7 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      const response = await apiRequest<LoginResponse>('/api/v1/auth/login', {
+      const response = await apiRequest<LoginResponse>('/auth/login', {
         method: 'POST',
         body: {
           username: email.trim(),
@@ -99,9 +99,9 @@ export default function LoginScreen() {
       
       // Navigate based on user role
       if (user.role === 'doctor') {
-        router.replace('/(doctor)' as any);
+        router.replace('/(doctor)/home' as any);
       } else {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/dashboard' as any);
       }
     } catch (err) {
       const message = formatApiError(err);
@@ -131,7 +131,7 @@ export default function LoginScreen() {
                   <TouchableOpacity
                     activeOpacity={0.9}
                     className="flex-row items-center"
-                    onPress={() => router.push('/(tabs)' as const)}
+                    onPress={() => router.push('/(tabs)/dashboard' as const)}
                   >
                     <View className="h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 shadow-lg">
                       <Smile color="#ffffff" size={32} />

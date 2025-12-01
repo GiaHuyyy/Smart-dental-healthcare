@@ -132,7 +132,8 @@ export default function PatientDetailModal({
 
   const fetchPatientData = async () => {
     try {
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081/api/v1';
+      const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081';
+      const API_URL = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`;
       console.log('🔍 [PatientDetail] Fetching data for:', patientId);
 
       // Fetch patient info first (most important)

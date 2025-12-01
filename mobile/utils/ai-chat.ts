@@ -1,4 +1,4 @@
-import { apiRequest, API_BASE_URL, formatApiError } from './api';
+import { API_BASE_URL, apiRequest, formatApiError } from './api';
 
 export type ChatHistoryItem = {
   role: 'user' | 'assistant';
@@ -62,7 +62,7 @@ export type ImageAnalysisResponse = {
 };
 
 export async function fetchAiAdvice(payload: AiAdvicePayload): Promise<AiAssistantResponse> {
-  const response = await apiRequest<AiAssistantResponse>('/api/v1/ai-chat/advice', {
+  const response = await apiRequest<AiAssistantResponse>('/ai-chat/advice', {
     method: 'POST',
     body: {
       message: payload.message,
@@ -78,7 +78,7 @@ export async function fetchAiAdvice(payload: AiAdvicePayload): Promise<AiAssista
 
 export async function fetchSuggestedQuestions(): Promise<string[]> {
   try {
-    const response = await apiRequest<{ questions: string[] }>('/api/v1/chat/suggested-questions');
+    const response = await apiRequest<{ questions: string[] }>('/chat/suggested-questions');
     return response.data.questions ?? [];
   } catch (error) {
     console.warn('Failed to load suggested questions', error);
@@ -88,7 +88,7 @@ export async function fetchSuggestedQuestions(): Promise<string[]> {
 
 export async function fetchQuickSuggestions(symptom: string): Promise<string[]> {
   try {
-    const response = await apiRequest<string[]>(`/api/v1/ai-chat/suggestions/${encodeURIComponent(symptom)}`);
+    const response = await apiRequest<string[]>(`/ai-chat/suggestions/${encodeURIComponent(symptom)}`);
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.warn('Failed to load quick suggestions', error);
@@ -99,7 +99,7 @@ export async function fetchQuickSuggestions(symptom: string): Promise<string[]> 
 export async function analyzeUrgency(message: string): Promise<'low' | 'medium' | 'high'> {
   try {
     const response = await apiRequest<{ urgency: 'low' | 'medium' | 'high' }>(
-      '/api/v1/ai-chat/urgency',
+      '/ai-chat/urgency',
       {
         method: 'POST',
         body: { message },
@@ -115,7 +115,7 @@ export async function analyzeUrgency(message: string): Promise<'low' | 'medium' 
 export async function startChatSession(patientId?: string): Promise<string | null> {
   try {
     const response = await apiRequest<{ sessionId: string }>(
-      '/api/v1/ai-chat/session/start',
+      '/ai-chat/session/start',
       {
         method: 'POST',
         body: patientId ? { patientId } : {},
@@ -143,7 +143,7 @@ export async function uploadAnalysisImage(
     type: params.mimeType ?? 'image/jpeg',
   } as unknown as any);
 
-  const target = `${API_BASE_URL}/api/v1/image-analysis/upload`;
+  const target = `${API_BASE_URL}/image-analysis/upload`;
 
   try {
     const response = await fetch(target, {

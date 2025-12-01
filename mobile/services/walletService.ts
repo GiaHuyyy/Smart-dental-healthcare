@@ -52,7 +52,7 @@ interface PaymentResult {
 class WalletService {
   async getBalance(token: string): Promise<{ success: boolean; data: WalletBalance; message?: string }> {
     try {
-      const response = await apiRequest<{ balance: number }>('/api/v1/wallet/balance', {
+      const response = await apiRequest<{ balance: number }>('/wallet/balance', {
         method: 'GET',
         token,
       });
@@ -72,7 +72,7 @@ class WalletService {
 
   async topUp(token: string, data: TopUpRequest): Promise<TopUpResponse> {
     try {
-      const response = await apiRequest<TopUpResponse>('/api/v1/wallet/topup', {
+      const response = await apiRequest<TopUpResponse>('/wallet/topup', {
         method: 'POST',
         token,
         body: data,
@@ -98,7 +98,7 @@ class WalletService {
     limit: number = 10
   ): Promise<{ success: boolean; data: WalletHistory; message?: string }> {
     try {
-      const response = await apiRequest<WalletHistory>(`/api/v1/wallet/history?page=${page}&limit=${limit}`, {
+      const response = await apiRequest<WalletHistory>(`/wallet/history?page=${page}&limit=${limit}`, {
         method: 'GET',
         token,
       });
@@ -117,7 +117,7 @@ class WalletService {
 
   async getStats(token: string): Promise<{ success: boolean; data: WalletStats; message?: string }> {
     try {
-      const response = await apiRequest<WalletStats>('/api/v1/wallet/stats', {
+      const response = await apiRequest<WalletStats>('/wallet/stats', {
         method: 'GET',
         token,
       });
@@ -136,7 +136,7 @@ class WalletService {
 
   async payPendingBill(token: string, billId: string): Promise<PaymentResult> {
     try {
-      const response = await apiRequest<PaymentResult>('/api/v1/wallet/pay-bill', {
+      const response = await apiRequest<PaymentResult>('/wallet/pay-bill', {
         method: 'POST',
         token,
         body: { billId },

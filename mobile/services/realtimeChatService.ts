@@ -1,5 +1,8 @@
-import { API_BASE_URL } from '@/utils/api';
 import { io, Socket } from 'socket.io-client';
+
+// Socket.IO server is NOT under /api/v1, so use raw URL without API prefix
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081';
+const SOCKET_BASE_URL = BASE_URL.replace(/\/api\/v1$/, '');
 
 export interface ChatMessage {
   _id: string;
@@ -96,7 +99,7 @@ class RealtimeChatService {
         this.userRole = userRole;
 
         console.log(`🔌 [Socket] Connecting with userID: ${userId}, role: ${userRole}`);
-        console.log(`🔌 [Socket] Server URL: ${API_BASE_URL}`);
+        console.log(`🔌 [Socket] Server URL: ${SOCKET_BASE_URL}`);
 
         // Disconnect existing connection
         if (this.socket) {
@@ -107,7 +110,7 @@ class RealtimeChatService {
         // Ensure token is properly formatted
         const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
 
-        this.socket = io(`${API_BASE_URL}/chat`, {
+        this.socket = io(`${SOCKET_BASE_URL}/chat`, {
           auth: {
             token: formattedToken,
             userId,

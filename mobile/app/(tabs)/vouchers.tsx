@@ -240,7 +240,7 @@ export default function VouchersScreen() {
       }
 
       try {
-        const response = await apiRequest<Voucher[]>(`/api/v1/vouchers/my-vouchers`, {
+        const response = await apiRequest<Voucher[]>(`/vouchers/my-vouchers`, {
           token,
           abortSignal: signal,
         });

@@ -191,7 +191,7 @@ export default function RegisterScreen() {
     setError(null);
 
     try {
-      const { data } = await apiRequest<RegisterResponse>('/api/v1/auth/register', {
+      const { data } = await apiRequest<RegisterResponse>('/auth/register', {
         method: 'POST',
         body: {
           fullName: form.fullName.trim(),
@@ -254,7 +254,7 @@ export default function RegisterScreen() {
                   <TouchableOpacity
                     activeOpacity={0.9}
                     className="flex-row items-center"
-                    onPress={() => router.push('/(tabs)' as const)}
+                    onPress={() => router.push('/(tabs)/dashboard' as const)}
                   >
                     <View className="h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 shadow-lg">
                       <Smile color="#ffffff" size={32} />
