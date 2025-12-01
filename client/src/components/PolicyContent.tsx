@@ -63,7 +63,7 @@ export function PolicyContent() {
             </p>
             <p>
               Nếu Bệnh nhân xác nhận tiếp tục, một{" "}
-              <strong className="text-red-600">phí giữ chỗ 100.000 VNĐ</strong> sẽ được áp dụng.
+              <strong className="text-red-600">phí giữ chỗ 50.000 VNĐ</strong> sẽ được áp dụng.
             </p>
             <p>
               Phí giữ chỗ sẽ được ghi nhận vào hệ thống sau khi Bệnh nhân hoàn tất việc xác nhận lịch hẹn mới.
@@ -92,7 +92,7 @@ export function PolicyContent() {
               sẽ hiển thị cảnh báo "Hủy lịch cận giờ".
             </p>
             <p>
-              Nếu Bệnh nhân xác nhận hủy, một <strong className="text-red-600">phí giữ chỗ 100.000 VNĐ</strong> sẽ được
+              Nếu Bệnh nhân xác nhận hủy, một <strong className="text-red-600">phí giữ chỗ 50.000 VNĐ</strong> sẽ được
               áp dụng (bị trừ).
             </p>
             <p>
@@ -100,7 +100,7 @@ export function PolicyContent() {
               <strong className="text-green-600">hoàn lại 100% phí khám</strong>.
             </p>
             <PolicyNote>
-              Lưu ý: Khoản hoàn 100% phí khám <strong className="text-yellow-900">không bao gồm 100.000 VNĐ phí giữ chỗ</strong> đã bị trừ.
+              Lưu ý: Khoản hoàn 100% phí khám <strong className="text-yellow-900">không bao gồm 50.000 VNĐ phí giữ chỗ</strong> đã bị trừ.
             </PolicyNote>
           </PolicyCase>
         </PolicySection>
@@ -147,7 +147,7 @@ export function PolicyContent() {
             </p>
             <p>
               <strong className="text-gray-900">Chính sách xử lý:</strong> Lịch hẹn bị hủy và Bệnh nhân bị áp dụng{" "}
-              <strong className="text-red-600">phí giữ chỗ 100.000 VNĐ</strong>.
+              <strong className="text-red-600">phí giữ chỗ 50.000 VNĐ</strong>.
             </p>
             <p>
               Nếu Bệnh nhân đã thanh toán phí khám, Bệnh nhân được{" "}

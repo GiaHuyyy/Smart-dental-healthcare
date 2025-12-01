@@ -1665,7 +1665,7 @@ export default function ChatInterface({
                   return (
                     <div
                       key={doctor._id}
-                      className="flex-shrink-0 bg-white rounded-lg p-3 shadow-sm border border-gray-100 min-w-[200px] max-w-[220px]"
+                      className="shrink-0 bg-white rounded-lg p-3 shadow-sm border border-gray-100 min-w-[200px] max-w-[220px]"
                     >
                       {/* Doctor Avatar & Info */}
                       <div className="flex items-center gap-3 mb-2">
@@ -2156,7 +2156,7 @@ export default function ChatInterface({
           {renderDoctorSuggestion()}
 
           {/* Input */}
-          <div className="p-2 border-t border-gray-200 bg-white flex-shrink-0">
+          <div className="p-2 border-t border-gray-200 bg-white shrink-0">
             <div className="flex items-center space-x-3">
               <div className="flex-1">
                 <textarea
@@ -2164,8 +2164,8 @@ export default function ChatInterface({
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Mô tả triệu chứng của bạn..."
-                  className="w-full p-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={2}
+                  className="w-full p-2 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={1}
                   disabled={isLoading}
                 />
               </div>
@@ -2173,8 +2173,7 @@ export default function ChatInterface({
                 <button
                   onClick={handleImageUploadClick}
                   disabled={isLoading || isAnalyzing}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap disabled:opacity-50"
-                  style={{ background: "var(--color-primary)", color: "white" }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap disabled:opacity-50 bg-primary text-white"
                 >
                   <ScanSearch className="w-4 h-4" />
                   Phân tích ảnh
@@ -2182,8 +2181,7 @@ export default function ChatInterface({
                 <button
                   onClick={handleSendMessageAI}
                   disabled={!inputMessage.trim() || isLoading}
-                  className="px-4 py-2 rounded-lg text-sm"
-                  style={{ background: "var(--color-primary)", color: "white" }}
+                  className="px-4 py-2 rounded-lg text-sm bg-primary text-white"
                 >
                   ➤
                 </button>
