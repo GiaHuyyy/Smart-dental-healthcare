@@ -57,7 +57,7 @@ export class RevenueService {
         );
       }
 
-      // Check if revenue already exists for this payment
+      // Check if revenue already exists for this payment (by paymentId)
       this.logger.log('🔍 Checking if revenue already exists...');
       const existingRevenue = await this.revenueModel
         .findOne({ paymentId })
@@ -77,6 +77,109 @@ export class RevenueService {
           data: existingRevenue,
           message: 'Doanh thu đã tồn tại cho thanh toán này',
         };
+      }
+
+      // 🆕 CHECK: Find pending revenue by refId (appointmentId) and doctorId
+      // This handles case when pending revenue was created during booking with "pay later"
+      const appointmentId = payment.refId;
+      const doctorId = payment.doctorId;
+
+      this.logger.log(
+        '🔍 Checking for existing pending revenue by appointment...',
+      );
+      this.logger.log('   - appointmentId:', appointmentId);
+      this.logger.log('   - doctorId:', doctorId);
+
+      if (appointmentId && doctorId) {
+        // Convert to string for proper MongoDB query
+        const appointmentIdStr: string =
+          typeof appointmentId === 'string'
+            ? appointmentId
+            : (appointmentId as any)?._id?.toString() || String(appointmentId);
+        const doctorIdStr: string =
+          typeof doctorId === 'string'
+            ? doctorId
+            : (doctorId as any)?._id?.toString() || String(doctorId);
+
+        this.logger.log('   - appointmentIdStr:', appointmentIdStr);
+        this.logger.log('   - doctorIdStr:', doctorIdStr);
+
+        // Use ObjectId for query to ensure proper matching
+        const pendingRevenue = await this.revenueModel
+          .findOne({
+            refId: new mongoose.Types.ObjectId(appointmentIdStr),
+            doctorId: new mongoose.Types.ObjectId(doctorIdStr),
+            status: 'pending',
+          })
+          .exec();
+
+        this.logger.log(
+          '   - pendingRevenue found:',
+          pendingRevenue ? pendingRevenue._id : 'null',
+        );
+
+        if (pendingRevenue) {
+          this.logger.log(
+            '✅ Found pending revenue - updating to completed...',
+          );
+          this.logger.log('📊 Pending revenue:', {
+            revenueId: pendingRevenue._id,
+            doctorId: pendingRevenue.doctorId,
+            amount: pendingRevenue.amount,
+            status: pendingRevenue.status,
+          });
+
+          // Update pending revenue to completed and link paymentId
+          const updatedRevenue = await this.revenueModel.findByIdAndUpdate(
+            pendingRevenue._id,
+            {
+              status: 'completed',
+              paymentId: payment._id,
+              revenueDate: payment.paymentDate || new Date(),
+              notes: `Doanh thu từ thanh toán #${payment._id.toString()}`,
+            },
+            { new: true },
+          );
+
+          if (!updatedRevenue) {
+            this.logger.error('❌ Failed to update pending revenue');
+            throw new Error('Failed to update pending revenue');
+          }
+
+          // Populate revenue before emit
+          const populatedRevenue = await this.revenueModel
+            .findById(updatedRevenue._id)
+            .populate('patientId', 'fullName email phone')
+            .populate('paymentId', 'transactionId paymentMethod')
+            .exec();
+
+          // Emit realtime event for updated revenue
+          if (this.revenueGateway && this.revenueGateway.server) {
+            this.revenueGateway.emitRevenueUpdate(
+              doctorIdStr,
+              populatedRevenue,
+            );
+            this.logger.log(
+              '✅ Emitted revenue:update event for completed pending revenue',
+            );
+          }
+
+          this.logger.log(
+            '✅ ========== PENDING REVENUE UPDATED TO COMPLETED ==========',
+          );
+
+          return {
+            success: true,
+            data: populatedRevenue,
+            message: 'Cập nhật doanh thu pending thành công',
+          };
+        } else {
+          this.logger.log('⚠️ No pending revenue found - will create new one');
+        }
+      } else {
+        this.logger.log(
+          '⚠️ Missing appointmentId or doctorId - will create new revenue',
+        );
       }
 
       // FIXED: Xử lý payment amount có thể âm (cancellation_charge)
@@ -147,14 +250,14 @@ export class RevenueService {
         .exec();
 
       // Emit realtime event cho bác sĩ
-      const doctorId =
+      const emitDoctorId =
         typeof payment.doctorId === 'string'
           ? payment.doctorId
           : (payment.doctorId as any)?._id?.toString() ||
-            payment.doctorId.toString();
+            (payment.doctorId as any)?.toString();
 
       this.logger.log('🔔 Preparing to emit socket event...');
-      this.logger.log(`   - Doctor ID: ${doctorId}`);
+      this.logger.log(`   - Doctor ID: ${emitDoctorId}`);
       this.logger.log(
         `   - RevenueGateway available: ${!!this.revenueGateway}`,
       );
@@ -167,7 +270,7 @@ export class RevenueService {
       } else if (!this.revenueGateway.server) {
         this.logger.error('❌ RevenueGateway.server is not available!');
       } else {
-        this.revenueGateway.emitNewRevenue(doctorId, populatedRevenue);
+        this.revenueGateway.emitNewRevenue(emitDoctorId, populatedRevenue);
         this.logger.log('✅ Socket event emitted successfully');
       }
 
