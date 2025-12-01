@@ -50,13 +50,16 @@ class WalletService {
 
   async getHistory(accessToken: string, page = 1, limit = 10) {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/history?page=${page}&limit=${limit}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/history?page=${page}&limit=${limit}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -139,6 +142,27 @@ class WalletService {
       return result;
     } catch (error) {
       console.error("🔴 [CLIENT] Error paying bill:", error);
+      throw error;
+    }
+  }
+
+  // Query wallet top-up MoMo payment status
+  async queryWalletTopup(orderId: string) {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/wallet/momo/query/${orderId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error querying wallet top-up:", error);
       throw error;
     }
   }
