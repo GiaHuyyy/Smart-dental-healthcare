@@ -23,6 +23,7 @@ export interface RevenueRecord {
   refId?: any;
   refModel?: string;
   type: string;
+  billType?: "consultation_fee" | "cancellation_charge" | "reservation_fee" | "refund";
   notes?: string;
   withdrawnDate?: string;
   withdrawnMethod?: string;

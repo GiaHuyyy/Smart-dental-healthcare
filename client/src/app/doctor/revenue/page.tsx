@@ -425,6 +425,191 @@ export default function RevenuePage() {
     setCurrentPage(1);
   };
 
+  // Export to Excel
+  const handleExportExcel = async () => {
+    try {
+      // Get data to export (filtered transactions)
+      const dataToExport = filteredTransactions;
+
+      if (dataToExport.length === 0) {
+        toast({
+          title: "Lỗi",
+          description: "Không có dữ liệu để xuất",
+        });
+        return;
+      }
+
+      // Helper function to get status text
+      const getStatusText = (revenue: RevenueRecord) => {
+        if ((revenue.netAmount || 0) < 0) return "Hoàn tiền";
+        if (revenue.status === "completed") return "Đã thanh toán";
+        if (revenue.status === "pending") return "Chờ xử lý";
+        return revenue.status;
+      };
+
+      // Helper function to get bill type text
+      const getBillTypeText = (billType?: string) => {
+        switch (billType) {
+          case "consultation_fee":
+            return "Phí khám bệnh";
+          case "cancellation_charge":
+            return "Phí hủy lịch";
+          case "reservation_fee":
+            return "Phí giữ chỗ";
+          case "refund":
+            return "Hoàn tiền";
+          default:
+            return billType || "N/A";
+        }
+      };
+
+      // Create CSV content
+      const headers = [
+        "STT",
+        "Bệnh nhân",
+        "Email",
+        "Ngày tạo",
+        "Ngày thanh toán",
+        "Loại giao dịch",
+        "Số tiền (VNĐ)",
+        "Phí nền tảng (VNĐ)",
+        "Thực nhận (VNĐ)",
+        "Trạng thái",
+      ];
+
+      const rows = dataToExport.map((revenue, index) => {
+        const patientName = (typeof revenue.patientId === "object" && revenue.patientId?.fullName) || "N/A";
+        const patientEmail = (typeof revenue.patientId === "object" && revenue.patientId?.email) || "N/A";
+        const createdDate = new Date(revenue.createdAt).toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const paymentDate = revenue.revenueDate
+          ? new Date(revenue.revenueDate).toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "Chưa thanh toán";
+
+        return [
+          index + 1,
+          patientName,
+          patientEmail,
+          createdDate,
+          paymentDate,
+          getBillTypeText(revenue.billType),
+          revenue.amount || 0,
+          revenue.platformFee || 0,
+          revenue.netAmount || 0,
+          getStatusText(revenue),
+        ];
+      });
+
+      // Add summary rows
+      const summaryRows = [
+        [],
+        ["=== TỔNG KẾT ==="],
+        ["Tổng số giao dịch:", dataToExport.length],
+        [
+          "Tổng doanh thu (trước phí):",
+          "",
+          "",
+          "",
+          "",
+          "",
+          allRevenues.filter((r) => (r.amount || 0) > 0).reduce((sum, r) => sum + (r.amount || 0), 0),
+        ],
+        ["Tổng phí nền tảng:", "", "", "", "", "", "", platformFee],
+        ["Doanh thu chờ:", "", "", "", "", "", "", "", pendingTotal],
+        ["Doanh thu thực nhận:", "", "", "", "", "", "", "", completedTotal],
+        ["Đã hoàn tiền:", "", "", "", "", "", "", "", refundTotal],
+        ["Tổng doanh thu thực:", "", "", "", "", "", "", "", totalAmount],
+      ];
+
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+        ...summaryRows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+      ].join("\n");
+
+      // Add BOM for UTF-8 support in Excel
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+
+      // Generate filename with date range if filtered
+      let filename = "bao-cao-doanh-thu";
+      if (startFilterDate && endFilterDate) {
+        filename += `_${startFilterDate}_den_${endFilterDate}`;
+      } else if (startFilterDate) {
+        filename += `_${startFilterDate}`;
+      } else {
+        filename += `_${new Date().toISOString().split("T")[0]}`;
+      }
+
+      // Check if File System Access API is available
+      if ("showSaveFilePicker" in window) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: `${filename}.csv`,
+            types: [
+              {
+                description: "CSV Files",
+                accept: { "text/csv": [".csv"] },
+              },
+            ],
+          });
+
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+
+          toast({
+            title: "Thành công",
+            description: "Đã xuất file báo cáo thành công",
+          });
+        } catch (err) {
+          // User cancelled or error occurred
+          if (err instanceof Error && err.name !== "AbortError") {
+            console.error("Save file error:", err);
+            toast({
+              title: "Lỗi",
+              description: "Có lỗi xảy ra khi lưu file",
+            });
+          }
+        }
+      } else {
+        // Fallback for browsers that don't support File System Access API
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${filename}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Thành công",
+          description: "Đã xuất file báo cáo thành công",
+        });
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi xuất file",
+      });
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -442,7 +627,7 @@ export default function RevenuePage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" className="gap-2 text-white">
+              <Button size="sm" className="gap-2 text-white" onClick={handleExportExcel}>
                 <DownloadIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Xuất báo cáo</span>
               </Button>
