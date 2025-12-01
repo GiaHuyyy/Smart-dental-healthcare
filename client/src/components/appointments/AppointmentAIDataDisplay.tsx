@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Brain, FileText, BarChart2, Lightbulb, Image as ImageIcon } from "lucide-react";
+import { FileText, BarChart2, Lightbulb, Image as ImageIcon, Drone } from "lucide-react";
 
 interface AnalysisSection {
   heading?: string;
@@ -136,9 +136,9 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
     <div className="space-y-3">
       <div className="flex items-center gap-2 mb-2">
         <div className="p-1.5 bg-blue-100 rounded-lg">
-          <Brain className="w-4 h-4 text-primary" />
+          <Drone className="w-4 h-4 text-primary" />
         </div>
-        <h4 className="font-semibold text-gray-900 text-sm">Thông tin từ tư vấn AI</h4>
+        <h4 className="font-semibold text-primary text-sm">Thông tin phân tích AI</h4>
       </div>
 
       {/* Symptoms */}

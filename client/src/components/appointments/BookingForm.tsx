@@ -3,6 +3,7 @@
 import { BookingFormData, ConsultType } from "@/types/appointment";
 import voucherService, { Voucher } from "@/services/voucherService";
 import walletService from "@/services/walletService";
+import { aiChatHistoryService } from "@/utils/aiChatHistory";
 import {
   AlertCircle,
   Calendar,
@@ -19,6 +20,7 @@ import {
   X,
   Gift,
   Drone,
+  Loader2,
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useAppSelector } from "@/store/hooks";
@@ -26,13 +28,24 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import AIAnalysisSummary from "./AIAnalysisSummary";
 
+// Type for AI analysis data from database
+interface AIAnalysisFromDB {
+  hasAnalysis: boolean;
+  symptoms: string;
+  uploadedImage: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  analysisResult: any;
+  urgency: string;
+  hasImageAnalysis: boolean;
+}
+
 interface BookingFormProps {
   bookingData: Partial<BookingFormData>;
   onSubmit: (data: BookingFormData) => void;
 }
 
 export default function BookingForm({ bookingData, onSubmit }: BookingFormProps) {
-  // Get AI chat data from Redux
+  // Get AI chat data from Redux (for when navigating from AI chat)
   const appointmentDataFromAI = useAppSelector((state) => state.appointment.appointmentData);
   const { data: session } = useSession();
 
@@ -55,11 +68,54 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
+  // AI Analysis from database state
+  const [aiAnalysisFromDB, setAiAnalysisFromDB] = useState<AIAnalysisFromDB | null>(null);
+  const [loadingAIAnalysis, setLoadingAIAnalysis] = useState(false);
+
   // Voucher states
   const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
   const [loadingVouchers, setLoadingVouchers] = useState(false);
   const [showVoucherDropdown, setShowVoucherDropdown] = useState(false);
   const [originalPaymentAmount, setOriginalPaymentAmount] = useState<number>(bookingData?.paymentAmount || 200000);
+
+  // Fetch AI analysis from database on mount
+  useEffect(() => {
+    const fetchAIAnalysis = async () => {
+      // Get user ID from session
+      const userId =
+        (session?.user as { _id?: string; id?: string })?._id || (session?.user as { _id?: string; id?: string })?.id;
+
+      if (!userId) return;
+
+      setLoadingAIAnalysis(true);
+      try {
+        const result = await aiChatHistoryService.getLatestImageAnalysis(userId);
+        if (result && result.hasAnalysis) {
+          setAiAnalysisFromDB(result);
+        }
+      } catch (error) {
+        console.error("Failed to fetch AI analysis from database:", error);
+      } finally {
+        setLoadingAIAnalysis(false);
+      }
+    };
+
+    fetchAIAnalysis();
+  }, [session]);
+
+  // Determine which AI data to display (Redux data takes priority, then database)
+  const displayAIData = appointmentDataFromAI?.hasImageAnalysis
+    ? appointmentDataFromAI
+    : aiAnalysisFromDB?.hasAnalysis
+    ? {
+        symptoms: aiAnalysisFromDB.symptoms,
+        uploadedImage: aiAnalysisFromDB.uploadedImage,
+        imageUrl: aiAnalysisFromDB.uploadedImage,
+        analysisResult: aiAnalysisFromDB.analysisResult,
+        urgency: aiAnalysisFromDB.urgency,
+        hasImageAnalysis: true,
+      }
+    : null;
 
   // Fetch available vouchers on mount
   useEffect(() => {
@@ -157,7 +213,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
       } else {
         toast.error(result.error || "Không thể áp dụng voucher");
       }
-    } catch (error) {
+    } catch {
       toast.error("Có lỗi xảy ra khi áp dụng voucher");
     } finally {
       setApplyingVoucher(false);
@@ -185,7 +241,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
 
   // Function to use AI data in appointment
   const handleRestoreAIData = () => {
-    if (!appointmentDataFromAI) {
+    if (!displayAIData) {
       toast.error("Không có thông tin AI để sử dụng");
       return;
     }
@@ -195,15 +251,15 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
       ...prev,
       includeAIData: true,
       aiAnalysisData: {
-        symptoms: appointmentDataFromAI.symptoms,
-        uploadedImage: appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl,
-        analysisResult: appointmentDataFromAI.analysisResult,
-        urgency: appointmentDataFromAI.urgency,
-        hasImageAnalysis: appointmentDataFromAI.hasImageAnalysis,
+        symptoms: displayAIData.symptoms,
+        uploadedImage: displayAIData.uploadedImage || displayAIData.imageUrl || undefined,
+        analysisResult: displayAIData.analysisResult,
+        urgency: displayAIData.urgency,
+        hasImageAnalysis: displayAIData.hasImageAnalysis,
       },
     }));
 
-    toast.success("✅ Đã đánh dấu để lưu thông tin AI vào cuộc hẹn");
+    toast.success("Đã đánh dấu để lưu thông tin AI vào cuộc hẹn");
   };
 
   // Function to cancel AI data in appointment
@@ -267,8 +323,15 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
 
   const formSections = (
     <>
-      {/* AI Data Summary - Show if coming from AI chat */}
-      {appointmentDataFromAI && appointmentDataFromAI.symptoms && (
+      {/* AI Data Summary - Show if has image analysis from AI chat (from Redux or Database) */}
+      {loadingAIAnalysis ? (
+        <div className="bg-linear-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+          <div className="flex items-center justify-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            <span className="text-sm text-gray-600">Đang tải thông tin phân tích từ AI...</span>
+          </div>
+        </div>
+      ) : displayAIData && displayAIData.hasImageAnalysis && displayAIData.analysisResult ? (
         <div className="bg-linear-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 bg-primary">
@@ -303,14 +366,14 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                 </button>
               </div>
 
-              {appointmentDataFromAI.symptoms && (
+              {displayAIData.symptoms && (
                 <div className="mb-3">
                   <label htmlFor="ai-symptoms" className="text-sm font-medium text-gray-700 mb-1 block">
                     Triệu chứng: <span className="text-xs text-gray-500">(Có thể chỉnh sửa)</span>
                   </label>
                   <textarea
                     id="ai-symptoms"
-                    value={formData.symptoms || appointmentDataFromAI.symptoms}
+                    value={formData.symptoms || displayAIData.symptoms}
                     onChange={(e) => handleInputChange("symptoms", e.target.value)}
                     rows={3}
                     className="w-full text-sm text-gray-900 bg-white rounded-lg p-3 border border-blue-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none resize-y"
@@ -319,26 +382,24 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
                 </div>
               )}
 
-              {appointmentDataFromAI.urgency && appointmentDataFromAI.urgency !== "low" && (
+              {displayAIData.urgency && displayAIData.urgency !== "low" && (
                 <div className="mb-3">
                   <p className="text-sm font-medium text-gray-700 mb-1">Mức độ khẩn cấp:</p>
                   <span
                     className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      appointmentDataFromAI.urgency === "high"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
+                      displayAIData.urgency === "high" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
                     }`}
                   >
-                    {appointmentDataFromAI.urgency === "high" ? "⚠️ Cao" : "⚡ Trung bình"}
+                    {displayAIData.urgency === "high" ? "⚠️ Cao" : "⚡ Trung bình"}
                   </span>
                 </div>
               )}
 
               {/* Display AI Analysis with Image */}
-              {appointmentDataFromAI.analysisResult && (
+              {displayAIData.analysisResult && (
                 <AIAnalysisSummary
-                  analysisResult={appointmentDataFromAI.analysisResult}
-                  uploadedImage={appointmentDataFromAI.uploadedImage || appointmentDataFromAI.imageUrl}
+                  analysisResult={displayAIData.analysisResult}
+                  uploadedImage={displayAIData.uploadedImage || displayAIData.imageUrl || undefined}
                 />
               )}
 
@@ -348,7 +409,7 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="healthcare-card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Đặt lịch cho</h3>

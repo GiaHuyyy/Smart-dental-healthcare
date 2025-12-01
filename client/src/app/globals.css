@@ -84,7 +84,7 @@ button {
   cursor: pointer !important;
 }
 
-input {
+input, textarea, select {
   outline: none;
 }
 
