@@ -164,7 +164,7 @@ export default function NotificationsScreen() {
       }
 
       try {
-        const response = await apiRequest<Notification[]>(`/api/v1/notifications/user/${userId}`, {
+        const response = await apiRequest<Notification[]>(`/notifications/user/${userId}`, {
           token,
           abortSignal: signal,
         });
@@ -208,7 +208,7 @@ export default function NotificationsScreen() {
       if (!token) return;
 
       try {
-        await apiRequest(`/api/v1/notifications/${notificationId}/read`, {
+        await apiRequest(`/notifications/${notificationId}/read`, {
           method: 'PATCH',
           token,
         });
@@ -229,7 +229,7 @@ export default function NotificationsScreen() {
     if (!userId || !token) return;
 
     try {
-      await apiRequest(`/api/v1/notifications/user/${userId}/read-all`, {
+      await apiRequest(`/notifications/user/${userId}/read-all`, {
         method: 'PATCH',
         token,
       });

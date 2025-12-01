@@ -7,12 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    Text,
-    View,
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
 } from 'react-native';
 
 import { Colors } from '@/constants/colors';
@@ -36,25 +37,47 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   const userPhone = session?.user?.phone || '';
   const userInitial = userName.charAt(0).toUpperCase();
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Đăng xuất',
-      'Bạn có chắc chắn muốn đăng xuất?',
-      [
-        {
-          text: 'Hủy',
-          style: 'cancel',
-        },
-        {
-          text: 'Đăng xuất',
-          style: 'destructive',
-          onPress: async () => {
-            onClose();
-            await logout();
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    console.log('ProfileModal handleLogout called');
+    
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Bạn có chắc chắn muốn đăng xuất?')
+      : await new Promise((resolve) => {
+          Alert.alert(
+            'Đăng xuất',
+            'Bạn có chắc chắn muốn đăng xuất?',
+            [
+              { text: 'Hủy', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Đăng xuất', style: 'destructive', onPress: () => resolve(true) },
+            ]
+          );
+        });
+    
+    if (!confirmed) {
+      console.log('Logout cancelled');
+      return;
+    }
+    
+    try {
+      console.log('ProfileModal logout button pressed');
+      await logout();
+      console.log('ProfileModal logout successful');
+      // Clear navigation stack and force redirect
+      if (Platform.OS === 'web') {
+        window.location.href = '/';
+      } else {
+        router.dismissAll();
+        router.replace('/');
+      }
+      console.log('ProfileModal navigation called');
+    } catch (error) {
+      console.error('ProfileModal logout error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Không thể đăng xuất. Vui lòng thử lại.');
+      } else {
+        Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+      }
+    }
   };
 
   const MenuItem = ({
@@ -118,14 +141,15 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
       transparent
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/50">
-        <Pressable className="flex-1" onPress={onClose} />
+      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
         
         <View
-          className="rounded-t-3xl"
           style={{
             backgroundColor: theme.background,
             maxHeight: '85%',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
           }}
         >
           {/* Header */}

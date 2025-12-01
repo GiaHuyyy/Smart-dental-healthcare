@@ -35,7 +35,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('💬 Loading unread messages count for user:', userId);
       const response = await apiRequest<Conversation[]>(
-        `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
+        `/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
         {
           method: 'GET',
           token,

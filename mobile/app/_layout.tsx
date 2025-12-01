@@ -19,10 +19,12 @@ export default function RootLayout() {
   const bg = colorScheme === 'dark' ? '#0a0a0a' : '#ffffff';
 
   useEffect(() => {
-    // Suppress SafeAreaView deprecation warning from dependencies
-    // Our code already uses react-native-safe-area-context correctly
+    // Suppress warnings from third-party dependencies that we can't control
     LogBox.ignoreLogs([
-      'SafeAreaView has been deprecated',
+      'SafeAreaView has been deprecated', // react-native-webrtc uses deprecated SafeAreaView
+      'Attempted to import the module', // event-target-shim package.json exports issue
+      'which is not listed in the "exports"', // Metro resolver fallback warning
+      'Logs will appear in the browser console', // Web platform log redirection
     ]);
 
     // Align system background with app background to avoid black screens

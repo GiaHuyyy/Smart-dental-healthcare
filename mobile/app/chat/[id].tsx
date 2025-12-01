@@ -813,7 +813,7 @@ export default function ChatConversationScreen() {
             try {
               const { apiRequest } = await import('@/utils/api');
               const convResponse = await apiRequest<any>(
-                `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=patient`,
+                `/realtime-chat/conversations?userId=${userId}&userRole=patient`,
                 {
                   method: 'GET',
                   headers: {
@@ -846,7 +846,7 @@ export default function ChatConversationScreen() {
           try {
             const { apiRequest } = await import('@/utils/api');
             const response = await apiRequest<ChatMessage[]>(
-              `/api/v1/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&limit=100`,
+              `/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&limit=100`,
               {
                 method: 'GET',
                 headers: {

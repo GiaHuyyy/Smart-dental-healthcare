@@ -3,7 +3,8 @@
  * API calls cho đơn thuốc
  */
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081/api/v1';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081';
+const API_URL = BASE_URL.endsWith('/api/v1') ? BASE_URL : `${BASE_URL}/api/v1`;
 
 export interface ApiResponse<T = any> {
   success: boolean;

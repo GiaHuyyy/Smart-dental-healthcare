@@ -163,7 +163,7 @@ export default function ChatListScreen() {
       
       // Use REST API with correct prefix /api/v1 and required query params
       const response = await apiRequest<Conversation[]>(
-        `/api/v1/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
+        `/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
         {
           method: 'GET',
           headers: {

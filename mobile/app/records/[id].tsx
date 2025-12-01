@@ -122,7 +122,7 @@ export default function RecordDetailScreen() {
 
     setLoading(true);
     try {
-      const response = await apiRequest<MedicalRecord>(`/api/v1/medical-records/${id}`, {
+      const response = await apiRequest<MedicalRecord>(`/medical-records/${id}`, {
         token,
       });
       setRecord(response.data ?? null);

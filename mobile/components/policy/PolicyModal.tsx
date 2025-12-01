@@ -27,19 +27,21 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
       onRequestClose={onClose}
     >
       <View 
-        className="flex-1 items-center justify-center px-4" 
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       >
         <Pressable 
-          className="absolute inset-0" 
+          style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
           onPress={onClose} 
         />
         
         <View 
-          className="w-full max-w-lg rounded-2xl overflow-hidden"
           style={{ 
+            width: '100%',
+            maxWidth: 512,
             backgroundColor: theme.background,
             maxHeight: '85%',
+            borderRadius: 16,
+            overflow: 'hidden',
           }}
         >
           {/* Header */}
@@ -61,7 +63,7 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
           </View>
 
           {/* Content */}
-          <ScrollView className="flex-1" contentContainerStyle={{ padding: 20 }}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
             {/* Introduction */}
             <Text className="mb-4 text-center text-xs leading-5" style={{ color: theme.text.secondary }}>
               Nhằm đảm bảo chất lượng dịch vụ, tối ưu hóa thời gian chờ đợi cho Bệnh nhân và lịch làm việc của Bác sĩ, 

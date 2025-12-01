@@ -24,7 +24,7 @@ class PaymentService {
     token: string
   ): Promise<MoMoPaymentResponse> {
     try {
-      const response = await apiRequest<any>('/api/v1/payments/momo/create', {
+      const response = await apiRequest<any>('/payments/momo/create', {
         method: 'POST',
         token,
         body: data,
@@ -44,7 +44,7 @@ class PaymentService {
 
   async checkPaymentStatus(orderId: string, token: string): Promise<any> {
     try {
-      const response = await apiRequest(`/api/v1/payments/momo/status/${orderId}`, {
+      const response = await apiRequest(`/payments/momo/status/${orderId}`, {
         method: 'GET',
         token,
       });
@@ -61,7 +61,7 @@ class PaymentService {
     token: string
   ): Promise<MoMoPaymentResponse> {
     try {
-      const response = await apiRequest<any>(`/api/v1/payments/momo/create-from-payment/${paymentId}`, {
+      const response = await apiRequest<any>(`/payments/momo/create-from-payment/${paymentId}`, {
         method: 'POST',
         token,
       });

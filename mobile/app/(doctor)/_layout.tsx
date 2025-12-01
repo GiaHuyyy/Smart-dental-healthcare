@@ -13,20 +13,21 @@ export default function DoctorTabLayout() {
 
   return (
     <Tabs
+      initialRouteName="home"
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarStyle: {
           backgroundColor: Colors[colorScheme ?? 'light'].surface,
           borderTopColor: Colors[colorScheme ?? 'light'].border,
-          height: 60,
-          paddingBottom: 8,
+          height: 70,
+          paddingBottom: 12,
           paddingTop: 8,
         },
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: 'Tổng quan',
           tabBarIcon: ({ color, size }) => (
@@ -107,6 +108,12 @@ export default function DoctorTabLayout() {
         name="chat/[id]"
         options={{
           href: null, // This hides the screen from tabs
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

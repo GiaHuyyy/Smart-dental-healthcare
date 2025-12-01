@@ -56,6 +56,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
+    console.log('🔐 Login screen mounted');
     if (prefilledEmail) {
       setEmail(prefilledEmail);
     }
@@ -71,7 +72,8 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      const response = await apiRequest<LoginResponse>('/api/v1/auth/login', {
+      console.log('🔐 Attempting login with:', { email, userType });
+      const response = await apiRequest<LoginResponse>('/auth/login', {
         method: 'POST',
         body: {
           username: email.trim(),
@@ -99,9 +101,9 @@ export default function LoginScreen() {
       
       // Navigate based on user role
       if (user.role === 'doctor') {
-        router.replace('/(doctor)' as any);
+        router.replace('/(doctor)/home' as any);
       } else {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/dashboard' as any);
       }
     } catch (err) {
       const message = formatApiError(err);
@@ -112,16 +114,21 @@ export default function LoginScreen() {
     }
   };
 
+  console.log('🎨 Login render:', { email, userType, isLoading, hasError: !!error });
+
   return (
-    <LinearGradient colors={['#eff6ff', '#e0f2fe', '#dbeafe']} className="flex-1">
-      <SafeAreaView className="flex-1">
+    <LinearGradient 
+      colors={['#eff6ff', '#e0f2fe', '#dbeafe']} 
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
-          className="flex-1"
+          style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.select({ ios: 0, android: -200, default: 0 }) ?? 0}
         >
           <ScrollView
-            className="flex-1"
+            style={{ flex: 1 }}
             contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 32 }}
             keyboardShouldPersistTaps="handled"
           >
@@ -131,7 +138,7 @@ export default function LoginScreen() {
                   <TouchableOpacity
                     activeOpacity={0.9}
                     className="flex-row items-center"
-                    onPress={() => router.push('/(tabs)' as const)}
+                    onPress={() => router.push('/(tabs)/dashboard' as const)}
                   >
                     <View className="h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 shadow-lg">
                       <Smile color="#ffffff" size={32} />

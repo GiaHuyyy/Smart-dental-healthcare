@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
     Alert,
     Linking,
+    Platform,
     ScrollView,
     Switch,
     Text,
@@ -103,7 +104,7 @@ function ToggleRow({
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { session, clearSession, updateUser } = useAuth();
+  const { session, logout, updateUser, clearSession } = useAuth();
   const colorScheme = useColorScheme();
 
   const profile = useMemo(() => session?.user ?? null, [session?.user]);
@@ -114,19 +115,46 @@ export default function SettingsScreen() {
   const [selectedLanguage, setSelectedLanguage] = useState('vi');
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
-  const handleLogout = useCallback(() => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất khỏi tài khoản Smart Dental?', [
-      { text: 'Hủy', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: async () => {
-          await clearSession();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
-  }, [clearSession, router]);
+  console.log('⚙️ Settings screen render:', { hasProfile: !!profile, email: profile?.email });
+
+  const handleLogout = useCallback(async () => {
+    console.log('handleLogout called');
+    
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('Bạn có chắc muốn đăng xuất khỏi tài khoản Smart Dental?')
+      : await new Promise((resolve) => {
+          Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất khỏi tài khoản Smart Dental?', [
+            { text: 'Hủy', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Đăng xuất', style: 'destructive', onPress: () => resolve(true) },
+          ]);
+        });
+    
+    if (!confirmed) {
+      console.log('Logout cancelled');
+      return;
+    }
+    
+    try {
+      console.log('Logout button pressed');
+      await logout();
+      console.log('Logout successful, navigating...');
+      // Clear navigation stack and force redirect
+      if (Platform.OS === 'web') {
+        window.location.href = '/';
+      } else {
+        router.dismissAll();
+        router.replace('/');
+      }
+      console.log('Navigation called');
+    } catch (error) {
+      console.error('Logout error:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Không thể đăng xuất. Vui lòng thử lại.');
+      } else {
+        Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
+      }
+    }
+  }, [logout, router]);
 
   const handleUpdateProfile = useCallback(() => {
     setShowEditProfileModal(true);
@@ -206,10 +234,13 @@ export default function SettingsScreen() {
   }, []);
 
   return (
-    <LinearGradient colors={['#f0f9ff', '#e0f2fe', '#fff']} className="flex-1">
-      <SafeAreaView className="flex-1">
+    <LinearGradient 
+      colors={['#f0f9ff', '#e0f2fe', '#fff']} 
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <ScrollView
-          className="flex-1"
+          style={{ flex: 1 }}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: 16 }}
           showsVerticalScrollIndicator={false}
         >

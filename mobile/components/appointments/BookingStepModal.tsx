@@ -7,15 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 export type BookingStep = 'doctor-time' | 'patient-info' | 'confirmation';
@@ -29,7 +29,7 @@ type Doctor = {
   consultationFee?: number;
 };
 
-type ConsultType = 'televisit' | 'on-site' | 'home-visit';
+type ConsultType = 'on-site' | 'home-visit';
 
 type BookingFormData = {
   doctorId: string;
@@ -181,7 +181,6 @@ export default function BookingStepModal({
       // Calculate consultation fee based on consult type
       const baseFee = doctor?.consultationFee || 200000;
       const consultTypeEnum = 
-        formData.consultType === 'televisit' ? ConsultTypeEnum.TELEVISIT :
         formData.consultType === 'home-visit' ? ConsultTypeEnum.HOME_VISIT :
         ConsultTypeEnum.ON_SITE;
       const consultationFee = calculateConsultationFee(consultTypeEnum, baseFee);
@@ -231,7 +230,6 @@ export default function BookingStepModal({
   const calculateFee = () => {
     const baseFee = doctor?.consultationFee || 200000;
     const consultTypeEnum = 
-      formData.consultType === 'televisit' ? ConsultTypeEnum.TELEVISIT :
       formData.consultType === 'home-visit' ? ConsultTypeEnum.HOME_VISIT :
       ConsultTypeEnum.ON_SITE;
     const consultFee = calculateConsultationFee(consultTypeEnum, baseFee);
@@ -313,7 +311,7 @@ export default function BookingStepModal({
       try {
         const doctorId = doctor._id || doctor.id;
         const response = await apiRequest<any>(
-          `/api/v1/appointments/doctor/${doctorId}/available-slots?date=${formData.appointmentDate}&duration=${duration}`
+          `/appointments/doctor/${doctorId}/available-slots?date=${formData.appointmentDate}&duration=${duration}`
         );
         
         const bookedSlotsArray = response.data?.bookedSlots || [];
@@ -331,37 +329,47 @@ export default function BookingStepModal({
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
-      <View className="flex-1 bg-black/50 items-center justify-center px-2">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 }}>
         <View
-          className="rounded-3xl shadow-2xl"
           style={{ 
             backgroundColor: theme.background,
             width: '100%',
             maxWidth: 600,
-            maxHeight: '95%',
+            height: '90%',
+            borderRadius: 24,
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.3,
+            shadowRadius: 20,
+            elevation: 10,
           }}
         >
           {/* Header */}
-          <View className="flex-row items-center justify-between border-b px-4 py-3" style={{ borderColor: theme.border }}>
-            <Text className="text-lg font-bold" style={{ color: theme.text.primary }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: theme.border, paddingHorizontal: 16, paddingVertical: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary }}>
               Đặt lịch khám
             </Text>
-            <TouchableOpacity onPress={handleClose} className="rounded-full p-1">
+            <TouchableOpacity onPress={handleClose} style={{ borderRadius: 9999, padding: 8 }}>
               <Ionicons name="close" size={22} color={theme.text.primary} />
             </TouchableOpacity>
           </View>
 
           {/* Progress Steps */}
-          <View className="flex-row items-center justify-center px-4 py-4 gap-2">
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 16 }}>
             {STEPS.map((step, index) => {
               const isActive = index <= currentStepIndex;
               const isCurrent = index === currentStepIndex;
               return (
                 <React.Fragment key={step.id}>
-                  <View className="items-center" style={{ minWidth: 70 }}>
+                  <View style={{ alignItems: 'center', minWidth: 70, marginRight: index < STEPS.length - 1 ? 8 : 0 }}>
                     <View
-                      className="h-8 w-8 items-center justify-center rounded-full"
                       style={{
+                        height: 32,
+                        width: 32,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 16,
                         backgroundColor: isActive ? Colors.primary[600] : theme.border,
                       }}
                     >
@@ -376,8 +384,7 @@ export default function BookingStepModal({
                       )}
                     </View>
                     <Text
-                      className="mt-1 text-[10px] font-medium text-center"
-                      style={{ color: isCurrent ? Colors.primary[600] : theme.text.secondary }}
+                      style={{ marginTop: 4, fontSize: 10, fontWeight: '500', textAlign: 'center', color: isCurrent ? Colors.primary[600] : theme.text.secondary }}
                       numberOfLines={1}
                     >
                       {step.label}
@@ -385,10 +392,11 @@ export default function BookingStepModal({
                   </View>
                   {index < STEPS.length - 1 && (
                     <View
-                      className="h-0.5"
                       style={{
+                        height: 2,
                         backgroundColor: index < currentStepIndex ? Colors.primary[600] : theme.border,
                         width: 30,
+                        marginRight: 8,
                       }}
                     />
                   )}
@@ -399,9 +407,9 @@ export default function BookingStepModal({
 
           {/* Content */}
           <ScrollView 
-            className="flex-1 px-4" 
             showsVerticalScrollIndicator={false}
-            style={{ maxHeight: '70%' }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
+            style={{ flex: 1, maxHeight: '70%' }}
           >
             {currentStep === 'doctor-time' && (
               <DoctorTimeStep
@@ -444,15 +452,14 @@ export default function BookingStepModal({
           </ScrollView>
 
           {/* Footer Actions */}
-          <View className="border-t px-4 py-3" style={{ borderColor: theme.border }}>
-            <View className="flex-row gap-2">
+          <View style={{ borderTopWidth: 1, borderColor: theme.border, paddingHorizontal: 16, paddingVertical: 12 }}>
+            <View style={{ flexDirection: 'row' }}>
               {!isFirstStep && (
                 <TouchableOpacity
                   onPress={handleBack}
-                  className="flex-1 items-center justify-center rounded-2xl py-3"
-                  style={{ backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
+                  style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 12, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border, marginRight: 8 }}
                 >
-                  <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: theme.text.primary }}>
                     Quay lại
                   </Text>
                 </TouchableOpacity>
@@ -460,13 +467,12 @@ export default function BookingStepModal({
               <TouchableOpacity
                 onPress={isLastStep ? handleConfirm : handleNext}
                 disabled={loading}
-                className="flex-1 items-center justify-center rounded-2xl py-3"
-                style={{ backgroundColor: Colors.primary[600] }}
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 12, backgroundColor: Colors.primary[600] }}
               >
                 {loading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="text-sm font-semibold text-white">
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#ffffff' }}>
                     {isLastStep ? 'Xác nhận đặt lịch' : 'Tiếp tục'}
                   </Text>
                 )}
@@ -499,15 +505,6 @@ function DoctorTimeStep({
   const consultTypes = useMemo(() => {
     const baseFee = doctor?.consultationFee || 200000;
     return [
-      {
-        value: 'televisit' as const,
-        label: getConsultTypeLabel(ConsultTypeEnum.TELEVISIT),
-        icon: 'videocam-outline' as const,
-        color: Colors.info[600],
-        description: getConsultTypeDescription(ConsultTypeEnum.TELEVISIT),
-        fee: calculateConsultationFee(ConsultTypeEnum.TELEVISIT, baseFee),
-        baseFee,
-      },
       {
         value: 'on-site' as const,
         label: getConsultTypeLabel(ConsultTypeEnum.ON_SITE),
@@ -576,18 +573,18 @@ function DoctorTimeStep({
   };
 
   return (
-    <View className="gap-4 pb-4">
+    <View style={{ paddingBottom: 16 }}>
       {/* Doctor Info */}
-      <Card className="p-3">
-        <View className="flex-row items-center gap-2">
-          <View className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: Colors.primary[100] }}>
+      <Card style={{ padding: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ height: 40, width: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: Colors.primary[100], marginRight: 8 }}>
             <Ionicons name="person" size={20} color={Colors.primary[600]} />
           </View>
-          <View className="flex-1">
-            <Text className="text-sm font-bold" style={{ color: theme.text.primary }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}>
               {doctor?.fullName || doctor?.name || 'Bác sĩ'}
             </Text>
-            <Text className="mt-0.5 text-xs" style={{ color: theme.text.secondary }}>
+            <Text style={{ marginTop: 2, fontSize: 12, color: theme.text.secondary }}>
               {doctor?.specialty || 'Chuyên khoa'}
             </Text>
           </View>
@@ -607,7 +604,7 @@ function DoctorTimeStep({
           >
             {consultTypes.map((type) => {
               const isSelected = formData.consultType === type.value;
-              const showDiscount = type.value === 'televisit' && type.fee < type.baseFee;
+              const showDiscount = false;
               
               return (
                 <TouchableOpacity
@@ -664,14 +661,16 @@ function DoctorTimeStep({
           </ScrollView>
         ) : (
           <View 
-            className="flex-row flex-wrap gap-2"
             style={{ 
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
               overflow: 'visible',
             }}
           >
             {consultTypes.map((type) => {
               const isSelected = formData.consultType === type.value;
-              const showDiscount = type.value === 'televisit' && type.fee < type.baseFee;
+              const showDiscount = false;
               return (
                 <TouchableOpacity
                   key={type.value}
@@ -683,35 +682,35 @@ function DoctorTimeStep({
                     borderRadius: 12,
                     padding: 8,
                     width: '48.5%',
+                    marginBottom: 8,
                   }}
                 >
-                  <View className="flex-row items-center gap-2">
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View 
-                      className="h-8 w-8 items-center justify-center rounded-full"
-                      style={{ backgroundColor: isSelected ? type.color + '20' : theme.border }}
+                      style={{ height: 32, width: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: isSelected ? type.color + '20' : theme.border }}
                     >
                       <Ionicons name={type.icon} size={16} color={isSelected ? type.color : theme.text.secondary} />
                     </View>
-                    <View className="flex-1">
-                      <Text className="text-xs font-bold" style={{ color: isSelected ? type.color : theme.text.primary }}>
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: isSelected ? type.color : theme.text.primary }}>
                         {type.label}
                       </Text>
-                      <Text className="mt-0.5 text-[10px]" style={{ color: theme.text.secondary }} numberOfLines={1}>
+                      <Text style={{ marginTop: 2, fontSize: 10, color: theme.text.secondary }} numberOfLines={1}>
                         {type.description}
                       </Text>
                     </View>
                   </View>
-                  <View className="mt-1.5 flex-row items-center justify-between">
-                    <Text className="text-xs font-semibold" style={{ color: isSelected ? type.color : theme.text.primary }}>
+                  <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: isSelected ? type.color : theme.text.primary }}>
                       {formatFee(type.fee)}
                     </Text>
                     {showDiscount && (
-                      <View className="flex-row items-center gap-1">
-                        <Text className="text-[10px] line-through" style={{ color: theme.text.secondary }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: theme.text.secondary, marginRight: 4 }}>
                           {formatFee(type.baseFee)}
                         </Text>
-                        <View className="rounded px-1 py-0.5" style={{ backgroundColor: Colors.success[100] }}>
-                          <Text className="text-[9px] font-semibold" style={{ color: Colors.success[700] }}>
+                        <View style={{ borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: Colors.success[100] }}>
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.success[700] }}>
                             -40%
                           </Text>
                         </View>
@@ -730,32 +729,41 @@ function DoctorTimeStep({
         <Text className="mb-2 text-xs font-semibold" style={{ color: theme.text.primary }}>
           Thời gian khám
         </Text>
-        <View className="flex-row gap-2">
+        <View style={{ flexDirection: 'row' }}>
           <TouchableOpacity
             onPress={() => setDuration(30)}
-            className="flex-1 items-center justify-center rounded-xl py-2.5"
             style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              paddingVertical: 10,
               backgroundColor: duration === 30 ? Colors.primary[50] : theme.card,
               borderWidth: 1.5,
               borderColor: duration === 30 ? Colors.primary[600] : theme.border,
+              marginRight: 8,
             }}
           >
             <Ionicons name="time-outline" size={18} color={duration === 30 ? Colors.primary[600] : theme.text.secondary} />
-            <Text className="mt-0.5 text-xs font-semibold" style={{ color: duration === 30 ? Colors.primary[600] : theme.text.secondary }}>
+            <Text style={{ marginTop: 2, fontSize: 12, fontWeight: '600', color: duration === 30 ? Colors.primary[600] : theme.text.secondary }}>
               30 phút
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setDuration(60)}
-            className="flex-1 items-center justify-center rounded-xl py-2.5"
             style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              paddingVertical: 10,
               backgroundColor: duration === 60 ? Colors.primary[50] : theme.card,
               borderWidth: 1.5,
               borderColor: duration === 60 ? Colors.primary[600] : theme.border,
             }}
           >
             <Ionicons name="time-outline" size={18} color={duration === 60 ? Colors.primary[600] : theme.text.secondary} />
-            <Text className="mt-0.5 text-xs font-semibold" style={{ color: duration === 60 ? Colors.primary[600] : theme.text.secondary }}>
+            <Text style={{ marginTop: 2, fontSize: 12, fontWeight: '600', color: duration === 60 ? Colors.primary[600] : theme.text.secondary }}>
               1 giờ
             </Text>
           </TouchableOpacity>
@@ -792,11 +800,19 @@ function DoctorTimeStep({
           /* Mobile: Use native date picker */
           <TouchableOpacity
             onPress={openDatePicker}
-            className="flex-row items-center justify-between rounded-xl p-3"
-            style={{ backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
+            style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              borderRadius: 12, 
+              padding: 12,
+              backgroundColor: theme.card, 
+              borderWidth: 1, 
+              borderColor: theme.border 
+            }}
           >
-            <View className="flex-1">
-              <Text className="text-xs font-semibold" style={{ color: formData.appointmentDate ? theme.text.primary : theme.text.secondary }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: formData.appointmentDate ? theme.text.primary : theme.text.secondary }}>
                 {formData.appointmentDate
                   ? new Date(formData.appointmentDate).toLocaleDateString('vi-VN', {
                       weekday: 'short',
@@ -819,18 +835,17 @@ function DoctorTimeStep({
             animationType="slide"
             onRequestClose={() => setShowDatePicker(false)}
           >
-            <View className="flex-1 items-center justify-end" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-              <View className="w-full rounded-t-3xl p-5" style={{ backgroundColor: theme.background }}>
-                <View className="mb-4 flex-row items-center justify-between">
-                  <Text className="text-lg font-bold" style={{ color: theme.text.primary }}>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+              <View style={{ width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, backgroundColor: theme.background }}>
+                <View style={{ marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text.primary }}>
                     Chọn ngày khám
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowDatePicker(false)}
-                    className="rounded-full px-4 py-2"
-                    style={{ backgroundColor: Colors.primary[600] }}
+                    style={{ borderRadius: 9999, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: Colors.primary[600] }}
                   >
-                    <Text className="text-sm font-semibold text-white">Xong</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#ffffff' }}>Xong</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -862,7 +877,7 @@ function DoctorTimeStep({
             </View>
           ) : (
             <>
-              <View className="flex-row flex-wrap gap-1.5">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                 {allTimeSlots.map((slot) => {
                   const isSelected = formData.startTime === slot.time;
                   const isBusy = slot.booked || slot.past;
@@ -883,17 +898,22 @@ function DoctorTimeStep({
                         }
                       }}
                       disabled={isBusy}
-                      className="rounded-lg px-3 py-2"
                       style={{
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
                         backgroundColor: isSelected ? Colors.primary[600] : isBusy ? Colors.gray[200] : theme.card,
                         borderWidth: 1,
                         borderColor: isSelected ? Colors.primary[600] : isBusy ? Colors.gray[300] : theme.border,
                         opacity: isBusy ? 0.6 : 1,
+                        marginRight: 6,
+                        marginBottom: 6,
                       }}
                     >
                       <Text
-                        className="text-xs font-semibold"
                         style={{ 
+                          fontSize: 12,
+                          fontWeight: '600',
                           color: isSelected ? 'white' : isBusy ? Colors.gray[500] : theme.text.primary,
                           textDecorationLine: isBusy ? 'line-through' : 'none',
                         }}
@@ -902,8 +922,7 @@ function DoctorTimeStep({
                       </Text>
                       {!isBusy && (
                         <Text
-                          className="text-[10px] mt-0.5"
-                          style={{ color: isSelected ? 'white' : theme.text.secondary }}
+                          style={{ fontSize: 10, marginTop: 2, color: isSelected ? 'white' : theme.text.secondary }}
                         >
                           {endTime}
                         </Text>
@@ -913,9 +932,9 @@ function DoctorTimeStep({
                 })}
               </View>
               {busyTimes && busyTimes.size > 0 && (
-                <View className="mt-2 flex-row items-center gap-1.5">
+                <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
                   <Ionicons name="information-circle-outline" size={14} color={Colors.info[600]} />
-                  <Text className="flex-1 text-[10px]" style={{ color: theme.text.secondary }}>
+                  <Text style={{ flex: 1, fontSize: 10, marginLeft: 6, color: theme.text.secondary }}>
                     Các khung giờ màu xám đã có người đặt hoặc không khả dụng
                   </Text>
                 </View>
@@ -942,48 +961,42 @@ function DoctorTimeStep({
 // Step 2: Patient Information
 function PatientInfoStep({ formData, setFormData, theme }: any) {
   return (
-    <View className="gap-4 pb-4">
+    <View style={{ paddingBottom: 16 }}>
       {/* Book for self toggle */}
-      <Card className="p-3">
+      <Card style={{ padding: 12 }}>
         <TouchableOpacity
           onPress={() => setFormData((prev: any) => ({ ...prev, bookForSelf: !prev.bookForSelf }))}
-          className="flex-row items-center justify-between"
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          <View className="flex-1">
-            <Text className="text-xs font-semibold" style={{ color: theme.text.primary }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text.primary }}>
               Đặt lịch cho bản thân
             </Text>
-            <Text className="mt-0.5 text-[10px]" style={{ color: theme.text.secondary }}>
+            <Text style={{ marginTop: 2, fontSize: 10, color: theme.text.secondary }}>
               Thông tin sẽ được lấy từ tài khoản của bạn
             </Text>
           </View>
-          <View
-            className="h-5 w-9 items-center justify-center rounded-full"
-            style={{ backgroundColor: formData.bookForSelf ? Colors.primary[600] : Colors.gray[300] }}
-          >
-            <View
-              className="h-4 w-4 rounded-full bg-white"
-              style={{
-                transform: [{ translateX: formData.bookForSelf ? 8 : -8 }],
-              }}
-            />
+          <View style={{ height: 20, width: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: formData.bookForSelf ? Colors.primary[600] : Colors.gray[300] }}>
+            <View style={{ height: 16, width: 16, borderRadius: 8, backgroundColor: 'white', transform: [{ translateX: formData.bookForSelf ? 8 : -8 }] }} />
           </View>
         </TouchableOpacity>
       </Card>
 
       {/* Patient details if not booking for self */}
       {!formData.bookForSelf && (
-        <View className="gap-3">
+        <View>
           <View>
-            <Text className="mb-1.5 text-[10px] font-semibold uppercase" style={{ color: theme.text.secondary }}>
+            <Text style={{ marginBottom: 6, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', color: theme.text.secondary }}>
               Họ bệnh nhân *
             </Text>
             <TextInput
               value={formData.patientLastName || ''}
               onChangeText={(text) => setFormData((prev: any) => ({ ...prev, patientLastName: text }))}
               placeholder="Nguyễn Văn"
-              className="rounded-xl px-3 py-2.5"
               style={{
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
                 backgroundColor: theme.card,
                 borderWidth: 1,
                 borderColor: theme.border,
@@ -994,16 +1007,18 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
             />
           </View>
 
-          <View>
-            <Text className="mb-1.5 text-[10px] font-semibold uppercase" style={{ color: theme.text.secondary }}>
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ marginBottom: 6, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', color: theme.text.secondary }}>
               Tên bệnh nhân *
             </Text>
             <TextInput
               value={formData.patientFirstName || ''}
               onChangeText={(text) => setFormData((prev: any) => ({ ...prev, patientFirstName: text }))}
               placeholder="An"
-              className="rounded-xl px-3 py-2.5"
               style={{
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
                 backgroundColor: theme.card,
                 borderWidth: 1,
                 borderColor: theme.border,
@@ -1014,8 +1029,8 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
             />
           </View>
 
-          <View>
-            <Text className="mb-1.5 text-[10px] font-semibold uppercase" style={{ color: theme.text.secondary }}>
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ marginBottom: 6, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', color: theme.text.secondary }}>
               Ngày sinh *
             </Text>
             <TouchableOpacity
@@ -1023,8 +1038,10 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
                 // Open date picker for DOB
                 // For now, use text input - can be improved with DateTimePicker
               }}
-              className="rounded-xl px-3 py-2.5"
               style={{
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
                 backgroundColor: theme.card,
                 borderWidth: 1,
                 borderColor: theme.border,
@@ -1040,29 +1057,30 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
             </TouchableOpacity>
           </View>
 
-          <View>
-            <Text className="mb-1.5 text-[10px] font-semibold uppercase" style={{ color: theme.text.secondary }}>
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ marginBottom: 6, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', color: theme.text.secondary }}>
               Giới tính *
             </Text>
-            <View className="flex-row gap-2">
-              {['male', 'female', 'other'].map((gender) => {
+            <View style={{ flexDirection: 'row' }}>
+              {['male', 'female', 'other'].map((gender, idx) => {
                 const isSelected = formData.patientGender === gender;
                 const labels = { male: 'Nam', female: 'Nữ', other: 'Khác' };
                 return (
                   <TouchableOpacity
                     key={gender}
                     onPress={() => setFormData((prev: any) => ({ ...prev, patientGender: gender }))}
-                    className="flex-1 items-center rounded-xl py-2.5"
                     style={{
+                      flex: 1,
+                      alignItems: 'center',
+                      borderRadius: 12,
+                      paddingVertical: 10,
                       backgroundColor: isSelected ? Colors.primary[50] : theme.card,
                       borderWidth: 1,
                       borderColor: isSelected ? Colors.primary[600] : theme.border,
+                      marginRight: idx < 2 ? 8 : 0,
                     }}
                   >
-                    <Text
-                      className="text-xs font-semibold"
-                      style={{ color: isSelected ? Colors.primary[600] : theme.text.secondary }}
-                    >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: isSelected ? Colors.primary[600] : theme.text.secondary }}>
                       {labels[gender as keyof typeof labels]}
                     </Text>
                   </TouchableOpacity>
@@ -1075,7 +1093,7 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
 
       {/* Chief Complaint */}
       <View>
-        <Text className="mb-1.5 text-[10px] font-semibold uppercase" style={{ color: theme.text.secondary }}>
+        <Text style={{ marginBottom: 6, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', color: theme.text.secondary }}>
           Lý do khám *
         </Text>
         <TextInput
@@ -1084,8 +1102,10 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
           placeholder="Mô tả triệu chứng hoặc lý do khám..."
           multiline
           numberOfLines={3}
-          className="rounded-xl px-3 py-2.5"
           style={{
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
             backgroundColor: theme.card,
             borderWidth: 1,
             borderColor: theme.border,
@@ -1098,8 +1118,8 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
       </View>
 
       {/* Notes */}
-      <View>
-        <Text className="mb-1.5 text-[10px] font-semibold uppercase" style={{ color: theme.text.secondary }}>
+      <View style={{ marginTop: 12 }}>
+        <Text style={{ marginBottom: 6, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', color: theme.text.secondary }}>
           Ghi chú thêm
         </Text>
         <TextInput
@@ -1108,8 +1128,10 @@ function PatientInfoStep({ formData, setFormData, theme }: any) {
           placeholder="Các thông tin bổ sung..."
           multiline
           numberOfLines={2}
-          className="rounded-xl px-3 py-2.5"
           style={{
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
             backgroundColor: theme.card,
             borderWidth: 1,
             borderColor: theme.border,
@@ -1179,33 +1201,31 @@ function ConfirmationStep({
   ];
 
   return (
-    <View className="gap-4 pb-4">
+    <View style={{ paddingBottom: 16 }}>
       {/* Summary Card */}
-      <Card className="p-3">
-        <Text className="mb-3 text-sm font-bold" style={{ color: theme.text.primary }}>
+      <Card style={{ padding: 12 }}>
+        <Text style={{ marginBottom: 12, fontSize: 14, fontWeight: '700', color: theme.text.primary }}>
           Thông tin đặt lịch
         </Text>
-
-        <View className="gap-2">
-          <View className="flex-row items-start gap-2">
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <Ionicons name="person-outline" size={16} color={Colors.primary[600]} />
-            <View className="flex-1">
-              <Text className="text-[10px]" style={{ color: theme.text.secondary }}>
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={{ fontSize: 10, color: theme.text.secondary }}>
                 Bác sĩ
               </Text>
-              <Text className="mt-0.5 text-xs font-semibold" style={{ color: theme.text.primary }}>
+              <Text style={{ marginTop: 2, fontSize: 12, fontWeight: '600', color: theme.text.primary }}>
                 {doctor?.fullName || doctor?.name}
               </Text>
             </View>
           </View>
-
-          <View className="flex-row items-start gap-2">
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 8 }}>
             <Ionicons name="calendar-outline" size={16} color={Colors.primary[600]} />
-            <View className="flex-1">
-              <Text className="text-[10px]" style={{ color: theme.text.secondary }}>
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={{ fontSize: 10, color: theme.text.secondary }}>
                 Ngày giờ
               </Text>
-              <Text className="mt-0.5 text-xs font-semibold" style={{ color: theme.text.primary }}>
+              <Text style={{ marginTop: 2, fontSize: 12, fontWeight: '600', color: theme.text.primary }}>
                 {new Date(formData.appointmentDate).toLocaleDateString('vi-VN', {
                   weekday: 'short',
                   day: '2-digit',
@@ -1216,39 +1236,29 @@ function ConfirmationStep({
               </Text>
             </View>
           </View>
-
-          <View className="flex-row items-start gap-2">
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 8 }}>
             <Ionicons
-              name={
-                formData.consultType === 'televisit' ? 'videocam-outline' :
-                formData.consultType === 'home-visit' ? 'home-outline' :
-                'business-outline'
-              }
+              name={formData.consultType === 'home-visit' ? 'home-outline' : 'business-outline'}
               size={16}
               color={Colors.primary[600]}
             />
-            <View className="flex-1">
-              <Text className="text-[10px]" style={{ color: theme.text.secondary }}>
+            <View style={{ flex: 1, marginLeft: 8 }}>
+              <Text style={{ fontSize: 10, color: theme.text.secondary }}>
                 Hình thức
               </Text>
-              <Text className="mt-0.5 text-xs font-semibold" style={{ color: theme.text.primary }}>
-                {getConsultTypeLabel(
-                  formData.consultType === 'televisit' ? ConsultTypeEnum.TELEVISIT :
-                  formData.consultType === 'home-visit' ? ConsultTypeEnum.HOME_VISIT :
-                  ConsultTypeEnum.ON_SITE
-                )}
+              <Text style={{ marginTop: 2, fontSize: 12, fontWeight: '600', color: theme.text.primary }}>
+                {getConsultTypeLabel(formData.consultType === 'home-visit' ? ConsultTypeEnum.HOME_VISIT : ConsultTypeEnum.ON_SITE)}
               </Text>
             </View>
           </View>
-
           {formData.chiefComplaint && (
-            <View className="flex-row items-start gap-2">
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 8 }}>
               <Ionicons name="document-text-outline" size={16} color={Colors.primary[600]} />
-              <View className="flex-1">
-                <Text className="text-[10px]" style={{ color: theme.text.secondary }}>
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={{ fontSize: 10, color: theme.text.secondary }}>
                   Lý do khám
                 </Text>
-                <Text className="mt-0.5 text-xs" style={{ color: theme.text.primary }} numberOfLines={2}>
+                <Text style={{ marginTop: 2, fontSize: 12, color: theme.text.primary }} numberOfLines={2}>
                   {formData.chiefComplaint}
                 </Text>
               </View>
@@ -1258,18 +1268,21 @@ function ConfirmationStep({
       </Card>
 
       {/* Voucher */}
-      <Card className="p-3">
-        <Text className="mb-2 text-xs font-semibold" style={{ color: theme.text.primary }}>
+      <Card style={{ padding: 12 }}>
+        <Text style={{ marginBottom: 8, fontSize: 12, fontWeight: '600', color: theme.text.primary }}>
           Mã giảm giá
         </Text>
-        <View className="flex-row gap-1.5">
+        <View style={{ flexDirection: 'row' }}>
           <TextInput
             value={formData.voucherCode || ''}
             onChangeText={(text) => setFormData((prev: any) => ({ ...prev, voucherCode: text.toUpperCase() }))}
             placeholder="Nhập mã giảm giá"
             editable={!voucherApplied}
-            className="flex-1 rounded-xl px-3 py-2"
             style={{
+              flex: 1,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
               backgroundColor: voucherApplied ? Colors.success[50] : theme.card,
               borderWidth: 1,
               borderColor: voucherApplied ? Colors.success[500] : theme.border,
@@ -1281,9 +1294,13 @@ function ConfirmationStep({
           <TouchableOpacity
             onPress={handleApplyVoucher}
             disabled={voucherLoading || voucherApplied}
-            className="items-center justify-center rounded-xl px-4"
             style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              paddingHorizontal: 16,
               backgroundColor: voucherApplied ? Colors.success[600] : Colors.primary[600],
+              marginLeft: 6,
             }}
           >
             {voucherLoading ? (
@@ -1291,7 +1308,7 @@ function ConfirmationStep({
             ) : voucherApplied ? (
               <Ionicons name="checkmark" size={16} color="white" />
             ) : (
-              <Text className="text-xs font-semibold text-white">Áp dụng</Text>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>Áp dụng</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1299,34 +1316,37 @@ function ConfirmationStep({
 
       {/* Payment Method */}
       <View>
-        <Text className="mb-2 text-xs font-semibold" style={{ color: theme.text.primary }}>
+        <Text style={{ marginBottom: 8, fontSize: 12, fontWeight: '600', color: theme.text.primary }}>
           Phương thức thanh toán
         </Text>
-        <View className="gap-2">
-          {PAYMENT_METHODS.map((method) => {
+        <View>
+          {PAYMENT_METHODS.map((method, idx) => {
             const isSelected = formData.paymentMethod === method.value;
             return (
               <TouchableOpacity
                 key={method.value}
                 onPress={() => setFormData((prev: any) => ({ ...prev, paymentMethod: method.value }))}
-                className="flex-row items-center gap-2 rounded-xl p-3"
                 style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderRadius: 12,
+                  padding: 12,
                   backgroundColor: isSelected ? Colors.primary[50] : theme.card,
                   borderWidth: 1.5,
                   borderColor: isSelected ? Colors.primary[600] : theme.border,
+                  marginTop: idx ? 8 : 0,
                 }}
               >
                 <View
-                  className="h-10 w-10 items-center justify-center rounded-full"
-                  style={{ backgroundColor: isSelected ? method.color : Colors.gray[200] }}
+                  style={{ height: 40, width: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: isSelected ? method.color : Colors.gray[200], marginRight: 8 }}
                 >
                   <Ionicons name={method.icon} size={20} color={isSelected ? 'white' : Colors.gray[600]} />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-bold" style={{ color: theme.text.primary }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.text.primary }}>
                     {method.label}
                   </Text>
-                  <Text className="mt-0.5 text-[10px]" style={{ color: theme.text.secondary }} numberOfLines={1}>
+                  <Text style={{ marginTop: 2, fontSize: 10, color: theme.text.secondary }} numberOfLines={1}>
                     {method.description}
                   </Text>
                 </View>
@@ -1338,44 +1358,29 @@ function ConfirmationStep({
       </View>
 
       {/* Payment Summary */}
-      <Card className="p-3">
-        <View className="gap-1.5">
-          <View className="flex-row justify-between">
-            <Text className="text-xs" style={{ color: theme.text.secondary }}>
+      <Card style={{ padding: 12 }}>
+        <View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+            <Text style={{ fontSize: 12, color: theme.text.secondary }}>
               Phí tư vấn
             </Text>
-            <Text className="text-xs font-semibold" style={{ color: theme.text.primary }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text.primary }}>
               {formatFee(
                 calculateConsultationFee(
-                  formData.consultType === 'televisit' ? ConsultTypeEnum.TELEVISIT :
-                  formData.consultType === 'home-visit' ? ConsultTypeEnum.HOME_VISIT :
-                  ConsultTypeEnum.ON_SITE,
+                  formData.consultType === 'home-visit' ? ConsultTypeEnum.HOME_VISIT : ConsultTypeEnum.ON_SITE,
                   doctor?.consultationFee
                 )
               )}
             </Text>
           </View>
 
-          {formData.consultType === 'televisit' && (
-            <View className="flex-row justify-between">
-              <Text className="text-xs" style={{ color: theme.text.secondary }}>
-                Giảm giá online (40%)
-              </Text>
-              <Text className="text-xs font-semibold" style={{ color: Colors.success[600] }}>
-                -{formatFee(
-                  (doctor?.consultationFee || 200000) - 
-                  calculateConsultationFee(ConsultTypeEnum.TELEVISIT, doctor?.consultationFee)
-                )}
-              </Text>
-            </View>
-          )}
 
           {formData.discountAmount > 0 && (
-            <View className="flex-row justify-between">
-              <Text className="text-xs" style={{ color: theme.text.secondary }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, marginBottom: 6 }}>
+              <Text style={{ fontSize: 12, color: theme.text.secondary }}>
                 Mã giảm giá
               </Text>
-              <Text className="text-xs font-semibold" style={{ color: Colors.success[600] }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.success[600] }}>
                 -{formData.discountAmount.toLocaleString('vi-VN')}đ
               </Text>
             </View>
@@ -1383,11 +1388,11 @@ function ConfirmationStep({
 
           <View className="my-1.5 h-px" style={{ backgroundColor: theme.border }} />
 
-          <View className="flex-row justify-between">
-            <Text className="text-sm font-bold" style={{ color: theme.text.primary }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.text.primary }}>
               Tổng thanh toán
             </Text>
-            <Text className="text-lg font-bold" style={{ color: Colors.primary[600] }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: Colors.primary[600] }}>
               {finalAmount.toLocaleString('vi-VN')}đ
             </Text>
           </View>
@@ -1396,9 +1401,9 @@ function ConfirmationStep({
 
       {/* MoMo Notice */}
       {formData.paymentMethod === 'momo' && (
-        <Card className="flex-row items-start gap-2 p-3" style={{ backgroundColor: Colors.warning[50] }}>
+        <Card style={{ flexDirection: 'row', alignItems: 'flex-start', padding: 12, backgroundColor: Colors.warning[50] }}>
           <Ionicons name="information-circle" size={16} color={Colors.warning[600]} />
-          <Text className="flex-1 text-[10px]" style={{ color: Colors.warning[700] }}>
+          <Text style={{ flex: 1, fontSize: 10, color: Colors.warning[700], marginLeft: 8 }}>
             Sau khi xác nhận, bạn sẽ được chuyển đến ứng dụng MoMo để hoàn tất thanh toán. Lịch hẹn sẽ được xác nhận
             sau khi thanh toán thành công.
           </Text>
