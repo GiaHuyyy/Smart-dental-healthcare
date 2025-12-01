@@ -5,8 +5,13 @@ import mongoose, { Model } from 'mongoose';
 import { Payment } from '../payments/schemas/payment.schemas';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
+import { CreateWithdrawalRequestDto } from './dto/create-withdrawal-request.dto';
 import { RevenueGateway } from './revenue.gateway';
 import { Revenue } from './schemas/revenue.schemas';
+import {
+  WithdrawalRequest,
+  WithdrawalRequestDocument,
+} from './schemas/withdrawal-request.schema';
 
 @Injectable()
 export class RevenueService {
@@ -15,6 +20,8 @@ export class RevenueService {
   constructor(
     @InjectModel(Revenue.name) private revenueModel: Model<Revenue>,
     @InjectModel(Payment.name) private paymentModel: Model<Payment>,
+    @InjectModel(WithdrawalRequest.name)
+    private withdrawalRequestModel: Model<WithdrawalRequestDocument>,
     private readonly revenueGateway: RevenueGateway,
   ) {
     this.logger.log('✅ RevenueService initialized');
@@ -1044,6 +1051,251 @@ export class RevenueService {
       return {
         success: false,
         message: error.message || 'Có lỗi xảy ra khi xóa doanh thu',
+      };
+    }
+  }
+
+  // ===================== WITHDRAWAL REQUEST METHODS =====================
+
+  /**
+   * Lấy số dư khả dụng (có thể rút) của bác sĩ
+   * Chỉ tính các revenue đã completed và chưa được rút (withdrawn)
+   */
+  async getWithdrawableBalance(doctorId: string) {
+    try {
+      this.logger.log('💰 Getting withdrawable balance for doctor:', doctorId);
+
+      if (!mongoose.isValidObjectId(doctorId)) {
+        throw new BadRequestException('Doctor ID không hợp lệ');
+      }
+
+      // Get completed revenues that haven't been withdrawn
+      const completedRevenues = await this.revenueModel
+        .find({
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          status: 'completed',
+          netAmount: { $gt: 0 }, // Only positive amounts (not refunds)
+        })
+        .exec();
+
+      const withdrawableBalance = completedRevenues.reduce(
+        (sum, r) => sum + (r.netAmount || 0),
+        0,
+      );
+
+      // Get pending withdrawal requests
+      const pendingWithdrawals = await this.withdrawalRequestModel
+        .find({
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          status: { $in: ['pending', 'approved'] },
+        })
+        .exec();
+
+      const pendingAmount = pendingWithdrawals.reduce(
+        (sum, w) => sum + w.amount,
+        0,
+      );
+
+      // Available = completed revenue - pending withdrawals
+      const availableBalance = withdrawableBalance - pendingAmount;
+
+      this.logger.log('💰 Withdrawable balance:', {
+        completedRevenue: withdrawableBalance,
+        pendingWithdrawals: pendingAmount,
+        availableBalance,
+      });
+
+      return {
+        success: true,
+        data: {
+          withdrawableBalance,
+          pendingWithdrawals: pendingAmount,
+          availableBalance: Math.max(0, availableBalance),
+        },
+        message: 'Lấy số dư khả dụng thành công',
+      };
+    } catch (error) {
+      this.logger.error('Error getting withdrawable balance:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi lấy số dư',
+      };
+    }
+  }
+
+  /**
+   * Tạo yêu cầu rút tiền
+   */
+  async createWithdrawalRequest(
+    doctorId: string,
+    dto: CreateWithdrawalRequestDto,
+  ) {
+    try {
+      this.logger.log('💸 Creating withdrawal request:', { doctorId, dto });
+
+      if (!mongoose.isValidObjectId(doctorId)) {
+        throw new BadRequestException('Doctor ID không hợp lệ');
+      }
+
+      // Validate MoMo info
+      if (dto.withdrawMethod === 'momo' && !dto.momoPhone) {
+        throw new BadRequestException('Vui lòng nhập số điện thoại MoMo');
+      }
+
+      // Get available balance
+      const balanceResult = await this.getWithdrawableBalance(doctorId);
+      if (!balanceResult.success) {
+        throw new BadRequestException(balanceResult.message);
+      }
+
+      const availableBalance = balanceResult.data?.availableBalance || 0;
+
+      if (dto.amount > availableBalance) {
+        throw new BadRequestException(
+          `Số tiền yêu cầu (${dto.amount.toLocaleString('vi-VN')}đ) vượt quá số dư khả dụng (${availableBalance.toLocaleString('vi-VN')}đ)`,
+        );
+      }
+
+      // Get completed revenues to mark for withdrawal
+      const completedRevenues = await this.revenueModel
+        .find({
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          status: 'completed',
+          netAmount: { $gt: 0 },
+        })
+        .sort({ createdAt: 1 }) // FIFO - oldest first
+        .exec();
+
+      // Select revenues to cover withdrawal amount
+      let remainingAmount = dto.amount;
+      const selectedRevenueIds: mongoose.Types.ObjectId[] = [];
+
+      for (const revenue of completedRevenues) {
+        if (remainingAmount <= 0) break;
+        selectedRevenueIds.push(revenue._id);
+        remainingAmount -= revenue.netAmount || 0;
+      }
+
+      // Create withdrawal request
+      const withdrawalRequest = await this.withdrawalRequestModel.create({
+        doctorId: new mongoose.Types.ObjectId(doctorId),
+        amount: dto.amount,
+        status: 'pending',
+        withdrawMethod: dto.withdrawMethod,
+        momoPhone: dto.momoPhone,
+        momoName: dto.momoName,
+        bankName: dto.bankName,
+        bankAccountNumber: dto.bankAccountNumber,
+        bankAccountName: dto.bankAccountName,
+        notes: dto.notes,
+        revenueIds: selectedRevenueIds,
+      });
+
+      this.logger.log('✅ Withdrawal request created:', withdrawalRequest._id);
+
+      return {
+        success: true,
+        data: withdrawalRequest,
+        message:
+          'Yêu cầu rút tiền đã được gửi thành công. Vui lòng chờ admin xử lý.',
+      };
+    } catch (error) {
+      this.logger.error('Error creating withdrawal request:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra khi tạo yêu cầu rút tiền',
+      };
+    }
+  }
+
+  /**
+   * Lấy danh sách yêu cầu rút tiền của bác sĩ
+   */
+  async getWithdrawalRequests(doctorId: string, page = 1, limit = 10) {
+    try {
+      this.logger.log('📋 Getting withdrawal requests for doctor:', doctorId);
+
+      if (!mongoose.isValidObjectId(doctorId)) {
+        throw new BadRequestException('Doctor ID không hợp lệ');
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [requests, total] = await Promise.all([
+        this.withdrawalRequestModel
+          .find({ doctorId: new mongoose.Types.ObjectId(doctorId) })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .exec(),
+        this.withdrawalRequestModel
+          .countDocuments({ doctorId: new mongoose.Types.ObjectId(doctorId) })
+          .exec(),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          requests,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+        message: 'Lấy danh sách yêu cầu rút tiền thành công',
+      };
+    } catch (error) {
+      this.logger.error('Error getting withdrawal requests:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra',
+      };
+    }
+  }
+
+  /**
+   * Hủy yêu cầu rút tiền (chỉ khi status = pending)
+   */
+  async cancelWithdrawalRequest(doctorId: string, requestId: string) {
+    try {
+      this.logger.log('❌ Cancelling withdrawal request:', {
+        doctorId,
+        requestId,
+      });
+
+      if (
+        !mongoose.isValidObjectId(doctorId) ||
+        !mongoose.isValidObjectId(requestId)
+      ) {
+        throw new BadRequestException('ID không hợp lệ');
+      }
+
+      const request = await this.withdrawalRequestModel.findOne({
+        _id: requestId,
+        doctorId: new mongoose.Types.ObjectId(doctorId),
+      });
+
+      if (!request) {
+        throw new BadRequestException('Không tìm thấy yêu cầu rút tiền');
+      }
+
+      if (request.status !== 'pending') {
+        throw new BadRequestException('Chỉ có thể hủy yêu cầu đang chờ xử lý');
+      }
+
+      await this.withdrawalRequestModel.findByIdAndDelete(requestId);
+
+      return {
+        success: true,
+        message: 'Đã hủy yêu cầu rút tiền',
+      };
+    } catch (error) {
+      this.logger.error('Error cancelling withdrawal request:', error);
+      return {
+        success: false,
+        message: error.message || 'Có lỗi xảy ra',
       };
     }
   }

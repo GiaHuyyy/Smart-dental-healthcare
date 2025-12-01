@@ -222,6 +222,105 @@ class RevenueService {
       throw error;
     }
   }
+
+  // ===================== WITHDRAWAL METHODS =====================
+
+  /**
+   * Lấy số dư khả dụng có thể rút của bác sĩ
+   */
+  async getWithdrawableBalance(doctorId: string): Promise<{
+    success: boolean;
+    data: {
+      withdrawableBalance: number;
+      pendingWithdrawals: number;
+      availableBalance: number;
+    };
+    message: string;
+  }> {
+    try {
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/withdrawable-balance`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching withdrawable balance:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Tạo yêu cầu rút tiền
+   */
+  async createWithdrawalRequest(
+    doctorId: string,
+    data: {
+      amount: number;
+      withdrawMethod: "momo" | "bank_transfer";
+      momoPhone?: string;
+      momoName?: string;
+      bankName?: string;
+      bankAccountNumber?: string;
+      bankAccountName?: string;
+      notes?: string;
+    }
+  ): Promise<{ success: boolean; data: any; message: string }> {
+    try {
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/withdraw`,
+        data
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating withdrawal request:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Lấy danh sách yêu cầu rút tiền của bác sĩ
+   */
+  async getWithdrawalRequests(
+    doctorId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
+    success: boolean;
+    data: {
+      requests: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    };
+    message: string;
+  }> {
+    try {
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/withdrawal-requests?page=${page}&limit=${limit}`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching withdrawal requests:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Hủy yêu cầu rút tiền
+   */
+  async cancelWithdrawalRequest(doctorId: string, requestId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await axios.delete(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}/withdrawal-requests/${requestId}`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error cancelling withdrawal request:", error);
+      throw error;
+    }
+  }
 }
 
 export const revenueService = new RevenueService();
