@@ -220,6 +220,111 @@ class AiChatHistoryService {
 
     return [...new Set(tags)]; // Remove duplicates
   }
+
+  /**
+   * Get the latest image analysis from AI chat history for a user
+   * Returns the most recent image analysis result with symptoms summary
+   */
+  async getLatestImageAnalysis(userId: string): Promise<{
+    hasAnalysis: boolean;
+    symptoms: string;
+    uploadedImage: string | null;
+    analysisResult: unknown | null;
+    urgency: string;
+    hasImageAnalysis: boolean;
+  } | null> {
+    try {
+      // Get the latest active session for this user
+      const sessionsResponse = await this.getUserSessions(userId, 1, 5);
+      if (!sessionsResponse.sessions || sessionsResponse.sessions.length === 0) {
+        return null;
+      }
+
+      // Find active session or use latest
+      const activeSessions = sessionsResponse.sessions.filter((s) => s.status === "active");
+      const latestSession = activeSessions.length > 0 ? activeSessions[0] : sessionsResponse.sessions[0];
+
+      if (!latestSession._id) {
+        return null;
+      }
+
+      // Get all messages from this session
+      const messages = await this.getSessionMessages(latestSession._id, 1, 0);
+      if (!messages || messages.length === 0) {
+        return null;
+      }
+
+      // Find the latest image analysis message
+      let latestAnalysisData: unknown | null = null;
+      let latestImageUrl: string | null = null;
+
+      // Search from newest to oldest
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+
+        // Find image analysis result
+        if (msg.messageType === "image_analysis" && msg.analysisData && !latestAnalysisData) {
+          latestAnalysisData = msg.analysisData;
+        }
+
+        // Find uploaded image (Cloudinary URL, not blob)
+        if (
+          msg.messageType === "image_upload" &&
+          msg.imageUrl &&
+          !msg.imageUrl.startsWith("blob:") &&
+          !latestImageUrl
+        ) {
+          latestImageUrl = msg.imageUrl;
+        }
+
+        // Stop if we found both
+        if (latestAnalysisData && latestImageUrl) {
+          break;
+        }
+      }
+
+      // If no image analysis found, return null
+      if (!latestAnalysisData) {
+        return null;
+      }
+
+      // Collect symptoms from user messages (exclude image upload messages)
+      const collectedSymptoms: string[] = [];
+      messages.forEach((msg) => {
+        if (msg.role === "user" && msg.content) {
+          const content = msg.content.toLowerCase();
+          // Skip messages about uploading images
+          if (
+            !content.includes("tải lên ảnh") &&
+            !content.includes("đang tải lên ảnh") &&
+            !content.includes("để phân tích:")
+          ) {
+            collectedSymptoms.push(msg.content);
+          }
+        }
+      });
+
+      const symptoms = collectedSymptoms
+        .filter((s) => s.trim().length > 0)
+        .join("; ")
+        .trim();
+
+      // Detect urgency from messages
+      const urgency = this.detectUrgency(messages);
+
+      return {
+        hasAnalysis: true,
+        symptoms,
+        uploadedImage: latestImageUrl,
+        analysisResult: latestAnalysisData,
+        urgency,
+        hasImageAnalysis: true,
+      };
+    } catch (error) {
+      console.error("Error getting latest image analysis:", error);
+      return null;
+    }
+  }
 }
 
 export const aiChatHistoryService = new AiChatHistoryService();
