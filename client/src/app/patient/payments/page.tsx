@@ -189,6 +189,56 @@ export default function PatientPayments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
+  // 🔔 Handle wallet top-up callback from MoMo redirect
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const walletTopup = params.get("walletTopup");
+    const orderId = params.get("orderId");
+
+    if (walletTopup === "true" && orderId) {
+      console.log("💳 Wallet top-up callback detected:", orderId);
+
+      // Show loading toast
+      const loadingToast = toast.loading("Đang kiểm tra trạng thái nạp tiền...");
+
+      // Query wallet top-up status
+      const checkTopupStatus = async () => {
+        try {
+          const result = await walletService.queryWalletTopup(orderId);
+          console.log("📊 Wallet top-up query result:", result);
+
+          toast.dismiss(loadingToast);
+
+          if (result.success && result.data?.status === "completed") {
+            toast.success("Nạp tiền thành công!", {
+              description: `Số dư mới: ${result.data.balance?.toLocaleString("vi-VN")}đ`,
+              duration: 5000,
+            });
+
+            // Update wallet balance
+            setWalletBalance(result.data.balance || 0);
+          } else {
+            toast.error("Nạp tiền không thành công", {
+              description: result.message || "Vui lòng thử lại",
+            });
+          }
+        } catch (error) {
+          console.error("❌ Error checking top-up status:", error);
+          toast.dismiss(loadingToast);
+          toast.error("Không thể kiểm tra trạng thái thanh toán");
+        }
+
+        // Remove query params from URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+      };
+
+      checkTopupStatus();
+    }
+  }, []);
+
   // 🔔 Realtime payment updates via WebSocket
   const { isConnected, onNewPayment, onPaymentUpdate, onPaymentDelete } = usePaymentSocket();
 
@@ -657,35 +707,18 @@ export default function PatientPayments() {
       });
 
       if (response.success && response.data?.payUrl) {
-        // Store payment info for callback
-        const orderId = response.data.orderId;
-        const userId = (session as any)?.user?._id;
+        toast.success("Chuyển đến cổng thanh toán MoMo...");
 
-        sessionStorage.setItem(
-          `momo_payment_${orderId}`,
-          JSON.stringify({
-            userId,
-            amount: amount,
-            paymentMethod: "momo",
-            description: `Nạp ${amount.toLocaleString("vi-VN")} VNĐ vào ví`,
-          })
-        );
-
-        // Open MoMo in new tab
-        window.open(response.data.payUrl, "_blank");
-
-        // Reset form and close
+        // Close modal and redirect to MoMo at current tab (like bill payment flow)
+        setShowWalletModal(false);
         setTopUpAmount("");
         setShowTopUpForm(false);
         setTopUpLoading(false);
-        toast.success("Đã mở trang thanh toán MoMo");
 
-        // Refresh wallet data after a delay
-        setTimeout(async () => {
-          await fetchWalletBalance();
-          await handleWalletModalOpen();
-          toast.success("Số dư đã được cập nhật");
-        }, 3000);
+        // Redirect to MoMo in current tab - after payment, MoMo will redirect back to /patient/payments
+        setTimeout(() => {
+          window.location.href = response.data.payUrl;
+        }, 500);
       } else if (response.success && response.data?.deeplinkMiniApp) {
         // Redirect to MiniApp
         window.location.href = response.data.deeplinkMiniApp;
@@ -865,9 +898,7 @@ export default function PatientPayments() {
                   <p className="text-2xl font-bold bg-linear-to-br from-purple-500 to-pink-500 text-transparent bg-clip-text">
                     {formatCurrency(walletBalance)}
                   </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Nhấp để xem chi tiết ví
-                  </p>
+                  <p className="text-xs text-gray-500 mt-2">Nhấp để xem chi tiết ví</p>
                 </div>
                 <div className="w-12 h-12 bg-linear-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                   <Wallet className="w-6 h-6 text-white" />

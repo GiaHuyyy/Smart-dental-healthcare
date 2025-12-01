@@ -79,13 +79,13 @@ export class WalletService {
 
       // Get URLs from config
       const frontendUrl =
-        this.configService.get<string>('CLIENT_URL') ||
-        'http://localhost:3000';
+        this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
       const backendUrl =
         this.configService.get<string>('BACKEND_URL') ||
         'http://localhost:8081';
 
-      const returnUrl = `${frontendUrl}/patient/wallet?status=success&orderId=${orderId}`;
+      // Redirect về trang payments với orderId để query status (giống flow thanh toán bill)
+      const returnUrl = `${frontendUrl}/patient/payments?walletTopup=true&orderId=${orderId}`;
       const notifyUrl = `${backendUrl}/api/v1/wallet/momo/callback`;
 
       // Create MoMo payment request
@@ -230,6 +230,136 @@ export class WalletService {
         amount,
       });
       return { success: true, message: 'Payment failed, no record created' };
+    }
+  }
+
+  // Query MoMo wallet payment status - giống như queryMomoPayment trong payments.service.ts
+  async queryMomoWalletPayment(orderId: string) {
+    try {
+      this.logger.log('🔍 ========== QUERY WALLET MOMO PAYMENT ==========');
+      this.logger.log('📋 OrderId:', orderId);
+
+      // Check if orderId starts with WALLET_
+      if (!orderId.startsWith('WALLET_')) {
+        this.logger.error('❌ Invalid orderId format:', orderId);
+        return {
+          success: false,
+          message: 'Invalid orderId format for wallet payment',
+        };
+      }
+
+      // Extract userId from orderId (format: WALLET_{userId}_{timestamp})
+      const parts = orderId.split('_');
+      if (parts.length < 3) {
+        this.logger.error('❌ Invalid orderId format:', orderId);
+        return {
+          success: false,
+          message: 'Invalid orderId format',
+        };
+      }
+      const userId = parts[1];
+      this.logger.log('👤 Extracted userId:', userId);
+
+      // Check if already processed - look for existing completed transaction
+      const existingTransaction = await this.walletTransactionModel.findOne({
+        transactionId: { $regex: orderId },
+        status: 'completed',
+      });
+
+      if (existingTransaction) {
+        this.logger.log(
+          '✅ Transaction already processed:',
+          existingTransaction._id,
+        );
+        const user = await this.userModel
+          .findById(userId)
+          .select('walletBalance');
+        return {
+          success: true,
+          data: {
+            status: 'completed',
+            balance: user?.walletBalance || 0,
+            alreadyProcessed: true,
+          },
+          message: 'Giao dịch đã được xử lý trước đó',
+        };
+      }
+
+      // Query MoMo for latest status
+      const requestId = `QUERY_WALLET_${Date.now()}`;
+      this.logger.log('🔄 Querying MoMo for status...');
+
+      const momoResponse = await this.momoService.queryTransaction(
+        orderId,
+        requestId,
+      );
+      this.logger.log('📦 MoMo query response:', momoResponse);
+
+      // Check if payment successful
+      if (momoResponse.resultCode === 0) {
+        this.logger.log('✅ MoMo payment successful! Processing...');
+
+        const amount = momoResponse.amount;
+        const transId = momoResponse.transId;
+
+        // Create transaction record
+        const transaction = await this.walletTransactionModel.create({
+          userId,
+          amount,
+          type: 'topup',
+          status: 'completed',
+          paymentMethod: 'momo',
+          transactionId: transId?.toString() || orderId,
+          description: `Nạp ${amount?.toLocaleString('vi-VN')} VNĐ vào ví`,
+        });
+
+        this.logger.log('💾 Transaction created:', transaction._id);
+
+        // Update user wallet balance
+        const updatedUser = await this.userModel.findByIdAndUpdate(
+          userId,
+          { $inc: { walletBalance: amount } },
+          { new: true },
+        );
+
+        this.logger.log('💰 Wallet balance updated:', {
+          userId,
+          newBalance: updatedUser?.walletBalance,
+          addedAmount: amount,
+        });
+
+        return {
+          success: true,
+          data: {
+            status: 'completed',
+            balance: updatedUser?.walletBalance || 0,
+            amount,
+            transactionId: transaction._id,
+          },
+          message: 'Nạp tiền thành công!',
+        };
+      } else {
+        // Payment failed or pending
+        this.logger.log('❌ MoMo payment not successful:', {
+          resultCode: momoResponse.resultCode,
+          message: momoResponse.message,
+        });
+
+        return {
+          success: false,
+          data: {
+            status: 'failed',
+            resultCode: momoResponse.resultCode,
+          },
+          message: momoResponse.message || 'Thanh toán không thành công',
+        };
+      }
+    } catch (error) {
+      this.logger.error('❌ Error querying MoMo wallet payment:', error);
+      return {
+        success: false,
+        message: error.message || 'Không thể kiểm tra trạng thái thanh toán',
+      };
     }
   }
 

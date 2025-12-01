@@ -12,6 +12,7 @@ import {
 import { Public } from 'src/decorator/customize';
 import { CreateRevenueDto } from './dto/create-revenue.dto';
 import { UpdateRevenueDto } from './dto/update-revenue.dto';
+import { CreateWithdrawalRequestDto } from './dto/create-withdrawal-request.dto';
 import { RevenueService } from './revenue.service';
 
 @Controller('revenue')
@@ -130,5 +131,61 @@ export class RevenueController {
   @Public()
   remove(@Param('id') id: string) {
     return this.revenueService.remove(id);
+  }
+
+  // ===================== WITHDRAWAL ENDPOINTS =====================
+
+  /**
+   * Lấy số dư khả dụng có thể rút của bác sĩ
+   * GET /api/v1/revenue/doctor/:doctorId/withdrawable-balance
+   */
+  @Get('doctor/:doctorId/withdrawable-balance')
+  @Public()
+  getWithdrawableBalance(@Param('doctorId') doctorId: string) {
+    return this.revenueService.getWithdrawableBalance(doctorId);
+  }
+
+  /**
+   * Tạo yêu cầu rút tiền
+   * POST /api/v1/revenue/doctor/:doctorId/withdraw
+   */
+  @Post('doctor/:doctorId/withdraw')
+  @Public()
+  createWithdrawalRequest(
+    @Param('doctorId') doctorId: string,
+    @Body() dto: CreateWithdrawalRequestDto,
+  ) {
+    return this.revenueService.createWithdrawalRequest(doctorId, dto);
+  }
+
+  /**
+   * Lấy danh sách yêu cầu rút tiền của bác sĩ
+   * GET /api/v1/revenue/doctor/:doctorId/withdrawal-requests
+   */
+  @Get('doctor/:doctorId/withdrawal-requests')
+  @Public()
+  getWithdrawalRequests(
+    @Param('doctorId') doctorId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.revenueService.getWithdrawalRequests(
+      doctorId,
+      page ? +page : 1,
+      limit ? +limit : 10,
+    );
+  }
+
+  /**
+   * Hủy yêu cầu rút tiền
+   * DELETE /api/v1/revenue/doctor/:doctorId/withdrawal-requests/:requestId
+   */
+  @Delete('doctor/:doctorId/withdrawal-requests/:requestId')
+  @Public()
+  cancelWithdrawalRequest(
+    @Param('doctorId') doctorId: string,
+    @Param('requestId') requestId: string,
+  ) {
+    return this.revenueService.cancelWithdrawalRequest(doctorId, requestId);
   }
 }

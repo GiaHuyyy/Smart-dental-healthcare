@@ -690,7 +690,7 @@ export default function PatientAppointmentsPage() {
                 onClick={() => setViewMode("map")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                   viewMode === "map"
-                    ? "bg-[var(--color-primary)] text-white"
+                    ? "bg-primary text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
@@ -701,7 +701,7 @@ export default function PatientAppointmentsPage() {
                 onClick={() => setViewMode("list")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                   viewMode === "list"
-                    ? "bg-[var(--color-primary)] text-white"
+                    ? "bg-primary text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
@@ -712,10 +712,10 @@ export default function PatientAppointmentsPage() {
 
             <button
               onClick={() => router.push("/patient/appointments/my-appointments")}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
             >
               <Calendar className="w-5 h-5" />
-              Lịch hẹn của tôi
+              Xem lịch hẹn của tôi
             </button>
           </div>
         </div>
