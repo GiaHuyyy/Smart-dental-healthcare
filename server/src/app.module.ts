@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
 import { AiChatHistoryModule } from './modules/ai-chat-history/ai-chat-history.module';
 import { AiChatModule } from './modules/ai-chat/ai-chat.module';
+import { AIFeedbackModule } from './modules/ai-feedback/ai-feedback.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { DoctorProfileModule } from './modules/doctor-profile/doctor-profile.module';
@@ -46,6 +47,7 @@ import { WebRTCModule } from './modules/webrtc/webrtc.module';
     AuthModule,
     AiChatModule,
     AiChatHistoryModule,
+    AIFeedbackModule,
     GeocodingModule,
     ImageAnalysisModule,
     ChatModule,

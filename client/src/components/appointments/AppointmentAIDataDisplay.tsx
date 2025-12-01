@@ -1,7 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { FileText, BarChart2, Lightbulb, Image as ImageIcon, Drone } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, BarChart2, Lightbulb, Image as ImageIcon, Drone, MessageSquarePlus } from "lucide-react";
+import DoctorAIFeedbackModal from "./DoctorAIFeedbackModal";
+import aiFeedbackService from "@/services/aiFeedbackService";
 
 interface AnalysisSection {
   heading?: string;
@@ -26,9 +29,25 @@ interface AIAnalysisData {
 
 interface AppointmentAIDataDisplayProps {
   aiData: AIAnalysisData;
+  appointmentId?: string;
+  showDoctorFeedback?: boolean; // Chỉ hiện nút đánh giá cho bác sĩ
 }
 
-export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDisplayProps) {
+export default function AppointmentAIDataDisplay({
+  aiData,
+  appointmentId,
+  showDoctorFeedback = false,
+}: AppointmentAIDataDisplayProps) {
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [hasFeedback, setHasFeedback] = useState(false);
+
+  // Check if feedback already exists when component mounts
+  useEffect(() => {
+    if (showDoctorFeedback && appointmentId) {
+      aiFeedbackService.checkFeedbackExists(appointmentId).then(setHasFeedback);
+    }
+  }, [showDoctorFeedback, appointmentId]);
+
   if (!aiData) return null;
 
   const renderRichContent = () => {
@@ -134,11 +153,31 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="p-1.5 bg-blue-100 rounded-lg">
-          <Drone className="w-4 h-4 text-primary" />
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-blue-100 rounded-lg">
+            <Drone className="w-4 h-4 text-primary" />
+          </div>
+          <h4 className="font-semibold text-primary text-sm">Thông tin phân tích AI</h4>
         </div>
-        <h4 className="font-semibold text-primary text-sm">Thông tin phân tích AI</h4>
+
+        {/* Doctor Feedback Button */}
+        {showDoctorFeedback && appointmentId && !hasFeedback && (
+          <button
+            onClick={() => setShowFeedbackModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            <MessageSquarePlus className="w-4 h-4" />
+            Đánh giá từ bác sĩ
+          </button>
+        )}
+
+        {/* Show badge if already has feedback */}
+        {showDoctorFeedback && hasFeedback && (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 text-xs font-medium rounded-lg">
+            ✓ Đã đánh giá
+          </span>
+        )}
       </div>
 
       {/* Symptoms */}
@@ -196,6 +235,17 @@ export default function AppointmentAIDataDisplay({ aiData }: AppointmentAIDataDi
           </summary>
           <div className="text-sm">{renderRichContent()}</div>
         </details>
+      )}
+
+      {/* Doctor AI Feedback Modal */}
+      {showDoctorFeedback && appointmentId && !hasFeedback && (
+        <DoctorAIFeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+          appointmentId={appointmentId}
+          aiData={aiData}
+          onFeedbackSubmitted={() => setHasFeedback(true)}
+        />
       )}
     </div>
   );
