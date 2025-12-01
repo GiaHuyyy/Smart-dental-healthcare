@@ -58,24 +58,79 @@ export class RevenueService {
       }
 
       // Check if revenue already exists for this payment (by paymentId)
-      this.logger.log('🔍 Checking if revenue already exists...');
+      this.logger.log('🔍 Checking if revenue already exists by paymentId...');
       const existingRevenue = await this.revenueModel
         .findOne({ paymentId })
         .exec();
 
       if (existingRevenue) {
-        this.logger.warn('⚠️ Revenue already exists for payment:', paymentId);
-        this.logger.log('📊 Existing revenue:', {
+        this.logger.log('📊 Found existing revenue for payment:', {
           revenueId: existingRevenue._id,
           doctorId: existingRevenue.doctorId,
           amount: existingRevenue.amount,
           status: existingRevenue.status,
         });
 
+        // 🆕 If existing revenue is PENDING, update it to COMPLETED
+        if (existingRevenue.status === 'pending') {
+          this.logger.log(
+            '✅ Updating existing pending revenue to completed...',
+          );
+
+          const updatedRevenue = await this.revenueModel.findByIdAndUpdate(
+            existingRevenue._id,
+            {
+              status: 'completed',
+              revenueDate: payment.paymentDate || new Date(),
+              notes: `Doanh thu từ thanh toán #${payment._id.toString()}`,
+            },
+            { new: true },
+          );
+
+          // Populate revenue before emit
+          const populatedRevenue = await this.revenueModel
+            .findById(updatedRevenue?._id)
+            .populate('patientId', 'fullName email phone')
+            .populate('paymentId', 'transactionId paymentMethod')
+            .exec();
+
+          // Emit realtime event for updated revenue
+          const doctorIdStr: string =
+            typeof existingRevenue.doctorId === 'string'
+              ? existingRevenue.doctorId
+              : (existingRevenue.doctorId as any)?._id?.toString() ||
+                String(existingRevenue.doctorId);
+
+          if (this.revenueGateway && this.revenueGateway.server) {
+            this.revenueGateway.emitRevenueUpdate(
+              doctorIdStr,
+              populatedRevenue,
+            );
+            this.logger.log(
+              '✅ Emitted revenue:update event for existing pending revenue',
+            );
+          }
+
+          this.logger.log(
+            '✅ ========== EXISTING PENDING REVENUE UPDATED TO COMPLETED ==========',
+          );
+
+          return {
+            success: true,
+            data: populatedRevenue,
+            message: 'Cập nhật doanh thu pending thành công',
+          };
+        }
+
+        // Already completed - just return
+        this.logger.warn(
+          '⚠️ Revenue already completed for payment:',
+          paymentId,
+        );
         return {
           success: true,
           data: existingRevenue,
-          message: 'Doanh thu đã tồn tại cho thanh toán này',
+          message: 'Doanh thu đã tồn tại và đã hoàn thành',
         };
       }
 

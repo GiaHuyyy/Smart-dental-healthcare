@@ -401,19 +401,21 @@ export class PaymentsService {
           if (!appointment) {
             this.logger.error('Appointment not found:', appointmentId);
           } else {
-            // Only update if appointment is in pending_payment or pending status
+            // Only update paymentStatus if appointment is in pending_payment or pending status
+            // NOTE: Do NOT change appointment status to 'confirmed' - let doctor confirm manually
             if (['pending_payment', 'pending'].includes(appointment.status)) {
               await this.appointmentModel.findByIdAndUpdate(appointmentId, {
-                status: 'confirmed',
+                // status: 'confirmed', // REMOVED - keep pending until doctor confirms
                 paymentStatus: 'paid',
                 paymentId: updatedPayment._id,
               });
 
-              this.logger.log('✅ ========== APPOINTMENT CONFIRMED ==========');
+              this.logger.log(
+                '✅ ========== APPOINTMENT PAYMENT UPDATED ==========',
+              );
               this.logger.log('📅 Appointment updated:', {
                 appointmentId,
-                previousStatus: appointment.status,
-                newStatus: 'confirmed',
+                status: appointment.status, // Keep original status
                 paymentStatus: 'paid',
               });
 
@@ -497,7 +499,6 @@ export class PaymentsService {
    */
   async queryMomoPayment(orderId: string) {
     try {
-
       // Try to find payment by transactionId
       let payment = await this.paymentModel
         .findOne({
@@ -525,7 +526,6 @@ export class PaymentsService {
 
       // If still not found, try searching by similar transactionId pattern
       if (!payment) {
-
         // Try to find payment with transactionId starting with PAY_ for the same reference
         if (orderId.startsWith('APT_')) {
           const parts = orderId.split('_');
@@ -635,16 +635,20 @@ export class PaymentsService {
           // Don't fail the query if revenue creation fails
         }
 
-        // Also update appointment
+        // Also update appointment payment status (NOT appointment status)
+        // NOTE: Do NOT change appointment status to 'confirmed' - let doctor confirm manually
         const appointmentId = (payment.refId as any)?._id || payment.refId;
         if (appointmentId) {
           await this.appointmentModel.findByIdAndUpdate(appointmentId, {
-            status: 'confirmed',
+            // status: 'confirmed', // REMOVED - keep pending until doctor confirms
             paymentStatus: 'paid',
             paymentId: payment._id,
           });
 
-          this.logger.log('✅ Appointment confirmed via query:', appointmentId);
+          this.logger.log(
+            '✅ Appointment payment status updated via query:',
+            appointmentId,
+          );
         }
       }
 
