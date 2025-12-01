@@ -24,7 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" style={{ ["--vsc-domain" as any]: JSON.stringify(process.env.NEXT_PUBLIC_VSC_DOMAIN || "") }}>
+    <html
+      lang="vi"
+      suppressHydrationWarning
+      style={{ ["--vsc-domain" as any]: JSON.stringify(process.env.NEXT_PUBLIC_VSC_DOMAIN || "") }}
+    >
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
         <ClientProviders>{children}</ClientProviders>
       </body>

@@ -206,6 +206,17 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
     toast.success("✅ Đã đánh dấu để lưu thông tin AI vào cuộc hẹn");
   };
 
+  // Function to cancel AI data in appointment
+  const handleCancelAIData = () => {
+    setFormData((prev) => ({
+      ...prev,
+      includeAIData: false,
+      aiAnalysisData: undefined,
+    }));
+
+    toast.info("Đã hủy lưu thông tin AI");
+  };
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -266,23 +277,22 @@ export default function BookingForm({ bookingData, onSubmit }: BookingFormProps)
             <div className="flex-1">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900">Thông tin từ tư vấn AI</h3>
+                  <h3 className="text-lg font-semibold text-primary">Thông tin phân tích từ AI (lần gần nhất)</h3>
                   <Sparkles className="w-5 h-5 text-primary" />
                 </div>
                 <button
                   type="button"
-                  onClick={handleRestoreAIData}
-                  disabled={formData.includeAIData}
+                  onClick={formData.includeAIData ? handleCancelAIData : handleRestoreAIData}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm font-medium ${
                     formData.includeAIData
-                      ? "bg-green-600 text-white cursor-default"
+                      ? "bg-red-600 text-white hover:bg-red-700"
                       : "bg-primary text-white hover:bg-primary/80"
                   }`}
                 >
                   {formData.includeAIData ? (
                     <>
-                      <Check className="w-4 h-4" />
-                      Đã lưu thông tin AI
+                      <X className="w-4 h-4" />
+                      Hủy lưu thông tin AI
                     </>
                   ) : (
                     <>
