@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { sendRequest } from "@/utils/api";
 import { Mail, AlertTriangle, Phone, Clock } from "lucide-react";
-import tooth from "../../public/tooth.svg";
+import tooth from "../../../public/tooth.svg";
 import Image from "next/image";
 interface VerifyProps {
   id: string | undefined;
@@ -104,7 +104,7 @@ export default function Verify({ id }: VerifyProps) {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      className="min-h-screen bg-linear-to-br flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
       style={{
         backgroundColor: "var(--color-primary-50)",
         backgroundImage:

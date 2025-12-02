@@ -22,6 +22,7 @@ interface CallButtonProps {
   showIcon?: boolean;
   className?: string;
   children?: ReactNode;
+  title?: string;
 }
 
 export default function CallButton({

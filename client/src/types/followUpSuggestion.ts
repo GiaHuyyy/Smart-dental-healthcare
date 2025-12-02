@@ -6,7 +6,7 @@ export interface Doctor {
   email: string;
   specialization?: string;
   specialty?: string;
-  profileImage?: string;
+  avatarUrl?: string;
 }
 
 export interface Voucher {

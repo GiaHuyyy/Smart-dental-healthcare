@@ -320,7 +320,7 @@ export default function FollowUpSuggestions() {
           fullName: selectedSuggestion.doctorId.fullName,
           email: selectedSuggestion.doctorId.email,
           specialty: selectedSuggestion.doctorId.specialty || selectedSuggestion.doctorId.specialization || "",
-          profileImage: selectedSuggestion.doctorId.profileImage,
+          avatarUrl: selectedSuggestion.doctorId.avatarUrl,
           consultationFee: 200000,
           availableConsultTypes: [ConsultType.ON_SITE],
           experienceYears: 5,
@@ -585,7 +585,7 @@ export default function FollowUpSuggestions() {
             fullName: selectedSuggestion.doctorId.fullName,
             email: selectedSuggestion.doctorId.email,
             specialty: selectedSuggestion.doctorId.specialty || selectedSuggestion.doctorId.specialization || "",
-            profileImage: selectedSuggestion.doctorId.profileImage,
+            avatarUrl: selectedSuggestion.doctorId.avatarUrl,
             consultationFee: 200000,
             availableConsultTypes: [ConsultType.ON_SITE],
             experienceYears: 5,
@@ -663,10 +663,10 @@ export default function FollowUpSuggestions() {
                 <div className="flex items-start gap-4 flex-1">
                   {/* Doctor Avatar */}
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    {suggestion.doctorId.profileImage ? (
+                    {suggestion.doctorId.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={suggestion.doctorId.profileImage}
+                        src={suggestion.doctorId.avatarUrl}
                         alt={suggestion.doctorId.fullName}
                         className="w-full h-full rounded-full object-cover"
                       />
@@ -765,7 +765,7 @@ export default function FollowUpSuggestions() {
             fullName: selectedSuggestion.doctorId.fullName,
             email: selectedSuggestion.doctorId.email,
             specialty: selectedSuggestion.doctorId.specialty || selectedSuggestion.doctorId.specialization || "",
-            profileImage: selectedSuggestion.doctorId.profileImage,
+            avatarUrl: selectedSuggestion.doctorId.avatarUrl,
             consultationFee: 200000,
             availableConsultTypes: [ConsultType.ON_SITE, ConsultType.TELEVISIT],
             experienceYears: 5,
