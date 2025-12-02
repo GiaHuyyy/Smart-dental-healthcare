@@ -127,11 +127,9 @@ export default function DoctorPatients() {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [stats, setStats] = useState<PatientStats | null>(null);
-  const [listLoading, setListLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize] = useState(12);
-  const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -152,8 +150,6 @@ export default function DoctorPatients() {
 
   const fetchPatients = async () => {
     try {
-      setListLoading(true);
-      setError(null);
       const params = new URLSearchParams();
       params.append("current", currentPage.toString());
       params.append("pageSize", pageSize.toString());
@@ -179,17 +175,13 @@ export default function DoctorPatients() {
         setTotalPages(data.pagination?.totalPages ?? 1);
       } else {
         console.error("Error fetching patients:", data?.message ?? "Unknown response");
-        setError(data?.message || "Không thể tải danh sách bệnh nhân");
         setPatients([]);
         setTotalPages(1);
       }
     } catch (error) {
       console.error("Error fetching patients:", error);
-      setError("Lỗi kết nối server");
       setPatients([]);
       setTotalPages(1);
-    } finally {
-      setListLoading(false);
     }
   };
 
@@ -271,8 +263,10 @@ export default function DoctorPatients() {
 
   const fetchPatientAppointments = async (patientId: string) => {
     try {
+      // Get doctor ID from session to filter only appointments with this doctor
+      const doctorId = (session?.user as { _id?: string })?._id;
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/history?current=1&pageSize=50`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/history?current=1&pageSize=50&doctorId=${doctorId}`
       );
       const data = await response.json();
       if (data.success) {
@@ -286,8 +280,10 @@ export default function DoctorPatients() {
 
   const fetchPatientMedicalRecords = async (patientId: string) => {
     try {
+      // Get doctor ID from session to filter only records treated by this doctor
+      const doctorId = (session?.user as { _id?: string })?._id;
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/patient/${patientId}`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/patient/${patientId}?doctorId=${doctorId}`
       );
       const data = await response.json();
       if (data && !data.error) {
@@ -310,23 +306,14 @@ export default function DoctorPatients() {
       }
 
       // Fetch revenue data for doctor filtered by patient ID
+      // Use period=all to get all revenue records, not just last month
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?patientId=${patientId}`
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/revenue/doctor/${doctorId}?patientId=${patientId}&period=all&pageSize=100`
       );
       const data = await res.json();
-
-      // Handle response format from revenue API
-      // Expected: { success: true, data: { results: [...], totalItems, totalPages, etc } }
       let payments = [];
       if (data?.success && data?.data?.results) {
         payments = data.data.results;
-        console.log("✅ Parsed revenue records:", payments.length, "records");
-        console.log("💰 Payment breakdown:", {
-          positive: payments.filter((p: any) => p.amount > 0).length,
-          negative: payments.filter((p: any) => p.amount < 0).length,
-          completed: payments.filter((p: any) => p.status === "completed").length,
-          pending: payments.filter((p: any) => p.status === "pending").length,
-        });
       } else if (data?.data && Array.isArray(data.data)) {
         payments = data.data;
       } else if (Array.isArray(data)) {
@@ -388,26 +375,24 @@ export default function DoctorPatients() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      {/* Header - Schedule Style - Always visible */}
-      <div className="bg-linear-to-br from-primary/5 via-white to-purple-50/30 border-b border-gray-200">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            {/* Title Row */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Quản lý bệnh nhân</h1>
-                  <p className="text-sm text-gray-600 mt-1">Danh sách và thông tin chi tiết bệnh nhân</p>
-                </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+        {/* Header - Schedule Style - Always visible */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          {/* Title Row */}
+          <div>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Quản lý bệnh nhân</h1>
+                <p className="text-sm text-gray-600">Danh sách và thông tin chi tiết bệnh nhân</p>
               </div>
             </div>
 
             {/* Filters Row - Only show when not viewing patient detail */}
-            <div className="flex flex-col md:flex-row items-center gap-3">
+            <div className="flex flex-col md:flex-row items-center gap-3 mt-3">
               {/* Search Input */}
               <div className="relative flex-1 w-full md:w-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -444,11 +429,9 @@ export default function DoctorPatients() {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main content */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        {/* Main content */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-6 mb-6">
           <button
             onClick={() => handleStatCardClick("all")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
@@ -486,16 +469,16 @@ export default function DoctorPatients() {
           <button
             onClick={() => handleStatCardClick("new")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
-              selectedFilter === "new" ? "border-purple-500 shadow-md" : "border-gray-200"
+              selectedFilter === "new" ? "border-primary shadow-md" : "border-gray-200"
             }`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Mới tháng này</p>
-                <p className="text-2xl font-bold text-purple-600">{stats ? stats.newPatientsThisMonth ?? 0 : "..."}</p>
+                <p className="text-2xl font-bold text-primary">{stats ? stats.newPatientsThisMonth ?? 0 : "..."}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-primary" />
               </div>
             </div>
           </button>
@@ -537,18 +520,7 @@ export default function DoctorPatients() {
                 <h2 className="text-base font-semibold text-gray-900">Danh sách bệnh nhân</h2>
               </div>
 
-              {listLoading ? (
-                <div className="p-8 text-center">
-                  <div className="relative">
-                    <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
-                    <div
-                      className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-purple-400 rounded-full animate-spin mx-auto"
-                      style={{ animationDirection: "reverse", animationDuration: "1.5s" }}
-                    ></div>
-                  </div>
-                  <p className="mt-4 text-gray-600 font-medium">Đang tải danh sách bệnh nhân...</p>
-                </div>
-              ) : patients.length === 0 ? (
+              {patients.length === 0 ? (
                 <div className="p-8 text-center">
                   <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center mx-auto mb-3">
                     <Users className="w-6 h-6 text-gray-400" />

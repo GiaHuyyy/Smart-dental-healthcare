@@ -691,6 +691,11 @@ export class RevenueService {
         status: filter.status || { $in: ['pending', 'completed'] },
       };
 
+      // Add patientId filter if provided
+      if (filter.patientId) {
+        revenueFilter.patientId = filter.patientId;
+      }
+
       // Add date filter nếu có
       if (startDate) {
         revenueFilter['revenueDate'] = { $gte: startDate, $lte: endDate };

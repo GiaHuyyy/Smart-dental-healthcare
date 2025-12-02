@@ -1042,9 +1042,14 @@ export class AppointmentsService {
 
   async getPatientAppointmentHistory(patientId: string, query: any) {
     try {
-      const { current = 1, pageSize = 10, status } = query;
+      const { current = 1, pageSize = 10, status, doctorId } = query;
 
       const filter: any = { patientId };
+
+      // Filter by doctorId if provided
+      if (doctorId) {
+        filter.doctorId = doctorId;
+      }
 
       if (status && status !== 'all') {
         filter.status = status;

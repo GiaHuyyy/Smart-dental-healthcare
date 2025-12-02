@@ -165,8 +165,14 @@ export class MedicalRecordsService {
     const page = Number(query.page) || 1;
     const skip = (page - 1) * limit;
 
+    // Build filter with patientId and optional doctorId
+    const filter: any = { patientId };
+    if (query.doctorId) {
+      filter.doctorId = query.doctorId;
+    }
+
     return this.medicalRecordModel
-      .find({ patientId })
+      .find(filter)
       .limit(limit)
       .skip(skip)
       .sort({ recordDate: -1 })

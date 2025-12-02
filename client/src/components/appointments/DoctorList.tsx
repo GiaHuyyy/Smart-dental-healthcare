@@ -387,7 +387,7 @@ function MapView({
   const hasMapLibreConfig = Boolean(process.env.NEXT_PUBLIC_MAPTILER_API_KEY);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px]">
       <div className="lg:col-span-2 healthcare-card overflow-hidden">
         {hasMapLibreConfig ? (
           <Suspense
