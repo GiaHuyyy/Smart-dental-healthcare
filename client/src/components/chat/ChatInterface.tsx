@@ -42,9 +42,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useWebRTC } from "@/contexts/WebRTCContext";
-import IncomingCallModal from "@/components/call/IncomingCallModal";
-import VideoCallInterface from "@/components/call/VideoCallInterface";
+import { useCall } from "@/contexts/CallContext";
 import realtimeChatService from "@/services/realtimeChatService";
 import CallMessage from "../call/CallMessage";
 
@@ -175,8 +173,8 @@ export default function ChatInterface({
   // Session and user data
   const { data: session } = useSession();
 
-  // WebRTC hooks for video calling
-  const { isCallIncoming, incomingCall, isInCall } = useWebRTC();
+  // Call hook for video calling
+  const { callState, incomingCall } = useCall();
 
   // AI Chat History hook
   const {
@@ -365,12 +363,12 @@ export default function ChatInterface({
 
   // Video call: Show incoming call modal when there's an incoming call
   useEffect(() => {
-    if (isCallIncoming && incomingCall) {
+    if (callState.status === "ringing" && incomingCall) {
       setShowIncomingCallModal(true);
     } else {
       setShowIncomingCallModal(false);
     }
-  }, [isCallIncoming, incomingCall]);
+  }, [callState.status, incomingCall]);
 
   // Auto scroll to bottom
   const scrollToBottomInstant = (container?: HTMLDivElement | null) => {
@@ -2476,10 +2474,7 @@ export default function ChatInterface({
         </>
       )}
 
-      {/* Video Call Components */}
-      {isInCall && <VideoCallInterface />}
-
-      <IncomingCallModal />
+      {/* Call components are now global in ClientProviders */}
     </div>
   );
 }

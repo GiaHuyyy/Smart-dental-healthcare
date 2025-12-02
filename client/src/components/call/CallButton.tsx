@@ -1,97 +1,139 @@
-// CallButton.tsx - Fixed version
 "use client";
 
-import React from "react";
-import { useCallContext } from "@/contexts/CallProvider";
-import { Video, Phone } from "lucide-react";
+import React, { ReactNode } from "react";
+import { useCall } from "@/contexts/CallContext";
+import { Phone, Video } from "lucide-react";
+import { toast } from "sonner";
 
 interface CallButtonProps {
-  recipientId: string;
-  recipientName: string;
-  recipientRole: "doctor" | "patient";
-  className?: string;
-  showIcon?: boolean;
-  children?: React.ReactNode;
+  // New API
+  userId?: string;
+  userName?: string;
+  userAvatar?: string;
+  // Old API (backward compatible)
+  recipientId?: string;
+  recipientName?: string;
+  recipientRole?: "doctor" | "patient";
+  // Common props
   isVideoCall?: boolean;
-  style?: React.CSSProperties;
-  title?: string;
+  size?: "sm" | "md" | "lg";
+  variant?: "primary" | "secondary" | "ghost";
+  showLabel?: boolean;
+  showIcon?: boolean;
+  className?: string;
+  children?: ReactNode;
 }
 
-const CallButton: React.FC<CallButtonProps> = ({
+export default function CallButton({
+  // Support both APIs
+  userId,
+  userName,
+  userAvatar,
   recipientId,
   recipientName,
-  recipientRole,
-  className = "",
+  isVideoCall = false,
+  size = "md",
+  variant = "primary",
+  showLabel = false,
   showIcon = true,
+  className = "",
   children,
-  isVideoCall = true,
-  style,
-  title,
-}) => {
-  const { callUser, callState } = useCallContext();
+}: CallButtonProps) {
+  const { callUser, callState, isConnected, checkUserOnline } = useCall();
 
-  const handleStartCall = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Use new API props or fall back to old API
+  const targetUserId = userId || recipientId;
+  const targetUserName = userName || recipientName;
 
-    if (!callState.inCall && !callState.isReceivingCall) {
-      try {
-        console.log(`Starting ${isVideoCall ? 'video' : 'audio'} call to:`, {
-          recipientId,
-          recipientName,
-          recipientRole,
-          isVideoCall
-        });
+  const isInCall = callState.status !== "idle";
 
-        await callUser(recipientId, recipientName, recipientRole, isVideoCall);
-      } catch (error) {
-        console.error("Failed to start call:", error);
-      }
+  const handleCall = async () => {
+    console.log("🔍 [CallButton] targetUserId:", targetUserId);
+    console.log("🔍 [CallButton] targetUserName:", targetUserName);
+    console.log("🔍 [CallButton] isConnected:", isConnected);
+
+    if (!targetUserId || !targetUserName) {
+      toast.error("Thiếu thông tin người nhận cuộc gọi");
+      return;
     }
+
+    if (!isConnected) {
+      toast.error("Chưa kết nối đến server");
+      return;
+    }
+
+    if (isInCall) {
+      toast.error("Đang trong cuộc gọi khác");
+      return;
+    }
+
+    // Check if user is online
+    const isOnline = await checkUserOnline(targetUserId);
+    console.log("🔍 [CallButton] isOnline:", isOnline);
+    if (!isOnline) {
+      toast.error(`${targetUserName || "Người dùng"} đang không online`);
+      return;
+    }
+
+    // Start call
+    await callUser(targetUserId, targetUserName, isVideoCall, userAvatar);
   };
 
-  const isDisabled = callState.inCall || callState.isReceivingCall || callState.callConnectionStatus === "connecting";
+  const sizeClasses = {
+    sm: "p-1.5",
+    md: "p-2",
+    lg: "p-3",
+  };
 
-  const defaultTitle = isDisabled
-    ? "Đang trong cuộc gọi"
-    : `${isVideoCall ? "Gọi video" : "Gọi thoại"} cho ${recipientName}`;
+  const iconSizes = {
+    sm: "w-4 h-4",
+    md: "w-5 h-5",
+    lg: "w-6 h-6",
+  };
 
-  // If children is provided, render custom content
+  const variantClasses = {
+    primary: "bg-primary hover:bg-primary/90 text-white",
+    secondary: "bg-gray-100 hover:bg-gray-200 text-gray-700",
+    ghost: "hover:bg-gray-100 text-gray-600",
+  };
+
+  const Icon = isVideoCall ? Video : Phone;
+
+  // If children provided, render as wrapper (old API style)
   if (children) {
     return (
       <button
-        onClick={handleStartCall}
-        disabled={isDisabled}
-        className={`${className} ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-        style={style}
-        title={title || defaultTitle}
+        onClick={handleCall}
+        disabled={isInCall || !isConnected}
+        className={`
+          transition-all duration-200
+          disabled:opacity-50 disabled:cursor-not-allowed
+          ${className}
+        `}
+        title={isVideoCall ? "Gọi video" : "Gọi thoại"}
       >
         {children}
       </button>
     );
   }
 
+  // New API style with built-in icon
   return (
     <button
-      onClick={handleStartCall}
-      disabled={isDisabled}
+      onClick={handleCall}
+      disabled={isInCall || !isConnected}
       className={`
-        inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white
-        ${
-          isDisabled
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        }
-        transition-colors duration-200
+        ${sizeClasses[size]}
+        ${variantClasses[variant]}
+        rounded-full transition-all duration-200
+        disabled:opacity-50 disabled:cursor-not-allowed
+        flex items-center gap-2
         ${className}
       `}
-      style={style}
-      title={title || defaultTitle}
+      title={isVideoCall ? "Gọi video" : "Gọi thoại"}
     >
-      {showIcon && (isVideoCall ? <Video className="w-4 h-4 mr-2" /> : <Phone className="w-4 h-4 mr-2" />)}
-      {isDisabled ? "Đang gọi..." : isVideoCall ? "Gọi video" : "Gọi thoại"}
+      {showIcon && <Icon className={iconSizes[size]} />}
+      {showLabel && <span className="text-sm font-medium">{isVideoCall ? "Video" : "Gọi"}</span>}
     </button>
   );
-};
-
-export default CallButton;
+}

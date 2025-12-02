@@ -10,42 +10,33 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { RealtimeChatService } from '../realtime-chat/realtime-chat.service';
-import { Types } from 'mongoose';
-import { ConfigService } from '@nestjs/config';
 
-interface CallOffer {
+// Interfaces
+interface ConnectedUser {
+  socketId: string;
+  odataId: string;
+  userName: string;
+  userRole: 'doctor' | 'patient';
+}
+
+interface ActiveCall {
+  callId: string;
   callerId: string;
+  receiverId: string;
   callerName: string;
-  callerRole: 'doctor' | 'patient';
-  recipientId: string;
-  callType: 'video' | 'audio';
-  offer: RTCSessionDescriptionInit;
+  receiverName: string;
+  isVideoCall: boolean;
+  startedAt: Date;
+  answeredAt?: Date;
+  messageId?: string;
 }
 
-interface CallAnswer {
-  callerId: string;
-  recipientId: string;
-  answer: RTCSessionDescriptionInit;
-}
-
-interface ICECandidate {
-  callerId: string;
-  recipientId: string;
-  candidate: RTCIceCandidateInit;
-}
-
-interface CallRequest {
-  callerId: string;
-  callerName: string;
-  callerRole: 'doctor' | 'patient';
-  recipientId: string;
-  callType: 'video' | 'audio';
-}
-// Deploy nhớ thay đổi origin cho đúng
 @WebSocketGateway({
   cors: {
     origin: [
-      new ConfigService().get<string>('CLIENT_URL') || 'http://localhost:3000',
+      process.env.CLIENT_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'http://localhost:8082',
     ],
     methods: ['GET', 'POST'],
     credentials: true,
@@ -56,495 +47,375 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  private logger: Logger = new Logger('WebRTCGateway');
-  private connectedUsers = new Map<
-    string,
-    { socketId: string; userId: string; userRole: string; userName: string }
-  >();
-  private activeCalls = new Map<
-    string,
-    {
-      messageId: string;
-      callerId: string;
-      receiverId: string;
-      callType: 'audio' | 'video';
-      startedAt: Date;
-    }
-  >();
+  private logger = new Logger('WebRTCGateway');
+  private connectedUsers = new Map<string, ConnectedUser>();
+  private activeCalls = new Map<string, ActiveCall>();
 
   constructor(private readonly realtimeChatService: RealtimeChatService) {}
 
+  // ==================== CONNECTION HANDLERS ====================
+
   handleConnection(client: Socket) {
-    this.logger.log(`WebRTC Client connected: ${client.id}`);
+    this.logger.log(`🔌 Client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.log(`WebRTC Client disconnected: ${client.id}`);
+    this.logger.log(`🔌 Client disconnected: ${client.id}`);
 
-    // Remove user from connected users
-    for (const [userId, userInfo] of this.connectedUsers.entries()) {
-      if (userInfo.socketId === client.id) {
-        this.connectedUsers.delete(userId);
-        this.logger.log(`User ${userId} removed from WebRTC connections`);
+    // Find and remove user
+    for (const [odataId, user] of this.connectedUsers.entries()) {
+      if (user.socketId === client.id) {
+        this.connectedUsers.delete(odataId);
+        this.logger.log(`👤 User ${odataId} removed from WebRTC`);
+
+        // End any active calls for this user
+        this.handleUserDisconnectFromCall(odataId);
         break;
       }
     }
   }
 
-  @SubscribeMessage('join-webrtc')
-  handleJoinWebRTC(
-    @MessageBody() data: { userId: string; userRole: string; userName: string },
+  // ==================== SOCKET EVENTS ====================
+
+  /**
+   * User joins WebRTC - registers for calls
+   */
+  @SubscribeMessage('join')
+  handleJoin(
+    @MessageBody()
+    data: { odataId: string; userName: string; userRole: 'doctor' | 'patient' },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(`User joined WebRTC: ${data.userId} (${data.userRole})`);
+    this.logger.log(`👤 User joining: ${data.userName} (${data.odataId})`);
 
-    this.connectedUsers.set(data.userId, {
+    this.connectedUsers.set(data.odataId, {
       socketId: client.id,
-      userId: data.userId,
-      userRole: data.userRole,
+      odataId: data.odataId,
       userName: data.userName,
+      userRole: data.userRole,
     });
 
-    client.emit('webrtc-joined', { success: true });
+    client.emit('joined', { success: true });
+    this.logger.log(
+      `✅ User ${data.userName} joined WebRTC. Total users: ${this.connectedUsers.size}`,
+    );
   }
 
+  /**
+   * Check if a user is online
+   */
+  @SubscribeMessage('check-online')
+  handleCheckOnline(
+    @MessageBody() data: { odataId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(`🔍 Check online request for: ${data.odataId}`);
+    this.logger.log(
+      `📋 Connected users: ${Array.from(this.connectedUsers.keys()).join(', ')}`,
+    );
+    const isOnline = this.connectedUsers.has(data.odataId);
+    this.logger.log(
+      `📤 Sending online-status: ${data.odataId} is ${isOnline ? 'ONLINE' : 'OFFLINE'}`,
+    );
+    client.emit('online-status', { odataId: data.odataId, isOnline });
+  }
+
+  /**
+   * Initiate a call to another user
+   */
   @SubscribeMessage('call-user')
   async handleCallUser(
     @MessageBody()
     data: {
+      callId: string;
       callerId: string;
-      receiverId: string;
       callerName: string;
-      callerRole: string;
+      callerAvatar?: string;
+      receiverId: string;
+      receiverName: string;
       isVideoCall: boolean;
-      signal: any;
+      signalData: any;
     },
     @ConnectedSocket() client: Socket,
   ) {
     this.logger.log(
-      `Call initiated from ${data.callerId} to ${data.receiverId} (${data.isVideoCall ? 'video' : 'audio'})`,
+      `📞 Call from ${data.callerName} to ${data.receiverName} (${data.isVideoCall ? 'video' : 'audio'})`,
     );
 
-    // ---- THAY ĐỔI 1: Tạo key để kiểm tra và khóa ----
-    // Dùng key này để đảm bảo chỉ có 1 cuộc gọi (theo 1 chiều) được thiết lập
-    const callKey = `${data.callerId}-${data.receiverId}`;
-
-    // Kiểm tra xem có cuộc gọi nào đang được thiết lập hoặc đang diễn ra không
-    if (this.activeCalls.has(callKey)) {
-      this.logger.warn(
-        `Call from ${data.callerId} to ${data.receiverId} is already being processed. Ignoring duplicate request.`,
-      );
-      return; // Dừng ngay nếu đã có yêu cầu trước đó
+    // Check if receiver is online
+    const receiver = this.connectedUsers.get(data.receiverId);
+    if (!receiver) {
+      this.logger.warn(`❌ Receiver ${data.receiverId} is not online`);
+      client.emit('call-failed', { reason: 'Người nhận không online' });
+      return;
     }
 
-    // ---- THAY ĐỔI 2: "Khóa" ngay lập tức ----
-    // Đặt một giá trị tạm thời vào map để chặn các yêu cầu tiếp theo
-    // Giá trị này sẽ được cập nhật sau khi có messageId thật
-    this.activeCalls.set(callKey, {
-      messageId: 'pending-' + new Types.ObjectId().toString(), // ID tạm thời
-      callerId: data.callerId,
-      receiverId: data.receiverId,
-      callType: data.isVideoCall ? 'video' : 'audio',
-      startedAt: new Date(),
-    });
+    // Check if either party is already in a call
+    const existingCall =
+      this.findActiveCallForUser(data.callerId) ||
+      this.findActiveCallForUser(data.receiverId);
+    if (existingCall) {
+      this.logger.warn(`❌ One of the users is already in a call`);
+      client.emit('call-failed', {
+        reason: 'Một trong hai bên đang trong cuộc gọi khác',
+      });
+      return;
+    }
 
+    // Use callId from client
+    const callId = data.callId;
+
+    // Create call message in chat history
+    let messageId: string | undefined;
     try {
-      // Create call history message
+      const caller = this.connectedUsers.get(data.callerId);
       const callMessage = await this.realtimeChatService.createCallMessage(
         data.callerId,
         data.receiverId,
-        data.callerRole as 'doctor' | 'patient',
+        caller?.userRole || 'patient',
         {
           callType: data.isVideoCall ? 'video' : 'audio',
-          callStatus: 'missed', // Initial status, will be updated
+          callStatus: 'missed', // Default to missed, will update when answered
           callDuration: 0,
           startedAt: new Date(),
         },
       );
-
-      const realMessageId = (callMessage as any)._id.toString();
-
-      // ---- THAY ĐỔI 3: Cập nhật messageId thật ----
-      // Lấy lại mục đã khóa và cập nhật với messageId chính xác từ DB
-      const activeCallData = this.activeCalls.get(callKey);
-      if (activeCallData) {
-        activeCallData.messageId = realMessageId;
-        this.activeCalls.set(callKey, activeCallData);
-      } else {
-        // Trường hợp hiếm gặp: cuộc gọi đã bị hủy bởi một tiến trình khác
-        this.logger.warn(
-          `Active call data for ${callKey} disappeared unexpectedly.`,
-        );
-        return;
-      }
-
-      const receiver = this.connectedUsers.get(data.receiverId);
-
-      if (receiver) {
-        // Send incoming call notification to receiver
-        this.server.to(receiver.socketId).emit('incoming-call', {
-          callerId: data.callerId,
-          callerName: data.callerName,
-          callerRole: data.callerRole,
-          isVideoCall: data.isVideoCall,
-          signal: data.signal,
-          messageId: realMessageId, // Gửi đi messageId thật
-        });
-
-        // Confirm to caller that call was initiated
-        client.emit('call-initiated', {
-          receiverId: data.receiverId,
-          messageId: realMessageId, // Gửi đi messageId thật
-        });
-      } else {
-        // Receiver not online - update call status to missed
-        await this.realtimeChatService.updateCallStatus(
-          realMessageId,
-          'missed',
-          0,
-        );
-        // Dọn dẹp khóa vì cuộc gọi thất bại
-        this.activeCalls.delete(callKey);
-
-        client.emit('call-failed', {
-          receiverId: data.receiverId,
-          reason: 'User not online',
-        });
-      }
+      messageId = (callMessage as any)?._id?.toString();
     } catch (error) {
       this.logger.error('Failed to create call message:', error);
-      // Dọn dẹp khóa nếu có lỗi xảy ra
-      this.activeCalls.delete(callKey);
-      client.emit('call-failed', {
-        receiverId: data.receiverId,
-        reason: 'Internal error',
-      });
     }
+
+    // Store active call
+    const activeCall: ActiveCall = {
+      callId,
+      callerId: data.callerId,
+      receiverId: data.receiverId,
+      callerName: data.callerName,
+      receiverName: data.receiverName,
+      isVideoCall: data.isVideoCall,
+      startedAt: new Date(),
+      messageId,
+    };
+    this.activeCalls.set(callId, activeCall);
+
+    // Send incoming call to receiver
+    this.server.to(receiver.socketId).emit('incoming-call', {
+      callId,
+      callerId: data.callerId,
+      callerName: data.callerName,
+      callerAvatar: data.callerAvatar,
+      isVideoCall: data.isVideoCall,
+      signalData: data.signalData,
+    });
+
+    // Confirm call initiated to caller
+    client.emit('call-initiated', { callId, messageId });
+    this.logger.log(`✅ Call ${callId} initiated`);
   }
 
+  /**
+   * Answer an incoming call
+   */
   @SubscribeMessage('answer-call')
   async handleAnswerCall(
     @MessageBody()
     data: {
-      callerId: string;
-      receiverId: string;
-      signal: any;
-      messageId?: string;
+      callId: string;
+      signalData: any;
     },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(
-      `Call answered by ${data.receiverId} from ${data.callerId}`,
-    );
+    this.logger.log(`✅ Call ${data.callId} being answered`);
 
-    try {
-      // Update call status to answered
-      const callKey = `${data.callerId}-${data.receiverId}`;
-      const activeCall = this.activeCalls.get(callKey);
+    const call = this.activeCalls.get(data.callId);
+    if (!call) {
+      this.logger.warn(`❌ Call ${data.callId} not found`);
+      client.emit('call-error', { reason: 'Cuộc gọi không tồn tại' });
+      return;
+    }
 
-      if (activeCall) {
+    // Update call status
+    call.answeredAt = new Date();
+
+    // Update call message status to answered
+    if (call.messageId) {
+      try {
         await this.realtimeChatService.updateCallStatus(
-          activeCall.messageId,
+          call.messageId,
           'answered',
           0,
         );
+      } catch (error) {
+        this.logger.error('Failed to update call status:', error);
       }
-
-      const caller = this.connectedUsers.get(data.callerId);
-
-      if (caller) {
-        // Send answer signal to caller
-        this.server.to(caller.socketId).emit('call-accepted', {
-          receiverId: data.receiverId,
-          signal: data.signal,
-        });
-      }
-    } catch (error) {
-      this.logger.error('Failed to update call status to answered:', error);
     }
+
+    // Send answer signal to caller
+    const caller = this.connectedUsers.get(call.callerId);
+    if (caller) {
+      this.server.to(caller.socketId).emit('call-answered', {
+        callId: data.callId,
+        signalData: data.signalData,
+      });
+    }
+
+    this.logger.log(`✅ Call ${data.callId} answered`);
   }
 
+  /**
+   * Reject an incoming call
+   */
   @SubscribeMessage('reject-call')
   async handleRejectCall(
-    @MessageBody()
-    data: { callerId: string; receiverId: string; messageId?: string },
+    @MessageBody() data: { callId: string; reason?: string },
     @ConnectedSocket() client: Socket,
   ) {
     this.logger.log(
-      `Call rejected by ${data.receiverId} from ${data.callerId}`,
+      `❌ Call ${data.callId} rejected: ${data.reason || 'No reason'}`,
     );
 
-    try {
-      // Update call status to rejected
-      const callKey = `${data.callerId}-${data.receiverId}`;
-      const activeCall = this.activeCalls.get(callKey);
+    const call = this.activeCalls.get(data.callId);
+    if (!call) return;
 
-      if (activeCall) {
+    // Update call message status to rejected
+    if (call.messageId) {
+      try {
         await this.realtimeChatService.updateCallStatus(
-          activeCall.messageId,
+          call.messageId,
           'rejected',
           0,
         );
-        this.activeCalls.delete(callKey);
+      } catch (error) {
+        this.logger.error('Failed to update call status:', error);
       }
-
-      const caller = this.connectedUsers.get(data.callerId);
-
-      if (caller) {
-        // Notify caller that call was rejected
-        this.server.to(caller.socketId).emit('call-rejected', {
-          receiverId: data.receiverId,
-        });
-      }
-    } catch (error) {
-      this.logger.error('Failed to update call status to rejected:', error);
     }
-  }
 
-  @SubscribeMessage('ice-candidate')
-  handleIceCandidate(
-    @MessageBody()
-    data: {
-      callerId: string;
-      receiverId: string;
-      candidate: RTCIceCandidateInit;
-    },
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(
-      `ICE candidate exchange between ${data.callerId} and ${data.receiverId}`,
-    );
-
-    // Determine the recipient (the other party)
-    const currentUserId = data.callerId;
-    const otherUserId = data.receiverId;
-
-    const recipient = this.connectedUsers.get(otherUserId);
-
-    if (recipient) {
-      this.server.to(recipient.socketId).emit('ice-candidate', {
-        callerId: data.callerId,
-        receiverId: data.receiverId,
-        candidate: data.candidate,
+    // Notify caller
+    const caller = this.connectedUsers.get(call.callerId);
+    if (caller) {
+      this.server.to(caller.socketId).emit('call-rejected', {
+        callId: data.callId,
+        reason: data.reason || 'Cuộc gọi bị từ chối',
       });
     }
+
+    // Remove call
+    this.activeCalls.delete(data.callId);
   }
 
+  /**
+   * End an active call
+   */
   @SubscribeMessage('end-call')
   async handleEndCall(
-    @MessageBody()
-    data: { callerId: string; receiverId: string; messageId?: string },
+    @MessageBody() data: { callId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(
-      `Call ended between ${data.callerId} and ${data.receiverId}`,
-    );
+    this.logger.log(`📞 Ending call ${data.callId}`);
 
-    try {
-      // Update call status to completed with duration
-      const callKey = `${data.callerId}-${data.receiverId}`;
-      const activeCall = this.activeCalls.get(callKey);
+    const call = this.activeCalls.get(data.callId);
+    if (!call) return;
 
-      if (activeCall) {
-        const callDuration = Math.floor(
-          (new Date().getTime() - activeCall.startedAt.getTime()) / 1000,
-        );
+    // Calculate duration
+    const duration = call.answeredAt
+      ? Math.floor((Date.now() - call.answeredAt.getTime()) / 1000)
+      : 0;
 
+    // Update call message
+    if (call.messageId) {
+      try {
+        const status = call.answeredAt ? 'completed' : 'missed';
         await this.realtimeChatService.updateCallStatus(
-          activeCall.messageId,
-          'completed',
-          callDuration,
+          call.messageId,
+          status,
+          duration,
         );
-        this.activeCalls.delete(callKey);
+      } catch (error) {
+        this.logger.error('Failed to update call status:', error);
       }
-
-      const caller = this.connectedUsers.get(data.callerId);
-      const receiver = this.connectedUsers.get(data.receiverId);
-
-      // Notify both parties that call ended
-      if (caller && caller.socketId !== client.id) {
-        this.server.to(caller.socketId).emit('call-ended', {
-          otherUserId: data.receiverId,
-        });
-      }
-
-      if (receiver && receiver.socketId !== client.id) {
-        this.server.to(receiver.socketId).emit('call-ended', {
-          otherUserId: data.callerId,
-        });
-      }
-    } catch (error) {
-      this.logger.error('Failed to update call status to completed:', error);
     }
-  }
 
-  @SubscribeMessage('call-request')
-  handleCallRequest(
-    @MessageBody() data: CallRequest,
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(
-      `Call request from ${data.callerId} to ${data.recipientId}`,
-    );
+    // Notify both parties
+    const caller = this.connectedUsers.get(call.callerId);
+    const receiver = this.connectedUsers.get(call.receiverId);
 
-    const recipient = this.connectedUsers.get(data.recipientId);
-
-    if (recipient) {
-      // Send call request to recipient
-      this.server.to(recipient.socketId).emit('incoming-call', {
-        callerId: data.callerId,
-        callerName: data.callerName,
-        callerRole: data.callerRole,
-        callType: data.callType,
-      });
-
-      // Confirm to caller that request was sent
-      client.emit('call-request-sent', { recipientId: data.recipientId });
-    } else {
-      // Recipient not online
-      client.emit('call-request-failed', {
-        recipientId: data.recipientId,
-        reason: 'User not online',
-      });
-    }
-  }
-
-  @SubscribeMessage('call-accept')
-  handleCallAccept(
-    @MessageBody() data: { callerId: string; recipientId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(
-      `Call accepted by ${data.recipientId} from ${data.callerId}`,
-    );
-
-    const caller = this.connectedUsers.get(data.callerId);
+    const endData = { callId: data.callId, duration };
 
     if (caller) {
-      // Notify caller that call was accepted
-      this.server.to(caller.socketId).emit('call-accepted', {
-        recipientId: data.recipientId,
-      });
+      this.server.to(caller.socketId).emit('call-ended', endData);
     }
+    if (receiver) {
+      this.server.to(receiver.socketId).emit('call-ended', endData);
+    }
+
+    // Remove call
+    this.activeCalls.delete(data.callId);
+    this.logger.log(`✅ Call ${data.callId} ended. Duration: ${duration}s`);
   }
 
-  @SubscribeMessage('call-reject')
-  handleCallReject(
-    @MessageBody() data: { callerId: string; recipientId: string },
+  /**
+   * Send ICE candidate
+   */
+  @SubscribeMessage('ice-candidate')
+  handleIceCandidate(
+    @MessageBody() data: { callId: string; candidate: any; toUserId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(
-      `Call rejected by ${data.recipientId} from ${data.callerId}`,
-    );
-
-    const caller = this.connectedUsers.get(data.callerId);
-
-    if (caller) {
-      // Notify caller that call was rejected
-      this.server.to(caller.socketId).emit('call-rejected', {
-        recipientId: data.recipientId,
-      });
-    }
-  }
-
-  @SubscribeMessage('call-end')
-  handleCallEnd(
-    @MessageBody() data: { callerId: string; recipientId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(
-      `Call ended between ${data.callerId} and ${data.recipientId}`,
-    );
-
-    const caller = this.connectedUsers.get(data.callerId);
-    const recipient = this.connectedUsers.get(data.recipientId);
-
-    // Notify both parties that call ended
-    if (caller && caller.socketId !== client.id) {
-      this.server.to(caller.socketId).emit('call-ended', {
-        otherUserId: data.recipientId,
-      });
-    }
-
-    if (recipient && recipient.socketId !== client.id) {
-      this.server.to(recipient.socketId).emit('call-ended', {
-        otherUserId: data.callerId,
-      });
-    }
-  }
-
-  @SubscribeMessage('webrtc-offer')
-  handleWebRTCOffer(
-    @MessageBody() data: CallOffer,
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(
-      `WebRTC offer from ${data.callerId} to ${data.recipientId}`,
-    );
-
-    const recipient = this.connectedUsers.get(data.recipientId);
-
-    if (recipient) {
-      this.server.to(recipient.socketId).emit('webrtc-offer', {
-        callerId: data.callerId,
-        callerName: data.callerName,
-        callerRole: data.callerRole,
-        offer: data.offer,
-      });
-    }
-  }
-
-  @SubscribeMessage('webrtc-answer')
-  handleWebRTCAnswer(
-    @MessageBody() data: CallAnswer,
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(
-      `WebRTC answer from ${data.recipientId} to ${data.callerId}`,
-    );
-
-    const caller = this.connectedUsers.get(data.callerId);
-
-    if (caller) {
-      this.server.to(caller.socketId).emit('webrtc-answer', {
-        recipientId: data.recipientId,
-        answer: data.answer,
-      });
-    }
-  }
-
-  @SubscribeMessage('webrtc-ice-candidate')
-  handleICECandidate(
-    @MessageBody() data: ICECandidate,
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.logger.log(
-      `ICE candidate from ${data.callerId} to ${data.recipientId}`,
-    );
-
-    const otherUserId =
-      data.recipientId === data.callerId ? data.callerId : data.recipientId;
-    const recipient = this.connectedUsers.get(otherUserId);
-
-    if (recipient) {
-      this.server.to(recipient.socketId).emit('webrtc-ice-candidate', {
-        callerId: data.callerId,
+    const targetUser = this.connectedUsers.get(data.toUserId);
+    if (targetUser) {
+      this.server.to(targetUser.socketId).emit('ice-candidate', {
+        callId: data.callId,
         candidate: data.candidate,
       });
     }
   }
 
-  // Helper method to get online users
-  @SubscribeMessage('get-online-users')
-  handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
-    const onlineUsers = Array.from(this.connectedUsers.values()).map(
-      (user) => ({
-        userId: user.userId,
-        userRole: user.userRole,
-        userName: user.userName,
-      }),
-    );
+  // ==================== HELPER METHODS ====================
 
-    client.emit('online-users', onlineUsers);
+  private findActiveCallForUser(odataId: string): ActiveCall | undefined {
+    for (const call of this.activeCalls.values()) {
+      if (call.callerId === odataId || call.receiverId === odataId) {
+        return call;
+      }
+    }
+    return undefined;
+  }
+
+  private async handleUserDisconnectFromCall(odataId: string) {
+    const call = this.findActiveCallForUser(odataId);
+    if (!call) return;
+
+    // Calculate duration
+    const duration = call.answeredAt
+      ? Math.floor((Date.now() - call.answeredAt.getTime()) / 1000)
+      : 0;
+
+    // Update call message
+    if (call.messageId) {
+      try {
+        const status = call.answeredAt ? 'completed' : 'missed';
+        await this.realtimeChatService.updateCallStatus(
+          call.messageId,
+          status,
+          duration,
+        );
+      } catch (error) {
+        this.logger.error('Failed to update call status on disconnect:', error);
+      }
+    }
+
+    // Notify the other party
+    const otherUserId =
+      call.callerId === odataId ? call.receiverId : call.callerId;
+    const otherUser = this.connectedUsers.get(otherUserId);
+    if (otherUser) {
+      this.server.to(otherUser.socketId).emit('call-ended', {
+        callId: call.callId,
+        duration,
+        reason: 'Người dùng đã ngắt kết nối',
+      });
+    }
+
+    this.activeCalls.delete(call.callId);
   }
 }

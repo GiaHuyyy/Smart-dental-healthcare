@@ -8,10 +8,8 @@ import { GlobalSocketProvider } from "@/contexts/GlobalSocketContext";
 import { AppointmentProvider } from "@/contexts/AppointmentContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { RealtimeChatProvider } from "@/contexts/RealtimeChatContext";
-import { WebRTCProvider } from "@/contexts/WebRTCContext";
-import { CallProvider } from "@/contexts/CallProvider";
-import IncomingCallModal from "@/components/call/IncomingCallModal";
-import VideoCallInterface from "@/components/call/VideoCallInterface";
+import { CallProvider } from "@/contexts/CallContext";
+import { IncomingCallModal, CallScreen } from "@/components/call";
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -25,16 +23,15 @@ export default function ClientProviders({ children }: { children: React.ReactNod
             <NotificationProvider>
               {/* Chat Context - Reuses socket for chat (except private chat rooms) */}
               <RealtimeChatProvider>
-                <WebRTCProvider>
-                  <CallProvider>
-                    {children}
-                    <Toaster expand={false} position="top-right" richColors closeButton />
+                {/* Call Context - WebRTC calls */}
+                <CallProvider>
+                  {children}
+                  <Toaster expand={false} position="top-right" richColors closeButton />
 
-                    {/* Global Call Components */}
-                    <IncomingCallModal />
-                    <VideoCallInterface />
-                  </CallProvider>
-                </WebRTCProvider>
+                  {/* Global Call Components */}
+                  <IncomingCallModal />
+                  <CallScreen />
+                </CallProvider>
               </RealtimeChatProvider>
             </NotificationProvider>
           </AppointmentProvider>
