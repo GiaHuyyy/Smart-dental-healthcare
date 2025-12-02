@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import tooth from "../../public/tooth.svg";
+import HeroImage from "../../public/images/hero-doctor.png";
 
 export default function HomePage() {
   const [activeTestimonial, setActiveTestimonial] = useState(0);
@@ -187,7 +188,7 @@ export default function HomePage() {
       <section className="relative min-h-screen overflow-hidden -mt-[72px] pt-[72px]">
         {/* Background Image - Full Cover */}
         <div className="absolute inset-0">
-          <Image src="/images/hero-doctor.png" alt="Background" fill className="object-cover object-center" priority />
+          <Image src={HeroImage} alt="Background" fill className="object-cover object-center" priority />
         </div>
 
         {/* Floating Card - Top Right */}
