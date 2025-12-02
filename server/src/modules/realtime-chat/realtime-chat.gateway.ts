@@ -339,6 +339,41 @@ export class RealtimeChatGateway
     }
   }
 
+  /**
+   * Broadcast call message update to both patient and doctor
+   * Called when a call ends to update the call status in real-time
+   */
+  async broadcastCallMessageUpdate(
+    conversationId: Types.ObjectId,
+    message: MessageDocument,
+  ) {
+    try {
+      const conversation =
+        await this.realtimeChatService.getConversationById(conversationId);
+      if (!conversation) return;
+
+      const patientRoom = `user_${conversation.patientId._id.toString()}`;
+      const doctorRoom = `user_${conversation.doctorId._id.toString()}`;
+
+      const payload = {
+        message,
+        conversationId: conversationId.toString(),
+      };
+
+      // Emit call message update event
+      this.server
+        .to(patientRoom)
+        .to(doctorRoom)
+        .emit('callMessageUpdated', payload);
+
+      this.logger.log(
+        `Broadcasted call message update ${message._id} to rooms: ${patientRoom}, ${doctorRoom}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to broadcast call message update: ${error}`);
+    }
+  }
+
   @SubscribeMessage('markConversationAsRead')
   async handleMarkAsRead(
     @ConnectedSocket() client: AuthenticatedSocket,

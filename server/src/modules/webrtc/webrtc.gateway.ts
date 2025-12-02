@@ -10,6 +10,7 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { RealtimeChatService } from '../realtime-chat/realtime-chat.service';
+import { RealtimeChatGateway } from '../realtime-chat/realtime-chat.gateway';
 
 // Interfaces
 interface ConnectedUser {
@@ -51,7 +52,10 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private connectedUsers = new Map<string, ConnectedUser>();
   private activeCalls = new Map<string, ActiveCall>();
 
-  constructor(private readonly realtimeChatService: RealtimeChatService) {}
+  constructor(
+    private readonly realtimeChatService: RealtimeChatService,
+    private readonly realtimeChatGateway: RealtimeChatGateway,
+  ) {}
 
   // ==================== CONNECTION HANDLERS ====================
 
@@ -69,7 +73,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.log(`👤 User ${odataId} removed from WebRTC`);
 
         // End any active calls for this user
-        this.handleUserDisconnectFromCall(odataId);
+        void this.handleUserDisconnectFromCall(odataId);
         break;
       }
     }
@@ -277,14 +281,22 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const call = this.activeCalls.get(data.callId);
     if (!call) return;
 
-    // Update call message status to rejected
+    // Update call message status to rejected and broadcast
     if (call.messageId) {
       try {
-        await this.realtimeChatService.updateCallStatus(
+        const updatedMessage = await this.realtimeChatService.updateCallStatus(
           call.messageId,
           'rejected',
           0,
         );
+
+        // Broadcast call message update to chat
+        if (updatedMessage && updatedMessage.conversationId) {
+          await this.realtimeChatGateway.broadcastCallMessageUpdate(
+            updatedMessage.conversationId,
+            updatedMessage,
+          );
+        }
       } catch (error) {
         this.logger.error('Failed to update call status:', error);
       }
@@ -321,15 +333,23 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ? Math.floor((Date.now() - call.answeredAt.getTime()) / 1000)
       : 0;
 
-    // Update call message
+    // Update call message and broadcast to chat
     if (call.messageId) {
       try {
         const status = call.answeredAt ? 'completed' : 'missed';
-        await this.realtimeChatService.updateCallStatus(
+        const updatedMessage = await this.realtimeChatService.updateCallStatus(
           call.messageId,
           status,
           duration,
         );
+
+        // Broadcast call message update to chat so both parties see real-time update
+        if (updatedMessage && updatedMessage.conversationId) {
+          await this.realtimeChatGateway.broadcastCallMessageUpdate(
+            updatedMessage.conversationId,
+            updatedMessage,
+          );
+        }
       } catch (error) {
         this.logger.error('Failed to update call status:', error);
       }
@@ -390,15 +410,23 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ? Math.floor((Date.now() - call.answeredAt.getTime()) / 1000)
       : 0;
 
-    // Update call message
+    // Update call message and broadcast to chat
     if (call.messageId) {
       try {
         const status = call.answeredAt ? 'completed' : 'missed';
-        await this.realtimeChatService.updateCallStatus(
+        const updatedMessage = await this.realtimeChatService.updateCallStatus(
           call.messageId,
           status,
           duration,
         );
+
+        // Broadcast call message update to chat
+        if (updatedMessage && updatedMessage.conversationId) {
+          await this.realtimeChatGateway.broadcastCallMessageUpdate(
+            updatedMessage.conversationId,
+            updatedMessage,
+          );
+        }
       } catch (error) {
         this.logger.error('Failed to update call status on disconnect:', error);
       }

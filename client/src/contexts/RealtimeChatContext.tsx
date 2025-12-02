@@ -14,9 +14,16 @@ interface Message {
     avatarUrl?: string;
   };
   senderRole: "patient" | "doctor";
-  messageType: "text" | "image" | "file";
+  messageType: "text" | "image" | "file" | "call";
   createdAt: string;
   isRead: boolean;
+  callData?: {
+    callType: "audio" | "video";
+    callStatus: "missed" | "answered" | "rejected" | "completed";
+    callDuration: number;
+    startedAt: string;
+    endedAt?: string;
+  };
 }
 
 interface Conversation {
@@ -121,6 +128,16 @@ export const RealtimeChatProvider: React.FC<RealtimeChatProviderProps> = ({ chil
       // Defer conversations refresh to the page logic; avoid TDZ here
       // Optionally, we could trigger a light flag for list to refetch
       setIsLoading(false);
+    });
+
+    // Call message update (when call ends, update status in real-time)
+    realtimeChatService.on("callMessageUpdated", (data) => {
+      const { message, conversationId } = data;
+
+      // Update the call message in the current conversation
+      if (activeConversation && activeConversation._id === conversationId) {
+        setMessages((prev) => prev.map((msg) => (msg._id === message._id ? { ...msg, ...message } : msg)));
+      }
     });
 
     realtimeChatService.on("messageRead", (data) => {

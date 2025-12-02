@@ -119,6 +119,7 @@ export default function ChatHeader({
                 recipientId={peerId}
                 recipientName={peerName}
                 recipientRole={isPatientViewingDoctor ? "doctor" : "patient"}
+                userAvatar={peerAvatar}
                 isVideoCall={false}
                 showIcon={false}
                 className="text-primary flex items-center space-x-1.5 pl-3 pr-2 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
@@ -136,6 +137,7 @@ export default function ChatHeader({
                 recipientId={peerId}
                 recipientName={peerName}
                 recipientRole={isPatientViewingDoctor ? "doctor" : "patient"}
+                userAvatar={peerAvatar}
                 isVideoCall={true}
                 showIcon={false}
                 className="text-primary flex items-center space-x-1.5 pl-2 pr-3 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
