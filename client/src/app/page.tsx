@@ -27,6 +27,13 @@ import {
 
 import tooth from "../../public/tooth.svg";
 import HeroImage from "../../public/images/hero-doctor.png";
+import Testimonial1 from "../../public/images/testimonial-1.jpg";
+import Testimonial2 from "../../public/images/testimonial-2.jpg";
+import Testimonial3 from "../../public/images/testimonial-3.jpg";
+import AboutTeam from "../../public/images/about-team.jpg";
+import Blog1 from "../../public/images/blog-1.jpg";
+import Blog2 from "../../public/images/blog-2.jpg";
+import Blog3 from "../../public/images/blog-3.jpg";
 
 export default function HomePage() {
   const [activeTestimonial, setActiveTestimonial] = useState(0);
@@ -78,7 +85,7 @@ export default function HomePage() {
         "Tôi rất hài lòng khi đưa con đến Smart Dental. Đội ngũ bác sĩ rất tận tâm và chuyên nghiệp. Con tôi không còn sợ đi khám răng nữa. Cơ sở vật chất hiện đại, sạch sẽ và nhân viên rất thân thiện.",
       author: "Nguyễn Văn Minh",
       role: "Phụ huynh bệnh nhân",
-      image: "/images/testimonial-1.jpg",
+      image: Testimonial1,
       rating: 5,
     },
     {
@@ -86,7 +93,7 @@ export default function HomePage() {
         "Sau khi niềng răng tại Smart Dental, nụ cười của tôi đã thay đổi hoàn toàn. Bác sĩ rất tận tình theo dõi và hướng dẫn trong suốt quá trình điều trị. Tôi rất biết ơn đội ngũ y bác sĩ tại đây.",
       author: "Trần Thị Hương",
       role: "Bệnh nhân chỉnh nha",
-      image: "/images/testimonial-2.jpg",
+      image: Testimonial2,
       rating: 5,
     },
   ];
@@ -127,17 +134,17 @@ export default function HomePage() {
 
   const blogPosts = [
     {
-      image: "/images/blog-1.jpg",
+      image: Blog1,
       title: "Hướng dẫn chăm sóc răng miệng đúng cách",
       category: "Sức khỏe răng miệng",
     },
     {
-      image: "/images/blog-2.jpg",
+      image: Blog2,
       title: "Tầm quan trọng của khám răng định kỳ",
       category: "Khám định kỳ",
     },
     {
-      image: "/images/blog-3.jpg",
+      image: Blog3,
       title: "Những điều cần biết về niềng răng",
       category: "Chỉnh nha",
     },
@@ -194,9 +201,27 @@ export default function HomePage() {
         {/* Floating Card - Top Right */}
         <div className="absolute top-28 right-8 lg:right-20 z-20 hidden lg:flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-full py-2 px-4 shadow-lg">
           <div className="flex -space-x-2">
-            <Image src="/images/testimonial-1.jpg" alt="Avatar 1" width={40} height={40} className="rounded-full border-2 border-white object-contain" />
-            <Image src="/images/testimonial-2.jpg" alt="Avatar 2" width={40} height={40} className="rounded-full border-2 border-white object-contain" />
-            <Image src="/images/testimonial-3.jpg" alt="Avatar 3" width={40} height={40} className="rounded-full border-2 border-white object-contain" />
+            <Image
+              src={Testimonial1}
+              alt="Avatar 1"
+              width={40}
+              height={40}
+              className="rounded-full border-2 border-white object-contain"
+            />
+            <Image
+              src={Testimonial2}
+              alt="Avatar 2"
+              width={40}
+              height={40}
+              className="rounded-full border-2 border-white object-contain"
+            />
+            <Image
+              src={Testimonial3}
+              alt="Avatar 3"
+              width={40}
+              height={40}
+              className="rounded-full border-2 border-white object-contain"
+            />
           </div>
           <div>
             <p className="font-bold text-gray-900">150K +</p>
@@ -279,7 +304,7 @@ export default function HomePage() {
             {/* Left Image */}
             <div className="relative">
               <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden">
-                <Image src="/images/about-team.jpg" alt="Đội ngũ bác sĩ" fill className="object-cover" />
+                <Image src={AboutTeam} alt="Đội ngũ bác sĩ" fill className="object-cover" />
               </div>
               {/* Decorative elements */}
               <div className="absolute -bottom-6 -right-6 w-48 h-48 bg-primary/10 rounded-3xl -z-10" />
@@ -392,7 +417,13 @@ export default function HomePage() {
                 <Quote className="w-10 h-10 text-primary/30 mb-4" />
                 <p className="text-gray-700 mb-6 leading-relaxed">{testimonial.content}</p>
                 <div className="flex items-center gap-4">
-                  <Image src={testimonial.image} alt={testimonial.author} width={48} height={48} className="rounded-full" />
+                  <Image
+                    src={testimonial.image}
+                    alt={testimonial.author}
+                    width={48}
+                    height={48}
+                    className="rounded-full"
+                  />
 
                   <div>
                     <p className="font-semibold text-gray-900">{testimonial.author}</p>
@@ -558,7 +589,12 @@ export default function HomePage() {
             {blogPosts.map((post, index) => (
               <div key={index} className="group cursor-pointer">
                 <div className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 mb-4">
-                  <Image src={post.image} alt={post.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <Image
+                    src={post.image}
+                    alt={post.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                 </div>
                 <span className="text-sm text-primary font-medium">{post.category}</span>
                 <h3 className="text-lg font-semibold text-gray-900 mt-2 group-hover:text-primary transition-colors">
@@ -644,9 +680,7 @@ export default function HomePage() {
             {/* Brand */}
             <div>
               <div className="flex items-center gap-3 mb-6">
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center bg-linear-to-br from-blue-100 to-[#00a6f4]"
-                >
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-linear-to-br from-blue-100 to-[#00a6f4]">
                   <Image src={tooth} alt="Logo" width={24} height={24} />
                 </div>
                 <span className="text-xl font-bold">Smart Dental</span>
