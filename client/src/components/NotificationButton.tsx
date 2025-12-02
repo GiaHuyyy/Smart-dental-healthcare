@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useNotifications } from "@/contexts/NotificationContext";
-import { Bell, Check, CheckCheck, X, Calendar, Pill, FileText, CreditCard, MessageCircle } from "lucide-react";
+import { Bell, Check, CheckCheck, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 
