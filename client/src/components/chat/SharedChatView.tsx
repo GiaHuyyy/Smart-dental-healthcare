@@ -148,6 +148,13 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
           const { message, conversationId } = data;
           if (!message || !conversationId) return;
 
+          console.log("📨 [SharedChatView] newMessage received:", {
+            messageId: message._id,
+            conversationId,
+            messageType: (message as any).messageType,
+            callData: (message as any).callData,
+          });
+
           setConversationMessages((prev) => {
             const current = prev[conversationId] || [];
             if (current.some((m) => m._id === message._id)) return prev;
@@ -161,7 +168,8 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                 const isMyMessage = senderId.toString() === userData?.userId;
                 return {
                   ...conv,
-                  lastMessage: message.content || "Đã gửi một tệp",
+                  lastMessage:
+                    message.content || (message as any).messageType === "call" ? "Cuộc gọi" : "Đã gửi một tệp",
                   timestamp: message.createdAt,
                   unread: !isMyMessage,
                   unreadCount: !isMyMessage ? (conv.unreadCount || 0) + 1 : conv.unreadCount,
@@ -172,9 +180,25 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
           );
         };
 
+        // Handle call message updates (when call ends, status changes)
+        const handleCallMessageUpdated = (data: { message: Message; conversationId: string }) => {
+          const { message, conversationId } = data;
+          if (!message || !conversationId) return;
+
+          console.log("📞 [SharedChatView] callMessageUpdated received:", { messageId: message._id, conversationId });
+
+          setConversationMessages((prev) => {
+            const current = prev[conversationId] || [];
+            // Update existing call message
+            const updated = current.map((m) => (m._id === message._id ? { ...m, ...message } : m));
+            return { ...prev, [conversationId]: updated };
+          });
+        };
+
         socket.on("conversationsLoaded", handleConversationsLoaded);
         socket.on("messagesLoaded", handleMessagesLoaded);
         socket.on("newMessage", handleNewMessage);
+        socket.on("callMessageUpdated", handleCallMessageUpdated);
         socket.on("error", (err: any) => setConnectionError(err?.message || String(err)));
         socket.on("conversationCreated", addOrUpdateConversation);
 
@@ -190,6 +214,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
     return () => {
       if (socket) {
         socket.off("conversationCreated", addOrUpdateConversation);
+        socket.off("callMessageUpdated");
         realtimeChatService.disconnect();
       }
       setSocketInitialized(false);

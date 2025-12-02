@@ -82,9 +82,6 @@ class RealtimeChatService {
         this.userId = userId;
         this.userRole = userRole;
 
-        console.log(`Attempting to connect socket with userID: ${userId}, role: ${userRole}`);
-        console.log(`Server URL: ${process.env.NEXT_PUBLIC_BACKEND_URL}`);
-
         // Disconnect existing connection
         if (this.socket) {
           console.log("Disconnecting existing socket connection");

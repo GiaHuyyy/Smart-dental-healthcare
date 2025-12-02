@@ -30,6 +30,7 @@ interface ActiveCall {
   startedAt: Date;
   answeredAt?: Date;
   messageId?: string;
+  conversationId?: any; // For broadcasting after call ends
 }
 
 @WebSocketGateway({
@@ -169,8 +170,9 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Use callId from client
     const callId = data.callId;
 
-    // Create call message in chat history
+    // Create call message in chat history (DON'T broadcast yet - wait until call ends)
     let messageId: string | undefined;
+    let conversationId: any;
     try {
       const caller = this.connectedUsers.get(data.callerId);
       const callMessage = await this.realtimeChatService.createCallMessage(
@@ -179,17 +181,21 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
         caller?.userRole || 'patient',
         {
           callType: data.isVideoCall ? 'video' : 'audio',
-          callStatus: 'missed', // Default to missed, will update when answered
+          callStatus: 'missed', // Default to missed, will update when call ends
           callDuration: 0,
           startedAt: new Date(),
         },
       );
       messageId = (callMessage as any)?._id?.toString();
+      conversationId = callMessage?.conversationId;
+      this.logger.log(
+        `📞 Call message created: ${messageId} (will broadcast after call ends)`,
+      );
     } catch (error) {
       this.logger.error('Failed to create call message:', error);
     }
 
-    // Store active call
+    // Store active call (include conversationId for later broadcast)
     const activeCall: ActiveCall = {
       callId,
       callerId: data.callerId,
@@ -199,6 +205,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isVideoCall: data.isVideoCall,
       startedAt: new Date(),
       messageId,
+      conversationId,
     };
     this.activeCalls.set(callId, activeCall);
 
@@ -290,9 +297,12 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
           0,
         );
 
-        // Broadcast call message update to chat
+        // Broadcast NEW message to chat with final status
         if (updatedMessage && updatedMessage.conversationId) {
-          await this.realtimeChatGateway.broadcastCallMessageUpdate(
+          this.logger.log(
+            `📢 Broadcasting rejected call message ${call.messageId}`,
+          );
+          await this.realtimeChatGateway.broadcastNewMessage(
             updatedMessage.conversationId,
             updatedMessage,
           );
@@ -343,9 +353,12 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
           duration,
         );
 
-        // Broadcast call message update to chat so both parties see real-time update
+        // Broadcast NEW message to chat (first time showing) with final status
         if (updatedMessage && updatedMessage.conversationId) {
-          await this.realtimeChatGateway.broadcastCallMessageUpdate(
+          this.logger.log(
+            `📢 Broadcasting call message ${call.messageId} with status: ${status}`,
+          );
+          await this.realtimeChatGateway.broadcastNewMessage(
             updatedMessage.conversationId,
             updatedMessage,
           );
@@ -420,9 +433,12 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
           duration,
         );
 
-        // Broadcast call message update to chat
+        // Broadcast NEW message to chat with final status
         if (updatedMessage && updatedMessage.conversationId) {
-          await this.realtimeChatGateway.broadcastCallMessageUpdate(
+          this.logger.log(
+            `📢 Broadcasting call message on disconnect: ${call.messageId}, status: ${status}`,
+          );
+          await this.realtimeChatGateway.broadcastNewMessage(
             updatedMessage.conversationId,
             updatedMessage,
           );
