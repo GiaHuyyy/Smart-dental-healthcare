@@ -305,9 +305,18 @@ export class RealtimeChatGateway
     message: MessageDocument,
   ) {
     try {
+      this.logger.log(
+        `📢 [broadcastNewMessage] Starting broadcast for message ${message._id}, type: ${message.messageType}`,
+      );
+
       const conversation =
         await this.realtimeChatService.getConversationById(conversationId);
-      if (!conversation) return;
+      if (!conversation) {
+        this.logger.warn(
+          `📢 [broadcastNewMessage] Conversation ${conversationId} not found`,
+        );
+        return;
+      }
 
       const patientRoom = `user_${conversation.patientId._id.toString()}`;
       const doctorRoom = `user_${conversation.doctorId._id.toString()}`;
@@ -316,6 +325,10 @@ export class RealtimeChatGateway
         message,
         conversationId: conversationId.toString(),
       };
+
+      this.logger.log(
+        `📢 [broadcastNewMessage] Emitting to rooms: ${patientRoom}, ${doctorRoom}`,
+      );
 
       this.server.to(patientRoom).to(doctorRoom).emit('newMessage', payload);
 
@@ -332,10 +345,60 @@ export class RealtimeChatGateway
       this.server.to(doctorRoom).emit('conversationUpdated', doctorPayload);
 
       this.logger.log(
-        `Broadcasted new message ${message._id} to rooms: ${patientRoom}, ${doctorRoom}`,
+        `✅ [broadcastNewMessage] Successfully broadcasted message ${message._id} (${message.messageType}) to rooms: ${patientRoom}, ${doctorRoom}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to broadcast new message: ${error}`);
+      this.logger.error(
+        `❌ [broadcastNewMessage] Failed to broadcast: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Broadcast call message update to both patient and doctor
+   * Called when a call ends to update the call status in real-time
+   */
+  async broadcastCallMessageUpdate(
+    conversationId: Types.ObjectId,
+    message: MessageDocument,
+  ) {
+    try {
+      this.logger.log(
+        `📞 [broadcastCallMessageUpdate] Starting for message ${message._id}, status: ${message.callData?.callStatus}`,
+      );
+
+      const conversation =
+        await this.realtimeChatService.getConversationById(conversationId);
+      if (!conversation) {
+        this.logger.warn(
+          `📞 [broadcastCallMessageUpdate] Conversation ${conversationId} not found`,
+        );
+        return;
+      }
+
+      const patientRoom = `user_${conversation.patientId._id.toString()}`;
+      const doctorRoom = `user_${conversation.doctorId._id.toString()}`;
+
+      const payload = {
+        message,
+        conversationId: conversationId.toString(),
+      };
+
+      this.logger.log(
+        `📞 [broadcastCallMessageUpdate] Emitting to rooms: ${patientRoom}, ${doctorRoom}`,
+      );
+
+      // Emit call message update event
+      this.server
+        .to(patientRoom)
+        .to(doctorRoom)
+        .emit('callMessageUpdated', payload);
+
+      this.logger.log(
+        `✅ [broadcastCallMessageUpdate] Successfully broadcasted message ${message._id} to rooms: ${patientRoom}, ${doctorRoom}`,
+      );
+    } catch (error) {
+      this.logger.error(`❌ [broadcastCallMessageUpdate] Failed: ${error}`);
     }
   }
 
@@ -514,12 +577,6 @@ export class RealtimeChatGateway
           };
         }
       });
-
-      // Log detailed conversation data before emitting
-      this.logger.log(
-        `📤 EMITTING CONVERSATIONS to client ${client.id}:`,
-        JSON.stringify(transformedConversations, null, 2),
-      );
 
       // Emit conversations back to client
       client.emit('conversationsLoaded', {

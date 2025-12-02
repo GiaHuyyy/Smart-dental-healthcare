@@ -148,6 +148,53 @@ export default function DoctorPatients() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, debouncedSearch, selectedFilter, startDate, endDate, selectedPatient]);
 
+  // Auto-open patient detail when coming from chat with patientId param
+  useEffect(() => {
+    if (typeof window === "undefined" || !session?.user) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const openDetail = params.get("openDetail");
+    const patientIdFromUrl = params.get("patientId");
+
+    // Wait until patients are loaded before trying to match
+    if (openDetail === "true" && patientIdFromUrl && patients.length > 0) {
+      console.log("🎯 Opening detail for patient ID from chat:", patientIdFromUrl);
+
+      // Find the matching patient from the patients list by ID
+      const matchingPatient = patients.find((p) => p._id === patientIdFromUrl);
+
+      if (matchingPatient) {
+        console.log("✅ Patient found:", matchingPatient.fullName);
+        handlePatientSelect(matchingPatient);
+        // Clean up URL after successful detail open
+        window.history.replaceState(null, "", "/doctor/patients");
+      } else {
+        // Try to fetch the patient directly by ID if not in list
+        fetchPatientById(patientIdFromUrl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, patients]);
+
+  const fetchPatientById = async (patientId: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/${patientId}`);
+      const data = await response.json();
+
+      if (data?.success === true && data.data) {
+        handlePatientSelect(data.data);
+        // Clean up URL after successful detail open
+        window.history.replaceState(null, "", "/doctor/patients");
+      } else {
+        console.error("Patient not found:", patientId);
+        window.history.replaceState(null, "", "/doctor/patients");
+      }
+    } catch (error) {
+      console.error("Error fetching patient by ID:", error);
+      window.history.replaceState(null, "", "/doctor/patients");
+    }
+  };
+
   const fetchPatients = async () => {
     try {
       const params = new URLSearchParams();

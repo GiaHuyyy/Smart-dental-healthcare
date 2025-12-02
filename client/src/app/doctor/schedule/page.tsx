@@ -77,7 +77,7 @@ interface ExtendedSession {
     email?: string | null;
     image?: string | null;
   };
-  accessToken?: string;
+  access_token?: string;
   expires: string;
 }
 
@@ -132,7 +132,7 @@ function DoctorScheduleContent() {
 
     try {
       setLoading(true);
-      const accessToken = (session as ExtendedSession).accessToken;
+      const accessToken = (session as ExtendedSession).access_token;
       const result = await appointmentService.getDoctorAppointments(userId, {}, accessToken);
 
       if (result.success && result.data) {
@@ -336,7 +336,7 @@ function DoctorScheduleContent() {
 
     try {
       setActionLoading(true);
-      const accessToken = (session as ExtendedSession).accessToken;
+      const accessToken = (session as ExtendedSession).access_token;
       const result = await appointmentService.confirmAppointment(appointmentId, accessToken);
 
       if (result.success) {
@@ -362,7 +362,7 @@ function DoctorScheduleContent() {
 
     try {
       setActionLoading(true);
-      const accessToken = (session as ExtendedSession).accessToken;
+      const accessToken = (session as ExtendedSession).access_token;
       const result = await appointmentService.completeAppointment(appointmentId, accessToken);
 
       if (result.success) {
@@ -394,7 +394,7 @@ function DoctorScheduleContent() {
   const startTreatment = async (appointment: Appointment) => {
     try {
       // Fetch full appointment details to get patientId
-      const accessToken = (session as ExtendedSession).accessToken;
+      const accessToken = (session as ExtendedSession).access_token;
       const appointmentId = appointment._id || appointment.id;
 
       const fullAppointment = await appointmentService.getAppointmentById(appointmentId, accessToken);
@@ -442,7 +442,7 @@ function DoctorScheduleContent() {
 
     try {
       setIsSubmittingTreatment(true);
-      const accessToken = (session as ExtendedSession).accessToken;
+      const accessToken = (session as ExtendedSession).access_token;
       const userId = (session?.user as { _id?: string })?._id;
 
       // 1. Create medical record
@@ -707,7 +707,7 @@ function DoctorScheduleContent() {
   // Check for pending bill
   const checkPendingBill = async (appointmentId: string) => {
     try {
-      const accessToken = (session as ExtendedSession).accessToken;
+      const accessToken = (session as ExtendedSession).access_token;
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/appointment/${appointmentId}`,
         {
@@ -740,7 +740,7 @@ function DoctorScheduleContent() {
 
     setIsProcessingPayment(true);
     try {
-      const accessToken = (session as ExtendedSession).accessToken;
+      const accessToken = (session as ExtendedSession).access_token;
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/${pendingBill._id}/mark-paid`,
         {
@@ -1472,7 +1472,7 @@ function DoctorScheduleContent() {
 
       {/* Payment Confirmation Modal */}
       {paymentModalOpen && pendingBill && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-61 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Xác nhận thanh toán</h2>
@@ -1545,7 +1545,7 @@ function DoctorScheduleContent() {
         appointment={currentTreatmentAppointment}
         onSubmit={handleTreatmentSubmit}
         isSubmitting={isSubmittingTreatment}
-        accessToken={(session as ExtendedSession)?.accessToken}
+        accessToken={(session as ExtendedSession)?.access_token}
       />
 
       {/* Working Hours Modal */}

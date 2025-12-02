@@ -6,8 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { sendRequest } from "@/utils/api";
-import { Smile, Mail, AlertTriangle, Phone, Clock } from "lucide-react";
-
+import { Mail, AlertTriangle, Phone, Clock } from "lucide-react";
+import tooth from "../../../public/tooth.svg";
+import Image from "next/image";
 interface VerifyProps {
   id: string | undefined;
 }
@@ -103,7 +104,7 @@ export default function Verify({ id }: VerifyProps) {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      className="min-h-screen bg-linear-to-br flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
       style={{
         backgroundColor: "var(--color-primary-50)",
         backgroundImage:
@@ -114,11 +115,8 @@ export default function Verify({ id }: VerifyProps) {
         {/* Header */}
         <div className="text-center">
           <Link href="/" className="flex items-center justify-center">
-            <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center"
-              style={{ background: "var(--color-primary-600)" }}
-            >
-              <Smile className="w-8 h-8 text-white" />
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-linear-to-br from-blue-100 to-[#00a6f4]">
+              <Image src={tooth} alt="Logo" width={32} height={32} />
             </div>
             <span className="ml-3 text-2xl font-bold text-gray-900">Smart Dental</span>
           </Link>

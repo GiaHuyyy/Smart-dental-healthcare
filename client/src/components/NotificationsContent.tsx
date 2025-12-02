@@ -145,96 +145,89 @@ export default function NotificationsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Bell className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Thông báo</h1>
-                <p className="text-sm text-gray-500">Quản lý thông báo và cập nhật</p>
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6 flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Bell className="w-5 h-5 text-primary" />
             </div>
-
-            {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                disabled={loading}
-                className="btn-primary-filled flex items-center gap-2"
-              >
-                <Check className="w-5 h-5" />
-                Đọc tất cả
-              </button>
-            )}
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Thông báo</h1>
+              <p className="text-sm text-gray-600">Quản lý và theo dõi lịch sử thông báo của bạn</p>
+            </div>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div
-              style={{ background: "linear-gradient(to bottom right, rgba(0, 166, 244, 0.1), rgba(0, 166, 244, 0.2))" }}
-              className="rounded-xl p-4"
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllAsRead}
+              disabled={loading}
+              className="btn-primary-filled flex items-center gap-2"
             >
-              <div style={{ color: "var(--color-primary-600)" }} className="text-sm mb-1">
-                Tổng số
-              </div>
-              <div style={{ color: "var(--color-primary-contrast)" }} className="text-2xl font-bold">
-                {stats.total}
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4">
-              <div className="text-sm text-red-600 mb-1">Chưa đọc</div>
-              <div className="text-2xl font-bold text-red-900">{stats.unread}</div>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4">
-              <div className="text-sm text-green-600 mb-1">Lịch hẹn</div>
-              <div className="text-2xl font-bold text-green-900">{stats.appointments}</div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4">
-              <div className="text-sm text-purple-600 mb-1">Hôm nay</div>
-              <div className="text-2xl font-bold text-purple-900">{stats.today}</div>
-            </div>
+              <Check className="w-5 h-5" />
+              Đọc tất cả
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div
+            style={{ background: "linear-gradient(to bottom right, rgba(0, 166, 244, 0.1), rgba(0, 166, 244, 0.2))" }}
+            className="rounded-xl p-4"
+          >
+            <div className="text-sm mb-1">Tổng số</div>
+            <div className="text-2xl font-bold text-primary-contrast">{stats.total}</div>
           </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {filterOptions.map((option) => {
-              const Icon = option.icon;
-              const count =
-                option.value === "all"
-                  ? stats.total
-                  : option.value === "unread"
-                  ? stats.unread
-                  : notifications.filter((n) => n.type === option.value).length;
-
-              return (
-                <button
-                  key={option.value}
-                  onClick={() => setFilter(option.value as NotificationFilter)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition ${
-                    filter === option.value
-                      ? "bg-gradient-to-r from-primary to-primary-600 text-white shadow-md"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {option.label}
-                  {count > 0 && (
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        filter === option.value ? "bg-white/20" : "bg-gray-200"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="bg-linear-to-br from-red-50 to-red-100 rounded-xl p-4">
+            <div className="text-sm text-red-600 mb-1">Chưa đọc</div>
+            <div className="text-2xl font-bold text-red-900">{stats.unread}</div>
+          </div>
+          <div className="bg-linear-to-br from-green-50 to-green-100 rounded-xl p-4">
+            <div className="text-sm text-green-600 mb-1">Lịch hẹn</div>
+            <div className="text-2xl font-bold text-green-900">{stats.appointments}</div>
+          </div>
+          <div className="bg-linear-to-br from-purple-50 to-purple-100 rounded-xl p-4">
+            <div className="text-sm text-purple-600 mb-1">Hôm nay</div>
+            <div className="text-2xl font-bold text-purple-900">{stats.today}</div>
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {filterOptions.map((option) => {
+            const Icon = option.icon;
+            const count =
+              option.value === "all"
+                ? stats.total
+                : option.value === "unread"
+                ? stats.unread
+                : notifications.filter((n) => n.type === option.value).length;
+
+            return (
+              <button
+                key={option.value}
+                onClick={() => setFilter(option.value as NotificationFilter)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition ${
+                  filter === option.value
+                    ? "bg-primary text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {option.label}
+                {count > 0 && (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      filter === option.value ? "bg-white/20" : "bg-gray-200"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="space-y-3 mt-2">
           {filteredNotifications.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-lg p-16 text-center">
               <BellOff className="w-20 h-20 text-gray-300 mx-auto mb-4" />
@@ -296,7 +289,7 @@ export default function NotificationsContent() {
                               }
                               router.push(notification.linkTo as string);
                             }}
-                            className="text-sm px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md"
+                            className="text-sm px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition shadow-md"
                           >
                             Xem chi tiết →
                           </button>

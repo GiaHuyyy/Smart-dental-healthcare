@@ -25,6 +25,6 @@ import { CloudinaryModule } from '../cloudinary/cloudinary.module';
   ],
   controllers: [RealtimeChatController],
   providers: [RealtimeChatService, RealtimeChatGateway],
-  exports: [RealtimeChatService],
+  exports: [RealtimeChatService, RealtimeChatGateway],
 })
 export class RealtimeChatModule {}

@@ -217,6 +217,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             recipientId={otherUser._id}
             recipientName={getDisplayName(otherUser)}
             recipientRole={currentUserRole === "patient" ? "doctor" : "patient"}
+            userAvatar={otherUser.avatarUrl}
             isVideoCall={false}
             className="p-1 rounded text-white bg-transparent border-none hover:opacity-90"
             showIcon={true}
@@ -227,6 +228,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             recipientId={otherUser._id}
             recipientName={getDisplayName(otherUser)}
             recipientRole={currentUserRole === "patient" ? "doctor" : "patient"}
+            userAvatar={otherUser.avatarUrl}
             isVideoCall={true}
             className="p-1 rounded text-white bg-transparent border-none hover:opacity-90"
             showIcon={true}
@@ -252,10 +254,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {messages.map((message) => (
-          <div
-            key={message._id}
-            className={`flex ${message.senderId._id === currentUserId ? "justify-end" : "justify-start"}`}
-          >
+          <div key={message._id}>
             {message.messageType === "call" && message.callData ? (
               <CallMessage
                 callData={message.callData}
@@ -263,18 +262,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 timestamp={message.createdAt}
               />
             ) : (
-              <div
-                className={`max-w-xs p-2 rounded-lg ${
-                  message.senderId._id === currentUserId ? "text-white" : "bg-gray-100 text-gray-800"
-                }`}
-                style={
-                  message.senderId._id === currentUserId
-                    ? { background: "var(--color-primary)", color: "white" }
-                    : undefined
-                }
-              >
-                <p className="text-sm">{message.content}</p>
-                <p className="text-xs opacity-70 mt-1">{formatTime(message.createdAt)}</p>
+              <div className={`flex ${message.senderId._id === currentUserId ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-xs p-2 rounded-lg ${
+                    message.senderId._id === currentUserId ? "text-white" : "bg-gray-100 text-gray-800"
+                  }`}
+                  style={
+                    message.senderId._id === currentUserId
+                      ? { background: "var(--color-primary)", color: "white" }
+                      : undefined
+                  }
+                >
+                  <p className="text-sm">{message.content}</p>
+                  <p className="text-xs opacity-70 mt-1">{formatTime(message.createdAt)}</p>
+                </div>
               </div>
             )}
           </div>

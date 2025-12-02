@@ -10,6 +10,7 @@ import {
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { RealtimeChatService } from '../realtime-chat/realtime-chat.service';
+import { RealtimeChatGateway } from '../realtime-chat/realtime-chat.gateway';
 
 // Interfaces
 interface ConnectedUser {
@@ -29,6 +30,7 @@ interface ActiveCall {
   startedAt: Date;
   answeredAt?: Date;
   messageId?: string;
+  conversationId?: any; // For broadcasting after call ends
 }
 
 @WebSocketGateway({
@@ -51,7 +53,10 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private connectedUsers = new Map<string, ConnectedUser>();
   private activeCalls = new Map<string, ActiveCall>();
 
-  constructor(private readonly realtimeChatService: RealtimeChatService) {}
+  constructor(
+    private readonly realtimeChatService: RealtimeChatService,
+    private readonly realtimeChatGateway: RealtimeChatGateway,
+  ) {}
 
   // ==================== CONNECTION HANDLERS ====================
 
@@ -69,7 +74,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.log(`👤 User ${odataId} removed from WebRTC`);
 
         // End any active calls for this user
-        this.handleUserDisconnectFromCall(odataId);
+        void this.handleUserDisconnectFromCall(odataId);
         break;
       }
     }
@@ -165,8 +170,9 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Use callId from client
     const callId = data.callId;
 
-    // Create call message in chat history
+    // Create call message in chat history (DON'T broadcast yet - wait until call ends)
     let messageId: string | undefined;
+    let conversationId: any;
     try {
       const caller = this.connectedUsers.get(data.callerId);
       const callMessage = await this.realtimeChatService.createCallMessage(
@@ -175,17 +181,21 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
         caller?.userRole || 'patient',
         {
           callType: data.isVideoCall ? 'video' : 'audio',
-          callStatus: 'missed', // Default to missed, will update when answered
+          callStatus: 'missed', // Default to missed, will update when call ends
           callDuration: 0,
           startedAt: new Date(),
         },
       );
       messageId = (callMessage as any)?._id?.toString();
+      conversationId = callMessage?.conversationId;
+      this.logger.log(
+        `📞 Call message created: ${messageId} (will broadcast after call ends)`,
+      );
     } catch (error) {
       this.logger.error('Failed to create call message:', error);
     }
 
-    // Store active call
+    // Store active call (include conversationId for later broadcast)
     const activeCall: ActiveCall = {
       callId,
       callerId: data.callerId,
@@ -195,6 +205,7 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       isVideoCall: data.isVideoCall,
       startedAt: new Date(),
       messageId,
+      conversationId,
     };
     this.activeCalls.set(callId, activeCall);
 
@@ -277,14 +288,25 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const call = this.activeCalls.get(data.callId);
     if (!call) return;
 
-    // Update call message status to rejected
+    // Update call message status to rejected and broadcast
     if (call.messageId) {
       try {
-        await this.realtimeChatService.updateCallStatus(
+        const updatedMessage = await this.realtimeChatService.updateCallStatus(
           call.messageId,
           'rejected',
           0,
         );
+
+        // Broadcast NEW message to chat with final status
+        if (updatedMessage && updatedMessage.conversationId) {
+          this.logger.log(
+            `📢 Broadcasting rejected call message ${call.messageId}`,
+          );
+          await this.realtimeChatGateway.broadcastNewMessage(
+            updatedMessage.conversationId,
+            updatedMessage,
+          );
+        }
       } catch (error) {
         this.logger.error('Failed to update call status:', error);
       }
@@ -321,15 +343,26 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ? Math.floor((Date.now() - call.answeredAt.getTime()) / 1000)
       : 0;
 
-    // Update call message
+    // Update call message and broadcast to chat
     if (call.messageId) {
       try {
         const status = call.answeredAt ? 'completed' : 'missed';
-        await this.realtimeChatService.updateCallStatus(
+        const updatedMessage = await this.realtimeChatService.updateCallStatus(
           call.messageId,
           status,
           duration,
         );
+
+        // Broadcast NEW message to chat (first time showing) with final status
+        if (updatedMessage && updatedMessage.conversationId) {
+          this.logger.log(
+            `📢 Broadcasting call message ${call.messageId} with status: ${status}`,
+          );
+          await this.realtimeChatGateway.broadcastNewMessage(
+            updatedMessage.conversationId,
+            updatedMessage,
+          );
+        }
       } catch (error) {
         this.logger.error('Failed to update call status:', error);
       }
@@ -390,15 +423,26 @@ export class WebRTCGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ? Math.floor((Date.now() - call.answeredAt.getTime()) / 1000)
       : 0;
 
-    // Update call message
+    // Update call message and broadcast to chat
     if (call.messageId) {
       try {
         const status = call.answeredAt ? 'completed' : 'missed';
-        await this.realtimeChatService.updateCallStatus(
+        const updatedMessage = await this.realtimeChatService.updateCallStatus(
           call.messageId,
           status,
           duration,
         );
+
+        // Broadcast NEW message to chat with final status
+        if (updatedMessage && updatedMessage.conversationId) {
+          this.logger.log(
+            `📢 Broadcasting call message on disconnect: ${call.messageId}, status: ${status}`,
+          );
+          await this.realtimeChatGateway.broadcastNewMessage(
+            updatedMessage.conversationId,
+            updatedMessage,
+          );
+        }
       } catch (error) {
         this.logger.error('Failed to update call status on disconnect:', error);
       }

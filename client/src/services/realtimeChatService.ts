@@ -47,6 +47,9 @@ export interface SocketEvents {
   messageRead: (data: { conversationId: string; messageId: string; readBy: string }) => void;
   messageError: (data: { error: string }) => void;
 
+  // Call message events (for real-time call status updates)
+  callMessageUpdated: (data: { message: Message; conversationId: string }) => void;
+
   // Conversation events
   conversationUpdated: (conversation: Conversation) => void;
 
@@ -78,9 +81,6 @@ class RealtimeChatService {
         // Store user info for reconnections
         this.userId = userId;
         this.userRole = userRole;
-
-        console.log(`Attempting to connect socket with userID: ${userId}, role: ${userRole}`);
-        console.log(`Server URL: ${process.env.NEXT_PUBLIC_BACKEND_URL}`);
 
         // Disconnect existing connection
         if (this.socket) {
@@ -312,7 +312,7 @@ class RealtimeChatService {
   }
 
   // Mark all messages in a conversation as read
-markConversationAsRead(conversationId: string) {
+  markConversationAsRead(conversationId: string) {
     if (this.socket) {
       console.log(`[Socket] Emitting markConversationAsRead for ${conversationId}`);
       this.socket.emit("markConversationAsRead", { conversationId });
@@ -320,7 +320,8 @@ markConversationAsRead(conversationId: string) {
   }
 
   // Create a new conversation
-createConversation(patientId: string, doctorId: string): Promise<any> { // Thay đổi kiểu trả về thành any để linh hoạt
+  createConversation(patientId: string, doctorId: string): Promise<any> {
+    // Thay đổi kiểu trả về thành any để linh hoạt
     if (this.socket) {
       return new Promise<any>((resolve, reject) => {
         // Cung cấp hàm callback (ack) làm tham số thứ 3
@@ -340,7 +341,7 @@ createConversation(patientId: string, doctorId: string): Promise<any> { // Thay 
       });
     }
     return Promise.reject(new Error("Socket not connected"));
-}
+  }
 
   // Typing indicator
   sendTypingStatus(conversationId: string, isTyping: boolean) {

@@ -381,7 +381,12 @@ export class RealtimeChatService {
     conversation.lastMessage = savedMessage._id as Types.ObjectId;
     await conversation.save();
 
-    return savedMessage;
+    // Populate senderId for real-time broadcasting
+    const populatedMessage = await this.messageModel
+      .findById(savedMessage._id)
+      .populate('senderId', 'firstName lastName avatarUrl');
+
+    return populatedMessage || savedMessage;
   }
 
   async updateCallStatus(
@@ -402,6 +407,13 @@ export class RealtimeChatService {
       endedAt,
     };
 
-    return await message.save();
+    await message.save();
+
+    // Populate senderId for real-time broadcasting
+    const populatedMessage = await this.messageModel
+      .findById(messageId)
+      .populate('senderId', 'firstName lastName avatarUrl');
+
+    return populatedMessage || message;
   }
 }

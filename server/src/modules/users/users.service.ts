@@ -263,9 +263,15 @@ export class UsersService {
     const hashedPassword = await hashPasswordHelper(password);
     const codeId = uuidv4();
 
+    // Add "BS. " prefix for doctor's fullName if not already present
+    let finalFullName = fullName;
+    if (role === 'doctor' && !fullName.startsWith('BS. ')) {
+      finalFullName = `BS. ${fullName}`;
+    }
+
     // Build user data object
     const userData: any = {
-      fullName,
+      fullName: finalFullName,
       email,
       password: hashedPassword,
       role: role,
@@ -301,10 +307,10 @@ export class UsersService {
     // send email to user
     await this.mailerService.sendMail({
       to: email, // list of receivers
-      subject: 'Kích hoạt tài khoản của bạn',
+      subject: 'Kích hoạt tài khoản của bạn',
       template: 'register',
       context: {
-        name: fullName,
+        name: finalFullName,
         activationCode: codeId,
       },
     });

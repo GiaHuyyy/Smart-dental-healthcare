@@ -110,6 +110,43 @@ export default function PatientAppointmentsPage() {
     }
   }, [session, aiDoctor, appointmentData, doctors, loading]);
 
+  // Auto-open modal when coming from chat with doctorId param
+  useEffect(() => {
+    if (typeof window === "undefined" || !session?.user) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const openModal = params.get("openModal");
+    const doctorIdFromUrl = params.get("doctorId");
+
+    // Wait until doctors are loaded before trying to match
+    if (openModal === "true" && doctorIdFromUrl && doctors.length > 0 && !loading) {
+      console.log("🎯 Opening modal for doctor ID from chat:", doctorIdFromUrl);
+
+      // Find the matching doctor from the doctors list by ID
+      const matchingDoctor = doctors.find((doc) => doc._id === doctorIdFromUrl);
+
+      console.log("✅ Doctor found:", matchingDoctor?.fullName);
+
+      if (matchingDoctor) {
+        setSelectedDoctor(matchingDoctor);
+        setBookingData({
+          doctorId: matchingDoctor._id,
+          consultType: ConsultType.ON_SITE,
+        });
+        setBookingStep("time-slot");
+        setIsBookingModalOpen(true);
+
+        // Clean up URL after successful modal open
+        window.history.replaceState(null, "", "/patient/appointments");
+      } else {
+        // If doctor not found in list after loading, show error
+        toast.error("Không tìm thấy bác sĩ");
+        // Still clean up URL
+        window.history.replaceState(null, "", "/patient/appointments");
+      }
+    }
+  }, [session, doctors, loading]);
+
   const fetchDoctors = async () => {
     setLoading(true);
     try {
@@ -694,9 +731,7 @@ export default function PatientAppointmentsPage() {
               <button
                 onClick={() => setViewMode("map")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  viewMode === "map"
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  viewMode === "map" ? "bg-primary text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <Map className="w-5 h-5" />
@@ -705,9 +740,7 @@ export default function PatientAppointmentsPage() {
               <button
                 onClick={() => setViewMode("list")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  viewMode === "list"
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  viewMode === "list" ? "bg-primary text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 <List className="w-5 h-5" />

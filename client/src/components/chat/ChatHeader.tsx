@@ -14,7 +14,6 @@ interface ChatHeaderProps {
   patientId?: string;
   patientEmail?: string;
   patientAvatar?: string;
-  isOnline?: boolean;
   embedded?: boolean;
   onCall?: () => void;
   onBookAppointment?: () => void;
@@ -31,7 +30,6 @@ export default function ChatHeader({
   patientId,
   patientEmail,
   patientAvatar,
-  isOnline = true,
   embedded = false,
   onCall,
   onBookAppointment,
@@ -72,10 +70,7 @@ export default function ChatHeader({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center space-x-2">
-            <h3 className="font-semibold text-gray-900 text-lg truncate">{type === "ai" ? "AI Tư vấn" : peerName}</h3>
-            {isOnline && type !== "ai" && <span className="w-2 h-2 bg-green-500 rounded-full shrink-0"></span>}
-          </div>
+          <h3 className="font-semibold text-gray-900 text-lg truncate">{type === "ai" ? "AI Tư vấn" : peerName}</h3>
           <p className="text-sm text-gray-600 truncate">
             {type === "ai"
               ? "Tư vấn sơ bộ về nha khoa"
@@ -119,6 +114,7 @@ export default function ChatHeader({
                 recipientId={peerId}
                 recipientName={peerName}
                 recipientRole={isPatientViewingDoctor ? "doctor" : "patient"}
+                userAvatar={peerAvatar}
                 isVideoCall={false}
                 showIcon={false}
                 className="text-primary flex items-center space-x-1.5 pl-3 pr-2 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
@@ -136,6 +132,7 @@ export default function ChatHeader({
                 recipientId={peerId}
                 recipientName={peerName}
                 recipientRole={isPatientViewingDoctor ? "doctor" : "patient"}
+                userAvatar={peerAvatar}
                 isVideoCall={true}
                 showIcon={false}
                 className="text-primary flex items-center space-x-1.5 pl-2 pr-3 py-2 text-sm whitespace-nowrap hover:opacity-80 transition-opacity border-none bg-transparent"
