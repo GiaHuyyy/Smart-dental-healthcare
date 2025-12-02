@@ -659,14 +659,19 @@ export default function PatientAppointmentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6">
         {/* Header */}
-        <div className="healthcare-card-elevated p-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Tìm kiếm và đặt lịch hẹn</h1>
-              <p className="text-gray-600">Chọn bác sĩ phù hợp và hoàn tất đặt lịch chỉ trong vài bước.</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Tìm kiếm và đặt lịch hẹn</h1>
+                <p className="text-sm text-gray-600">Chọn bác sĩ phù hợp và hoàn tất đặt lịch chỉ trong vài bước.</p>
+              </div>
             </div>
             <div className="hidden md:flex items-center gap-2 text-sm text-gray-500">
               <span className="font-semibold text-gray-700">Quy trình:</span>
@@ -683,7 +688,7 @@ export default function PatientAppointmentsPage() {
         <SearchDoctors filters={filters} onFiltersChange={setFilters} onSearch={handleSearch} />
 
         {/* View Toggle */}
-        <div className="healthcare-card p-4">
+        <div className="healthcare-card p-4 mb-3">
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
               <button
@@ -712,7 +717,7 @@ export default function PatientAppointmentsPage() {
 
             <button
               onClick={() => router.push("/patient/appointments/my-appointments")}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
+              className="flex items-center justify-center w-53 gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
             >
               <Calendar className="w-5 h-5" />
               Xem lịch hẹn của tôi

@@ -24,7 +24,7 @@ const specialtyOptions = [
 ];
 
 const inputClassName =
-  "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent transition";
+  "w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent transition";
 const inputStyle = { "--tw-ring-color": "var(--color-primary)" } as React.CSSProperties;
 
 export default function SearchDoctors({ filters, onFiltersChange, onSearch }: SearchDoctorsProps) {
@@ -54,18 +54,18 @@ export default function SearchDoctors({ filters, onFiltersChange, onSearch }: Se
   }).length;
 
   return (
-    <div className="healthcare-card p-6 space-y-4">
+    <div className="healthcare-card p-6 space-y-4 mt-6 mb-2">
       {/* Search Bar */}
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <div className="flex-1 items-center relative">
+          <Search className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
             placeholder="Tìm theo tên bác sĩ, chuyên khoa hoặc vấn đề sức khỏe..."
             value={filters.searchQuery || ""}
             onChange={(e) => handleInputChange("searchQuery", e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSearch()}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent transition"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent transition"
             style={inputStyle}
           />
         </div>
@@ -73,7 +73,7 @@ export default function SearchDoctors({ filters, onFiltersChange, onSearch }: Se
           <select
             value={filters.specialty || ""}
             onChange={(e) => handleInputChange("specialty", e.target.value)}
-            className={`${inputClassName} h-full min-h-[50px]`}
+            className={`${inputClassName} h-full`}
             style={inputStyle}
           >
             <option value="">Tất cả chuyên khoa</option>
@@ -84,48 +84,36 @@ export default function SearchDoctors({ filters, onFiltersChange, onSearch }: Se
             ))}
           </select>
         </div>
-
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center justify-center w-53 gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
+        >
+          <Filter className="w-5 h-5" />
+          <span className="font-medium">Bộ lọc nâng cao</span>
+        </button>
         <button
           onClick={onSearch}
-          className="px-6 py-3 text-white rounded-lg hover:brightness-95 transition font-medium whitespace-nowrap"
-          style={{ backgroundColor: "var(--color-primary)" }}
+          className="flex items-center justify-center w-53 gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors"
         >
           Tìm kiếm
         </button>
       </div>
 
-      {/* Filter Toggle Button */}
-      <div className="flex items-center justify-between">
+      {activeFilterCount > 0 && (
         <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 text-gray-700 transition-colors"
-          style={{ color: showFilters ? "var(--color-primary)" : undefined }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-primary)")}
-          onMouseLeave={(e) => !showFilters && (e.currentTarget.style.color = "")}
+          onClick={clearFilters}
+          className="text-sm text-white bg-red-600 hover:opacity-90 px-2 py-1 rounded-2xl flex items-center gap-1"
         >
-          <Filter className="w-5 h-5" />
-          <span className="font-medium">Bộ lọc nâng cao</span>
-          {activeFilterCount > 0 && (
-            <span
-              className="text-white text-xs px-2 py-1 rounded-full"
-              style={{ backgroundColor: "var(--color-primary)" }}
-            >
-              {activeFilterCount}
-            </span>
-          )}
+          <X className="w-4 h-4" />
+          Xóa bộ lọc ({activeFilterCount})
         </button>
-        {activeFilterCount > 0 && (
-          <button onClick={clearFilters} className="text-sm text-gray-600 hover:text-red-600 flex items-center gap-1">
-            <X className="w-4 h-4" />
-            Xóa bộ lọc
-          </button>
-        )}
-      </div>
+      )}
 
       {/* Advanced Filters */}
       {showFilters && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
           {/* Gender Filter */}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Giới tính</label>
             <select
@@ -243,30 +231,6 @@ export default function SearchDoctors({ filters, onFiltersChange, onSearch }: Se
           </div>
         </div>
       )}
-
-      {/* Search by tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        <button
-          className="px-4 py-2 text-sm font-medium border-b-2"
-          style={{ color: "var(--color-primary)", borderColor: "var(--color-primary)" }}
-        >
-          Bác sĩ
-        </button>
-        <button
-          className="px-4 py-2 text-sm font-medium text-gray-600 transition-colors"
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-primary)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "")}
-        >
-          Chuyên khoa
-        </button>
-        <button
-          className="px-4 py-2 text-sm font-medium text-gray-600 transition-colors"
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-primary)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "")}
-        >
-          Vấn đề sức khỏe
-        </button>
-      </div>
     </div>
   );
 }

@@ -206,11 +206,12 @@ export default function PatientDoctorsPage() {
   }, [doctors]);
 
   return (
-    <div className="min-h-screen p-6 bg-gray-50">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {/* Header */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-4">
+          <div className="space-y-4">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
               <Stethoscope className="w-5 h-5 text-primary" />
             </div>
@@ -219,35 +220,34 @@ export default function PatientDoctorsPage() {
               <p className="text-sm text-gray-600">Xem hồ sơ và đặt lịch với bác sĩ phù hợp</p>
             </div>
           </div>
-        </div>
 
-        {/* Filters */}
-        <div className="healthcare-card p-4">
-          <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
-            <div className="flex-1 flex items-center gap-3 bg-white border rounded-xl px-3 py-2">
-              <Search className="w-5 h-5 text-gray-400" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tìm theo tên, email, chuyên khoa..."
-                className="flex-1 outline-none text-sm"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-500" />
-              <select
-                value={specialty}
-                onChange={(e) => setSpecialty(e.target.value)}
-                className="border rounded-xl px-3 py-2 text-sm bg-white"
-              >
-                <option value="all">Tất cả chuyên khoa</option>
-                {uniqueSpecialties.map((sp) => (
-                  <option key={sp} value={sp}>
-                    {sp}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Filters */}
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Tìm theo tên, email, chuyên khoa..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-gray-500" />
+                <select
+                  value={specialty}
+                  onChange={(e) => setSpecialty(e.target.value)}
+                  className="border border-gray-300 rounded-xl px-3 py-2 text-sm bg-white"
+                >
+                  <option value="all">Tất cả chuyên khoa</option>
+                  {uniqueSpecialties.map((sp) => (
+                    <option key={sp} value={sp}>
+                      {sp}
+                    </option>
+                  ))}
+                </select>
+              </div>
+          </div>
           </div>
         </div>
 
@@ -275,7 +275,7 @@ export default function PatientDoctorsPage() {
             };
 
             return (
-              <div className="space-y-6">
+              <div className="space-y-6 mt-6">
                 {/* Header with pagination */}
                 <div className="flex items-center justify-between">
                   <p className="text-gray-600">

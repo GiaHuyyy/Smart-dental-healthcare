@@ -60,7 +60,7 @@ export default function VoucherList() {
         <Gift className="w-12 h-12 text-gray-400 mx-auto mb-3" />
         <p className="text-gray-600">Bạn chưa có voucher nào</p>
         <p className="text-sm text-gray-500 mt-1">
-          Voucher sẽ được tặng khi bác sĩ tạo đề xuất tái khám hoặc hủy lịch khẩn cấp
+          Voucher sẽ được tặng khi bác sĩ tạo đề xuất tái khám, hủy lịch khẩn cấp hoặc tham gia các chương trình khuyến mãi!
         </p>
       </div>
     );

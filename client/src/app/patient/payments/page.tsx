@@ -750,7 +750,7 @@ export default function PatientPayments() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-6">
         {/* Header with Filters */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="space-y-4">
@@ -808,9 +808,8 @@ export default function PatientPayments() {
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-5 mb-6 mt-6">
             {/* Card 1: Tổng chi tiêu */}
             <button
               onClick={() => handleStatCardClick("all")}
@@ -1210,7 +1209,6 @@ export default function PatientPayments() {
               })}
             </div>
           )}
-        </div>
       </div>
 
       {/* Payment Method Selection Modal */}
