@@ -3,20 +3,39 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import LogoutButton from "./auth/LogoutButton";
 import { User, Settings, Activity, Home, FileText, Drone } from "lucide-react";
 import Image from "next/image";
 import { PolicyModal } from "@/components/PolicyModal";
 import { NotificationButton } from "./NotificationButton";
 import tooth from "../../public/tooth.svg";
+import toothWhite from "../../public/tooth-white.svg";
 
 export default function Header() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const isHomePage = pathname === "/";
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle scroll for transparent header on homepage
+  const handleScroll = useCallback(() => {
+    if (isHomePage) {
+      setIsScrolled(window.scrollY > 10);
+    }
+  }, [isHomePage]);
+
+  useEffect(() => {
+    if (isHomePage) {
+      window.addEventListener("scroll", handleScroll);
+      handleScroll(); // Check initial scroll position
+      return () => window.removeEventListener("scroll", handleScroll);
+    } else {
+      setIsScrolled(true); // Always show solid header on other pages
+    }
+  }, [isHomePage, handleScroll]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -58,20 +77,37 @@ export default function Header() {
 
   const dashboardInfo = getUserDashboardInfo();
 
+  // Determine header styles based on scroll and page
+  const headerBg = isHomePage && !isScrolled ? "bg-transparent border-transparent" : "bg-white/95 border-gray-100";
+
+  const textColor = isHomePage && !isScrolled ? "text-white" : "text-gray-900";
+  const textColorSecondary = isHomePage && !isScrolled ? "text-white/80" : "text-gray-500";
+  const logoTextColor = isHomePage && !isScrolled ? "text-white" : "text-primary";
+
   return (
-    <header className="healthcare-card rounded-none! border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
+    <header
+      className={`rounded-none! border-b sticky top-0 z-50 backdrop-blur-sm transition-all duration-300 ${headerBg}`}
+    >
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex justify-between items-center py-4">
           {/* Logo and Branding */}
           <div className="flex items-center gap-4">
             {isHomePage ? (
               <Link href="/" className="flex items-center hover:opacity-90 transition-opacity group">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-linear-to-br from-blue-100 to-[#00a6f4]">
-                  <Image src={tooth} alt="Logo" width={24} height={24} />
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                    isScrolled ? "bg-linear-to-br from-blue-100 to-[#00a6f4]" : "bg-white/20 backdrop-blur-sm"
+                  }`}
+                >
+                  <Image src={isScrolled ? tooth : toothWhite} alt="Logo" width={24} height={24} />
                 </div>
                 <div className="ml-3">
-                  <span className="text-xl font-bold text-primary">Smart Dental</span>
-                  <div className="text-xs text-gray-500 -mt-1">Healthcare Platform</div>{" "}
+                  <span className={`text-xl font-bold transition-colors duration-300 ${logoTextColor}`}>
+                    Smart Dental
+                  </span>
+                  <div className={`text-xs -mt-1 transition-colors duration-300 ${textColorSecondary}`}>
+                    Healthcare Platform
+                  </div>
                 </div>
               </Link>
             ) : (
@@ -131,8 +167,12 @@ export default function Header() {
                 <div className="relative" ref={dropdownRef}>
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:block text-right">
-                      <div className="text-sm font-medium text-gray-900">{session.user.fullName}</div>
-                      <div className="text-xs text-gray-500">{session.user.email}</div>
+                      <div className={`text-sm font-medium transition-colors duration-300 ${textColor}`}>
+                        {session.user.fullName}
+                      </div>
+                      <div className={`text-xs transition-colors duration-300 ${textColorSecondary}`}>
+                        {session.user.email}
+                      </div>
                     </div>
                     <button
                       onClick={() => setShowDropdown(!showDropdown)}
