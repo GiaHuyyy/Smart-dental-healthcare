@@ -578,12 +578,6 @@ export class RealtimeChatGateway
         }
       });
 
-      // Log detailed conversation data before emitting
-      this.logger.log(
-        `📤 EMITTING CONVERSATIONS to client ${client.id}:`,
-        JSON.stringify(transformedConversations, null, 2),
-      );
-
       // Emit conversations back to client
       client.emit('conversationsLoaded', {
         conversations: transformedConversations,

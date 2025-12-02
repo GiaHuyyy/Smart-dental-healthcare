@@ -8,6 +8,7 @@ import { extractUserData } from "@/utils/sessionHelpers";
 import { Drone, Menu, Stethoscope, User } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 // Avoid useSearchParams in components that may be prerendered - read window.location in effect instead
 import { DoctorSuggestion } from "@/types/chat";
 
@@ -56,6 +57,7 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
   const previousSelectedChatRef = useRef<string | null>(null);
   const newlyCreatedConvsRef = useRef<Set<string>>(new Set());
   const userData = extractUserData(session);
+  const router = useRouter();
 
   const addOrUpdateConversation = useCallback(
     (newConversationData: any) => {
@@ -243,6 +245,30 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
     },
     [userData, addOrUpdateConversation]
   );
+
+  // --- Handler cho nút Đặt lịch (Patient -> Doctor) ---
+  const handleBookAppointment = useCallback(() => {
+    const conversation = conversations.find((conv) => conv.id === selectedChat);
+    if (!conversation) return;
+    const doctorId = conversation.peerId;
+    // Navigate to appointment page with doctor ID and open modal
+    router.push(`/patient/appointments?doctorId=${doctorId}&openModal=true`);
+  }, [conversations, selectedChat, router]);
+
+  // --- Handler cho nút Hồ sơ ---
+  const handleViewProfile = useCallback(() => {
+    const conversation = conversations.find((conv) => conv.id === selectedChat);
+    if (!conversation) return;
+    const peerId = conversation.peerId;
+
+    if (userRole === "patient") {
+      // Patient viewing doctor profile
+      router.push(`/patient/doctors/${peerId}`);
+    } else {
+      // Doctor viewing patient profile
+      router.push(`/doctor/patients?patientId=${peerId}&openDetail=true`);
+    }
+  }, [conversations, selectedChat, userRole, router]);
 
   // --- 2. Tải tin nhắn khi chọn cuộc hội thoại ---
   const loadConversationMessages = useCallback(
@@ -624,8 +650,9 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
                       ? selectedConversation.peerDetails
                       : ((session?.user as unknown as Record<string, unknown>)?.specialty as string | undefined) || ""
                   }
-                  isOnline={true}
                   embedded={true}
+                  onBookAppointment={handleBookAppointment}
+                  onViewProfile={handleViewProfile}
                 />
               ) : null}
             </div>

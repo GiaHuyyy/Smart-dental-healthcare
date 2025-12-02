@@ -44,12 +44,12 @@ export default function CallMessage({ callData, isOutgoing, timestamp, className
           textColor: "text-gray-900",
         };
       case "rejected":
-        // Cả outgoing (Bị từ chối) và incoming (Đã từ chối) đều dùng màu cam nhạt
+        // Cả outgoing (Bị từ chối) và incoming (Đã từ chối) đều dùng màu đỏ nhạt (giống missed)
         return {
           icon: PhoneOff,
           text: isOutgoing ? "Bị từ chối" : "Đã từ chối",
-          color: "text-orange-500",
-          bgColor: "bg-orange-50",
+          color: "text-red-500",
+          bgColor: "bg-red-50",
           textColor: "text-gray-900",
         };
       case "answered":

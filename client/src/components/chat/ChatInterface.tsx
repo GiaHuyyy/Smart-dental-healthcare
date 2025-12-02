@@ -265,12 +265,14 @@ export default function ChatInterface({
   >([]);
   const [Input, setInput] = useState("");
   const [isInputFocusedLoading, setIsInputFocusedLoading] = useState(false);
-  const [isDoctorTyping, setIsDoctorTyping] = useState(false);
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState<number>(0);
+
+  // Image modal state
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1849,8 +1851,9 @@ export default function ChatInterface({
                         alt="Uploaded image"
                         width={200}
                         height={200}
-                        className="max-w-full h-auto rounded-lg border object-cover"
+                        className="max-w-full h-auto rounded-lg border object-cover cursor-pointer hover:opacity-90 transition-opacity"
                         style={{ maxHeight: "200px" }}
+                        onClick={() => setSelectedImageUrl(message.imageUrl!)}
                       />
                     </div>
                   )}
@@ -2312,8 +2315,9 @@ export default function ChatInterface({
                                   <img
                                     src={(message as any).fileUrl}
                                     alt={(message as any).fileName || "Image"}
-                                    className="max-w-full h-auto rounded border object-cover"
+                                    className="max-w-full h-auto rounded border object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                     style={{ maxHeight: "200px", maxWidth: "200px" }}
+                                    onClick={() => setSelectedImageUrl((message as any).fileUrl)}
                                   />
                                 ) : (message as any).messageType === "video" ? (
                                   <video
@@ -2354,23 +2358,6 @@ export default function ChatInterface({
                     </div>
                   );
                 })}
-                {isDoctorTyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 px-4 py-3 rounded-lg">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
-                        ></div>
-                        <div
-                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </>
             )}
             <div ref={userMessagesEndRef} />
@@ -2472,6 +2459,28 @@ export default function ChatInterface({
             </div>
           </div>
         </>
+      )}
+
+      {/* Image Modal for viewing full size */}
+      {selectedImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedImageUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+            onClick={() => setSelectedImageUrl(null)}
+          >
+            <X size={32} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={selectedImageUrl}
+            alt="Full size image"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
 
       {/* Call components are now global in ClientProviders */}
