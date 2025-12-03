@@ -1,11 +1,11 @@
-import { Colors } from '@/constants/colors';
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Colors } from "@/constants/colors";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 interface CallMessageBubbleProps {
-  callType: 'audio' | 'video';
-  callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
+  callType: "audio" | "video";
+  callStatus: "missed" | "answered" | "rejected" | "completed";
   callDuration?: number; // in seconds
   isOutgoing: boolean;
   timestamp: string;
@@ -21,50 +21,67 @@ export default function CallMessageBubble({
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   const getCallInfo = () => {
-    const isMissed = callStatus === 'missed';
-    const isRejected = callStatus === 'rejected';
-    const isCompleted = callStatus === 'completed';
+    const isMissed = callStatus === "missed";
+    const isRejected = callStatus === "rejected";
+    const isCompleted = callStatus === "completed" || callStatus === "answered";
 
-    let icon: keyof typeof Ionicons.glyphMap = callType === 'video' ? 'videocam' : 'call';
-    let text = '';
-    let color = Colors.gray[600];
+    let icon: keyof typeof Ionicons.glyphMap = callType === "video" ? "videocam" : "call";
+    let text = "";
+    let iconColor = Colors.gray[500];
+    let bgColor = Colors.gray[50];
 
     if (isMissed) {
-      icon = callType === 'video' ? 'videocam-off' : 'call';
-      text = isOutgoing ? 'Cuộc gọi nhưỡng' : 'Cuộc gọi nhỡ';
-      color = Colors.error[600];
+      icon = callType === "video" ? "videocam-off" : "call";
+      text = isOutgoing ? "Không trả lời" : "Cuộc gọi nhỡ";
+      iconColor = Colors.error[500];
+      bgColor = Colors.error[50];
     } else if (isRejected) {
-      icon = callType === 'video' ? 'videocam-off' : 'call';
-      text = isOutgoing ? 'Cuộc gọi bị từ chối' : 'Cuộc gọi đã từ chối';
-      color = Colors.error[600];
+      icon = callType === "video" ? "videocam-off" : "call";
+      text = isOutgoing ? "Bị từ chối" : "Đã từ chối";
+      iconColor = Colors.error[500];
+      bgColor = Colors.error[50];
     } else if (isCompleted) {
-      text = isOutgoing ? 'Cuộc gọi đi' : 'Cuộc gọi đến';
-      color = Colors.success[600];
+      icon = callType === "video" ? "videocam" : "call";
+      text = isOutgoing ? "Cuộc gọi đi" : "Cuộc gọi đến";
+      iconColor = Colors.success[500];
+      bgColor = Colors.success[50];
     } else {
-      text = isOutgoing ? 'Cuộc gọi đi' : 'Cuộc gọi đến';
-      color = Colors.primary[600];
+      text = "Cuộc gọi";
+      iconColor = Colors.gray[500];
+      bgColor = Colors.gray[50];
     }
 
-    return { icon, text, color };
+    return { icon, text, iconColor, bgColor };
   };
 
-  const { icon, text, color } = getCallInfo();
+  const { icon, text, iconColor, bgColor } = getCallInfo();
+  const callTypeLabel = callType === "video" ? "Video" : "Thoại";
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.iconContainer, { backgroundColor: `${color}20` }]}>
-        <Ionicons name={icon} size={20} color={color} />
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
+      {/* Call type icon */}
+      <View style={[styles.iconContainer, { backgroundColor: bgColor }]}>
+        <Ionicons name={icon} size={20} color={iconColor} />
       </View>
+
+      {/* Call info */}
       <View style={styles.content}>
-        <Text style={[styles.callText, { color }]}>{text}</Text>
-        {callDuration !== undefined && callStatus === 'completed' && (
-          <Text style={styles.duration}>{formatDuration(callDuration)}</Text>
-        )}
-        <Text style={styles.timestamp}>{timestamp}</Text>
+        <Text style={styles.callText}>{text}</Text>
+        <View style={styles.detailsRow}>
+          <Text style={styles.callTypeLabel}>{callTypeLabel}</Text>
+          {callDuration !== undefined && callDuration > 0 && (
+            <>
+              <Text style={styles.separator}>•</Text>
+              <Text style={styles.duration}>{formatDuration(callDuration)}</Text>
+            </>
+          )}
+          <Text style={styles.separator}>•</Text>
+          <Text style={styles.timestamp}>{timestamp}</Text>
+        </View>
       </View>
     </View>
   );
@@ -72,22 +89,21 @@ export default function CallMessageBubble({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: Colors.gray[50],
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.gray[200],
+    borderRadius: 16,
     marginVertical: 4,
+    maxWidth: "80%",
+    alignSelf: "flex-start",
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   content: {
@@ -95,16 +111,30 @@ const styles = StyleSheet.create({
   },
   callText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "500",
+    color: Colors.gray[900],
     marginBottom: 2,
+  },
+  detailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  callTypeLabel: {
+    fontSize: 12,
+    color: Colors.gray[500],
+  },
+  separator: {
+    fontSize: 12,
+    color: Colors.gray[400],
+    marginHorizontal: 6,
   },
   duration: {
     fontSize: 12,
-    color: Colors.gray[600],
-    marginBottom: 2,
+    color: Colors.gray[500],
   },
   timestamp: {
-    fontSize: 11,
-    color: Colors.gray[500],
+    fontSize: 12,
+    color: Colors.gray[400],
   },
 });

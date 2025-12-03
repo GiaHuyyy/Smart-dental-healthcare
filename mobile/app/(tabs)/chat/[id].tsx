@@ -1,53 +1,53 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Linking,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import CallButton from '@/components/call/CallButton';
-import CallMessageBubble from '@/components/call/CallMessageBubble';
-import { AppHeader } from '@/components/layout/AppHeader';
-import { Card } from '@/components/ui/Card';
-import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/auth-context';
-import { useCall } from '@/contexts/CallContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import realtimeChatService, { ChatMessage as RealtimeChatMessage } from '@/services/realtimeChatService';
-import uploadService from '@/services/uploadService';
+import CallButton from "@/components/call/CallButton";
+import CallMessageBubble from "@/components/call/CallMessageBubble";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { Card } from "@/components/ui/Card";
+import { Colors } from "@/constants/colors";
+import { useAuth } from "@/contexts/auth-context";
+import { useCall } from "@/contexts/CallContext";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import realtimeChatService, { ChatMessage as RealtimeChatMessage } from "@/services/realtimeChatService";
+import uploadService from "@/services/uploadService";
 import {
-    AiAssistantResponse,
-    fetchAiAdvice,
-    fetchQuickSuggestions,
-    fetchSuggestedQuestions,
-    formatUrgencyLabel,
-    ImageAnalysisResult,
-    startChatSession,
-    SuggestedDoctor,
-    uploadAnalysisImage,
-} from '@/utils/ai-chat';
-import { formatApiError } from '@/utils/api';
-import { clearChatState, loadChatState, persistChatState, StoredChatMessage } from '@/utils/chat-storage';
+  AiAssistantResponse,
+  fetchAiAdvice,
+  fetchQuickSuggestions,
+  fetchSuggestedQuestions,
+  formatUrgencyLabel,
+  ImageAnalysisResult,
+  startChatSession,
+  SuggestedDoctor,
+  uploadAnalysisImage,
+} from "@/utils/ai-chat";
+import { formatApiError } from "@/utils/api";
+import { clearChatState, loadChatState, persistChatState, StoredChatMessage } from "@/utils/chat-storage";
 
-type ChatRole = 'user' | 'assistant';
-type MessageStatus = 'sending' | 'sent' | 'failed';
+type ChatRole = "user" | "assistant";
+type MessageStatus = "sending" | "sent" | "failed";
 
 type ChatAttachment = {
   id: string;
-  type: 'image';
+  type: "image";
   uri: string;
 };
 
@@ -59,7 +59,7 @@ type ChatMessage = {
   status: MessageStatus;
   quickActions?: string[];
   followUpQuestions?: string[];
-  urgencyLevel?: 'low' | 'medium' | 'high';
+  urgencyLevel?: "low" | "medium" | "high";
   nextSteps?: string[];
   suggestedDoctor?: SuggestedDoctor | null;
   analysisData?: ImageAnalysisResult | null;
@@ -67,8 +67,8 @@ type ChatMessage = {
   metadata?: Record<string, unknown>;
   // Call message fields
   isCallMessage?: boolean;
-  callType?: 'audio' | 'video';
-  callStatus?: 'missed' | 'answered' | 'rejected' | 'completed';
+  callType?: "audio" | "video";
+  callStatus?: "missed" | "answered" | "rejected" | "completed";
   callDuration?: number; // in seconds
 };
 
@@ -81,43 +81,43 @@ type QuickTopic = {
   prompt?: string;
 };
 
-const WEB_CHAT_URL = 'https://smart-dental-healthcare.com/patient/chat-support';
+const WEB_CHAT_URL = "https://smart-dental-healthcare.com/patient/chat-support";
 const MAX_HISTORY = 12;
 
 const QUICK_TOPICS: QuickTopic[] = [
   {
-    id: 'topic-1',
-    title: 'Đau răng kéo dài',
-    description: 'Bạn đang đau nhức hoặc ê buốt, hãy mô tả vị trí và thời gian đau.',
-    iconName: 'heart-outline',
-    accent: '#2563eb',
-    prompt: 'Tôi bị đau nhức răng hàm dưới bên phải đã 3 ngày, khi uống đồ lạnh rất buốt.',
+    id: "topic-1",
+    title: "Đau răng kéo dài",
+    description: "Bạn đang đau nhức hoặc ê buốt, hãy mô tả vị trí và thời gian đau.",
+    iconName: "heart-outline",
+    accent: "#2563eb",
+    prompt: "Tôi bị đau nhức răng hàm dưới bên phải đã 3 ngày, khi uống đồ lạnh rất buốt.",
   },
   {
-    id: 'topic-2',
-    title: 'Sau nhổ răng khôn',
-    description: 'Theo dõi tình trạng sưng, đau hoặc sốt sau phẫu thuật.',
-    iconName: 'chatbubble-outline',
-    accent: '#0ea5e9',
-    prompt: 'Sau khi nhổ răng khôn được 2 ngày tôi vẫn sưng và sốt nhẹ, tôi cần lưu ý gì?',
+    id: "topic-2",
+    title: "Sau nhổ răng khôn",
+    description: "Theo dõi tình trạng sưng, đau hoặc sốt sau phẫu thuật.",
+    iconName: "chatbubble-outline",
+    accent: "#0ea5e9",
+    prompt: "Sau khi nhổ răng khôn được 2 ngày tôi vẫn sưng và sốt nhẹ, tôi cần lưu ý gì?",
   },
   {
-    id: 'topic-3',
-    title: 'Viêm lợi, chảy máu',
-    description: 'Nhận hướng dẫn chăm sóc khi lợi sưng đỏ, chảy máu.',
-    iconName: 'headset-outline',
-    accent: '#f97316',
-    prompt: 'Tôi bị chảy máu lợi mỗi lần đánh răng và có mùi hôi miệng, tôi nên làm gì?',
+    id: "topic-3",
+    title: "Viêm lợi, chảy máu",
+    description: "Nhận hướng dẫn chăm sóc khi lợi sưng đỏ, chảy máu.",
+    iconName: "headset-outline",
+    accent: "#f97316",
+    prompt: "Tôi bị chảy máu lợi mỗi lần đánh răng và có mùi hôi miệng, tôi nên làm gì?",
   },
 ];
 
 const FALLBACK_MESSAGE: ChatMessage = {
-  id: 'welcome-message',
-  role: 'assistant',
+  id: "welcome-message",
+  role: "assistant",
   content:
-    'Xin chào! Tôi là trợ lý nha khoa AI của Smart Dental. Bạn hãy mô tả triệu chứng, gửi ảnh hoặc đặt câu hỏi để được hỗ trợ nhé.',
+    "Xin chào! Tôi là trợ lý nha khoa AI của Smart Dental. Bạn hãy mô tả triệu chứng, gửi ảnh hoặc đặt câu hỏi để được hỗ trợ nhé.",
   createdAt: new Date().toISOString(),
-  status: 'sent',
+  status: "sent",
 };
 
 const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -125,30 +125,34 @@ const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}
 // Detect if a message is a call message based on content
 function detectCallMessage(content: string): {
   isCallMessage: boolean;
-  callType?: 'audio' | 'video';
-  callStatus?: 'missed' | 'answered' | 'rejected' | 'completed';
+  callType?: "audio" | "video";
+  callStatus?: "missed" | "answered" | "rejected" | "completed";
 } {
   const lowerContent = content.toLowerCase();
-  
+
   // Check if it's a call message
-  if (!lowerContent.includes('cuộc gọi') && !lowerContent.includes('call')) {
+  if (!lowerContent.includes("cuộc gọi") && !lowerContent.includes("call")) {
     return { isCallMessage: false };
   }
 
   // Detect call type
-  const isVideo = lowerContent.includes('video') || lowerContent.includes('gọi video');
-  const callType: 'audio' | 'video' = isVideo ? 'video' : 'audio';
+  const isVideo = lowerContent.includes("video") || lowerContent.includes("gọi video");
+  const callType: "audio" | "video" = isVideo ? "video" : "audio";
 
   // Detect call status
-  let callStatus: 'missed' | 'answered' | 'rejected' | 'completed' = 'completed';
-  
-  if (lowerContent.includes('nhỡ') || lowerContent.includes('missed')) {
-    callStatus = 'missed';
-  } else if (lowerContent.includes('từ chối') || lowerContent.includes('rejected')) {
-    callStatus = 'rejected';
-  } else if (lowerContent.includes('hoàn thành') || lowerContent.includes('completed') || 
-             lowerContent.includes('kết thúc') || lowerContent.includes('ended')) {
-    callStatus = 'completed';
+  let callStatus: "missed" | "answered" | "rejected" | "completed" = "completed";
+
+  if (lowerContent.includes("nhỡ") || lowerContent.includes("missed")) {
+    callStatus = "missed";
+  } else if (lowerContent.includes("từ chối") || lowerContent.includes("rejected")) {
+    callStatus = "rejected";
+  } else if (
+    lowerContent.includes("hoàn thành") ||
+    lowerContent.includes("completed") ||
+    lowerContent.includes("kết thúc") ||
+    lowerContent.includes("ended")
+  ) {
+    callStatus = "completed";
   }
 
   return {
@@ -161,21 +165,21 @@ function detectCallMessage(content: string): {
 function formatTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return '';
+    return "";
   }
-  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 }
 
-function getUrgencyStyles(level?: 'low' | 'medium' | 'high') {
+function getUrgencyStyles(level?: "low" | "medium" | "high") {
   switch (level) {
-    case 'high':
+    case "high":
       return {
         borderColor: Colors.error[100],
         backgroundColor: Colors.error[50],
         textColor: Colors.error[700],
         iconColor: Colors.error[600],
       };
-    case 'medium':
+    case "medium":
       return {
         borderColor: Colors.warning[100],
         backgroundColor: Colors.warning[50],
@@ -197,20 +201,20 @@ function SuggestedDoctorCard({
   onNavigate,
 }: {
   doctor: SuggestedDoctor;
-  onNavigate: (target: 'doctor' | 'appointment', doctor?: SuggestedDoctor) => void;
+  onNavigate: (target: "doctor" | "appointment", doctor?: SuggestedDoctor) => void;
 }) {
   if (!doctor) return null;
 
   return (
-    <View 
+    <View
       className="mt-4 rounded-2xl border p-4"
-      style={{ 
+      style={{
         borderColor: Colors.primary[100],
-        backgroundColor: `${Colors.primary[50]}99`
+        backgroundColor: `${Colors.primary[50]}99`,
       }}
     >
       <View className="flex-row items-center space-x-3">
-        <View 
+        <View
           className="h-12 w-12 items-center justify-center rounded-2xl"
           style={{ backgroundColor: Colors.primary[600] }}
         >
@@ -218,10 +222,10 @@ function SuggestedDoctorCard({
         </View>
         <View className="flex-1">
           <Text className="text-sm font-semibold" style={{ color: Colors.primary[900] }}>
-            {doctor.fullName ?? 'Bác sĩ Smart Dental'}
+            {doctor.fullName ?? "Bác sĩ Smart Dental"}
           </Text>
           <Text className="text-xs" style={{ color: Colors.primary[600] }}>
-            {doctor.specialty ?? 'Chuyên khoa Răng Hàm Mặt'}
+            {doctor.specialty ?? "Chuyên khoa Răng Hàm Mặt"}
           </Text>
         </View>
       </View>
@@ -229,14 +233,14 @@ function SuggestedDoctorCard({
         <TouchableOpacity
           className="flex-1 rounded-2xl px-4 py-2"
           style={{ backgroundColor: Colors.primary[600] }}
-          onPress={() => onNavigate('doctor', doctor)}
+          onPress={() => onNavigate("doctor", doctor)}
         >
           <Text className="text-center text-xs font-semibold text-white">Xem danh sách bác sĩ</Text>
         </TouchableOpacity>
         <TouchableOpacity
           className="flex-1 rounded-2xl border px-4 py-2"
           style={{ borderColor: Colors.primary[400] }}
-          onPress={() => onNavigate('appointment', doctor)}
+          onPress={() => onNavigate("appointment", doctor)}
         >
           <Text className="text-center text-xs font-semibold" style={{ color: Colors.primary[600] }}>
             Đặt lịch khám nhanh
@@ -247,7 +251,7 @@ function SuggestedDoctorCard({
         <TouchableOpacity
           className="mt-3 flex-row items-center justify-center rounded-2xl border bg-white px-4 py-2"
           style={{ borderColor: Colors.primary[200] }}
-          onPress={() => onNavigate('appointment', doctor)}
+          onPress={() => onNavigate("appointment", doctor)}
         >
           <Ionicons name="call-outline" size={16} color={Colors.primary[600]} />
           <Text className="ml-2 text-xs font-semibold" style={{ color: Colors.primary[700] }}>
@@ -280,18 +284,18 @@ function AnalysisBlock({ analysis }: { analysis: ImageAnalysisResult }) {
 
       {sections.length > 0
         ? sections.map((section, index) => (
-            <View 
-              key={`${section.heading}-${index}`} 
+            <View
+              key={`${section.heading}-${index}`}
               className="rounded-2xl border p-3"
-              style={{ borderColor: '#e2e8f0', backgroundColor: '#ffffff' }}
+              style={{ borderColor: "#e2e8f0", backgroundColor: "#ffffff" }}
             >
               {section.heading ? (
-                <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#1e293b' }}>
+                <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#1e293b" }}>
                   {section.heading}
                 </Text>
               ) : null}
               {section.text ? (
-                <Text className="mt-1 text-sm" style={{ color: '#475569' }}>
+                <Text className="mt-1 text-sm" style={{ color: "#475569" }}>
                   {section.text}
                 </Text>
               ) : null}
@@ -299,11 +303,11 @@ function AnalysisBlock({ analysis }: { analysis: ImageAnalysisResult }) {
                 <View className="mt-2 space-y-1">
                   {section.bullets.map((bullet) => (
                     <View key={bullet} className="flex-row items-start space-x-2">
-                      <View 
+                      <View
                         className="mt-[6px] h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: Colors.primary[400] }}
                       />
-                      <Text className="flex-1 text-xs" style={{ color: '#64748b' }}>
+                      <Text className="flex-1 text-xs" style={{ color: "#64748b" }}>
                         {bullet}
                       </Text>
                     </View>
@@ -315,11 +319,11 @@ function AnalysisBlock({ analysis }: { analysis: ImageAnalysisResult }) {
         : null}
 
       {analysis.richContent?.recommendations?.length ? (
-        <View 
+        <View
           className="rounded-2xl border p-3"
-          style={{ 
+          style={{
             borderColor: Colors.success[100],
-            backgroundColor: `${Colors.success[50]}CC`
+            backgroundColor: `${Colors.success[50]}CC`,
           }}
         >
           <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: Colors.success[700] }}>
@@ -343,31 +347,31 @@ function ChatBubble({
 }: {
   message: ChatMessage;
   onQuickAction: (text: string) => void;
-  onNavigateDoctor: (target: 'doctor' | 'appointment', doctor?: SuggestedDoctor) => void;
+  onNavigateDoctor: (target: "doctor" | "appointment", doctor?: SuggestedDoctor) => void;
 }) {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
-  const isUser = message.role === 'user';
+  const theme = Colors[colorScheme ?? "light"];
+  const isUser = message.role === "user";
   const statusLabel =
-    message.status === 'sending'
-      ? 'Đang gửi...'
-      : message.status === 'failed'
-        ? 'Gửi thất bại'
+    message.status === "sending"
+      ? "Đang gửi..."
+      : message.status === "failed"
+        ? "Gửi thất bại"
         : formatTime(message.createdAt);
 
   const urgencyStyles = getUrgencyStyles(message.urgencyLevel);
   const metadata = message.metadata as Record<string, unknown> | undefined;
   let confidence: number | undefined;
-  if (metadata && typeof metadata.confidence === 'number') {
+  if (metadata && typeof metadata.confidence === "number") {
     confidence = metadata.confidence;
-  } else if (typeof message.analysisData?.confidence === 'number') {
+  } else if (typeof message.analysisData?.confidence === "number") {
     confidence = message.analysisData.confidence;
   }
 
   // Render call message bubble
   if (message.isCallMessage && message.callType && message.callStatus) {
     return (
-      <View className="mb-3 px-1">
+      <View className={`mb-3 flex-row px-1 ${isUser ? "justify-end" : "justify-start"}`}>
         <CallMessageBubble
           callType={message.callType}
           callStatus={message.callStatus}
@@ -380,13 +384,13 @@ function ChatBubble({
   }
 
   return (
-    <View className={`mb-3 flex-row px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <View className={`mb-3 flex-row px-1 ${isUser ? "justify-end" : "justify-start"}`}>
       <View
         className="max-w-[82%] rounded-3xl px-4 py-3"
         style={{
           backgroundColor: isUser ? Colors.primary[600] : theme.card,
           borderWidth: isUser ? 0 : 1,
-          borderColor: isUser ? 'transparent' : theme.border
+          borderColor: isUser ? "transparent" : theme.border,
         }}
       >
         {message.attachments?.map((attachment) => (
@@ -395,21 +399,18 @@ function ChatBubble({
           </View>
         ))}
 
-        <Text 
-          className="text-sm leading-relaxed"
-          style={{ color: isUser ? '#ffffff' : theme.text.primary }}
-        >
+        <Text className="text-sm leading-relaxed" style={{ color: isUser ? "#ffffff" : theme.text.primary }}>
           {message.content}
         </Text>
 
         {message.analysisData ? <AnalysisBlock analysis={message.analysisData} /> : null}
 
         {message.nextSteps?.length ? (
-          <View 
+          <View
             className="mt-3 rounded-2xl border p-3"
-            style={{ 
+            style={{
               borderColor: Colors.primary[100],
-              backgroundColor: `${Colors.primary[50]}99`
+              backgroundColor: `${Colors.primary[50]}99`,
             }}
           >
             <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: Colors.primary[700] }}>
@@ -429,9 +430,9 @@ function ChatBubble({
               <TouchableOpacity
                 key={action}
                 className="rounded-2xl border px-3 py-1.5"
-                style={{ 
+                style={{
                   borderColor: Colors.primary[200],
-                  backgroundColor: Colors.primary[50]
+                  backgroundColor: Colors.primary[50],
                 }}
                 onPress={() => onQuickAction(action)}
               >
@@ -449,9 +450,9 @@ function ChatBubble({
               <TouchableOpacity
                 key={question}
                 className="rounded-2xl border px-3 py-2"
-                style={{ 
+                style={{
                   borderColor: theme.border,
-                  backgroundColor: theme.surface
+                  backgroundColor: theme.surface,
                 }}
                 onPress={() => onQuickAction(question)}
               >
@@ -472,7 +473,7 @@ function ChatBubble({
             className="mt-3 flex-row items-center justify-between rounded-2xl border px-3 py-2"
             style={{
               borderColor: urgencyStyles.borderColor,
-              backgroundColor: urgencyStyles.backgroundColor
+              backgroundColor: urgencyStyles.backgroundColor,
             }}
           >
             <View className="flex-row items-center space-x-2">
@@ -481,7 +482,7 @@ function ChatBubble({
                 Mức độ: {formatUrgencyLabel(message.urgencyLevel)}
               </Text>
             </View>
-            {typeof confidence === 'number' ? (
+            {typeof confidence === "number" ? (
               <Text className="text-[11px]" style={{ color: urgencyStyles.textColor }}>
                 Độ tin cậy: {Math.round(confidence * 100)}%
               </Text>
@@ -489,10 +490,7 @@ function ChatBubble({
           </View>
         ) : null}
 
-        <Text 
-          className="mt-2 text-[10px]"
-          style={{ color: isUser ? '#bfdbfe' : theme.text.secondary }}
-        >
+        <Text className="mt-2 text-[10px]" style={{ color: isUser ? "#bfdbfe" : theme.text.secondary }}>
           {statusLabel}
         </Text>
       </View>
@@ -509,11 +507,11 @@ export default function ChatConversationScreen() {
   // Use fixed tab bar height since this screen is not inside Bottom Tab Navigator
   const tabBarHeight = 0; // Set to 0 or remove if not needed
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
 
-  const chatId = params.id ?? 'ai-bot';
-  const chatName = params.name ?? 'Smart Dental AI';
-  const chatType = params.type ?? 'ai'; // 'ai' | 'doctor'
+  const chatId = params.id ?? "ai-bot";
+  const chatName = params.name ?? "Smart Dental AI";
+  const chatType = params.type ?? "ai"; // 'ai' | 'doctor'
   const existingConversationId = params.conversationId; // Get conversation ID from params
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -521,7 +519,7 @@ export default function ChatConversationScreen() {
   const flatListRef = useRef<FlatList<ChatMessage> | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
 
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -540,13 +538,13 @@ export default function ChatConversationScreen() {
     let isMounted = true;
     (async () => {
       // For doctor chat, DON'T load from storage - will load from backend via Socket.IO
-      if (chatType === 'doctor') {
+      if (chatType === "doctor") {
         setIsHydrated(true);
         return;
       }
-      
+
       // For AI chat, load from local storage
-      const stored = await loadChatState(chatType as 'ai' | 'doctor', existingConversationId);
+      const stored = await loadChatState(chatType as "ai" | "doctor", existingConversationId);
       if (!isMounted) return;
 
       if (stored?.messages?.length) {
@@ -554,15 +552,15 @@ export default function ChatConversationScreen() {
           const attachments = Array.isArray(item.attachments)
             ? (item.attachments
                 .map((attachment) => {
-                  if (!attachment || typeof attachment !== 'object') {
+                  if (!attachment || typeof attachment !== "object") {
                     return null;
                   }
-                  const uri = typeof attachment.uri === 'string' ? attachment.uri : null;
+                  const uri = typeof attachment.uri === "string" ? attachment.uri : null;
                   if (!uri) {
                     return null;
                   }
-                  const id = typeof attachment.id === 'string' ? attachment.id : createId();
-                  const type = typeof attachment.type === 'string' ? attachment.type : 'image';
+                  const id = typeof attachment.id === "string" ? attachment.id : createId();
+                  const type = typeof attachment.type === "string" ? attachment.type : "image";
                   return {
                     id,
                     type,
@@ -578,22 +576,24 @@ export default function ChatConversationScreen() {
             : undefined;
           const nextSteps = Array.isArray(item.nextSteps) ? (item.nextSteps as string[]) : undefined;
 
-          const suggestedDoctor = item.suggestedDoctor && typeof item.suggestedDoctor === 'object'
-            ? (item.suggestedDoctor as SuggestedDoctor)
-            : null;
-          const analysisData = item.analysisData && typeof item.analysisData === 'object'
-            ? (item.analysisData as ImageAnalysisResult)
-            : null;
+          const suggestedDoctor =
+            item.suggestedDoctor && typeof item.suggestedDoctor === "object"
+              ? (item.suggestedDoctor as SuggestedDoctor)
+              : null;
+          const analysisData =
+            item.analysisData && typeof item.analysisData === "object"
+              ? (item.analysisData as ImageAnalysisResult)
+              : null;
 
           // Detect if this is a call message (for old messages without call fields)
           const callDetection = detectCallMessage(item.content);
 
           return {
             id: item.id,
-            role: item.role === 'assistant' ? 'assistant' : 'user',
+            role: item.role === "assistant" ? "assistant" : "user",
             content: item.content,
             createdAt: item.createdAt,
-            status: (item.status as MessageStatus) ?? 'sent',
+            status: (item.status as MessageStatus) ?? "sent",
             quickActions,
             followUpQuestions,
             urgencyLevel: item.urgencyLevel,
@@ -610,7 +610,7 @@ export default function ChatConversationScreen() {
         });
         setMessages(restored);
         messagesRef.current = restored;
-      } else if (chatType === 'ai') {
+      } else if (chatType === "ai") {
         // Only show fallback message for AI chat
         setMessages([FALLBACK_MESSAGE]);
         messagesRef.current = [FALLBACK_MESSAGE];
@@ -633,7 +633,7 @@ export default function ChatConversationScreen() {
   useEffect(() => {
     if (!isHydrated) return;
     if (sessionId) return;
-    if (chatType !== 'ai') return; // Only for AI chat
+    if (chatType !== "ai") return; // Only for AI chat
 
     let cancelled = false;
     (async () => {
@@ -650,7 +650,7 @@ export default function ChatConversationScreen() {
 
   // Load suggestions
   useEffect(() => {
-    if (chatType !== 'ai') return;
+    if (chatType !== "ai") return;
 
     let active = true;
 
@@ -659,13 +659,13 @@ export default function ChatConversationScreen() {
         setLoadingSuggestions(true);
         const [questions, symptomSuggestions] = await Promise.all([
           fetchSuggestedQuestions(),
-          fetchQuickSuggestions('đau răng'),
+          fetchQuickSuggestions("đau răng"),
         ]);
         if (!active) return;
         const combined = [...new Set([...questions, ...symptomSuggestions])].slice(0, 12);
         setSuggestions(combined);
       } catch (error) {
-        console.warn('Không thể tải gợi ý chat', error);
+        console.warn("Không thể tải gợi ý chat", error);
       } finally {
         if (active) {
           setLoadingSuggestions(false);
@@ -682,14 +682,14 @@ export default function ChatConversationScreen() {
 
   // Setup call ended callback
   useEffect(() => {
-    if (chatType !== 'doctor') return; // Only for doctor chat
+    if (chatType !== "doctor") return; // Only for doctor chat
     if (!setOnCallEnded) return;
 
     const handleCallEnded = (callInfo: {
       receiverId: string;
       receiverName: string;
       isVideoCall: boolean;
-      callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
+      callStatus: "missed" | "answered" | "rejected" | "completed";
       callDuration?: number;
       isOutgoing: boolean;
     }) => {
@@ -698,12 +698,12 @@ export default function ChatConversationScreen() {
 
       const callMessage: ChatMessage = {
         id: createId(),
-        role: callInfo.isOutgoing ? 'user' : 'assistant',
-        content: callInfo.isVideoCall ? 'Cuộc gọi video' : 'Cuộc gọi thoại',
+        role: callInfo.isOutgoing ? "user" : "assistant",
+        content: callInfo.isVideoCall ? "Cuộc gọi video" : "Cuộc gọi thoại",
         createdAt: new Date().toISOString(),
-        status: 'sent',
+        status: "sent",
         isCallMessage: true,
-        callType: callInfo.isVideoCall ? 'video' : 'audio',
+        callType: callInfo.isVideoCall ? "video" : "audio",
         callStatus: callInfo.callStatus,
         callDuration: callInfo.callDuration,
       };
@@ -722,9 +722,9 @@ export default function ChatConversationScreen() {
   useEffect(() => {
     messagesRef.current = messages;
     if (!isHydrated) return;
-    
+
     // Only persist AI chat to local storage (doctor chat is stored on server)
-    if (chatType !== 'ai') return;
+    if (chatType !== "ai") return;
 
     const serialisableMessages: StoredChatMessage[] = messages.map((message) => ({
       id: message.id,
@@ -754,7 +754,7 @@ export default function ChatConversationScreen() {
         messages: serialisableMessages,
         lastUpdated: Date.now(),
       },
-      chatType as 'ai' | 'doctor',
+      chatType as "ai" | "doctor",
       conversationId || existingConversationId
     );
   }, [messages, sessionId, isHydrated, chatType, conversationId, existingConversationId]);
@@ -770,8 +770,8 @@ export default function ChatConversationScreen() {
 
   // Connect to realtime chat for doctor conversations
   useEffect(() => {
-    if (chatType !== 'doctor' || !session?.token) return;
-    if (!chatId || chatId === 'ai-bot') return;
+    if (chatType !== "doctor" || !session?.token) return;
+    if (!chatId || chatId === "ai-bot") return;
 
     let isMounted = true;
     const userId = (session.user as any)?._id || (session.user as any)?.id;
@@ -780,120 +780,123 @@ export default function ChatConversationScreen() {
     const connectSocket = async () => {
       try {
         setIsConnectingSocket(true);
-        console.log('🔌 [Chat] Connecting to realtime chat...');
-        
+        console.log("🔌 [Chat] Connecting to realtime chat...");
+
         // Connect and wait for socket to be ready
-        await realtimeChatService.connect(session.token!, userId, 'patient');
-        
+        await realtimeChatService.connect(session.token!, userId, "patient");
+
         if (!isMounted) return;
-        
+
         // Double check socket is actually connected
         if (!realtimeChatService.isConnected()) {
-          console.error('❌ [Chat] Socket connected but isConnected() returns false');
-          throw new Error('Socket connection not established properly');
+          console.error("❌ [Chat] Socket connected but isConnected() returns false");
+          throw new Error("Socket connection not established properly");
         }
-        
+
         setIsConnectingSocket(false);
-        console.log('✅ [Chat] Connected to realtime chat');
+        console.log("✅ [Chat] Connected to realtime chat");
 
         // Use existing conversation ID if provided, otherwise create/find conversation
         let targetConversationId = existingConversationId;
-        
+
         if (!targetConversationId) {
           // Try to create or find conversation
           try {
             const conversation = await realtimeChatService.createConversation(userId, chatId);
             if (isMounted) {
               targetConversationId = conversation._id;
-              console.log('✅ [Chat] Conversation created/found:', conversation._id);
+              console.log("✅ [Chat] Conversation created/found:", conversation._id);
             }
           } catch (error) {
-            console.error('❌ [Chat] Error creating conversation:', error);
+            console.error("❌ [Chat] Error creating conversation:", error);
             // If createConversation fails, try to find conversation via REST API
             try {
-              const { apiRequest } = await import('@/utils/api');
+              const { apiRequest } = await import("@/utils/api");
               const convResponse = await apiRequest<any>(
                 `/realtime-chat/conversations?userId=${userId}&userRole=patient`,
                 {
-                  method: 'GET',
+                  method: "GET",
                   headers: {
                     Authorization: `Bearer ${session.token}`,
                   },
                 }
               );
               const conversations: any[] = Array.isArray(convResponse.data) ? convResponse.data : [];
-              const existingConv = conversations.find(
-                (conv) => (conv.doctorId?._id || conv.doctorId) === chatId
-              );
+              const existingConv = conversations.find((conv) => (conv.doctorId?._id || conv.doctorId) === chatId);
               if (existingConv && isMounted) {
                 targetConversationId = existingConv._id;
-                console.log('✅ [Chat] Found existing conversation via REST API:', targetConversationId);
+                console.log("✅ [Chat] Found existing conversation via REST API:", targetConversationId);
               }
             } catch (findError) {
-              console.error('❌ [Chat] Error finding conversation via REST API:', findError);
+              console.error("❌ [Chat] Error finding conversation via REST API:", findError);
             }
           }
         }
-        
+
         if (targetConversationId && isMounted) {
           setConversationId(targetConversationId);
-          console.log('✅ [Chat] Using conversation:', targetConversationId);
-          
+          console.log("✅ [Chat] Using conversation:", targetConversationId);
+
           // Join conversation room
           realtimeChatService.joinConversation(targetConversationId);
-          
+
           // Load messages via REST API
           try {
-            const { apiRequest } = await import('@/utils/api');
+            const { apiRequest } = await import("@/utils/api");
             const response = await apiRequest<ChatMessage[]>(
               `/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&limit=100`,
               {
-                method: 'GET',
+                method: "GET",
                 headers: {
                   Authorization: `Bearer ${session.token}`,
                 },
               }
             );
-            
+
             if (isMounted && response.data) {
               console.log(`✅ [Chat] Loaded ${response.data.length} messages via REST API`);
-              
+
               const loadedMessages: ChatMessage[] = response.data.map((msg: any) => {
                 const senderId = msg.senderId?._id || msg.senderId;
                 const isMyMessage = senderId === userId;
-                
-                // Detect if this is a call message (for old messages without call fields)
-                const callDetection = detectCallMessage(msg.content || '');
-                
+
+                // Check if this is a call message using messageType and callData
+                const isCallMessage = msg.messageType === "call" && msg.callData;
+
                 return {
                   id: msg._id,
-                  role: isMyMessage ? 'user' : 'assistant',
+                  role: isMyMessage ? "user" : "assistant",
                   content: msg.content,
                   createdAt: msg.createdAt,
-                  status: 'sent' as MessageStatus,
-                  attachments: msg.fileUrl ? [{
-                    id: msg._id,
-                    type: 'image' as const,
-                    uri: msg.fileUrl,
-                  }] : undefined,
-                  // Add call message fields if detected
-                  isCallMessage: callDetection.isCallMessage,
-                  callType: callDetection.callType,
-                  callStatus: callDetection.callStatus,
+                  status: "sent" as MessageStatus,
+                  attachments: msg.fileUrl
+                    ? [
+                        {
+                          id: msg._id,
+                          type: "image" as const,
+                          uri: msg.fileUrl,
+                        },
+                      ]
+                    : undefined,
+                  // Add call message fields from backend callData
+                  isCallMessage,
+                  callType: msg.callData?.callType,
+                  callStatus: msg.callData?.callStatus,
+                  callDuration: msg.callData?.callDuration,
                 };
               });
-              
+
               // Only update if we have messages, or if this is a new conversation (empty is fine)
               setMessages(loadedMessages);
               messagesRef.current = loadedMessages;
             } else if (isMounted) {
               // No messages found, set empty array
-              console.log('ℹ️ [Chat] No messages found for conversation');
+              console.log("ℹ️ [Chat] No messages found for conversation");
               setMessages([]);
               messagesRef.current = [];
             }
           } catch (error) {
-            console.error('❌ [Chat] Error loading messages via REST API:', error);
+            console.error("❌ [Chat] Error loading messages via REST API:", error);
             if (isMounted) {
               setMessages([]);
               messagesRef.current = [];
@@ -904,45 +907,56 @@ export default function ChatConversationScreen() {
         // Setup event listeners
         const handleNewMessage = (data: { message: RealtimeChatMessage; conversationId: string }) => {
           if (!isMounted) return;
-          
+
           const senderId = data.message.senderId?._id || data.message.senderId;
           const isMyMessage = senderId === userId;
-          
+
           if (isMyMessage) {
             // My message echoed back from server - update status to 'sent'
             setMessages((prev) => {
               // Find message by content and timestamp (within 5 seconds)
               const msgTime = new Date(data.message.createdAt).getTime();
-              const matchingMsg = prev.find(m => 
-                m.role === 'user' && 
-                m.content === data.message.content &&
-                m.status === 'sending' &&
-                Math.abs(new Date(m.createdAt).getTime() - msgTime) < 5000
+              const matchingMsg = prev.find(
+                (m) =>
+                  m.role === "user" &&
+                  m.content === data.message.content &&
+                  m.status === "sending" &&
+                  Math.abs(new Date(m.createdAt).getTime() - msgTime) < 5000
               );
-              
+
               if (matchingMsg) {
                 // Update existing message status
-                return prev.map(m => 
-                  m.id === matchingMsg.id 
-                    ? { ...m, status: 'sent' as MessageStatus, id: data.message._id }
-                    : m
+                return prev.map((m) =>
+                  m.id === matchingMsg.id ? { ...m, status: "sent" as MessageStatus, id: data.message._id } : m
                 );
               }
               return prev;
             });
           } else {
             // Message from doctor
+            const isCallMessage = data.message.messageType === "call" && (data.message as any).callData;
+            const callData = (data.message as any).callData;
+
             const newMsg: ChatMessage = {
               id: data.message._id,
-              role: 'assistant',
+              role: "assistant",
               content: data.message.content,
               createdAt: data.message.createdAt,
-              status: 'sent',
-              attachments: data.message.fileUrl ? [{
-                id: data.message._id,
-                type: 'image',
-                uri: data.message.fileUrl,
-              }] : undefined,
+              status: "sent",
+              attachments: data.message.fileUrl
+                ? [
+                    {
+                      id: data.message._id,
+                      type: "image",
+                      uri: data.message.fileUrl,
+                    },
+                  ]
+                : undefined,
+              // Add call message fields
+              isCallMessage,
+              callType: callData?.callType,
+              callStatus: callData?.callStatus,
+              callDuration: callData?.callDuration,
             };
             setMessages((prev) => [...prev, newMsg]);
           }
@@ -951,9 +965,9 @@ export default function ChatConversationScreen() {
         const handleTyping = (data: { conversationId: string; userId: string; isTyping: boolean }) => {
           if (!isMounted) return;
           if (data.userId === userId) return; // Ignore own typing
-          
+
           setIsDoctorTyping(data.isTyping);
-          
+
           // Auto-hide typing indicator after 3s
           if (data.isTyping) {
             if (typingTimeoutRef.current) {
@@ -965,18 +979,18 @@ export default function ChatConversationScreen() {
           }
         };
 
-        realtimeChatService.on('newMessage', handleNewMessage);
-        realtimeChatService.on('userTyping', handleTyping);
+        realtimeChatService.on("newMessage", handleNewMessage);
+        realtimeChatService.on("userTyping", handleTyping);
 
         return () => {
-          realtimeChatService.off('newMessage', handleNewMessage);
-          realtimeChatService.off('userTyping', handleTyping);
+          realtimeChatService.off("newMessage", handleNewMessage);
+          realtimeChatService.off("userTyping", handleTyping);
         };
       } catch (error) {
-        console.error('❌ [Chat] Failed to connect:', error);
+        console.error("❌ [Chat] Failed to connect:", error);
         if (isMounted) {
           setIsConnectingSocket(false);
-          Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ chat. Vui lòng thử lại sau.');
+          Alert.alert("Lỗi kết nối", "Không thể kết nối đến máy chủ chat. Vui lòng thử lại sau.");
         }
       }
     };
@@ -1000,10 +1014,10 @@ export default function ChatConversationScreen() {
       if (supported) {
         await Linking.openURL(WEB_CHAT_URL);
       } else {
-        Alert.alert('Không thể mở chat web', 'Vui lòng truy cập smart-dental-healthcare.com/patient/chat-support');
+        Alert.alert("Không thể mở chat web", "Vui lòng truy cập smart-dental-healthcare.com/patient/chat-support");
       }
     } catch (error) {
-      Alert.alert('Không thể mở chat web', formatApiError(error, 'Vui lòng thử lại sau.'));
+      Alert.alert("Không thể mở chat web", formatApiError(error, "Vui lòng thử lại sau."));
     }
   }, []);
 
@@ -1015,36 +1029,36 @@ export default function ChatConversationScreen() {
     setMessages((prev) => prev.map((message) => (message.id === id ? { ...message, ...patch } : message)));
   }, []);
 
-  const buildChatHistory = useCallback(
-    (extra?: { role: ChatRole; content: string }) => {
-      const base = messagesRef.current
-        .filter((message) => message.role === 'user' || message.role === 'assistant')
-        .map((message) => ({ role: message.role, content: message.content }));
-      if (extra) {
-        base.push(extra);
-      }
-      return base.slice(-MAX_HISTORY);
-    },
-    [],
-  );
+  const buildChatHistory = useCallback((extra?: { role: ChatRole; content: string }) => {
+    const base = messagesRef.current
+      .filter((message) => message.role === "user" || message.role === "assistant")
+      .map((message) => ({ role: message.role, content: message.content }));
+    if (extra) {
+      base.push(extra);
+    }
+    return base.slice(-MAX_HISTORY);
+  }, []);
 
   const navigateFromDoctorSuggestion = useCallback(
-    (target: 'doctor' | 'appointment', doctor?: SuggestedDoctor) => {
-      if (target === 'doctor') {
+    (target: "doctor" | "appointment", doctor?: SuggestedDoctor) => {
+      if (target === "doctor") {
         if (doctor?._id) {
-          router.push({ pathname: '/(tabs)/doctors', params: { highlightDoctorId: doctor._id } });
+          router.push({ pathname: "/(tabs)/doctors", params: { highlightDoctorId: doctor._id } });
         } else {
-          router.push('/(tabs)/doctors');
+          router.push("/(tabs)/doctors");
         }
         return;
       }
       if (doctor?._id) {
-        router.push({ pathname: '/(tabs)/appointments', params: { doctorId: doctor._id, doctorName: doctor.fullName ?? '' } });
+        router.push({
+          pathname: "/(tabs)/appointments",
+          params: { doctorId: doctor._id, doctorName: doctor.fullName ?? "" },
+        });
       } else {
-        router.push('/(tabs)/appointments');
+        router.push("/(tabs)/appointments");
       }
     },
-    [router],
+    [router]
   );
 
   const handleAiResponse = useCallback(
@@ -1052,21 +1066,21 @@ export default function ChatConversationScreen() {
       updateMessage(placeholderId, {
         content:
           data.message?.trim() ||
-          'Xin lỗi, tôi chưa tìm được câu trả lời phù hợp. Bạn có thể thử mô tả chi tiết hơn nhé!',
-        status: 'sent',
+          "Xin lỗi, tôi chưa tìm được câu trả lời phù hợp. Bạn có thể thử mô tả chi tiết hơn nhé!",
+        status: "sent",
         createdAt: new Date().toISOString(),
         quickActions: data.quickActions ?? [],
         followUpQuestions: data.followUpQuestions ?? [],
         urgencyLevel: data.urgencyLevel ?? data.context?.urgencyLevel,
         metadata: {
           ...(data.context ?? {}),
-          ...(typeof data.confidence === 'number' ? { confidence: data.confidence } : {}),
+          ...(typeof data.confidence === "number" ? { confidence: data.confidence } : {}),
         },
         nextSteps: data.nextSteps ?? [],
         suggestedDoctor: data.suggestedDoctor ?? data.context?.suggestedDoctors?.[0] ?? null,
       });
     },
-    [updateMessage],
+    [updateMessage]
   );
 
   const handleSend = useCallback(
@@ -1077,55 +1091,55 @@ export default function ChatConversationScreen() {
       }
 
       // For AI chat, block sending if already processing
-      if (chatType === 'ai' && isSending) {
+      if (chatType === "ai" && isSending) {
         return;
       }
 
       const now = new Date().toISOString();
       const userMessage: ChatMessage = {
         id: createId(),
-        role: 'user',
+        role: "user",
         content: text,
         createdAt: now,
-        status: 'sending',
+        status: "sending",
       };
 
-      setInput('');
+      setInput("");
       appendMessage(userMessage);
 
       // Handle doctor chat via socket - Fast, no blocking
-      if (chatType === 'doctor') {
+      if (chatType === "doctor") {
         if (!conversationId) {
           updateMessage(userMessage.id, {
-            status: 'failed',
+            status: "failed",
           });
-          Alert.alert('Lỗi', 'Không tìm thấy cuộc trò chuyện. Vui lòng thử lại.');
+          Alert.alert("Lỗi", "Không tìm thấy cuộc trò chuyện. Vui lòng thử lại.");
           return;
         }
 
         // Check real-time connection status
         if (!realtimeChatService.isConnected()) {
           updateMessage(userMessage.id, {
-            status: 'failed',
+            status: "failed",
           });
-          Alert.alert('Lỗi kết nối', 'Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng và thử lại.');
-          console.error('❌ [Chat] Socket not connected');
+          Alert.alert("Lỗi kết nối", "Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng và thử lại.");
+          console.error("❌ [Chat] Socket not connected");
           return;
         }
 
         // Send message without blocking UI
         // Status will be updated to 'sent' when we receive the message back from server via Socket.IO
         realtimeChatService
-          .sendMessage(conversationId, text, 'text')
+          .sendMessage(conversationId, text, "text")
           .then(() => {
-            console.log('✅ [Chat] Message sent to server');
+            console.log("✅ [Chat] Message sent to server");
           })
           .catch((error) => {
-            console.error('❌ [Chat] Failed to send message:', error);
+            console.error("❌ [Chat] Failed to send message:", error);
             updateMessage(userMessage.id, {
-              status: 'failed',
+              status: "failed",
             });
-            Alert.alert('Lỗi', formatApiError(error, 'Không thể gửi tin nhắn. Vui lòng thử lại.'));
+            Alert.alert("Lỗi", formatApiError(error, "Không thể gửi tin nhắn. Vui lòng thử lại."));
           });
         return;
       }
@@ -1135,15 +1149,15 @@ export default function ChatConversationScreen() {
 
       const placeholder: ChatMessage = {
         id: createId(),
-        role: 'assistant',
-        content: 'Trợ lý đang phân tích thông tin của bạn...',
+        role: "assistant",
+        content: "Trợ lý đang phân tích thông tin của bạn...",
         createdAt: new Date().toISOString(),
-        status: 'sending',
+        status: "sending",
       };
       appendMessage(placeholder);
 
       try {
-        const history = buildChatHistory({ role: 'user', content: text });
+        const history = buildChatHistory({ role: "user", content: text });
         const response = await fetchAiAdvice({
           message: text,
           chatHistory: history,
@@ -1152,15 +1166,25 @@ export default function ChatConversationScreen() {
         handleAiResponse(placeholder.id, response);
       } catch (error) {
         updateMessage(placeholder.id, {
-          content: formatApiError(error, 'Xin lỗi, tôi chưa thể trả lời ngay lúc này. Vui lòng thử lại sau.'),
-          status: 'failed',
+          content: formatApiError(error, "Xin lỗi, tôi chưa thể trả lời ngay lúc này. Vui lòng thử lại sau."),
+          status: "failed",
           createdAt: new Date().toISOString(),
         });
       } finally {
         setIsSending(false);
       }
     },
-    [appendMessage, buildChatHistory, handleAiResponse, input, isSending, sessionId, updateMessage, chatType, conversationId],
+    [
+      appendMessage,
+      buildChatHistory,
+      handleAiResponse,
+      input,
+      isSending,
+      sessionId,
+      updateMessage,
+      chatType,
+      conversationId,
+    ]
   );
 
   const handleSelectTopic = useCallback(
@@ -1168,25 +1192,25 @@ export default function ChatConversationScreen() {
       const prompt = topic.prompt ?? topic.title;
       void handleSend(prompt);
     },
-    [handleSend],
+    [handleSend]
   );
 
   const handleSelectSuggestion = useCallback(
     (suggestion: string) => {
       void handleSend(suggestion);
     },
-    [handleSend],
+    [handleSend]
   );
 
   const handlePickImage = useCallback(async () => {
     if (!session?.token) {
-      Alert.alert('Cần đăng nhập', 'Vui lòng đăng nhập để sử dụng tính năng gửi hình ảnh.');
+      Alert.alert("Cần đăng nhập", "Vui lòng đăng nhập để sử dụng tính năng gửi hình ảnh.");
       return;
     }
 
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Không có quyền truy cập ảnh', 'Ứng dụng cần quyền truy cập thư viện ảnh để gửi hình.');
+      Alert.alert("Không có quyền truy cập ảnh", "Ứng dụng cần quyền truy cập thư viện ảnh để gửi hình.");
       return;
     }
 
@@ -1204,31 +1228,31 @@ export default function ChatConversationScreen() {
 
     const attachment: ChatAttachment = {
       id: createId(),
-      type: 'image',
+      type: "image",
       uri: asset.uri,
     };
 
     const now = new Date().toISOString();
     const userMessage: ChatMessage = {
       id: createId(),
-      role: 'user',
-      content: chatType === 'doctor' ? 'Đã gửi hình ảnh' : 'Mình vừa gửi hình ảnh để bác sĩ AI phân tích giúp.',
+      role: "user",
+      content: chatType === "doctor" ? "Đã gửi hình ảnh" : "Mình vừa gửi hình ảnh để bác sĩ AI phân tích giúp.",
       createdAt: now,
-      status: 'sending',
+      status: "sending",
       attachments: [attachment],
     };
-    
+
     appendMessage(userMessage);
     setIsUploadingImage(true);
 
     try {
       // Handle doctor chat - upload via socket
-      if (chatType === 'doctor') {
+      if (chatType === "doctor") {
         if (!conversationId || !realtimeChatService.isConnected()) {
           updateMessage(userMessage.id, {
-            status: 'failed',
+            status: "failed",
           });
-          Alert.alert('Lỗi kết nối', 'Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng.');
+          Alert.alert("Lỗi kết nối", "Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng.");
           return;
         }
 
@@ -1236,7 +1260,7 @@ export default function ChatConversationScreen() {
         const uploadResult = await uploadService.uploadImage(
           {
             uri: asset.uri,
-            mimeType: asset.mimeType ?? 'image/jpeg',
+            mimeType: asset.mimeType ?? "image/jpeg",
             fileName: asset.fileName ?? `image-${Date.now()}.jpg`,
             fileSize: asset.fileSize,
           },
@@ -1244,24 +1268,24 @@ export default function ChatConversationScreen() {
         );
 
         if (!uploadResult.success || !uploadResult.url) {
-          throw new Error(uploadResult.error ?? 'Upload thất bại');
+          throw new Error(uploadResult.error ?? "Upload thất bại");
         }
 
         // Send message with uploaded image URL
         await realtimeChatService.sendMessage(
           conversationId,
           userMessage.content,
-          'image',
+          "image",
           uploadResult.url,
           asset.fileName ?? `image-${Date.now()}.jpg`,
-          asset.mimeType ?? 'image/jpeg',
+          asset.mimeType ?? "image/jpeg",
           asset.fileSize
         );
 
         updateMessage(userMessage.id, {
-          status: 'sent',
+          status: "sent",
         });
-        
+
         setIsUploadingImage(false);
         return;
       }
@@ -1270,28 +1294,27 @@ export default function ChatConversationScreen() {
       const response = await uploadAnalysisImage(
         {
           uri: asset.uri,
-          mimeType: asset.mimeType ?? 'image/jpeg',
+          mimeType: asset.mimeType ?? "image/jpeg",
           fileName: asset.fileName ?? `analysis-${Date.now()}.jpg`,
         },
-        session.token,
+        session.token
       );
 
       if (!response.success || !response.data) {
-        throw new Error(response.error ?? 'Phân tích ảnh thất bại');
+        throw new Error(response.error ?? "Phân tích ảnh thất bại");
       }
 
       updateMessage(userMessage.id, {
-        status: 'sent',
+        status: "sent",
       });
 
       const analysisMessage: ChatMessage = {
         id: createId(),
-        role: 'assistant',
+        role: "assistant",
         content:
-          response.data.message?.trim() ??
-          'Mình đã nhận được hình ảnh và dưới đây là phân tích sơ bộ dành cho bạn.',
+          response.data.message?.trim() ?? "Mình đã nhận được hình ảnh và dưới đây là phân tích sơ bộ dành cho bạn.",
         createdAt: new Date().toISOString(),
-        status: 'sent',
+        status: "sent",
         analysisData: response.data,
         urgencyLevel: response.data.urgencyLevel,
         suggestedDoctor: response.data.suggestedDoctor ?? null,
@@ -1303,28 +1326,28 @@ export default function ChatConversationScreen() {
       if (response.data.options?.length) {
         appendMessage({
           id: createId(),
-          role: 'assistant',
-          content: 'Bạn có muốn trao đổi thêm về các phương án điều trị sau khi xem phân tích không?',
+          role: "assistant",
+          content: "Bạn có muốn trao đổi thêm về các phương án điều trị sau khi xem phân tích không?",
           createdAt: new Date().toISOString(),
-          status: 'sent',
+          status: "sent",
           quickActions: response.data.options,
         });
       }
     } catch (error) {
-      console.error('❌ [Chat] Image upload/analysis error:', error);
+      console.error("❌ [Chat] Image upload/analysis error:", error);
       updateMessage(userMessage.id, {
-        status: 'failed',
+        status: "failed",
       });
-      
-      if (chatType === 'doctor') {
-        Alert.alert('Lỗi', formatApiError(error, 'Không thể gửi hình ảnh. Vui lòng thử lại.'));
+
+      if (chatType === "doctor") {
+        Alert.alert("Lỗi", formatApiError(error, "Không thể gửi hình ảnh. Vui lòng thử lại."));
       } else {
         appendMessage({
           id: createId(),
-          role: 'assistant',
-          content: formatApiError(error, 'Xin lỗi, hệ thống chưa thể phân tích hình ảnh. Bạn có thể thử lại sau.'),
+          role: "assistant",
+          content: formatApiError(error, "Xin lỗi, hệ thống chưa thể phân tích hình ảnh. Bạn có thể thử lại sau."),
           createdAt: new Date().toISOString(),
-          status: 'failed',
+          status: "failed",
         });
       }
     } finally {
@@ -1336,15 +1359,15 @@ export default function ChatConversationScreen() {
     (text: string) => {
       void handleSend(text);
     },
-    [handleSend],
+    [handleSend]
   );
 
   const handleClearConversation = useCallback(() => {
-    Alert.alert('Đặt lại cuộc trò chuyện', 'Bạn có chắc muốn xóa lịch sử chat?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert("Đặt lại cuộc trò chuyện", "Bạn có chắc muốn xóa lịch sử chat?", [
+      { text: "Hủy", style: "cancel" },
       {
-        text: 'Xóa',
-        style: 'destructive',
+        text: "Xóa",
+        style: "destructive",
         onPress: () => {
           setMessages([FALLBACK_MESSAGE]);
           messagesRef.current = [FALLBACK_MESSAGE];
@@ -1359,9 +1382,9 @@ export default function ChatConversationScreen() {
   const handleInputChange = useCallback(
     (text: string) => {
       setInput(text);
-      
+
       // Send typing indicator for doctor chat
-      if (chatType === 'doctor' && conversationId && realtimeChatService.isConnected()) {
+      if (chatType === "doctor" && conversationId && realtimeChatService.isConnected()) {
         realtimeChatService.sendTypingStatus(conversationId, text.length > 0);
       }
     },
@@ -1370,39 +1393,29 @@ export default function ChatConversationScreen() {
 
   const isBusy = isSending || isUploadingImage || isConnectingSocket;
 
-  const helperNotice = useMemo(
-    () => {
-      if (isConnectingSocket) {
-        return 'Đang kết nối đến máy chủ chat...';
-      }
-      if (chatType === 'doctor' && !realtimeChatService.isConnected()) {
-        return 'Không thể kết nối. Vui lòng kiểm tra kết nối mạng.';
-      }
-      if (isUploadingImage) {
-        return chatType === 'doctor' 
-          ? 'Đang tải hình ảnh...' 
-          : 'Đang tải và phân tích hình ảnh của bạn...';
-      }
-      if (isSending) {
-        return chatType === 'doctor' 
-          ? 'Đang gửi tin nhắn...' 
-          : 'Trợ lý đang chuẩn bị phản hồi...';
-      }
-      if (chatType === 'doctor') {
-        return realtimeChatService.isConnected()
-          ? `Đã kết nối • Nhắn tin trực tiếp với ${chatName}` 
-          : 'Nhắn tin trực tiếp với bác sĩ để được tư vấn chi tiết.';
-      }
-      return 'Mô tả chi tiết triệu chứng, thời gian xuất hiện và thói quen gần đây để trợ lý hiểu rõ hơn nhé!';
-    },
-    [isSending, isUploadingImage, chatType, isConnectingSocket, chatName],
-  );
+  const helperNotice = useMemo(() => {
+    if (isConnectingSocket) {
+      return "Đang kết nối đến máy chủ chat...";
+    }
+    if (chatType === "doctor" && !realtimeChatService.isConnected()) {
+      return "Không thể kết nối. Vui lòng kiểm tra kết nối mạng.";
+    }
+    if (isUploadingImage) {
+      return chatType === "doctor" ? "Đang tải hình ảnh..." : "Đang tải và phân tích hình ảnh của bạn...";
+    }
+    if (isSending) {
+      return chatType === "doctor" ? "Đang gửi tin nhắn..." : "Trợ lý đang chuẩn bị phản hồi...";
+    }
+    if (chatType === "doctor") {
+      return realtimeChatService.isConnected()
+        ? `Đã kết nối • Nhắn tin trực tiếp với ${chatName}`
+        : "Nhắn tin trực tiếp với bác sĩ để được tư vấn chi tiết.";
+    }
+    return "Mô tả chi tiết triệu chứng, thời gian xuất hiện và thói quen gần đây để trợ lý hiểu rõ hơn nhé!";
+  }, [isSending, isUploadingImage, chatType, isConnectingSocket, chatName]);
 
   const composerSafePadding = useMemo(() => Math.max(insets.bottom, 12), [insets.bottom]);
-  const conversationPaddingBottom = useMemo(
-    () => 12,
-    [],
-  );
+  const conversationPaddingBottom = useMemo(() => 12, []);
 
   const renderListHeader = useCallback(
     () => (
@@ -1420,7 +1433,7 @@ export default function ChatConversationScreen() {
           </View>
         </Card>
 
-        {chatType === 'ai' && QUICK_TOPICS.length > 0 ? (
+        {chatType === "ai" && QUICK_TOPICS.length > 0 ? (
           <View>
             <View className="flex-row items-center justify-between px-1">
               <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
@@ -1450,7 +1463,11 @@ export default function ChatConversationScreen() {
                             <Ionicons name={topic.iconName} size={20} color={topic.accent} />
                           </View>
                           <View className="flex-1">
-                            <Text className="text-sm font-semibold" numberOfLines={1} style={{ color: theme.text.primary }}>
+                            <Text
+                              className="text-sm font-semibold"
+                              numberOfLines={1}
+                              style={{ color: theme.text.primary }}
+                            >
                               {topic.title}
                             </Text>
                             <Text className="mt-1 text-xs" numberOfLines={2} style={{ color: theme.text.secondary }}>
@@ -1468,7 +1485,7 @@ export default function ChatConversationScreen() {
           </View>
         ) : null}
 
-        {chatType === 'ai' && suggestions.length > 0 ? (
+        {chatType === "ai" && suggestions.length > 0 ? (
           <Card className="px-4 py-3">
             <View className="flex-row items-center justify-between">
               <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
@@ -1481,9 +1498,9 @@ export default function ChatConversationScreen() {
                 <TouchableOpacity
                   key={suggestion}
                   className="rounded-2xl border px-4 py-2"
-                  style={{ 
+                  style={{
                     borderColor: Colors.primary[200],
-                    backgroundColor: Colors.primary[50]
+                    backgroundColor: Colors.primary[50],
                   }}
                   onPress={() => handleSelectSuggestion(suggestion)}
                 >
@@ -1497,14 +1514,14 @@ export default function ChatConversationScreen() {
         ) : null}
       </View>
     ),
-    [handleSelectSuggestion, handleSelectTopic, helperNotice, isBusy, loadingSuggestions, suggestions, chatType, theme],
+    [handleSelectSuggestion, handleSelectTopic, helperNotice, isBusy, loadingSuggestions, suggestions, chatType, theme]
   );
 
   const renderListFooter = useCallback(
     () => (
       <View className="py-6 space-y-4">
-        {isBusy && chatType === 'ai' ? (
-          <View 
+        {isBusy && chatType === "ai" ? (
+          <View
             className="flex-row items-center space-x-2 rounded-2xl border px-3 py-2"
             style={{ borderColor: Colors.primary[100], backgroundColor: theme.card }}
           >
@@ -1516,19 +1533,19 @@ export default function ChatConversationScreen() {
         ) : null}
       </View>
     ),
-    [isBusy, chatType, theme],
+    [isBusy, chatType, theme]
   );
 
   return (
     <>
       {/* Custom Header with Call Buttons for Doctor Chat */}
-      {chatType === 'doctor' ? (
-        <View 
+      {chatType === "doctor" ? (
+        <View
           className="flex-row items-center justify-between px-4 py-3 border-b"
-          style={{ 
+          style={{
             paddingTop: insets.top + 12,
             backgroundColor: theme.card,
-            borderBottomColor: theme.border
+            borderBottomColor: theme.border,
           }}
         >
           <View className="flex-row items-center flex-1">
@@ -1558,32 +1575,26 @@ export default function ChatConversationScreen() {
             <CallButton
               receiverId={chatId}
               receiverName={chatName}
-              receiverRole={chatType === 'doctor' ? 'doctor' : 'patient'}
+              receiverRole={chatType === "doctor" ? "doctor" : "patient"}
               isVideoCall={false}
             />
             {/* Video Call Button */}
             <CallButton
               receiverId={chatId}
               receiverName={chatName}
-              receiverRole={chatType === 'doctor' ? 'doctor' : 'patient'}
+              receiverRole={chatType === "doctor" ? "doctor" : "patient"}
               isVideoCall={true}
             />
           </View>
         </View>
       ) : (
-        <AppHeader 
-          title={chatName}
-          showBack
-          showNotification
-          showAvatar
-          notificationCount={0}
-        />
+        <AppHeader title={chatName} showBack showNotification showAvatar notificationCount={0} />
       )}
       <KeyboardAvoidingView
         className="flex-1"
         style={{ backgroundColor: theme.background }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? tabBarHeight + composerSafePadding : tabBarHeight + 16}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? tabBarHeight + composerSafePadding : tabBarHeight + 16}
       >
         <View className="flex-1">
           <FlatList
@@ -1600,9 +1611,9 @@ export default function ChatConversationScreen() {
             ListHeaderComponent={renderListHeader}
             ListFooterComponent={renderListFooter}
             ListEmptyComponent={
-              chatType === 'doctor' && realtimeChatService.isConnected() ? (
+              chatType === "doctor" && realtimeChatService.isConnected() ? (
                 <View className="flex-1 items-center justify-center py-20">
-                  <View 
+                  <View
                     className="h-20 w-20 items-center justify-center rounded-full mb-4"
                     style={{ backgroundColor: Colors.primary[100] }}
                   >
@@ -1625,25 +1636,25 @@ export default function ChatConversationScreen() {
 
         <View
           className="border-t px-4 pt-3"
-          style={{ 
+          style={{
             paddingBottom: composerSafePadding,
             marginBottom: tabBarHeight + 8,
             backgroundColor: theme.card,
-            borderTopColor: theme.border
+            borderTopColor: theme.border,
           }}
         >
           <View
             className="rounded-3xl border px-4 py-2"
-            style={{ 
+            style={{
               borderColor: theme.border,
-              backgroundColor: theme.surface
+              backgroundColor: theme.surface,
             }}
             onLayout={({ nativeEvent }) => setComposerHeight(nativeEvent.layout.height)}
           >
             <TextInput
               value={input}
               onChangeText={handleInputChange}
-              placeholder={chatType === 'doctor' ? 'Nhập tin nhắn...' : 'Mô tả triệu chứng hoặc câu hỏi của bạn...'}
+              placeholder={chatType === "doctor" ? "Nhập tin nhắn..." : "Mô tả triệu chứng hoặc câu hỏi của bạn..."}
               placeholderTextColor="#94a3b8"
               multiline
               className="max-h-32 text-sm"
@@ -1652,7 +1663,7 @@ export default function ChatConversationScreen() {
               returnKeyType="send"
               blurOnSubmit={false}
             />
-            {isDoctorTyping && chatType === 'doctor' ? (
+            {isDoctorTyping && chatType === "doctor" ? (
               <View className="mt-2 flex-row items-center space-x-2">
                 <ActivityIndicator size="small" color={Colors.primary[600]} />
                 <Text className="text-xs italic" style={{ color: theme.text.secondary }}>
@@ -1664,29 +1675,40 @@ export default function ChatConversationScreen() {
               <View className="flex-row items-center space-x-3">
                 <TouchableOpacity
                   onPress={handlePickImage}
-                  disabled={isUploadingImage || (chatType === 'doctor' && !realtimeChatService.isConnected())}
+                  disabled={isUploadingImage || (chatType === "doctor" && !realtimeChatService.isConnected())}
                   className="flex-row items-center rounded-2xl border px-3 py-2"
-                  style={{ 
-                    borderColor: chatType === 'ai' ? Colors.primary[100] : Colors.success[100],
-                    backgroundColor: chatType === 'ai' ? Colors.primary[50] : Colors.success[50],
-                    opacity: isUploadingImage || (chatType === 'doctor' && !realtimeChatService.isConnected()) ? 0.5 : 1,
+                  style={{
+                    borderColor: chatType === "ai" ? Colors.primary[100] : Colors.success[100],
+                    backgroundColor: chatType === "ai" ? Colors.primary[50] : Colors.success[50],
+                    opacity:
+                      isUploadingImage || (chatType === "doctor" && !realtimeChatService.isConnected()) ? 0.5 : 1,
                   }}
                 >
                   {isUploadingImage ? (
-                    <ActivityIndicator size="small" color={chatType === 'ai' ? Colors.primary[600] : Colors.success[600]} />
+                    <ActivityIndicator
+                      size="small"
+                      color={chatType === "ai" ? Colors.primary[600] : Colors.success[600]}
+                    />
                   ) : (
-                    <Ionicons name="image-outline" size={16} color={chatType === 'ai' ? Colors.primary[600] : Colors.success[600]} />
+                    <Ionicons
+                      name="image-outline"
+                      size={16}
+                      color={chatType === "ai" ? Colors.primary[600] : Colors.success[600]}
+                    />
                   )}
-                  <Text className="ml-2 text-[11px] font-semibold" style={{ color: chatType === 'ai' ? Colors.primary[700] : Colors.success[700] }}>
-                    {chatType === 'ai' ? 'Phân tích ảnh' : 'Gửi ảnh'}
+                  <Text
+                    className="ml-2 text-[11px] font-semibold"
+                    style={{ color: chatType === "ai" ? Colors.primary[700] : Colors.success[700] }}
+                  >
+                    {chatType === "ai" ? "Phân tích ảnh" : "Gửi ảnh"}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => Linking.openURL('tel:19006363')}
+                  onPress={() => Linking.openURL("tel:19006363")}
                   className="flex-row items-center rounded-2xl border px-3 py-2"
-                  style={{ 
+                  style={{
                     borderColor: Colors.success[100],
-                    backgroundColor: Colors.success[50]
+                    backgroundColor: Colors.success[50],
                   }}
                 >
                   <Ionicons name="call-outline" size={16} color={Colors.success[600]} />
@@ -1698,23 +1720,23 @@ export default function ChatConversationScreen() {
               <TouchableOpacity
                 onPress={() => void handleSend()}
                 disabled={
-                  !input.trim() || 
-                  (chatType === 'ai' && isSending) || 
-                  (chatType === 'doctor' && !realtimeChatService.isConnected())
+                  !input.trim() ||
+                  (chatType === "ai" && isSending) ||
+                  (chatType === "doctor" && !realtimeChatService.isConnected())
                 }
                 className="h-10 min-w-[72px] items-center justify-center rounded-2xl px-4"
-                style={{ 
-                  backgroundColor: 
-                    !input.trim() || 
-                    (chatType === 'ai' && isSending) || 
-                    (chatType === 'doctor' && !realtimeChatService.isConnected())
-                      ? Colors.primary[200] 
-                      : Colors.primary[600]
+                style={{
+                  backgroundColor:
+                    !input.trim() ||
+                    (chatType === "ai" && isSending) ||
+                    (chatType === "doctor" && !realtimeChatService.isConnected())
+                      ? Colors.primary[200]
+                      : Colors.primary[600],
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Gửi tin nhắn"
               >
-                {(chatType === 'ai' && isSending) || isConnectingSocket ? (
+                {(chatType === "ai" && isSending) || isConnectingSocket ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
                   <Text className="text-xs font-semibold text-white">Gửi</Text>
