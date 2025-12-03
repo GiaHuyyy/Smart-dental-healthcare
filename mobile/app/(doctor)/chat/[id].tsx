@@ -3,35 +3,35 @@
  * Màn hình chat chi tiết giữa bác sĩ và bệnh nhân
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/auth-context';
-import { useCall } from '@/contexts/CallContext';
-import { useChat } from '@/contexts/chat-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import realtimeChatService, { ChatMessage } from '@/services/realtimeChatService';
-import uploadService from '@/services/uploadService';
+import { Colors } from "@/constants/colors";
+import { useAuth } from "@/contexts/auth-context";
+import { useCall } from "@/contexts/CallContext";
+import { useChat } from "@/contexts/chat-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import realtimeChatService, { ChatMessage } from "@/services/realtimeChatService";
+import uploadService from "@/services/uploadService";
 
 export default function DoctorChatDetail() {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
   const { session } = useAuth();
   const { refreshUnreadCount } = useChat();
   const { initiateCall } = useCall();
@@ -47,9 +47,9 @@ export default function DoctorChatDetail() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState("");
   const [displayAvatar, setDisplayAvatar] = useState<string | undefined>();
   const flatListRef = useRef<FlatList>(null);
 
@@ -57,21 +57,21 @@ export default function DoctorChatDetail() {
 
   // Set initial display name from params or fetch from conversation
   useEffect(() => {
-    console.log('🔍 Chat Detail Params:', {
+    console.log("🔍 Chat Detail Params:", {
       id: params.id,
       patientId: params.patientId,
       patientName: params.patientName,
       patientAvatar: params.patientAvatar,
     });
-    
+
     if (params.patientName) {
       setDisplayName(params.patientName);
-      console.log('✅ Display name set to:', params.patientName);
+      console.log("✅ Display name set to:", params.patientName);
     } else {
-      setDisplayName('Bệnh nhân');
-      console.log('⚠️ No patient name in params, using default');
+      setDisplayName("Bệnh nhân");
+      console.log("⚠️ No patient name in params, using default");
     }
-    
+
     if (params.patientAvatar) {
       setDisplayAvatar(params.patientAvatar);
     }
@@ -84,19 +84,19 @@ export default function DoctorChatDetail() {
     const initChat = async () => {
       try {
         setLoading(true);
-        
+
         // Join conversation room
         realtimeChatService.joinConversation(conversationId);
-        
+
         // Setup message listeners
         setupMessageListeners();
-        
+
         // Load messages
         await realtimeChatService.loadMessages(conversationId, 100);
-        
-        console.log('✅ Chat detail initialized');
+
+        console.log("✅ Chat detail initialized");
       } catch (error) {
-        console.error('Error initializing chat detail:', error);
+        console.error("Error initializing chat detail:", error);
       }
     };
 
@@ -114,33 +114,33 @@ export default function DoctorChatDetail() {
     if (!socket) return;
 
     // Messages loaded
-    socket.on('messagesLoaded', (data: { conversationId: string; messages: ChatMessage[] }) => {
+    socket.on("messagesLoaded", (data: { conversationId: string; messages: ChatMessage[] }) => {
       if (data.conversationId === conversationId) {
-        console.log('📨 Messages loaded:', data.messages.length);
+        console.log("📨 Messages loaded:", data.messages.length);
         setMessages(data.messages.reverse()); // Reverse to show oldest first
         setLoading(false);
-        
+
         // Scroll to bottom
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
-        
+
         // Refresh unread count
         refreshUnreadCount();
       }
     });
 
     // New message received
-    socket.on('newMessage', (data: { message: ChatMessage; conversationId: string }) => {
+    socket.on("newMessage", (data: { message: ChatMessage; conversationId: string }) => {
       if (data.conversationId === conversationId) {
-        console.log('📨 New message received');
+        console.log("📨 New message received");
         setMessages((prev) => [...prev, data.message]);
-        
+
         // Scroll to bottom
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
-        
+
         // Refresh unread count
         refreshUnreadCount();
       }
@@ -165,37 +165,37 @@ export default function DoctorChatDetail() {
         const uploadResult = await uploadService.uploadImage(
           {
             uri: selectedImage,
-            mimeType: 'image/jpeg',
+            mimeType: "image/jpeg",
             fileName: imgFileName,
           },
           conversationId
         );
-        
+
         if (uploadResult.success && uploadResult.url) {
           fileUrl = uploadResult.url;
-          fileName = uploadResult.url.split('/').pop() || imgFileName;
-          fileType = 'image';
+          fileName = uploadResult.url.split("/").pop() || imgFileName;
+          fileType = "image";
         }
       }
 
       // Send message
       await realtimeChatService.sendMessage(
         conversationId,
-        inputText.trim() || 'Đã gửi hình ảnh',
-        selectedImage ? 'image' : 'text',
+        inputText.trim() || "Đã gửi hình ảnh",
+        selectedImage ? "image" : "text",
         fileUrl,
         fileName,
         fileType
       );
 
       // Clear input
-      setInputText('');
+      setInputText("");
       setSelectedImage(null);
-      
-      console.log('✅ Message sent');
+
+      console.log("✅ Message sent");
     } catch (error) {
-      console.error('Error sending message:', error);
-      Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại.');
+      console.error("Error sending message:", error);
+      Alert.alert("Lỗi", "Không thể gửi tin nhắn. Vui lòng thử lại.");
     } finally {
       setSending(false);
     }
@@ -214,55 +214,55 @@ export default function DoctorChatDetail() {
         setSelectedImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
+      console.error("Error picking image:", error);
     }
   };
 
   // Format time
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
   };
 
   // Handle voice call
   const handleVoiceCall = async () => {
     if (!params.patientId || !displayName) {
-      Alert.alert('Lỗi', 'Không thể thực hiện cuộc gọi');
+      Alert.alert("Lỗi", "Không thể thực hiện cuộc gọi");
       return;
     }
 
     try {
-      await initiateCall(params.patientId, displayName, 'patient', false);
+      await initiateCall(params.patientId, displayName, "patient", false, displayAvatar);
     } catch (error) {
-      console.error('Error initiating voice call:', error);
-      Alert.alert('Lỗi', 'Không thể thực hiện cuộc gọi');
+      console.error("Error initiating voice call:", error);
+      Alert.alert("Lỗi", "Không thể thực hiện cuộc gọi");
     }
   };
 
   // Handle video call
   const handleVideoCall = async () => {
     if (!params.patientId || !displayName) {
-      Alert.alert('Lỗi', 'Không thể thực hiện cuộc gọi');
+      Alert.alert("Lỗi", "Không thể thực hiện cuộc gọi");
       return;
     }
 
     try {
-      await initiateCall(params.patientId, displayName, 'patient', true);
+      await initiateCall(params.patientId, displayName, "patient", true, displayAvatar);
     } catch (error) {
-      console.error('Error initiating video call:', error);
-      Alert.alert('Lỗi', 'Không thể thực hiện cuộc gọi video');
+      console.error("Error initiating video call:", error);
+      Alert.alert("Lỗi", "Không thể thực hiện cuộc gọi video");
     }
   };
 
   // Render message bubble
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
-    const isMyMessage = item.senderId?._id === session?.user?._id || item.senderRole === 'doctor';
-    const showDate = index === 0 || 
-      new Date(item.createdAt).toDateString() !== new Date(messages[index - 1].createdAt).toDateString();
+    const isMyMessage = item.senderId?._id === session?.user?._id || item.senderRole === "doctor";
+    const showDate =
+      index === 0 || new Date(item.createdAt).toDateString() !== new Date(messages[index - 1].createdAt).toDateString();
 
-    const senderName = isMyMessage 
-      ? 'Bạn' 
-      : (item.senderId?.fullName || item.senderId?.name || displayName || 'Bệnh nhân');
+    const senderName = isMyMessage
+      ? "Bạn"
+      : item.senderId?.fullName || item.senderId?.name || displayName || "Bệnh nhân";
 
     return (
       <View className="px-4 mb-2">
@@ -271,10 +271,10 @@ export default function DoctorChatDetail() {
           <View className="items-center my-4">
             <View className="px-4 py-1 rounded-full" style={{ backgroundColor: theme.card }}>
               <Text className="text-xs" style={{ color: theme.text.secondary }}>
-                {new Date(item.createdAt).toLocaleDateString('vi-VN', { 
-                  day: '2-digit', 
-                  month: '2-digit',
-                  year: 'numeric'
+                {new Date(item.createdAt).toLocaleDateString("vi-VN", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
                 })}
               </Text>
             </View>
@@ -282,16 +282,12 @@ export default function DoctorChatDetail() {
         )}
 
         {/* Message bubble */}
-        <View className={`flex-row ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
+        <View className={`flex-row ${isMyMessage ? "justify-end" : "justify-start"}`}>
           {/* Avatar for received messages */}
           {!isMyMessage && (
             <View className="mr-2">
               {item.senderId?.avatar ? (
-                <Image
-                  source={{ uri: item.senderId.avatar }}
-                  className="w-8 h-8 rounded-full"
-                  contentFit="cover"
-                />
+                <Image source={{ uri: item.senderId.avatar }} className="w-8 h-8 rounded-full" contentFit="cover" />
               ) : (
                 <View
                   className="w-8 h-8 rounded-full items-center justify-center"
@@ -305,7 +301,7 @@ export default function DoctorChatDetail() {
             </View>
           )}
 
-          <View className={`max-w-[75%] ${isMyMessage ? 'items-end' : 'items-start'}`}>
+          <View className={`max-w-[75%] ${isMyMessage ? "items-end" : "items-start"}`}>
             {/* Sender name for received messages */}
             {!isMyMessage && (
               <Text className="text-xs mb-1 ml-2" style={{ color: theme.text.secondary }}>
@@ -321,20 +317,13 @@ export default function DoctorChatDetail() {
               }}
             >
               {/* Image message */}
-              {item.messageType === 'image' && item.fileUrl && (
-                <Image
-                  source={{ uri: item.fileUrl }}
-                  className="w-48 h-48 rounded-xl mb-2"
-                  contentFit="cover"
-                />
+              {item.messageType === "image" && item.fileUrl && (
+                <Image source={{ uri: item.fileUrl }} className="w-48 h-48 rounded-xl mb-2" contentFit="cover" />
               )}
 
               {/* Text content */}
               {item.content && (
-                <Text
-                  className="text-base"
-                  style={{ color: isMyMessage ? 'white' : theme.text.primary }}
-                >
+                <Text className="text-base" style={{ color: isMyMessage ? "white" : theme.text.primary }}>
                   {item.content}
                 </Text>
               )}
@@ -353,17 +342,14 @@ export default function DoctorChatDetail() {
   // Render empty state
   const renderEmptyState = () => (
     <View className="flex-1 items-center justify-center py-12">
-      <View
-        className="w-20 h-20 rounded-full items-center justify-center mb-4"
-        style={{ backgroundColor: theme.card }}
-      >
+      <View className="w-20 h-20 rounded-full items-center justify-center mb-4" style={{ backgroundColor: theme.card }}>
         <Ionicons name="chatbubbles-outline" size={40} color={theme.text.secondary} />
       </View>
       <Text className="text-base font-medium mb-2" style={{ color: theme.text.primary }}>
         Bắt đầu cuộc trò chuyện
       </Text>
       <Text className="text-sm text-center px-8" style={{ color: theme.text.secondary }}>
-        Gửi tin nhắn để bắt đầu trò chuyện với {displayName || 'bệnh nhân'}
+        Gửi tin nhắn để bắt đầu trò chuyện với {displayName || "bệnh nhân"}
       </Text>
     </View>
   );
@@ -380,11 +366,11 @@ export default function DoctorChatDetail() {
           borderBottomColor: theme.border,
         }}
       >
-        <Pressable 
+        <Pressable
           onPress={() => {
             // Always navigate back to chat list explicitly
-            router.push('/(doctor)/chat' as any);
-          }} 
+            router.push("/(doctor)/chat" as any);
+          }}
           className="mr-3"
         >
           <Ionicons name="arrow-back" size={24} color={theme.text.primary} />
@@ -392,7 +378,7 @@ export default function DoctorChatDetail() {
 
         <View className="flex-1">
           <Text className="text-lg font-bold" style={{ color: theme.text.primary }}>
-            {displayName || 'Bệnh nhân'}
+            {displayName || "Bệnh nhân"}
           </Text>
           <Text className="text-sm" style={{ color: theme.text.secondary }}>
             Bệnh nhân
@@ -426,8 +412,8 @@ export default function DoctorChatDetail() {
 
       {/* Input Area */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
         <View
           className="border-t px-4 py-3"
@@ -444,7 +430,7 @@ export default function DoctorChatDetail() {
                 <Image source={{ uri: selectedImage }} className="w-full h-full" contentFit="cover" />
                 <Pressable
                   className="absolute top-1 right-1 w-6 h-6 rounded-full items-center justify-center"
-                  style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                  style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
                   onPress={() => setSelectedImage(null)}
                 >
                   <Ionicons name="close" size={16} color="white" />
@@ -485,8 +471,7 @@ export default function DoctorChatDetail() {
             <Pressable
               className="p-2 rounded-full"
               style={{
-                backgroundColor:
-                  inputText.trim() || selectedImage ? Colors.primary[600] : theme.background,
+                backgroundColor: inputText.trim() || selectedImage ? Colors.primary[600] : theme.background,
               }}
               onPress={handleSendMessage}
               disabled={sending || (!inputText.trim() && !selectedImage)}
@@ -497,7 +482,7 @@ export default function DoctorChatDetail() {
                 <Ionicons
                   name="send"
                   size={24}
-                  color={inputText.trim() || selectedImage ? 'white' : theme.text.secondary}
+                  color={inputText.trim() || selectedImage ? "white" : theme.text.secondary}
                 />
               )}
             </Pressable>

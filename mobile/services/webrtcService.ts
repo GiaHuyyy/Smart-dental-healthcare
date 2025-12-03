@@ -1,20 +1,21 @@
 import {
-    mediaDevices,
-    RTCIceCandidate,
-    RTCPeerConnection,
-    RTCSessionDescription
-} from '@/services/webrtc';
-import { io, Socket } from 'socket.io-client';
+  mediaDevices,
+  MediaStream,
+  RTCIceCandidate,
+  RTCPeerConnection,
+  RTCSessionDescription,
+} from "@/services/webrtc";
+import { io, Socket } from "socket.io-client";
 
 // Socket.IO server is NOT under /api/v1, so use raw URL without API prefix
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081';
-const SOCKET_BASE_URL = BASE_URL.replace(/\/api\/v1$/, '');
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.51.8:8081";
+const SOCKET_BASE_URL = BASE_URL.replace(/\/api\/v1$/, "");
 
 // WebRTC Configuration
 const configuration = {
   iceServers: [
     {
-      urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'],
+      urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"],
     },
   ],
 };
@@ -23,10 +24,10 @@ export interface CallMessage {
   _id: string;
   senderId: string;
   receiverId: string;
-  senderRole: 'patient' | 'doctor';
-  messageType: 'call';
-  callType: 'audio' | 'video';
-  callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
+  senderRole: "patient" | "doctor";
+  messageType: "call";
+  callType: "audio" | "video";
+  callStatus: "missed" | "answered" | "rejected" | "completed";
   callDuration: number;
   startedAt: Date;
   endedAt?: Date;
@@ -34,12 +35,13 @@ export interface CallMessage {
 }
 
 export interface IncomingCallData {
+  callId: string;
   callerId: string;
   callerName: string;
-  callerRole: 'doctor' | 'patient';
+  callerAvatar?: string;
+  callerRole: "doctor" | "patient";
   isVideoCall: boolean;
-  signal: any;
-  messageId: string;
+  signalData: any;
 }
 
 class WebRTCService {
@@ -47,28 +49,63 @@ class WebRTCService {
   private peerConnection: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
-  
+
   private userId: string | null = null;
-  private userRole: 'patient' | 'doctor' | null = null;
+  private userRole: "patient" | "doctor" | null = null;
   private userName: string | null = null;
-  
+  private userAvatar: string | null = null;
+
   // Store current call info
+  private currentCallId: string | null = null;
   private currentCallReceiverId: string | null = null;
   private currentCallMessageId: string | null = null;
-  
+  private isCallEnding: boolean = false; // Flag to track if call is ending normally
+
   private eventListeners: Map<string, Array<(...args: any[]) => void>> = new Map();
 
+  // Helper: Wait for ICE gathering to complete (for SimplePeer compatibility - trickle: false)
+  private waitForIceGatheringComplete(pc: RTCPeerConnection, timeout = 5000): Promise<void> {
+    return new Promise((resolve) => {
+      if (pc.iceGatheringState === "complete") {
+        resolve();
+        return;
+      }
+
+      const timeoutId = setTimeout(() => {
+        console.log("⏰ [WebRTC] ICE gathering timeout, proceeding anyway");
+        resolve();
+      }, timeout);
+
+      const checkState = () => {
+        if (pc.iceGatheringState === "complete") {
+          clearTimeout(timeoutId);
+          (pc as any).removeEventListener("icegatheringstatechange", checkState);
+          resolve();
+        }
+      };
+
+      (pc as any).addEventListener("icegatheringstatechange", checkState);
+    });
+  }
+
   // Connect to WebRTC socket
-  connect(token: string, userId: string, userRole: 'patient' | 'doctor', userName: string): Promise<void> {
+  connect(
+    token: string,
+    userId: string,
+    userRole: "patient" | "doctor",
+    userName: string,
+    userAvatar?: string
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         this.userId = userId;
         this.userRole = userRole;
         this.userName = userName;
+        this.userAvatar = userAvatar || null;
 
         console.log(`🔌 [WebRTC] Connecting to ${SOCKET_BASE_URL}/webrtc`);
 
-        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        const formattedToken = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
 
         this.socket = io(`${SOCKET_BASE_URL}/webrtc`, {
           auth: {
@@ -76,46 +113,46 @@ class WebRTCService {
             userId,
             userRole,
           },
-          transports: ['websocket', 'polling'],
+          transports: ["websocket", "polling"],
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,
         });
 
-        this.socket.on('connect', () => {
+        this.socket.on("connect", () => {
           console.log(`✅ [WebRTC] Connected with ID: ${this.socket?.id}`);
-          
-          // Join WebRTC room
-          console.log('📤 [WebRTC] Joining WebRTC room with user:', userId, userName, userRole);
-          this.socket?.emit('join-webrtc', {
-            userId,
-            userRole,
+
+          // Join WebRTC room - match server format
+          console.log("📤 [WebRTC] Joining WebRTC room with user:", userId, userName, userRole);
+          this.socket?.emit("join", {
+            odataId: userId,
             userName,
+            userRole,
           });
 
           resolve();
         });
 
-        this.socket.on('connect_error', (error) => {
-          console.error('❌ [WebRTC] Connection error:', error);
+        this.socket.on("connect_error", (error) => {
+          console.error("❌ [WebRTC] Connection error:", error);
           reject(error);
         });
 
-        this.socket.on('disconnect', (reason) => {
-          console.log('🔌 [WebRTC] Disconnected:', reason);
+        this.socket.on("disconnect", (reason) => {
+          console.log("🔌 [WebRTC] Disconnected:", reason);
         });
 
-        this.socket.on('webrtc-joined', (data) => {
-          console.log('✅ [WebRTC] Successfully joined WebRTC room:', data);
+        this.socket.on("joined", (data) => {
+          console.log("✅ [WebRTC] Successfully joined WebRTC room:", data);
         });
 
-        this.socket.on('call-initiated', (data) => {
-          console.log('✅ [WebRTC] Call initiated successfully:', data);
+        this.socket.on("call-initiated", (data) => {
+          console.log("✅ [WebRTC] Call initiated successfully:", data);
           // Store call info for later use (e.g., when ending call)
           this.currentCallMessageId = data.messageId;
         });
 
-        this.socket.on('call-failed', (data) => {
-          console.error('❌ [WebRTC] Call failed:', data);
+        this.socket.on("call-failed", (data) => {
+          console.error("❌ [WebRTC] Call failed:", data);
         });
 
         // Setup event listeners
@@ -130,42 +167,49 @@ class WebRTCService {
   private setupEventListeners() {
     if (!this.socket) return;
 
-    console.log('🎧 [WebRTC] Setting up event listeners');
+    console.log("🎧 [WebRTC] Setting up event listeners");
 
     // Incoming call
-    this.socket.on('incoming-call', (data: IncomingCallData) => {
-      console.log('📞 [WebRTC] ===== INCOMING CALL RECEIVED =====');
-      console.log('📞 [WebRTC] Caller:', data.callerName, data.callerId);
-      console.log('📞 [WebRTC] Video call:', data.isVideoCall);
-      console.log('📞 [WebRTC] Message ID:', data.messageId);
-      this.emit('incomingCall', data);
+    this.socket.on("incoming-call", (data: IncomingCallData) => {
+      console.log("📞 [WebRTC] ===== INCOMING CALL RECEIVED =====");
+      console.log("📞 [WebRTC] Call ID:", data.callId);
+      console.log("📞 [WebRTC] Caller:", data.callerName, data.callerId);
+      console.log("📞 [WebRTC] Video call:", data.isVideoCall);
+      // Store callId for later use
+      this.currentCallId = data.callId;
+      this.emit("incomingCall", data);
     });
 
     // Call answered
-    this.socket.on('call-answered', (data: { signal: any; answererId: string }) => {
-      console.log('✅ [WebRTC] Call answered by:', data.answererId);
-      this.emit('callAnswered', data);
+    this.socket.on("call-answered", (data: { callId: string; signalData: any }) => {
+      console.log("✅ [WebRTC] Call answered, callId:", data.callId);
+      this.emit("callAnswered", data);
     });
 
     // Call rejected
-    this.socket.on('call-rejected', (data: { reason?: string }) => {
-      console.log('❌ [WebRTC] Call rejected:', data.reason);
-      this.emit('callRejected', data);
+    this.socket.on("call-rejected", (data: { callId: string; reason?: string }) => {
+      console.log("❌ [WebRTC] Call rejected:", data.callId, data.reason);
+      this.emit("callRejected", data);
     });
 
     // Call ended
-    this.socket.on('call-ended', (data: { userId: string; messageId: string }) => {
-      console.log('📞 [WebRTC] ===== CALL ENDED =====');
-      console.log('📞 [WebRTC] Ended by userId:', data.userId);
-      console.log('📞 [WebRTC] Message ID:', data.messageId);
-      this.emit('callEnded', data);
+    this.socket.on("call-ended", (data: { callId: string; duration: number; reason?: string }) => {
+      console.log("📞 [WebRTC] ===== CALL ENDED =====");
+      console.log("📞 [WebRTC] Call ID:", data.callId);
+      console.log("📞 [WebRTC] Duration:", data.duration);
+      console.log("📞 [WebRTC] Reason:", data.reason);
+      // Set flag to prevent error logs on ICE disconnect
+      this.isCallEnding = true;
+      this.emit("callEnded", data);
+      // Cleanup after emitting event
+      this.cleanup();
     });
 
     // ICE candidate
-    this.socket.on('ice-candidate', (data: { candidate: any; callerId?: string; receiverId?: string }) => {
-      console.log('🧊 [WebRTC] ===== RECEIVED ICE CANDIDATE =====');
-      console.log('🧊 [WebRTC] From:', data.callerId, 'To:', data.receiverId);
-      console.log('🧊 [WebRTC] Candidate type:', data.candidate?.type);
+    this.socket.on("ice-candidate", (data: { callId: string; candidate: any }) => {
+      console.log("🧊 [WebRTC] ===== RECEIVED ICE CANDIDATE =====");
+      console.log("🧊 [WebRTC] Call ID:", data.callId);
+      console.log("🧊 [WebRTC] Candidate type:", data.candidate?.type);
       this.handleICECandidate(data.candidate);
     });
   }
@@ -180,18 +224,18 @@ class WebRTCService {
               width: { ideal: 1280 },
               height: { ideal: 720 },
               frameRate: { ideal: 30 },
-              facingMode: 'user',
+              facingMode: "user",
             }
           : false,
       };
 
       const stream = await mediaDevices.getUserMedia(constraints);
       this.localStream = stream;
-      console.log('✅ [WebRTC] Got user media:', stream.id);
-      
+      console.log("✅ [WebRTC] Got user media:", stream.id);
+
       return stream;
     } catch (error) {
-      console.error('❌ [WebRTC] Error getting user media:', error);
+      console.error("❌ [WebRTC] Error getting user media:", error);
       throw error;
     }
   }
@@ -209,44 +253,79 @@ class WebRTCService {
       });
     }
 
-    // Handle remote stream
+    // Handle remote stream - multiple ways to catch it
     (pc as any).ontrack = (event: any) => {
-      console.log('📺 [WebRTC] Received remote track');
+      console.log("📺 [WebRTC] ===== RECEIVED REMOTE TRACK =====");
+      console.log("📺 [WebRTC] Track kind:", event.track?.kind);
+      console.log("📺 [WebRTC] Streams count:", event.streams?.length);
+
       if (event.streams && event.streams[0]) {
+        console.log("📺 [WebRTC] Got stream from event.streams[0]");
         this.remoteStream = event.streams[0];
-        this.emit('remoteStream', this.remoteStream);
+        this.emit("remoteStream", this.remoteStream);
+      } else if (event.track) {
+        // Fallback: create MediaStream from track if streams not available
+        console.log("📺 [WebRTC] Creating stream from track");
+        if (!this.remoteStream) {
+          this.remoteStream = new MediaStream() as any;
+        }
+        (this.remoteStream as any).addTrack(event.track);
+        this.emit("remoteStream", this.remoteStream);
       }
     };
 
-    // Handle ICE candidates
+    // Also listen for addstream event (older API, but some implementations use it)
+    (pc as any).onaddstream = (event: any) => {
+      console.log("📺 [WebRTC] ===== ON ADD STREAM (legacy) =====");
+      if (event.stream) {
+        console.log("📺 [WebRTC] Got stream from onaddstream");
+        this.remoteStream = event.stream;
+        this.emit("remoteStream", this.remoteStream);
+      }
+    };
+
+    // Handle ICE candidates - DON'T send individually, SimplePeer uses trickle: false
+    // ICE candidates will be included in the SDP after gathering completes
     (pc as any).onicecandidate = (event: any) => {
       if (event.candidate) {
-        console.log('🧊 [WebRTC] New ICE candidate:', event.candidate.type, event.candidate.protocol);
-        this.socket?.emit('ice-candidate', {
-          callerId: this.userId,
-          receiverId: this.currentCallReceiverId,
-          candidate: event.candidate,
-        });
+        console.log("🧊 [WebRTC] ICE candidate gathered:", event.candidate.type, event.candidate.protocol);
+        // Don't emit - wait for gathering complete and send full SDP
       } else {
-        console.log('🧊 [WebRTC] ICE gathering completed');
+        console.log("🧊 [WebRTC] ICE gathering completed");
       }
     };
 
     // Handle connection state
     (pc as any).onconnectionstatechange = () => {
-      console.log('🔗 [WebRTC] ===== CONNECTION STATE CHANGE =====');
-      console.log('🔗 [WebRTC] Connection state:', pc.connectionState);
-      console.log('🔗 [WebRTC] ICE connection state:', pc.iceConnectionState);
-      console.log('🔗 [WebRTC] ICE gathering state:', pc.iceGatheringState);
-      console.log('🔗 [WebRTC] Signaling state:', pc.signalingState);
-      this.emit('connectionStateChange', pc.connectionState);
+      console.log("🔗 [WebRTC] ===== CONNECTION STATE CHANGE =====");
+      console.log("🔗 [WebRTC] Connection state:", pc.connectionState);
+      console.log("🔗 [WebRTC] ICE connection state:", pc.iceConnectionState);
+      console.log("🔗 [WebRTC] ICE gathering state:", pc.iceGatheringState);
+      console.log("🔗 [WebRTC] Signaling state:", pc.signalingState);
+      this.emit("connectionStateChange", pc.connectionState);
     };
-    
+
     // Add ICE connection state change handler
     (pc as any).oniceconnectionstatechange = () => {
-      console.log('🧊 [WebRTC] ICE connection state changed:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-        console.error('❌ [WebRTC] ICE connection failed or disconnected');
+      console.log("🧊 [WebRTC] ICE connection state changed:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        console.log("✅ [WebRTC] ICE connection established!");
+      }
+      if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+        // Only log error if call is NOT ending normally
+        if (!this.isCallEnding) {
+          console.error("❌ [WebRTC] ICE connection failed or disconnected");
+        } else {
+          console.log("🔗 [WebRTC] ICE disconnected (call ended normally)");
+        }
+      }
+    };
+
+    // Add signaling state change handler
+    (pc as any).onsignalingstatechange = () => {
+      console.log("📡 [WebRTC] Signaling state changed:", pc.signalingState);
+      if (pc.signalingState === "stable") {
+        console.log("✅ [WebRTC] Signaling state is stable - connection should be ready");
       }
     };
 
@@ -258,20 +337,22 @@ class WebRTCService {
   async initiateCall(
     receiverId: string,
     receiverName: string,
-    receiverRole: 'doctor' | 'patient',
+    receiverRole: "doctor" | "patient",
     isVideoCall: boolean
   ): Promise<void> {
     try {
-      console.log(`📞 [WebRTC] Initiating ${isVideoCall ? 'video' : 'audio'} call to:`, receiverName, receiverId);
+      console.log(`📞 [WebRTC] Initiating ${isVideoCall ? "video" : "audio"} call to:`, receiverName, receiverId);
 
       if (!this.socket || !this.socket.connected) {
-        console.error('❌ [WebRTC] Socket not connected!');
-        throw new Error('WebRTC socket not connected');
+        console.error("❌ [WebRTC] Socket not connected!");
+        throw new Error("WebRTC socket not connected");
       }
 
-      console.log('✅ [WebRTC] Socket is connected, ID:', this.socket.id);
+      console.log("✅ [WebRTC] Socket is connected, ID:", this.socket.id);
 
-      // Store receiver ID for ending call later
+      // Generate callId (same format as client)
+      const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      this.currentCallId = callId;
       this.currentCallReceiverId = receiverId;
 
       // Get user media
@@ -280,38 +361,47 @@ class WebRTCService {
       // Create peer connection
       const pc = this.createPeerConnection(isVideoCall);
 
-      console.log('📝 [WebRTC] Creating offer...');
+      console.log("📝 [WebRTC] Creating offer...");
       // Create offer
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: isVideoCall,
       });
 
-      console.log('📝 [WebRTC] Setting local description (offer)...');
+      console.log("📝 [WebRTC] Setting local description (offer)...");
       await pc.setLocalDescription(offer);
-      console.log('✅ [WebRTC] Local description set:', offer.type);
+      console.log("✅ [WebRTC] Local description set:", offer.type);
 
-      console.log('📤 [WebRTC] Emitting call-user event with data:', {
+      // Wait for ICE gathering to complete (SimplePeer compatibility - trickle: false)
+      console.log("🧊 [WebRTC] Waiting for ICE gathering to complete...");
+      await this.waitForIceGatheringComplete(pc);
+      console.log("✅ [WebRTC] ICE gathering complete, sending offer with all candidates");
+
+      // Get the final SDP with all ICE candidates included
+      const finalOffer = pc.localDescription;
+
+      console.log("📤 [WebRTC] Emitting call-user event with data:", {
+        callId,
         callerId: this.userId,
         receiverId,
         isVideoCall,
       });
 
-      // Send call request
-      this.socket?.emit('call-user', {
+      // Send call request - match server format
+      this.socket?.emit("call-user", {
+        callId,
         callerId: this.userId,
         callerName: this.userName,
-        callerRole: this.userRole,
+        callerAvatar: this.userAvatar,
         receiverId,
         receiverName,
-        receiverRole,
         isVideoCall,
-        signal: offer,
+        signalData: finalOffer,
       });
 
-      console.log('✅ [WebRTC] Call request sent');
+      console.log("✅ [WebRTC] Call request sent");
     } catch (error) {
-      console.error('❌ [WebRTC] Error initiating call:', error);
+      console.error("❌ [WebRTC] Error initiating call:", error);
       this.cleanup();
       throw error;
     }
@@ -320,11 +410,11 @@ class WebRTCService {
   // Answer call
   async answerCall(callData: IncomingCallData): Promise<void> {
     try {
-      console.log('✅ [WebRTC] Answering call from:', callData.callerName);
+      console.log("✅ [WebRTC] Answering call from:", callData.callerName);
 
-      // Store caller ID and message ID for ending call later
+      // Store call info for ending call later
+      this.currentCallId = callData.callId;
       this.currentCallReceiverId = callData.callerId;
-      this.currentCallMessageId = callData.messageId;
 
       // Get user media
       await this.getUserMedia(callData.isVideoCall);
@@ -332,50 +422,80 @@ class WebRTCService {
       // Create peer connection
       const pc = this.createPeerConnection(callData.isVideoCall);
 
-      console.log('📝 [WebRTC] Setting remote description (offer)...');
-      // Set remote description
-      await pc.setRemoteDescription(new RTCSessionDescription(callData.signal));
-      console.log('✅ [WebRTC] Remote description set:', callData.signal.type);
+      console.log("📝 [WebRTC] Setting remote description (offer)...");
+      // Set remote description - use signalData from server
+      await pc.setRemoteDescription(new RTCSessionDescription(callData.signalData));
+      console.log("✅ [WebRTC] Remote description set:", callData.signalData.type);
 
-      console.log('📝 [WebRTC] Creating answer...');
+      console.log("📝 [WebRTC] Creating answer...");
       // Create answer
       const answer = await pc.createAnswer();
-      
-      console.log('📝 [WebRTC] Setting local description (answer)...');
-      await pc.setLocalDescription(answer);
-      console.log('✅ [WebRTC] Local description set:', answer.type);
 
-      console.log('📤 [WebRTC] Emitting answer-call event');
-      // Send answer
-      this.socket?.emit('answer-call', {
-        callerId: callData.callerId,
-        signal: answer,
-        messageId: callData.messageId,
+      console.log("📝 [WebRTC] Setting local description (answer)...");
+      await pc.setLocalDescription(answer);
+      console.log("✅ [WebRTC] Local description set:", answer.type);
+
+      // Wait for ICE gathering to complete (SimplePeer compatibility - trickle: false)
+      console.log("🧊 [WebRTC] Waiting for ICE gathering to complete...");
+      await this.waitForIceGatheringComplete(pc);
+      console.log("✅ [WebRTC] ICE gathering complete, sending answer with all candidates");
+
+      // Get the final SDP with all ICE candidates included
+      const finalAnswer = pc.localDescription;
+
+      console.log("📤 [WebRTC] Emitting answer-call event");
+      // Send answer - match server format
+      this.socket?.emit("answer-call", {
+        callId: callData.callId,
+        signalData: finalAnswer,
       });
 
-      console.log('✅ [WebRTC] Answer sent');
+      console.log("✅ [WebRTC] Answer sent");
     } catch (error) {
-      console.error('❌ [WebRTC] Error answering call:', error);
+      console.error("❌ [WebRTC] Error answering call:", error);
       this.cleanup();
       throw error;
     }
   }
 
   // Handle call answered (for caller)
-  async handleCallAnswered(signal: any): Promise<void> {
+  async handleCallAnswered(signalData: any): Promise<void> {
     try {
-      console.log('📝 [WebRTC] Handling call answered, signal type:', signal?.type);
-      
+      console.log("📝 [WebRTC] Handling call answered");
+      console.log("📝 [WebRTC] Signal data received:", JSON.stringify(signalData).substring(0, 200));
+
       if (!this.peerConnection) {
-        console.error('❌ [WebRTC] No peer connection when handling answer');
+        console.error("❌ [WebRTC] No peer connection when handling answer");
         return;
       }
-      
-      console.log('📝 [WebRTC] Setting remote description (answer)...');
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-      console.log('✅ [WebRTC] Remote description set:', signal.type);
+
+      // Log current state before setting remote description
+      console.log("📝 [WebRTC] Current signaling state:", this.peerConnection.signalingState);
+      console.log("📝 [WebRTC] Current ICE connection state:", this.peerConnection.iceConnectionState);
+
+      // SimplePeer may send signal in different format
+      // It could be { type: 'answer', sdp: '...' } or just the SDP object
+      let sdpData = signalData;
+
+      // If signalData has sdp property, use it
+      if (signalData && typeof signalData === "object") {
+        if (signalData.sdp && signalData.type) {
+          sdpData = signalData;
+        } else if (signalData.sdp) {
+          sdpData = { type: "answer", sdp: signalData.sdp };
+        }
+      }
+
+      console.log("📝 [WebRTC] Setting remote description (answer), type:", sdpData?.type);
+      console.log("📝 [WebRTC] SDP length:", sdpData?.sdp?.length);
+
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdpData));
+
+      console.log("✅ [WebRTC] Remote description set successfully");
+      console.log("📝 [WebRTC] New signaling state:", this.peerConnection.signalingState);
+      console.log("📝 [WebRTC] New ICE connection state:", this.peerConnection.iceConnectionState);
     } catch (error) {
-      console.error('❌ [WebRTC] Error handling call answer:', error);
+      console.error("❌ [WebRTC] Error handling call answer:", error);
     }
   }
 
@@ -383,47 +503,47 @@ class WebRTCService {
   private async handleICECandidate(candidate: any): Promise<void> {
     try {
       if (!this.peerConnection) {
-        console.warn('⚠️ [WebRTC] No peer connection to add ICE candidate');
+        console.warn("⚠️ [WebRTC] No peer connection to add ICE candidate");
         return;
       }
-      
+
       if (!candidate) {
-        console.warn('⚠️ [WebRTC] Empty ICE candidate');
+        console.warn("⚠️ [WebRTC] Empty ICE candidate");
         return;
       }
-      
-      console.log('➕ [WebRTC] Adding ICE candidate to peer connection');
+
+      console.log("➕ [WebRTC] Adding ICE candidate to peer connection");
       await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log('✅ [WebRTC] ICE candidate added successfully');
+      console.log("✅ [WebRTC] ICE candidate added successfully");
     } catch (error) {
-      console.error('❌ [WebRTC] Error adding ICE candidate:', error);
+      console.error("❌ [WebRTC] Error adding ICE candidate:", error);
     }
   }
 
   // Reject call
-  rejectCall(callerId: string, reason?: string): void {
-    console.log('❌ [WebRTC] Rejecting call from:', callerId);
-    this.socket?.emit('reject-call', {
-      callerId,
-      reason: reason || 'Call rejected',
+  rejectCall(callId: string, reason?: string): void {
+    console.log("❌ [WebRTC] Rejecting call:", callId);
+    this.socket?.emit("reject-call", {
+      callId,
+      reason: reason || "Cuộc gọi bị từ chối",
     });
+    this.currentCallId = null;
   }
 
   // End call
-  endCall(receiverId?: string, messageId?: string): void {
-    console.log('📞 [WebRTC] Ending call');
-    
-    const targetReceiverId = receiverId || this.currentCallReceiverId;
-    const targetMessageId = messageId || this.currentCallMessageId;
-    
-    if (targetReceiverId && targetMessageId) {
-      console.log('📤 [WebRTC] Emitting end-call event:', { receiverId: targetReceiverId, messageId: targetMessageId });
-      this.socket?.emit('end-call', {
-        receiverId: targetReceiverId,
-        messageId: targetMessageId,
+  endCall(): void {
+    console.log("📞 [WebRTC] Ending call");
+
+    // Set flag to prevent error logs on ICE disconnect
+    this.isCallEnding = true;
+
+    if (this.currentCallId) {
+      console.log("📤 [WebRTC] Emitting end-call event:", { callId: this.currentCallId });
+      this.socket?.emit("end-call", {
+        callId: this.currentCallId,
       });
     } else {
-      console.warn('⚠️ [WebRTC] No receiver/message ID to send end-call event');
+      console.warn("⚠️ [WebRTC] No callId to send end-call event");
     }
 
     this.cleanup();
@@ -490,7 +610,7 @@ class WebRTCService {
 
   // Cleanup
   private cleanup(): void {
-    console.log('🧹 [WebRTC] Cleaning up');
+    console.log("🧹 [WebRTC] Cleaning up");
 
     // Stop local stream
     if (this.localStream) {
@@ -505,19 +625,25 @@ class WebRTCService {
     }
 
     this.remoteStream = null;
-    
+
     // Clear call info
+    this.currentCallId = null;
     this.currentCallReceiverId = null;
     this.currentCallMessageId = null;
-    
-    console.log('✅ [WebRTC] Cleanup complete');
+
+    // Reset flag after a short delay to allow ICE disconnect events to be handled
+    setTimeout(() => {
+      this.isCallEnding = false;
+    }, 1000);
+
+    console.log("✅ [WebRTC] Cleanup complete");
   }
 
   // Disconnect
   disconnect(): void {
-    console.log('🔌 [WebRTC] Disconnecting');
+    console.log("🔌 [WebRTC] Disconnecting");
     this.cleanup();
-    
+
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;

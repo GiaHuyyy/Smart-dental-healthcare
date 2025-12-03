@@ -1,13 +1,14 @@
-import { Colors } from '@/constants/colors';
-import { useCall } from '@/contexts/CallContext';
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Colors } from "@/constants/colors";
+import { useCall } from "@/contexts/CallContext";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { ActivityIndicator, TouchableOpacity } from "react-native";
 
 interface CallButtonProps {
   receiverId: string;
   receiverName: string;
-  receiverRole: 'doctor' | 'patient';
+  receiverRole: "doctor" | "patient";
+  receiverAvatar?: string;
   isVideoCall: boolean;
   size?: number;
   color?: string;
@@ -19,6 +20,7 @@ export default function CallButton({
   receiverId,
   receiverName,
   receiverRole,
+  receiverAvatar,
   isVideoCall,
   size = 20,
   color = Colors.primary[600],
@@ -34,11 +36,11 @@ export default function CallButton({
     }
 
     setIsInitiating(true);
-    
+
     try {
-      await initiateCall(receiverId, receiverName, receiverRole, isVideoCall);
+      await initiateCall(receiverId, receiverName, receiverRole, isVideoCall, receiverAvatar);
     } catch (error) {
-      console.error('Error initiating call:', error);
+      console.error("Error initiating call:", error);
     } finally {
       setIsInitiating(false);
     }
@@ -51,7 +53,7 @@ export default function CallButton({
       onPress={handlePress}
       disabled={isDisabled}
       className="h-10 w-10 items-center justify-center rounded-full"
-      style={{ 
+      style={{
         backgroundColor: backgroundColor || Colors.primary[100],
         opacity: isDisabled ? 0.5 : 1,
       }}
@@ -59,11 +61,7 @@ export default function CallButton({
       {isInitiating ? (
         <ActivityIndicator size="small" color={color} />
       ) : (
-        <Ionicons
-          name={isVideoCall ? 'videocam' : 'call'}
-          size={size}
-          color={color}
-        />
+        <Ionicons name={isVideoCall ? "videocam" : "call"} size={size} color={color} />
       )}
     </TouchableOpacity>
   );

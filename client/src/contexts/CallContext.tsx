@@ -254,10 +254,21 @@ export const CallProvider: React.FC<CallProviderProps> = ({ children }) => {
       cleanupCallRef.current();
     });
 
-    // ICE candidate
+    // ICE candidate - only process if it's a valid SimplePeer signal
+    // Native WebRTC ICE candidates are not compatible with SimplePeer
     socket.on("ice-candidate", (data: { candidate: SimplePeer.SignalData }) => {
-      if (peerRef.current) {
-        peerRef.current.signal(data.candidate);
+      if (peerRef.current && data.candidate) {
+        try {
+          // SimplePeer expects signal data with 'type' field (offer/answer)
+          // Raw ICE candidates don't have this, so we skip them
+          if (data.candidate && typeof data.candidate === "object" && "type" in data.candidate) {
+            peerRef.current.signal(data.candidate);
+          } else {
+            console.log("⚠️ [Call] Ignoring non-SimplePeer ICE candidate");
+          }
+        } catch (error) {
+          console.warn("⚠️ [Call] Error processing ICE candidate:", error);
+        }
       }
     });
 
@@ -375,12 +386,26 @@ export const CallProvider: React.FC<CallProviderProps> = ({ children }) => {
         peer.on("stream", (stream) => {
           console.log("📺 [Call] Got remote stream");
           setRemoteStream(stream);
+          // Start timer when we get remote stream (works with both SimplePeer and native WebRTC)
+          setCallState((prev) => {
+            if (prev.status !== "connected") {
+              startDurationTimer();
+              return { ...prev, status: "connected" };
+            }
+            return prev;
+          });
         });
 
         peer.on("connect", () => {
           console.log("✅ [Call] Peer connected");
-          setCallState((prev) => ({ ...prev, status: "connected" }));
-          startDurationTimer();
+          // Also start timer on connect if not already started
+          setCallState((prev) => {
+            if (prev.status !== "connected") {
+              startDurationTimer();
+              return { ...prev, status: "connected" };
+            }
+            return prev;
+          });
         });
 
         peer.on("close", () => {
@@ -390,6 +415,13 @@ export const CallProvider: React.FC<CallProviderProps> = ({ children }) => {
 
         peer.on("error", (err) => {
           console.error("❌ [Call] Peer error:", err);
+          // Ignore "User-Initiated Abort" error - this happens when remote peer closes
+          const errorMessage = err?.message || String(err);
+          if (errorMessage.includes("User-Initiated Abort") || errorMessage.includes("Close called")) {
+            console.log("📞 [Call] Remote peer closed connection");
+            cleanupCall();
+            return;
+          }
           toast.error("Lỗi kết nối cuộc gọi");
           cleanupCall();
         });
@@ -441,11 +473,18 @@ export const CallProvider: React.FC<CallProviderProps> = ({ children }) => {
       peer.on("stream", (stream) => {
         console.log("📺 [Call] Got remote stream");
         setRemoteStream(stream);
+        // Start timer when we get remote stream (works with both SimplePeer and native WebRTC)
+        if (!callStateRef.current.startTime) {
+          startDurationTimer();
+        }
       });
 
       peer.on("connect", () => {
         console.log("✅ [Call] Peer connected");
-        startDurationTimer();
+        // Also start timer on connect if not already started
+        if (!callStateRef.current.startTime) {
+          startDurationTimer();
+        }
       });
 
       peer.on("close", () => {
@@ -455,6 +494,13 @@ export const CallProvider: React.FC<CallProviderProps> = ({ children }) => {
 
       peer.on("error", (err) => {
         console.error("❌ [Call] Peer error:", err);
+        // Ignore "User-Initiated Abort" error - this happens when remote peer closes
+        const errorMessage = err?.message || String(err);
+        if (errorMessage.includes("User-Initiated Abort") || errorMessage.includes("Close called")) {
+          console.log("📞 [Call] Remote peer closed connection");
+          cleanupCall();
+          return;
+        }
         toast.error("Lỗi kết nối cuộc gọi");
         cleanupCall();
       });
