@@ -1,9 +1,9 @@
-import webrtcService, { IncomingCallData } from '@/services/webrtcService';
-import { router } from 'expo-router';
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, AppStateStatus } from 'react-native';
-import { MediaStream } from '@/services/webrtc';
-import { useAuth } from './auth-context';
+import webrtcService, { IncomingCallData } from "@/services/webrtcService";
+import { router } from "expo-router";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Alert, AppState, AppStateStatus } from "react-native";
+import { MediaStream } from "@/services/webrtc";
+import { useAuth } from "./auth-context";
 
 interface CallState {
   inCall: boolean;
@@ -12,15 +12,17 @@ interface CallState {
 
   caller: string | null;
   callerName: string;
-  callerRole: 'doctor' | 'patient';
+  callerRole: "doctor" | "patient";
+  callerAvatar: string | null;
 
   receiver: string | null;
   receiverName: string;
-  receiverRole: 'doctor' | 'patient';
+  receiverRole: "doctor" | "patient";
+  receiverAvatar: string | null;
 
   callStartTime: Date | null;
   callDuration: number;
-  callStatus: 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'ended';
+  callStatus: "idle" | "connecting" | "connected" | "reconnecting" | "ended";
 
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
@@ -29,14 +31,20 @@ interface CallState {
   isVideoOff: boolean;
   isSpeakerOn: boolean;
 
-  messageId: string | null;
+  callId: string | null;
 }
 
 interface CallContextType {
   callState: CallState;
-  
+
   // Call actions
-  initiateCall: (receiverId: string, receiverName: string, receiverRole: 'doctor' | 'patient', isVideoCall: boolean) => Promise<void>;
+  initiateCall: (
+    receiverId: string,
+    receiverName: string,
+    receiverRole: "doctor" | "patient",
+    isVideoCall: boolean,
+    receiverAvatar?: string
+  ) => Promise<void>;
   answerCall: () => Promise<void>;
   rejectCall: (reason?: string) => void;
   endCall: () => void;
@@ -48,14 +56,16 @@ interface CallContextType {
   switchCamera: () => void;
 
   // Call history callback setter
-  setOnCallEnded: (callback?: (callInfo: {
-    receiverId: string;
-    receiverName: string;
-    isVideoCall: boolean;
-    callStatus: 'missed' | 'answered' | 'rejected' | 'completed';
-    callDuration?: number;
-    isOutgoing: boolean;
-  }) => void) => void;
+  setOnCallEnded: (
+    callback?: (callInfo: {
+      receiverId: string;
+      receiverName: string;
+      isVideoCall: boolean;
+      callStatus: "missed" | "answered" | "rejected" | "completed";
+      callDuration?: number;
+      isOutgoing: boolean;
+    }) => void
+  ) => void;
 
   // Utilities
   formatDuration: (seconds: number) => string;
@@ -70,41 +80,45 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isReceivingCall: false,
     isVideoCall: false,
     caller: null,
-    callerName: '',
-    callerRole: 'patient',
+    callerName: "",
+    callerRole: "patient",
+    callerAvatar: null,
     receiver: null,
-    receiverName: '',
-    receiverRole: 'doctor',
+    receiverName: "",
+    receiverRole: "doctor",
+    receiverAvatar: null,
     callStartTime: null,
     callDuration: 0,
-    callStatus: 'idle',
+    callStatus: "idle",
     localStream: null,
     remoteStream: null,
     isMuted: false,
     isVideoOff: false,
     isSpeakerOn: true,
-    messageId: null,
+    callId: null,
   });
 
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const callEndedCallbackRef = useRef<CallContextType['onCallEnded']>();
+  const callEndedCallbackRef = useRef<CallContextType["onCallEnded"]>();
   const incomingCallDataRef = useRef<IncomingCallData | null>(null);
   const appState = useRef<AppStateStatus>(AppState.currentState);
+  const isCallActiveRef = useRef<boolean>(false); // Track if call is active
 
   // Connect to WebRTC when authenticated
   useEffect(() => {
     if (session?.token && session?.user) {
       const userId = session.user._id;
-      const userName = session.user.fullName || 'User';
-      const userRole = session.user.role as 'doctor' | 'patient';
+      const userName = session.user.fullName || "User";
+      const userRole = session.user.role as "doctor" | "patient";
+      const userAvatar = session.user.avatarUrl;
 
       webrtcService
-        .connect(session.token, userId, userRole, userName)
+        .connect(session.token, userId, userRole, userName, userAvatar)
         .then(() => {
-          console.log('✅ [CallContext] WebRTC connected');
+          console.log("✅ [CallContext] WebRTC connected");
         })
         .catch((error) => {
-          console.error('❌ [CallContext] Failed to connect WebRTC:', error);
+          console.error("❌ [CallContext] Failed to connect WebRTC:", error);
         });
 
       return () => {
@@ -117,84 +131,92 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Incoming call
     const handleIncomingCall = (data: IncomingCallData) => {
-      console.log('📞 [CallContext] Incoming call from:', data.callerName);
-      
+      console.log("📞 [CallContext] Incoming call from:", data.callerName);
+      console.log("📞 [CallContext] Call ID:", data.callId);
+
       incomingCallDataRef.current = data;
-      
+
       setCallState((prev) => ({
         ...prev,
         isReceivingCall: true,
         caller: data.callerId,
         callerName: data.callerName,
-        callerRole: data.callerRole,
+        callerRole: data.callerRole || "patient",
+        callerAvatar: data.callerAvatar || null,
         isVideoCall: data.isVideoCall,
-        messageId: data.messageId,
-        callStatus: 'idle',
+        callId: data.callId,
+        callStatus: "idle",
       }));
     };
 
     // Call answered
-    const handleCallAnswered = async (data: { signal: any; answererId: string }) => {
-      console.log('✅ [CallContext] Call answered by:', data.answererId);
-      
+    const handleCallAnswered = async (data: { callId: string; signalData: any }) => {
+      console.log("✅ [CallContext] Call answered, callId:", data.callId);
+
       try {
-        await webrtcService.handleCallAnswered(data.signal);
-        
+        await webrtcService.handleCallAnswered(data.signalData);
+
         setCallState((prev) => ({
           ...prev,
-          callStatus: 'connected',
+          callStatus: "connected",
           callStartTime: new Date(),
         }));
 
-        console.log('✅ [CallContext] Call connected, starting timer');
+        console.log("✅ [CallContext] Call connected, starting timer");
         startCallTimer();
       } catch (error) {
-        console.error('❌ [CallContext] Error handling call answer:', error);
-        Alert.alert('Lỗi', 'Không thể kết nối cuộc gọi');
+        console.error("❌ [CallContext] Error handling call answer:", error);
+        Alert.alert("Lỗi", "Không thể kết nối cuộc gọi");
         endCall();
       }
     };
 
     // Call rejected
-    const handleCallRejected = (data: { reason?: string }) => {
-      console.log('❌ [CallContext] Call rejected:', data.reason);
-      
-      Alert.alert('Cuộc gọi bị từ chối', data.reason || 'Người nhận đã từ chối cuộc gọi');
+    const handleCallRejected = (data: { callId: string; reason?: string }) => {
+      console.log("❌ [CallContext] Call rejected:", data.callId, data.reason);
+
+      Alert.alert("Cuộc gọi bị từ chối", data.reason || "Người nhận đã từ chối cuộc gọi");
       resetCallState();
     };
 
     // Call ended
-    const handleCallEnded = (data: { userId: string; messageId: string }) => {
-      console.log('📞 [CallContext] ===== CALL ENDED EVENT =====');
-      console.log('📞 [CallContext] Ended by userId:', data.userId);
-      console.log('📞 [CallContext] Message ID:', data.messageId);
-      
+    const handleCallEnded = (data: { callId: string; duration: number; reason?: string }) => {
+      console.log("📞 [CallContext] ===== CALL ENDED EVENT =====");
+      console.log("📞 [CallContext] Call ID:", data.callId);
+      console.log("📞 [CallContext] Duration:", data.duration);
+      console.log("📞 [CallContext] Reason:", data.reason);
+
       // Trigger callback before resetting state
       if (callEndedCallbackRef.current) {
         const isOutgoing = callState.receiver !== null;
         const partnerId = isOutgoing ? callState.receiver : callState.caller;
         const partnerName = isOutgoing ? callState.receiverName : callState.callerName;
-        
+
         if (partnerId && partnerName) {
           callEndedCallbackRef.current({
             receiverId: partnerId,
             receiverName: partnerName,
             isVideoCall: callState.isVideoCall,
-            callStatus: callState.callStatus === 'connected' ? 'completed' : 'missed',
-            callDuration: callState.callStatus === 'connected' ? callState.callDuration : undefined,
+            callStatus: data.duration > 0 ? "completed" : "missed",
+            callDuration: data.duration > 0 ? data.duration : undefined,
             isOutgoing,
           });
         }
       }
-      
-      Alert.alert('Cuộc gọi đã kết thúc', 'Cuộc gọi đã được kết thúc');
+
+      if (data.reason) {
+        Alert.alert("Cuộc gọi đã kết thúc", data.reason);
+      }
+
+      console.log("📞 [CallContext] Resetting call state...");
       resetCallState();
+      console.log("✅ [CallContext] Call state reset completed");
     };
 
     // Remote stream
     const handleRemoteStream = (stream: MediaStream) => {
-      console.log('📺 [CallContext] Received remote stream');
-      
+      console.log("📺 [CallContext] Received remote stream");
+
       setCallState((prev) => ({
         ...prev,
         remoteStream: stream,
@@ -203,64 +225,81 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Connection state change
     const handleConnectionStateChange = (state: string) => {
-      console.log('🔗 [CallContext] Connection state:', state);
-      
-      let callStatus: CallState['callStatus'] = 'idle';
-      
+      console.log("🔗 [CallContext] Connection state:", state);
+      console.log("🔗 [CallContext] isCallActiveRef:", isCallActiveRef.current);
+
+      // Use ref to check if call is active (ref always has current value)
+      if (!isCallActiveRef.current) {
+        console.log("🔗 [CallContext] Ignoring connection state change - call not active");
+        return;
+      }
+
       switch (state) {
-        case 'connecting':
-          callStatus = 'connecting';
+        case "connecting":
+          setCallState((prev) => ({
+            ...prev,
+            callStatus: "connecting",
+          }));
           break;
-        case 'connected':
-          callStatus = 'connected';
-          if (!callState.callStartTime) {
-            setCallState((prev) => ({
+        case "connected":
+          setCallState((prev) => {
+            console.log("🔗 [CallContext] Processing connected state, callStartTime:", prev.callStartTime);
+            // Only start timer if not already started
+            if (!prev.callStartTime) {
+              console.log("✅ [CallContext] Connection established, starting timer");
+              // Start timer outside of setState to avoid issues
+              setTimeout(() => startCallTimer(), 0);
+              return {
+                ...prev,
+                callStatus: "connected",
+                callStartTime: new Date(),
+              };
+            }
+            console.log("🔗 [CallContext] Timer already started, skipping");
+            return {
               ...prev,
-              callStartTime: new Date(),
-            }));
-            startCallTimer();
+              callStatus: "connected",
+            };
+          });
+          break;
+        case "disconnected":
+        case "failed":
+        case "closed":
+          // Only show alert and reset if the call is still active
+          if (isCallActiveRef.current) {
+            console.log("🔗 [CallContext] Connection lost during active call");
+            Alert.alert("Mất kết nối", "Cuộc gọi đã bị ngắt kết nối");
+            resetCallState();
           }
           break;
-        case 'disconnected':
-        case 'failed':
-        case 'closed':
-          callStatus = 'ended';
-          Alert.alert('Mất kết nối', 'Cuộc gọi đã bị ngắt kết nối');
-          resetCallState();
-          break;
       }
-      
-      setCallState((prev) => ({
-        ...prev,
-        callStatus,
-      }));
     };
 
     // Register listeners
-    webrtcService.on('incomingCall', handleIncomingCall);
-    webrtcService.on('callAnswered', handleCallAnswered);
-    webrtcService.on('callRejected', handleCallRejected);
-    webrtcService.on('callEnded', handleCallEnded);
-    webrtcService.on('remoteStream', handleRemoteStream);
-    webrtcService.on('connectionStateChange', handleConnectionStateChange);
+    webrtcService.on("incomingCall", handleIncomingCall);
+    webrtcService.on("callAnswered", handleCallAnswered);
+    webrtcService.on("callRejected", handleCallRejected);
+    webrtcService.on("callEnded", handleCallEnded);
+    webrtcService.on("remoteStream", handleRemoteStream);
+    webrtcService.on("connectionStateChange", handleConnectionStateChange);
 
     return () => {
-      webrtcService.off('incomingCall', handleIncomingCall);
-      webrtcService.off('callAnswered', handleCallAnswered);
-      webrtcService.off('callRejected', handleCallRejected);
-      webrtcService.off('callEnded', handleCallEnded);
-      webrtcService.off('remoteStream', handleRemoteStream);
-      webrtcService.off('connectionStateChange', handleConnectionStateChange);
+      webrtcService.off("incomingCall", handleIncomingCall);
+      webrtcService.off("callAnswered", handleCallAnswered);
+      webrtcService.off("callRejected", handleCallRejected);
+      webrtcService.off("callEnded", handleCallEnded);
+      webrtcService.off("remoteStream", handleRemoteStream);
+      webrtcService.off("connectionStateChange", handleConnectionStateChange);
     };
   }, [callState.callStartTime]);
 
   // Handle app state changes (background/foreground)
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        console.log('📱 [CallContext] App came to foreground');
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === "active") {
+        console.log("📱 [CallContext] App came to foreground");
       } else if (nextAppState.match(/inactive|background/)) {
-        console.log('📱 [CallContext] App went to background');
+        console.log("📱 [CallContext] App went to background");
         // Consider ending call or showing notification
       }
 
@@ -281,7 +320,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     callTimerRef.current = setInterval(() => {
       setCallState((prev) => {
         if (!prev.callStartTime) return prev;
-        
+
         const duration = Math.floor((Date.now() - prev.callStartTime.getTime()) / 1000);
         return { ...prev, callDuration: duration };
       });
@@ -299,7 +338,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const formatDuration = useCallback((seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   }, []);
 
   // Initiate call
@@ -307,12 +346,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async (
       receiverId: string,
       receiverName: string,
-      receiverRole: 'doctor' | 'patient',
-      isVideoCall: boolean
+      receiverRole: "doctor" | "patient",
+      isVideoCall: boolean,
+      receiverAvatar?: string
     ) => {
       try {
         if (callState.inCall || callState.isReceivingCall) {
-          Alert.alert('Thông báo', 'Bạn đang trong cuộc gọi khác');
+          Alert.alert("Thông báo", "Bạn đang trong cuộc gọi khác");
           return;
         }
 
@@ -322,30 +362,45 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log(`📞 [CallContext] Receiver Role: ${receiverRole}`);
         console.log(`📞 [CallContext] Is Video Call: ${isVideoCall}`);
 
+        // Mark call as active
+        isCallActiveRef.current = true;
+
         setCallState((prev) => ({
           ...prev,
           inCall: true,
           receiver: receiverId,
           receiverName,
           receiverRole,
+          receiverAvatar: receiverAvatar || null,
           isVideoCall,
-          callStatus: 'connecting',
+          callStatus: "connecting",
         }));
 
         await webrtcService.initiateCall(receiverId, receiverName, receiverRole, isVideoCall);
 
         const localStream = webrtcService.getLocalStream();
-        
+
         setCallState((prev) => ({
           ...prev,
           localStream,
         }));
 
         // Navigate to call screen
-        router.push('/call');
-      } catch (error) {
-        console.error('❌ [CallContext] Error initiating call:', error);
-        Alert.alert('Lỗi', 'Không thể bắt đầu cuộc gọi. Vui lòng kiểm tra quyền camera/microphone');
+        router.push("/call");
+      } catch (error: any) {
+        console.error("❌ [CallContext] Error initiating call:", error);
+
+        // Check if it's an Expo Go limitation
+        const errorMessage = error?.message || "";
+        if (errorMessage.includes("development build") || errorMessage.includes("dev client")) {
+          Alert.alert(
+            "Không hỗ trợ trên Expo Go",
+            "Chức năng gọi điện yêu cầu development build. Vui lòng chạy:\n\nnpx expo run:android\n\nhoặc\n\nnpx expo run:ios",
+            [{ text: "Đã hiểu" }]
+          );
+        } else {
+          Alert.alert("Lỗi", "Không thể bắt đầu cuộc gọi. Vui lòng kiểm tra quyền camera/microphone");
+        }
         resetCallState();
       }
     },
@@ -356,23 +411,26 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const answerCall = useCallback(async () => {
     try {
       if (!incomingCallDataRef.current) {
-        Alert.alert('Lỗi', 'Không tìm thấy thông tin cuộc gọi');
+        Alert.alert("Lỗi", "Không tìm thấy thông tin cuộc gọi");
         return;
       }
 
-      console.log('✅ [CallContext] Answering call');
+      console.log("✅ [CallContext] Answering call");
+
+      // Mark call as active
+      isCallActiveRef.current = true;
 
       setCallState((prev) => ({
         ...prev,
         inCall: true,
         isReceivingCall: false,
-        callStatus: 'connecting',
+        callStatus: "connecting",
       }));
 
       await webrtcService.answerCall(incomingCallDataRef.current);
 
       const localStream = webrtcService.getLocalStream();
-      
+
       setCallState((prev) => ({
         ...prev,
         localStream,
@@ -381,20 +439,31 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       incomingCallDataRef.current = null;
 
       // Navigate to call screen
-      router.push('/call');
-    } catch (error) {
-      console.error('❌ [CallContext] Error answering call:', error);
-      Alert.alert('Lỗi', 'Không thể kết nối cuộc gọi. Vui lòng kiểm tra quyền camera/microphone');
+      router.push("/call");
+    } catch (error: any) {
+      console.error("❌ [CallContext] Error answering call:", error);
+
+      // Check if it's an Expo Go limitation
+      const errorMessage = error?.message || "";
+      if (errorMessage.includes("development build") || errorMessage.includes("dev client")) {
+        Alert.alert(
+          "Không hỗ trợ trên Expo Go",
+          "Chức năng gọi điện yêu cầu development build. Vui lòng chạy:\n\nnpx expo run:android\n\nhoặc\n\nnpx expo run:ios",
+          [{ text: "Đã hiểu" }]
+        );
+      } else {
+        Alert.alert("Lỗi", "Không thể kết nối cuộc gọi. Vui lòng kiểm tra quyền camera/microphone");
+      }
       resetCallState();
     }
   }, []);
 
   // Reject call
   const rejectCall = useCallback((reason?: string) => {
-    console.log('❌ [CallContext] Rejecting call');
+    console.log("❌ [CallContext] Rejecting call");
 
     if (incomingCallDataRef.current) {
-      webrtcService.rejectCall(incomingCallDataRef.current.callerId, reason);
+      webrtcService.rejectCall(incomingCallDataRef.current.callId, reason);
       incomingCallDataRef.current = null;
     }
 
@@ -403,46 +472,40 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // End call
   const endCall = useCallback(() => {
-    console.log('📞 [CallContext] Ending call');
+    console.log("📞 [CallContext] Ending call");
 
-    const receiverId = callState.receiver || callState.caller;
-    const messageId = callState.messageId;
-
-    if (receiverId && messageId) {
-      webrtcService.endCall(receiverId, messageId);
-    } else {
-      webrtcService.endCall();
-    }
-
+    webrtcService.endCall();
     resetCallState();
-  }, [callState.receiver, callState.caller, callState.messageId]);
+  }, []);
 
   // Reset call state
   const resetCallState = useCallback(() => {
     stopCallTimer();
-    
-    // Cleanup WebRTC service
-    webrtcService.endCall();
+
+    // Mark call as inactive
+    isCallActiveRef.current = false;
 
     setCallState({
       inCall: false,
       isReceivingCall: false,
       isVideoCall: false,
       caller: null,
-      callerName: '',
-      callerRole: 'patient',
+      callerName: "",
+      callerRole: "patient",
+      callerAvatar: null,
       receiver: null,
-      receiverName: '',
-      receiverRole: 'doctor',
+      receiverName: "",
+      receiverRole: "doctor",
+      receiverAvatar: null,
       callStartTime: null,
       callDuration: 0,
-      callStatus: 'idle',
+      callStatus: "idle",
       localStream: null,
       remoteStream: null,
       isMuted: false,
       isVideoOff: false,
       isSpeakerOn: true,
-      messageId: null,
+      callId: null,
     });
   }, [stopCallTimer]);
 
@@ -491,7 +554,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useCall = (): CallContextType => {
   const context = useContext(CallContext);
   if (!context) {
-    throw new Error('useCall must be used within CallProvider');
+    throw new Error("useCall must be used within CallProvider");
   }
   return context;
 };
