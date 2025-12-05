@@ -17,6 +17,7 @@ import {
   DollarSign,
   Search,
   Settings,
+  Loader,
 } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
@@ -47,6 +48,7 @@ interface Appointment {
   location: string;
   email?: string;
   phone?: string;
+  dateOfBirth?: string; // Patient's date of birth for age calculation
   createdAt?: string;
   followUpParentId?: string; // ID of parent appointment if this is a follow-up
   aiAnalysisData?: {
@@ -172,6 +174,7 @@ function DoctorScheduleContent() {
             location: (apt.patientId as { address?: string })?.address || "N/A",
             email: (apt.patientId as { email?: string })?.email,
             phone: (apt.patientId as { phone?: string })?.phone,
+            dateOfBirth: (apt.patientId as { dateOfBirth?: string })?.dateOfBirth,
             followUpParentId: (apt as any).followUpParentId, // CRITICAL: Include follow-up parent ID
             createdAt: apt.createdAt,
             aiAnalysisData: (apt as any).aiAnalysisData,
@@ -1122,12 +1125,17 @@ function DoctorScheduleContent() {
                               <p className="font-medium text-gray-900">{apt.patientName}</p>
                               {(apt as any).followUpParentId && (
                                 <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200">
-                                  🔄
+                                  🔄 Tái khám
                                 </span>
                               )}
                             </div>
                             <p className="text-sm text-gray-500">
-                              {apt.gender} • {apt.location}
+                              {apt.gender === "male" ? "Nam" : apt.gender === "female" ? "Nữ" : apt.gender}
+                              {apt.dateOfBirth &&
+                                ` • ${Math.floor(
+                                  (new Date().getTime() - new Date(apt.dateOfBirth).getTime()) /
+                                    (365.25 * 24 * 60 * 60 * 1000)
+                                )} tuổi`}
                             </p>
                           </div>
                         </div>
@@ -1155,7 +1163,7 @@ function DoctorScheduleContent() {
                             className={`text-xs px-2 py-1 rounded-full ${
                               apt.visitType === "Home Visit"
                                 ? "bg-purple-100 text-purple-700"
-                                : "bg-blue-100 text-blue-700"
+                                : "bg-blue-100 text-primary"
                             }`}
                           >
                             {apt.visitType === "Home Visit" ? "Tại nhà" : "Phòng khám"}
@@ -1196,7 +1204,7 @@ function DoctorScheduleContent() {
                                   startTreatment(apt);
                                 }}
                                 disabled={actionLoading}
-                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-3 py-1 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {actionLoading ? "..." : "Điều Trị"}
                               </button>
@@ -1235,7 +1243,7 @@ function DoctorScheduleContent() {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
             {/* Header - Fixed */}
             <div className="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
-              <h2 className="text-xl font-bold text-primary">
+              <h2 className="text-xl font-bold text-gray-900">
                 {(selectedAppointment as any).followUpParentId ? "Chi Tiết Lịch Hẹn Tái Khám" : "Chi Tiết Lịch Hẹn"}
               </h2>
               <button onClick={() => setDetailModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -1250,14 +1258,21 @@ function DoctorScheduleContent() {
                 <img
                   src={selectedAppointment.patientAvatar}
                   alt={selectedAppointment.patientName}
-                  // width={64}
-                  // height={64}
                   className="rounded-full w-16 h-16 object-cover"
                 />
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{selectedAppointment.patientName}</h3>
                   <p className="text-sm text-gray-600">
-                    {selectedAppointment.gender} • {selectedAppointment.location}
+                    {selectedAppointment.gender === "male"
+                      ? "Nam"
+                      : selectedAppointment.gender === "female"
+                      ? "Nữ"
+                      : selectedAppointment.gender}
+                    {selectedAppointment.dateOfBirth &&
+                      ` • ${Math.floor(
+                        (new Date().getTime() - new Date(selectedAppointment.dateOfBirth).getTime()) /
+                          (365.25 * 24 * 60 * 60 * 1000)
+                      )} tuổi`}
                   </p>
                 </div>
               </div>
@@ -1265,7 +1280,7 @@ function DoctorScheduleContent() {
               {/* Appointment details */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-start gap-3">
-                  <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <Calendar className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-600">Ngày hẹn</p>
                     <p className="font-medium text-gray-900">
@@ -1275,7 +1290,7 @@ function DoctorScheduleContent() {
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <Clock className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-600">Thời gian</p>
                     <p className="font-medium text-gray-900">
@@ -1286,7 +1301,7 @@ function DoctorScheduleContent() {
 
                 {selectedAppointment.email && (
                   <div className="flex items-start gap-3">
-                    <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <Mail className="w-5 h-5 text-primary mt-0.5" />
                     <div>
                       <p className="text-sm text-gray-600">Email</p>
                       <p className="font-medium text-gray-900">{selectedAppointment.email}</p>
@@ -1296,7 +1311,7 @@ function DoctorScheduleContent() {
 
                 {selectedAppointment.phone && (
                   <div className="flex items-start gap-3">
-                    <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <Phone className="w-5 h-5 text-primary mt-0.5" />
                     <div>
                       <p className="text-sm text-gray-600">Điện thoại</p>
                       <p className="font-medium text-gray-900">{selectedAppointment.phone}</p>
@@ -1305,7 +1320,7 @@ function DoctorScheduleContent() {
                 )}
 
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <MapPin className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-600">Loại khám</p>
                     <p className="font-medium text-gray-900">
@@ -1323,7 +1338,7 @@ function DoctorScheduleContent() {
                         ? "bg-yellow-500"
                         : selectedAppointment.status === "cancelled"
                         ? "bg-red-500"
-                        : "bg-blue-500"
+                        : "bg-primary"
                     }`}
                   />
                   <div>
@@ -1343,7 +1358,7 @@ function DoctorScheduleContent() {
 
               {/* AI Analysis Data */}
               {selectedAppointment.aiAnalysisData && (
-                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                <div className="p-4 bg-linear-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
                   <AppointmentAIDataDisplay
                     aiData={selectedAppointment.aiAnalysisData}
                     appointmentId={selectedAppointment._id}
@@ -1381,7 +1396,7 @@ function DoctorScheduleContent() {
                       setDetailModalOpen(false);
                     }}
                     disabled={actionLoading}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {actionLoading ? "Đang xử lý..." : "Điều Trị"}
                   </button>
@@ -1400,17 +1415,20 @@ function DoctorScheduleContent() {
                 )}
                 {selectedAppointment.status === "completed" && (
                   <>
-                    <button
-                      onClick={() => {
-                        setAppointmentForFollowUp(selectedAppointment);
-                        setFollowUpModalOpen(true);
-                        setDetailModalOpen(false);
-                      }}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
-                    >
-                      <CalendarDays className="w-4 h-4" />
-                      Tạo đề xuất tái khám
-                    </button>
+                    {/* Only show follow-up button for original appointments (not follow-up appointments) */}
+                    {!(selectedAppointment as any).followUpParentId && (
+                      <button
+                        onClick={() => {
+                          setAppointmentForFollowUp(selectedAppointment);
+                          setFollowUpModalOpen(true);
+                          setDetailModalOpen(false);
+                        }}
+                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
+                      >
+                        <CalendarDays className="w-4 h-4" />
+                        Đề xuất tái khám
+                      </button>
+                    )}
                     {pendingBill && (
                       <button
                         onClick={() => {
@@ -1510,7 +1528,7 @@ function DoctorScheduleContent() {
                 <p className="text-sm text-blue-800">
                   Bạn có chắc chắn muốn xác nhận thanh toán cho hóa đơn này? Hành động này sẽ:
                 </p>
-                <ul className="mt-2 space-y-1 text-sm text-blue-700 list-disc list-inside">
+                <ul className="mt-2 space-y-1 text-sm text-primary list-disc list-inside">
                   <li>Đánh dấu hóa đơn đã thanh toán</li>
                   <li>Gửi thông báo cho bệnh nhân</li>
                   <li>Gửi email xác nhận</li>

@@ -1022,7 +1022,7 @@ function MyAppointmentsContent() {
             {/* Header - Fixed */}
             <div className="shrink-0 bg-white border-b border-gray-200 p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-semibold text-primary">
+                <h3 className="text-2xl font-semibold text-gray-900">
                   {(selectedAppointment as any).followUpParentId ? "Chi tiết lịch hẹn tái khám" : "Chi tiết lịch hẹn"}
                 </h3>
                 <button
@@ -1103,7 +1103,7 @@ function MyAppointmentsContent() {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    {getConsultTypeIcon(selectedAppointment.consultType || selectedAppointment.appointmentType)}
+                    <span className="text-primary">{getConsultTypeIcon(selectedAppointment.consultType || selectedAppointment.appointmentType)}</span>
                     <div className="flex-1">
                       <p className="text-sm text-gray-500">Hình thức khám</p>
                       <p className="font-medium text-gray-900">

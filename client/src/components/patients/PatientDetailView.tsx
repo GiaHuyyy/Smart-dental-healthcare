@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, User, Calendar, FileText } from "lucide-react";
 import PatientOverview from "./PatientOverview";
 import PatientAppointments from "./PatientAppointments";
@@ -113,6 +113,8 @@ interface PatientDetailViewProps {
   loading: boolean;
   onBack: () => void;
   onRefresh?: () => void;
+  initialRecordId?: string | null; // For auto-opening medical record modal
+  onRecordModalOpened?: () => void; // Callback when record modal is opened
 }
 
 export default function PatientDetailView({
@@ -123,8 +125,17 @@ export default function PatientDetailView({
   loading,
   onBack,
   onRefresh,
+  initialRecordId,
+  onRecordModalOpened,
 }: PatientDetailViewProps) {
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Auto-switch to medical-records tab if initialRecordId is provided
+  useEffect(() => {
+    if (initialRecordId) {
+      setActiveTab("medical-records");
+    }
+  }, [initialRecordId]);
 
   const calculateAge = (dateOfBirth: string) => {
     const today = new Date();
@@ -170,11 +181,11 @@ export default function PatientDetailView({
             >
               <ArrowLeft className="w-5 h-5 text-primary" />
             </button>
-              <img
-                src={patient.avatarUrl}
-                alt={`${patient.fullName} avatar`}
-                className="rounded-full w-10 h-10 object-cover"
-              />
+            <img
+              src={patient.avatarUrl}
+              alt={`${patient.fullName} avatar`}
+              className="rounded-full w-10 h-10 object-cover"
+            />
             <div>
               <h2 className="text-base font-semibold text-gray-900">{patient.fullName}</h2>
               <p className="text-gray-500 text-xs mt-0.5">
@@ -234,7 +245,13 @@ export default function PatientDetailView({
               )}
 
               {activeTab === "medical-records" && (
-                <PatientMedicalRecords medicalRecords={medicalRecords} patient={patient} onRefresh={onRefresh} />
+                <PatientMedicalRecords
+                  medicalRecords={medicalRecords}
+                  patient={patient}
+                  onRefresh={onRefresh}
+                  initialRecordId={initialRecordId}
+                  onRecordModalOpened={onRecordModalOpened}
+                />
               )}
             </>
           )}

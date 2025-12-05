@@ -4,7 +4,24 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { sendRequest } from "@/utils/api";
-import { Settings, User, Lock, Save, Eye, EyeOff, Camera, Loader2, Bell, Shield, Upload, X } from "lucide-react";
+import {
+  Settings,
+  User,
+  Lock,
+  Save,
+  Eye,
+  EyeOff,
+  Camera,
+  Loader2,
+  Bell,
+  Shield,
+  Upload,
+  X,
+  CheckCircle,
+  AlertTriangle,
+  MapPin,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 
 // Danh sách các dịch vụ chuyên môn phổ biến
@@ -88,6 +105,26 @@ export default function SettingsPage({
   const [pendingLicenseFile, setPendingLicenseFile] = useState<File | null>(null);
   const [previewLicenseUrl, setPreviewLicenseUrl] = useState<string>("");
   const licenseInputRef = useRef<HTMLInputElement>(null);
+
+  // License verification state (for doctor)
+  const [isVerifyingLicense, setIsVerifyingLicense] = useState(false);
+  const [licenseVerification, setLicenseVerification] = useState<{
+    isValid: boolean;
+    confidence: number;
+    message: string;
+    details?: {
+      documentType?: string;
+      issuer?: string;
+      licenseNumber?: string;
+      holderName?: string;
+      validityStatus?: string;
+    };
+  } | null>(null);
+
+  // Geocoding state (for doctor)
+  const [isGeocodingLoading, setIsGeocodingLoading] = useState(false);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [originalWorkAddress, setOriginalWorkAddress] = useState<string>("");
 
   // Services state (for doctor)
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -174,6 +211,11 @@ export default function SettingsPage({
         if (userData.services && Array.isArray(userData.services)) {
           setSelectedServices(userData.services);
           setOriginalServices(userData.services);
+        }
+
+        // Save original work address for geocoding button state
+        if (userData.workAddress) {
+          setOriginalWorkAddress(userData.workAddress);
         }
 
         // Save original profile to track changes
@@ -287,6 +329,10 @@ export default function SettingsPage({
       if (!profile.licenseImageUrl && !pendingLicenseFile) {
         newErrors.licenseImageUrl = "Ảnh chứng chỉ hành nghề không được để trống";
       }
+      // Check if new license image is valid (only when uploading new image)
+      if (pendingLicenseFile && licenseVerification && !licenseVerification.isValid) {
+        newErrors.licenseImageUrl = "Ảnh chứng chỉ hành nghề không hợp lệ. Vui lòng tải lên ảnh khác.";
+      }
       if (!profile.experienceYears || profile.experienceYears < 0) {
         newErrors.experienceYears = "Số năm kinh nghiệm không được để trống";
       }
@@ -363,7 +409,7 @@ export default function SettingsPage({
     licenseInputRef.current?.click();
   };
 
-  const handleLicenseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLicenseChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -381,6 +427,65 @@ export default function SettingsPage({
     setPreviewLicenseUrl(previewUrl);
     setPendingLicenseFile(file);
     if (errors.licenseImageUrl) setErrors({ ...errors, licenseImageUrl: "" });
+
+    // Reset previous verification
+    setLicenseVerification(null);
+    setIsVerifyingLicense(true);
+
+    // Verify license with AI
+    const toastId = toast.loading("Đang xác thực chứng chỉ hành nghề bằng AI...");
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/image-analysis/verify-license`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      toast.dismiss(toastId);
+
+      if (result.success && result.data) {
+        setLicenseVerification(result.data);
+
+        if (result.data.isValid) {
+          toast.success(result.data.message || "Chứng chỉ hành nghề hợp lệ!");
+
+          // Auto-fill license number if detected
+          if (result.data.details?.licenseNumber) {
+            setProfile((prev) => ({
+              ...prev,
+              licenseNumber: result.data.details.licenseNumber,
+            }));
+          }
+        } else {
+          toast.warning(result.data.message || "Ảnh không phải chứng chỉ hành nghề hợp lệ", {
+            duration: 5000,
+          });
+        }
+      } else {
+        toast.error(result.error || "Không thể xác thực ảnh. Vui lòng thử lại.");
+        setLicenseVerification({
+          isValid: false,
+          confidence: 0,
+          message: result.error || "Không thể xác thực ảnh",
+        });
+      }
+    } catch (error) {
+      console.error("License verification error:", error);
+      toast.dismiss(toastId);
+      toast.error("Lỗi khi xác thực ảnh. Vui lòng thử lại.");
+      setLicenseVerification({
+        isValid: false,
+        confidence: 0,
+        message: "Lỗi kết nối. Vui lòng thử lại.",
+      });
+    } finally {
+      setIsVerifyingLicense(false);
+    }
   };
 
   const removeLicense = () => {
@@ -389,6 +494,7 @@ export default function SettingsPage({
     }
     setPendingLicenseFile(null);
     setPreviewLicenseUrl("");
+    setLicenseVerification(null);
     setProfile({ ...profile, licenseImageUrl: "" });
     if (licenseInputRef.current) {
       licenseInputRef.current.value = "";
@@ -416,6 +522,53 @@ export default function SettingsPage({
 
   const removeService = (service: string) => {
     setSelectedServices((prev) => prev.filter((s) => s !== service));
+  };
+
+  // Geocode work address using AI (Gemini)
+  const geocodeAddress = async (address: string) => {
+    if (!address.trim()) {
+      toast.error("Vui lòng nhập địa chỉ nơi làm việc");
+      return;
+    }
+
+    setIsGeocodingLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/geocoding/geocode`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ address }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Không thể kết nối đến server");
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.latitude && data.longitude) {
+        setCoordinates({ lat: data.latitude, lng: data.longitude });
+        toast.success(`Đã xác định tọa độ thành công!`);
+        if (data.formattedAddress && data.formattedAddress !== address) {
+          setProfile((prev) => ({ ...prev, workAddress: data.formattedAddress }));
+        }
+        // Update original work address after successful geocoding
+        setOriginalWorkAddress(profile.workAddress);
+      } else {
+        toast.error(data.error || "Không tìm thấy tọa độ cho địa chỉ này. Vui lòng nhập chi tiết hơn.");
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      toast.error("Lỗi khi tìm tọa độ. Vui lòng thử lại.");
+    } finally {
+      setIsGeocodingLoading(false);
+    }
+  };
+
+  // Check if work address has changed (for enabling geocode button)
+  const hasWorkAddressChanged = () => {
+    return profile.workAddress.trim() !== originalWorkAddress.trim() && profile.workAddress.trim() !== "";
   };
 
   const saveProfile = async () => {
@@ -924,19 +1077,46 @@ export default function SettingsPage({
                           <label className="block text-sm font-semibold text-gray-700 mb-2">
                             <RequiredLabel>Ảnh chứng chỉ hành nghề</RequiredLabel>
                           </label>
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-start gap-4">
                             {previewLicenseUrl || profile.licenseImageUrl ? (
                               <div className="relative">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={previewLicenseUrl || profile.licenseImageUrl}
                                   alt="License preview"
-                                  className="w-20 h-20 object-cover rounded-lg border"
+                                  className={`w-20 h-20 object-cover rounded-lg border-2 ${
+                                    isVerifyingLicense
+                                      ? "border-blue-400 animate-pulse"
+                                      : pendingLicenseFile && licenseVerification?.isValid
+                                      ? "border-green-500"
+                                      : pendingLicenseFile && licenseVerification
+                                      ? "border-amber-500"
+                                      : "border-gray-200"
+                                  }`}
                                 />
+                                {isVerifyingLicense && (
+                                  <div className="absolute inset-0 bg-black/30 rounded-lg flex items-center justify-center">
+                                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                                  </div>
+                                )}
+                                {!isVerifyingLicense && pendingLicenseFile && licenseVerification && (
+                                  <div
+                                    className={`absolute -top-2 -left-2 w-6 h-6 rounded-full flex items-center justify-center ${
+                                      licenseVerification.isValid ? "bg-green-500" : "bg-amber-500"
+                                    }`}
+                                  >
+                                    {licenseVerification.isValid ? (
+                                      <CheckCircle className="w-4 h-4 text-white" />
+                                    ) : (
+                                      <AlertTriangle className="w-4 h-4 text-white" />
+                                    )}
+                                  </div>
+                                )}
                                 <button
                                   type="button"
                                   onClick={removeLicense}
-                                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition"
+                                  disabled={isVerifyingLicense}
+                                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition disabled:opacity-50"
                                 >
                                   <X className="w-3 h-3" />
                                 </button>
@@ -956,17 +1136,30 @@ export default function SettingsPage({
                                 accept="image/*"
                                 onChange={handleLicenseChange}
                                 className="hidden"
+                                disabled={isVerifyingLicense}
                               />
                               <button
                                 type="button"
                                 onClick={handleLicenseClick}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                                disabled={isVerifyingLicense}
+                                className={`inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition ${
+                                  isVerifyingLicense ? "opacity-50 cursor-not-allowed" : ""
+                                }`}
                               >
-                                <Upload className="w-4 h-4" />
-                                Chọn ảnh
+                                {isVerifyingLicense ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Đang xác thực...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="w-4 h-4" />
+                                    Chọn ảnh
+                                  </>
+                                )}
                               </button>
-                              <p className="text-xs text-gray-500 mt-1">Tối đa 10MB</p>
-                              {pendingLicenseFile && (
+                              <p className="text-xs text-gray-500 mt-1">Tối đa 10MB • AI sẽ xác thực tự động</p>
+                              {pendingLicenseFile && !isVerifyingLicense && !licenseVerification && (
                                 <p className="text-xs text-orange-500 mt-1">* Ảnh chưa được lưu</p>
                               )}
                             </div>
@@ -976,6 +1169,54 @@ export default function SettingsPage({
                           )}
                         </div>
                       </div>
+
+                      {/* Verification Result - Full width below both fields */}
+                      {pendingLicenseFile && licenseVerification && !isVerifyingLicense && (
+                        <div
+                          className={`mt-4 p-3 rounded-lg text-sm ${
+                            licenseVerification.isValid
+                              ? "bg-green-50 text-green-700 border border-green-200"
+                              : "bg-amber-50 text-amber-700 border border-amber-200"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {licenseVerification.isValid ? (
+                              <CheckCircle className="w-5 h-5 mt-0.5 shrink-0" />
+                            ) : (
+                              <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+                            )}
+                            <div className="flex-1">
+                              <p className="font-medium">{licenseVerification.message}</p>
+                              {licenseVerification.isValid && licenseVerification.details && (
+                                <div className="mt-2 text-xs opacity-80 grid grid-cols-1 md:grid-cols-3 gap-1">
+                                  {licenseVerification.details.documentType && (
+                                    <p>
+                                      <span className="font-medium">Loại:</span>{" "}
+                                      {licenseVerification.details.documentType}
+                                    </p>
+                                  )}
+                                  {licenseVerification.details.issuer && (
+                                    <p>
+                                      <span className="font-medium">Cấp bởi:</span> {licenseVerification.details.issuer}
+                                    </p>
+                                  )}
+                                  {licenseVerification.details.licenseNumber && (
+                                    <p>
+                                      <span className="font-medium">Số:</span>{" "}
+                                      {licenseVerification.details.licenseNumber}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {!licenseVerification.isValid && (
+                                <p className="mt-1 opacity-80">
+                                  Vui lòng tải lên ảnh chứng chỉ/giấy phép hành nghề y tế hợp lệ.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Dịch vụ chuyên môn */}
@@ -1058,25 +1299,58 @@ export default function SettingsPage({
                       <h3 className="healthcare-subheading mb-6 text-lg border-b border-gray-200 pb-2">
                         Địa chỉ nơi làm việc
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="md:col-span-2">
+                      <div className="space-y-4">
+                        <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">
                             <RequiredLabel>Địa chỉ phòng khám / bệnh viện</RequiredLabel>
                           </label>
-                          <input
-                            type="text"
-                            value={profile.workAddress}
-                            onChange={(e) => {
-                              setProfile({ ...profile, workAddress: e.target.value });
-                              if (errors.workAddress) setErrors({ ...errors, workAddress: "" });
-                            }}
-                            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
-                              errors.workAddress ? "border-red-500" : "border-gray-200"
-                            }`}
-                            placeholder="Ví dụ: 123 Đường Nguyễn Huệ, Quận 1, TP.HCM"
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={profile.workAddress}
+                              onChange={(e) => {
+                                setProfile({ ...profile, workAddress: e.target.value });
+                                if (errors.workAddress) setErrors({ ...errors, workAddress: "" });
+                                // Reset coordinates when address changes
+                                setCoordinates(null);
+                              }}
+                              className={`flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                                errors.workAddress ? "border-red-500" : "border-gray-200"
+                              }`}
+                              placeholder="Ví dụ: 123 Đường Nguyễn Huệ, Quận 1, TP.HCM"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => geocodeAddress(profile.workAddress)}
+                              disabled={!hasWorkAddressChanged() || isGeocodingLoading}
+                              className="px-4 py-3 bg-linear-to-br from-blue-800 to-[#00a6f4] text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {isGeocodingLoading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-5 h-5" />
+                              )}
+                              AI Xác định
+                            </button>
+                          </div>
                           {errors.workAddress && <p className="mt-1 text-sm text-red-500">{errors.workAddress}</p>}
+                          <p className="text-xs text-gray-500 mt-1">
+                            Nhập địa chỉ chi tiết, sau đó nhấn &quot;AI xác định&quot; để xác nhận tọa độ
+                          </p>
                         </div>
+
+                        {/* Coordinates display */}
+                        {coordinates && (
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                            <div className="flex items-center gap-2 text-green-700">
+                              <MapPin className="w-4 h-4" />
+                              <span className="text-sm font-medium">Đã xác định tọa độ:</span>
+                              <span className="text-sm">
+                                {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Phí khám (VNĐ)</label>
@@ -1086,7 +1360,7 @@ export default function SettingsPage({
                             step="10000"
                             value={profile.consultationFee}
                             onChange={(e) => setProfile({ ...profile, consultationFee: parseInt(e.target.value) || 0 })}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors md:max-w-xs"
                             placeholder="Nhập phí khám"
                           />
                         </div>

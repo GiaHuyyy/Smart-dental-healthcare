@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -107,9 +107,17 @@ interface PatientMedicalRecordsProps {
   medicalRecords: MedicalRecord[];
   patient: Patient;
   onRefresh?: () => void;
+  initialRecordId?: string | null; // For auto-opening a specific record
+  onRecordModalOpened?: () => void; // Callback when record modal is opened
 }
 
-export default function PatientMedicalRecords({ medicalRecords, patient, onRefresh }: PatientMedicalRecordsProps) {
+export default function PatientMedicalRecords({
+  medicalRecords,
+  patient,
+  onRefresh,
+  initialRecordId,
+  onRecordModalOpened,
+}: PatientMedicalRecordsProps) {
   const [selectedMedicalRecord, setSelectedMedicalRecord] = useState<MedicalRecord | null>(null);
   const [isMedicalRecordModalOpen, setIsMedicalRecordModalOpen] = useState(false);
   const [medicalRecordDetails, setMedicalRecordDetails] = useState<MedicalRecord | null>(null);
@@ -118,6 +126,24 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set()); // Track expanded parent records
   const router = useRouter();
+  const hasOpenedInitialRecord = useRef(false);
+
+  // Auto-open medical record modal when initialRecordId is provided
+  useEffect(() => {
+    if (initialRecordId && medicalRecords.length > 0 && !hasOpenedInitialRecord.current) {
+      // Find the record with this ID
+      const record = medicalRecords.find((r) => r._id === initialRecordId);
+      if (record) {
+        hasOpenedInitialRecord.current = true;
+        handleMedicalRecordClick(record);
+        // Call the callback to notify parent
+        if (onRecordModalOpened) {
+          onRecordModalOpened();
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRecordId, medicalRecords]);
 
   // Build hierarchy: separate parent records and child records
   const { parentRecords, childRecordsMap } = useMemo(() => {
@@ -245,11 +271,14 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
         notes: formData.notes || medicalRecordDetails?.notes,
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/${selectedMedicalRecord?._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/${selectedMedicalRecord?._id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        }
+      );
 
       if (response.ok) {
         const result = await response.json();
@@ -332,9 +361,7 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
 
                         {/* Icon for Parent without Children */}
                         {!hasChildren && (
-                          <div
-                            className="w-10 h-10 rounded-md bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                          >
+                          <div className="w-10 h-10 rounded-md bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center shrink-0 transition-colors cursor-pointer">
                             <FileText className="w-5 h-5 text-primary" />
                           </div>
                         )}
@@ -555,15 +582,18 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => {
-                        setIsFollowUpModalOpen(true);
-                      }}
-                      className="no-print inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      <Calendar className="w-4 h-4" />
-                      Đề xuất tái khám
-                    </button>
+                    {/* Only show follow-up button for original records (not follow-up records) */}
+                    {!medicalRecordDetails.parentRecordId && (
+                      <button
+                        onClick={() => {
+                          setIsFollowUpModalOpen(true);
+                        }}
+                        className="no-print inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        Đề xuất tái khám
+                      </button>
+                    )}
                     <button
                       onClick={handleEditMedicalRecord}
                       className="no-print inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-600 transition-colors"
@@ -944,7 +974,9 @@ export default function PatientMedicalRecords({ medicalRecords, patient, onRefre
             // Refetch medical record detail to show updated follow-up info
             if (selectedMedicalRecord) {
               try {
-                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/${selectedMedicalRecord._id}`);
+                const response = await fetch(
+                  `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records/${selectedMedicalRecord._id}`
+                );
                 if (response.ok) {
                   const updatedRecord = await response.json();
                   setMedicalRecordDetails(updatedRecord);

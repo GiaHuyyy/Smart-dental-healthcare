@@ -3,7 +3,19 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, User, Stethoscope, Upload, X, MapPin, Loader2, Sparkles } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  User,
+  Stethoscope,
+  Upload,
+  X,
+  MapPin,
+  Loader2,
+  Sparkles,
+  CheckCircle,
+  AlertTriangle,
+} from "lucide-react";
 import { sendRequest } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -72,6 +84,21 @@ export default function RegisterPage() {
   const [licensePreview, setLicensePreview] = useState<string | null>(null);
   const licenseInputRef = useRef<HTMLInputElement>(null);
 
+  // License verification state
+  const [isVerifyingLicense, setIsVerifyingLicense] = useState(false);
+  const [licenseVerification, setLicenseVerification] = useState<{
+    isValid: boolean;
+    confidence: number;
+    message: string;
+    details?: {
+      documentType?: string;
+      issuer?: string;
+      licenseNumber?: string;
+      holderName?: string;
+      validityStatus?: string;
+    };
+  } | null>(null);
+
   // Services state
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [customService, setCustomService] = useState("");
@@ -103,20 +130,87 @@ export default function RegisterPage() {
     }
   };
 
-  // Handle license file selection
-  const handleLicenseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle license file selection with AI verification
+  const handleLicenseChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 10 * 1024 * 1024) {
         toast.error("Ảnh chứng chỉ không được vượt quá 10MB");
         return;
       }
+
+      // Set file and preview immediately
       setLicenseFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setLicensePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // Reset previous verification
+      setLicenseVerification(null);
+      setIsVerifyingLicense(true);
+
+      // Verify license with AI
+      const toastId = toast.loading("Đang xác thực chứng chỉ hành nghề bằng AI...");
+
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/image-analysis/verify-license`, {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        toast.dismiss(toastId);
+
+        if (result.success && result.data) {
+          setLicenseVerification(result.data);
+
+          if (result.data.isValid) {
+            toast.success(result.data.message || "Chứng chỉ hành nghề hợp lệ!");
+
+            // Auto-fill license number if detected
+            if (result.data.details?.licenseNumber) {
+              setFormData((prev) => {
+                // Only auto-fill if not already filled
+                if (!prev.licenseNumber) {
+                  return {
+                    ...prev,
+                    licenseNumber: result.data.details.licenseNumber,
+                  };
+                }
+                return prev;
+              });
+            }
+          } else {
+            toast.warning(result.data.message || "Ảnh không phải chứng chỉ hành nghề hợp lệ", {
+              duration: 5000,
+            });
+          }
+        } else {
+          toast.error(result.error || "Không thể xác thực ảnh. Vui lòng thử lại.");
+          setLicenseVerification({
+            isValid: false,
+            confidence: 0,
+            message: result.error || "Không thể xác thực ảnh",
+          });
+        }
+      } catch (error) {
+        console.error("License verification error:", error);
+        toast.dismiss(toastId);
+        toast.error("Lỗi khi xác thực ảnh. Vui lòng thử lại.");
+        setLicenseVerification({
+          isValid: false,
+          confidence: 0,
+          message: "Lỗi kết nối. Vui lòng thử lại.",
+        });
+      } finally {
+        setIsVerifyingLicense(false);
+      }
     }
   };
 
@@ -133,6 +227,7 @@ export default function RegisterPage() {
   const removeLicense = () => {
     setLicenseFile(null);
     setLicensePreview(null);
+    setLicenseVerification(null);
     if (licenseInputRef.current) {
       licenseInputRef.current.value = "";
     }
@@ -266,6 +361,11 @@ export default function RegisterPage() {
       }
       if (!licenseFile) {
         toast.error("Vui lòng tải lên ảnh chứng chỉ hành nghề");
+        return;
+      }
+      // Check if license verification passed
+      if (!licenseVerification?.isValid) {
+        toast.error("Ảnh chứng chỉ hành nghề không hợp lệ. Vui lòng tải lên ảnh chứng chỉ/giấy phép hành nghề y tế.");
         return;
       }
       if (!formData.experienceYears) {
@@ -718,19 +818,46 @@ export default function RegisterPage() {
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         <RequiredLabel>Ảnh chứng chỉ hành nghề</RequiredLabel>
                       </label>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-start gap-4">
                         {licensePreview ? (
                           <div className="relative">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={licensePreview}
                               alt="License preview"
-                              className="w-20 h-20 object-cover rounded-lg border"
+                              className={`w-20 h-20 object-cover rounded-lg border-2 ${
+                                isVerifyingLicense
+                                  ? "border-blue-400 animate-pulse"
+                                  : licenseVerification?.isValid
+                                  ? "border-green-500"
+                                  : licenseVerification
+                                  ? "border-amber-500"
+                                  : "border-gray-200"
+                              }`}
                             />
+                            {isVerifyingLicense && (
+                              <div className="absolute inset-0 bg-black/30 rounded-lg flex items-center justify-center">
+                                <Loader2 className="w-6 h-6 text-white animate-spin" />
+                              </div>
+                            )}
+                            {!isVerifyingLicense && licenseVerification && (
+                              <div
+                                className={`absolute -top-2 -left-2 w-6 h-6 rounded-full flex items-center justify-center ${
+                                  licenseVerification.isValid ? "bg-green-500" : "bg-amber-500"
+                                }`}
+                              >
+                                {licenseVerification.isValid ? (
+                                  <CheckCircle className="w-4 h-4 text-white" />
+                                ) : (
+                                  <AlertTriangle className="w-4 h-4 text-white" />
+                                )}
+                              </div>
+                            )}
                             <button
                               type="button"
                               onClick={removeLicense}
-                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition"
+                              disabled={isVerifyingLicense}
+                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition disabled:opacity-50"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -748,19 +875,77 @@ export default function RegisterPage() {
                             onChange={handleLicenseChange}
                             className="hidden"
                             id="license-upload"
+                            disabled={isVerifyingLicense}
                           />
                           <label
                             htmlFor="license-upload"
-                            className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                            className={`cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition ${
+                              isVerifyingLicense ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
                           >
-                            <Upload className="w-4 h-4" />
-                            Chọn ảnh
+                            {isVerifyingLicense ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Đang xác thực...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4" />
+                                Chọn ảnh
+                              </>
+                            )}
                           </label>
-                          <p className="text-xs text-gray-500 mt-1">Tối đa 10MB (Bắt buộc)</p>
+                          <p className="text-xs text-gray-500 mt-1">Tối đa 10MB • AI sẽ xác thực tự động</p>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Verification Result - Full width below both fields */}
+                  {licenseVerification && !isVerifyingLicense && (
+                    <div
+                      className={`mt-4 p-3 rounded-lg text-sm ${
+                        licenseVerification.isValid
+                          ? "bg-green-50 text-green-700 border border-green-200"
+                          : "bg-amber-50 text-amber-700 border border-amber-200"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {licenseVerification.isValid ? (
+                          <CheckCircle className="w-5 h-5 mt-0.5 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium">{licenseVerification.message}</p>
+                          {licenseVerification.isValid && licenseVerification.details && (
+                            <div className="mt-2 text-xs opacity-80 grid grid-cols-1 md:grid-cols-3 gap-1">
+                              {licenseVerification.details.documentType && (
+                                <p>
+                                  <span className="font-medium">Loại:</span> {licenseVerification.details.documentType}
+                                </p>
+                              )}
+                              {licenseVerification.details.issuer && (
+                                <p>
+                                  <span className="font-medium">Cấp bởi:</span> {licenseVerification.details.issuer}
+                                </p>
+                              )}
+                              {licenseVerification.details.licenseNumber && (
+                                <p>
+                                  <span className="font-medium">Số:</span> {licenseVerification.details.licenseNumber}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {!licenseVerification.isValid && (
+                            <p className="mt-1 opacity-80">
+                              Vui lòng tải lên ảnh chứng chỉ/giấy phép hành nghề y tế hợp lệ để tiếp tục đăng ký.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Services */}
@@ -864,8 +1049,8 @@ export default function RegisterPage() {
                         <button
                           type="button"
                           onClick={() => geocodeAddress(formData.workAddress)}
-                          disabled={isGeocodingLoading || !formData.workAddress}
-                          className="px-4 py-3 bg-linear-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          disabled={isGeocodingLoading || !formData.workAddress || coordinates !== null}
+                          className="px-4 py-3 bg-linear-to-br from-blue-800 to-[#00a6f4] text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                           {isGeocodingLoading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -882,14 +1067,14 @@ export default function RegisterPage() {
 
                     {/* Show coordinates if available */}
                     {coordinates && (
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
                         <div className="flex items-center gap-2 text-green-700">
-                          <MapPin className="w-5 h-5" />
-                          <span className="font-medium">Đã xác định tọa độ thành công</span>
+                          <MapPin className="w-4 h-4" />
+                          <span className="text-sm font-medium">Đã xác định tọa độ:</span>
+                          <span className="text-sm">
+                            {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                          </span>
                         </div>
-                        <p className="text-sm text-green-600 mt-1">
-                          Vĩ độ: {coordinates.lat.toFixed(6)} | Kinh độ: {coordinates.lng.toFixed(6)}
-                        </p>
                       </div>
                     )}
                   </div>
