@@ -1,29 +1,30 @@
-import { Colors } from '@/constants/colors';
-import { useCall } from '@/contexts/CallContext';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
+import { Colors } from "@/constants/colors";
+import { useCall } from "@/contexts/CallContext";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useRef } from "react";
+import { Animated, Image, Modal, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function IncomingCallModal() {
   const { callState, answerCall, rejectCall } = useCall();
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const ringAnim = useRef(new Animated.Value(0)).current;
+  const ring2Anim = useRef(new Animated.Value(0)).current;
+  const ring3Anim = useRef(new Animated.Value(0)).current;
 
-  // Pulse animation for call icon
+  // Pulse animation for avatar
   useEffect(() => {
     if (callState.isReceivingCall) {
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 1000,
+            toValue: 1.05,
+            duration: 800,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1000,
+            duration: 800,
             useNativeDriver: true,
           }),
         ])
@@ -34,39 +35,42 @@ export default function IncomingCallModal() {
     }
   }, [callState.isReceivingCall, pulseAnim]);
 
-  // Shake animation for modal
+  // Ring wave animations
   useEffect(() => {
     if (callState.isReceivingCall) {
-      const shake = Animated.loop(
-        Animated.sequence([
-          Animated.timing(shakeAnim, {
-            toValue: 10,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shakeAnim, {
-            toValue: -10,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shakeAnim, {
-            toValue: 10,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.timing(shakeAnim, {
-            toValue: 0,
-            duration: 50,
-            useNativeDriver: true,
-          }),
-          Animated.delay(3000),
-        ])
-      );
-      shake.start();
+      const createRingAnimation = (anim: Animated.Value, delay: number) => {
+        return Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 2000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ])
+        );
+      };
 
-      return () => shake.stop();
+      const ring1 = createRingAnimation(ringAnim, 0);
+      const ring2 = createRingAnimation(ring2Anim, 600);
+      const ring3 = createRingAnimation(ring3Anim, 1200);
+
+      ring1.start();
+      ring2.start();
+      ring3.start();
+
+      return () => {
+        ring1.stop();
+        ring2.stop();
+        ring3.stop();
+      };
     }
-  }, [callState.isReceivingCall, shakeAnim]);
+  }, [callState.isReceivingCall, ringAnim, ring2Anim, ring3Anim]);
 
   if (!callState.isReceivingCall) {
     return null;
@@ -77,120 +81,249 @@ export default function IncomingCallModal() {
   };
 
   const handleReject = () => {
-    rejectCall('Cuộc gọi bị từ chối');
+    rejectCall("Cuộc gọi bị từ chối");
+  };
+
+  const renderRing = (anim: Animated.Value, size: number) => {
+    const scale = anim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 2.5],
+    });
+    const opacity = anim.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0.6, 0.3, 0],
+    });
+
+    return (
+      <Animated.View
+        style={[
+          styles.ring,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            transform: [{ scale }],
+            opacity,
+          },
+        ]}
+      />
+    );
   };
 
   return (
-    <Modal
-      visible={callState.isReceivingCall}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-    >
-      <View style={styles.backdrop}>
-        <View className="flex-1 items-center justify-center px-6">
-          <Animated.View
-            className="w-full max-w-sm overflow-hidden rounded-3xl bg-white p-8"
-            style={{
-              transform: [{ translateX: shakeAnim }],
-            }}
+    <Modal visible={callState.isReceivingCall} transparent={false} animationType="slide" statusBarTranslucent>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <LinearGradient
+        colors={callState.isVideoCall ? ["#1a1a2e", "#16213e", "#0f3460"] : ["#1a1a2e", "#16213e", "#1a1a2e"]}
+        style={styles.container}
+      >
+        {/* Call type badge */}
+        <View style={styles.callTypeBadge}>
+          <View
+            style={[
+              styles.callTypeInner,
+              { backgroundColor: callState.isVideoCall ? "rgba(59, 130, 246, 0.2)" : "rgba(34, 197, 94, 0.2)" },
+            ]}
           >
-            {/* Call type indicator */}
-            <View className="absolute right-4 top-4 flex-row items-center space-x-1 rounded-full bg-blue-100 px-3 py-1">
-              <Ionicons
-                name={callState.isVideoCall ? 'videocam' : 'call'}
-                size={14}
-                color={Colors.primary[600]}
-              />
-              <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
-                {callState.isVideoCall ? 'Video' : 'Audio'}
-              </Text>
-            </View>
-
-            {/* Caller info */}
-            <View className="items-center">
-              {/* Avatar with pulse animation */}
-              <Animated.View
-                className="mb-6 h-28 w-28 items-center justify-center overflow-hidden rounded-full"
-                style={{
-                  backgroundColor: Colors.primary[100],
-                  transform: [{ scale: pulseAnim }],
-                }}
-              >
-                <Ionicons name="person" size={56} color={Colors.primary[600]} />
-              </Animated.View>
-
-              {/* Caller name */}
-              <Text className="mb-2 text-center text-2xl font-bold" style={{ color: Colors.gray[900] }}>
-                {callState.callerName}
-              </Text>
-
-              {/* Caller role */}
-              <View className="mb-2 rounded-full bg-gray-100 px-4 py-1">
-                <Text className="text-sm font-medium" style={{ color: Colors.gray[600] }}>
-                  {callState.callerRole === 'doctor' ? 'Bác sĩ' : 'Bệnh nhân'}
-                </Text>
-              </View>
-
-              {/* Call status */}
-              <Text className="mb-8 text-center text-base" style={{ color: Colors.gray[500] }}>
-                {callState.isVideoCall ? 'Cuộc gọi video đến...' : 'Cuộc gọi thoại đến...'}
-              </Text>
-            </View>
-
-            {/* Action buttons */}
-            <View className="flex-row items-center justify-center space-x-6">
-              {/* Reject button */}
-              <TouchableOpacity
-                onPress={handleReject}
-                className="h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-red-500"
-                style={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                  elevation: 5,
-                }}
-              >
-                <Ionicons name="close" size={32} color="white" />
-              </TouchableOpacity>
-
-              {/* Answer button */}
-              <TouchableOpacity
-                onPress={handleAnswer}
-                className="h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-green-500"
-                style={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 3.84,
-                  elevation: 5,
-                }}
-              >
-                <Ionicons
-                  name={callState.isVideoCall ? 'videocam' : 'call'}
-                  size={28}
-                  color="white"
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Permission note */}
-            <Text className="mt-6 text-center text-xs" style={{ color: Colors.gray[400] }}>
-              {callState.isVideoCall
-                ? 'Camera và microphone sẽ được kích hoạt'
-                : 'Microphone sẽ được kích hoạt'}
+            <Ionicons
+              name={callState.isVideoCall ? "videocam" : "call"}
+              size={16}
+              color={callState.isVideoCall ? "#60a5fa" : "#4ade80"}
+            />
+            <Text style={[styles.callTypeText, { color: callState.isVideoCall ? "#60a5fa" : "#4ade80" }]}>
+              {callState.isVideoCall ? "Cuộc gọi Video" : "Cuộc gọi Thoại"}
             </Text>
-          </Animated.View>
+          </View>
         </View>
-      </View>
+
+        {/* Main content */}
+        <View style={styles.content}>
+          {/* Avatar with ring animations */}
+          <View style={styles.avatarContainer}>
+            {renderRing(ringAnim, 140)}
+            {renderRing(ring2Anim, 140)}
+            {renderRing(ring3Anim, 140)}
+
+            <Animated.View style={[styles.avatar, { transform: [{ scale: pulseAnim }] }]}>
+              {callState.callerAvatar ? (
+                <Image source={{ uri: callState.callerAvatar }} style={styles.avatarImage} />
+              ) : (
+                <LinearGradient colors={[Colors.primary[400], Colors.primary[600]]} style={styles.avatarGradient}>
+                  <Ionicons name="person" size={64} color="white" />
+                </LinearGradient>
+              )}
+            </Animated.View>
+          </View>
+
+          {/* Caller info */}
+          <View style={styles.callerInfo}>
+            <Text style={styles.callerName}>{callState.callerName}</Text>
+
+            <Text style={styles.callStatus}>{callState.isVideoCall ? "Đang gọi video..." : "Đang gọi..."}</Text>
+          </View>
+        </View>
+
+        {/* Bottom action buttons */}
+        <View style={styles.actionsContainer}>
+          {/* Reject button */}
+          <View style={styles.actionWrapper}>
+            <TouchableOpacity
+              onPress={handleReject}
+              style={[styles.actionButton, styles.rejectButton]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={36} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.actionLabel}>Từ chối</Text>
+          </View>
+
+          {/* Answer button */}
+          <View style={styles.actionWrapper}>
+            <TouchableOpacity
+              onPress={handleAnswer}
+              style={[styles.actionButton, styles.answerButton]}
+              activeOpacity={0.8}
+            >
+              <Ionicons name={callState.isVideoCall ? "videocam" : "call"} size={32} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.actionLabel}>Trả lời</Text>
+          </View>
+        </View>
+
+        {/* Permission note */}
+        <View style={styles.noteContainer}>
+          <Ionicons
+            name={callState.isVideoCall ? "camera-outline" : "mic-outline"}
+            size={16}
+            color="rgba(255, 255, 255, 0.5)"
+          />
+          <Text style={styles.noteText}>
+            {callState.isVideoCall ? "Camera và microphone sẽ được kích hoạt" : "Microphone sẽ được kích hoạt"}
+          </Text>
+        </View>
+      </LinearGradient>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingTop: StatusBar.currentHeight || 44,
+  },
+  callTypeBadge: {
+    alignItems: "center",
+    marginTop: 20,
+  },
+  callTypeInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  callTypeText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 60,
+  },
+  avatarContainer: {
+    width: 180,
+    height: 180,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  ring: {
+    position: "absolute",
+    borderWidth: 2,
+    borderColor: Colors.primary[400],
+  },
+  avatar: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    overflow: "hidden",
+    shadowColor: Colors.primary[500],
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  avatarGradient: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  callerInfo: {
+    alignItems: "center",
+  },
+  callerName: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "white",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  callStatus: {
+    fontSize: 18,
+    color: "rgba(255, 255, 255, 0.6)",
+    fontWeight: "400",
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 80,
+    paddingBottom: 40,
+  },
+  actionWrapper: {
+    alignItems: "center",
+  },
+  actionButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  rejectButton: {
+    backgroundColor: "#ef4444",
+  },
+  answerButton: {
+    backgroundColor: "#22c55e",
+  },
+  actionLabel: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+  },
+  noteContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    paddingBottom: 40,
+  },
+  noteText: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.5)",
   },
 });

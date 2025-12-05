@@ -1,8 +1,8 @@
-import { io, Socket } from 'socket.io-client';
+import { io, Socket } from "socket.io-client";
 
 // Socket.IO server is NOT under /api/v1, so use raw URL without API prefix
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.51.8:8081';
-const SOCKET_BASE_URL = BASE_URL.replace(/\/api\/v1$/, '');
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.51.8:8081";
+const SOCKET_BASE_URL = BASE_URL.replace(/\/api\/v1$/, "");
 
 export interface ChatMessage {
   _id: string;
@@ -15,14 +15,22 @@ export interface ChatMessage {
     name?: string;
     avatar?: string;
   };
-  senderRole: 'patient' | 'doctor';
-  messageType: 'text' | 'image' | 'file' | 'call';
+  senderRole: "patient" | "doctor";
+  messageType: "text" | "image" | "file" | "call";
   createdAt: string;
   isRead: boolean;
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
   fileSize?: number;
+  // Call data for call messages
+  callData?: {
+    callType: "audio" | "video";
+    callStatus: "missed" | "answered" | "rejected" | "completed";
+    callDuration: number;
+    startedAt?: string;
+    endedAt?: string;
+  };
 }
 
 export interface ChatConversation {
@@ -88,10 +96,10 @@ class RealtimeChatService {
   private joinedRooms: Set<string> = new Set();
   private reconnectCallbacks: Array<() => void> = [];
   private userId: string | null = null;
-  private userRole: 'patient' | 'doctor' | null = null;
+  private userRole: "patient" | "doctor" | null = null;
   private eventListeners: Map<string, Array<(...args: any[]) => void>> = new Map();
 
-  connect(token: string, userId: string, userRole: 'patient' | 'doctor'): Promise<void> {
+  connect(token: string, userId: string, userRole: "patient" | "doctor"): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         // Store user info for reconnections
@@ -103,12 +111,12 @@ class RealtimeChatService {
 
         // Disconnect existing connection
         if (this.socket) {
-          console.log('🔌 [Socket] Disconnecting existing socket connection');
+          console.log("🔌 [Socket] Disconnecting existing socket connection");
           this.socket.disconnect();
         }
 
         // Ensure token is properly formatted
-        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        const formattedToken = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
 
         this.socket = io(`${SOCKET_BASE_URL}/chat`, {
           auth: {
@@ -119,68 +127,68 @@ class RealtimeChatService {
           extraHeaders: {
             Authorization: formattedToken,
           },
-          transports: ['websocket', 'polling'],
+          transports: ["websocket", "polling"],
           upgrade: true,
           timeout: 20000,
-          path: '/socket.io',
+          path: "/socket.io",
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,
         });
 
         // Debug listener for all events
         this.socket.onAny((event, ...args) => {
-          if (event !== 'ping' && event !== 'pong') {
+          if (event !== "ping" && event !== "pong") {
             console.log(`📨 [Socket] Event: ${event}`, JSON.stringify(args).slice(0, 200));
           }
         });
 
-        this.socket.on('connect', () => {
+        this.socket.on("connect", () => {
           console.log(`✅ [Socket] Connected with ID: ${this.socket?.id}`);
           this.reconnectAttempts = 0;
-          
+
           // Re-attach all event listeners
           this.reattachEventListeners();
-          
+
           resolve();
         });
 
-        this.socket.on('connect_error', (error) => {
-          console.error('❌ [Socket] Connection error:', error);
+        this.socket.on("connect_error", (error) => {
+          console.error("❌ [Socket] Connection error:", error);
           reject(error);
         });
 
-        this.socket.on('disconnect', (reason) => {
-          console.log('🔌 [Socket] Disconnected:', reason);
+        this.socket.on("disconnect", (reason) => {
+          console.log("🔌 [Socket] Disconnected:", reason);
 
-          if (reason === 'io server disconnect') {
+          if (reason === "io server disconnect") {
             // Server forcefully disconnected the socket, try to reconnect
             this.attemptReconnect(token, userId, userRole);
           }
         });
 
         // Setup auto-reconnection
-        this.socket.on('reconnect_attempt', () => {
+        this.socket.on("reconnect_attempt", () => {
           console.log(`🔄 [Socket] Reconnect attempt ${this.reconnectAttempts + 1}`);
         });
 
-        this.socket.on('reconnect', () => {
-          console.log('✅ [Socket] Reconnected to server');
+        this.socket.on("reconnect", () => {
+          console.log("✅ [Socket] Reconnected to server");
           this.reconnectAttempts = 0;
-          
+
           // Re-join previously joined rooms
           this.joinedRooms.forEach((room) => {
-            this.socket?.emit('joinConversation', { conversationId: room });
+            this.socket?.emit("joinConversation", { conversationId: room });
           });
-          
+
           // Fire optional callbacks so UI can re-sync state
           this.reconnectCallbacks.forEach((cb) => cb());
-          
+
           // Re-attach event listeners
           this.reattachEventListeners();
         });
 
-        this.socket.on('reconnect_failed', () => {
-          console.error('❌ [Socket] Failed to reconnect');
+        this.socket.on("reconnect_failed", () => {
+          console.error("❌ [Socket] Failed to reconnect");
         });
       } catch (error) {
         reject(error);
@@ -188,20 +196,23 @@ class RealtimeChatService {
     });
   }
 
-  private attemptReconnect(token: string, userId: string, userRole: 'patient' | 'doctor') {
+  private attemptReconnect(token: string, userId: string, userRole: "patient" | "doctor") {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      setTimeout(() => {
-        this.reconnectAttempts++;
-        this.connect(token, userId, userRole).catch(() => {
-          this.attemptReconnect(token, userId, userRole);
-        });
-      }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
+      setTimeout(
+        () => {
+          this.reconnectAttempts++;
+          this.connect(token, userId, userRole).catch(() => {
+            this.attemptReconnect(token, userId, userRole);
+          });
+        },
+        this.reconnectDelay * Math.pow(2, this.reconnectAttempts)
+      );
     }
   }
 
   private reattachEventListeners() {
     if (!this.socket) return;
-    
+
     this.eventListeners.forEach((callbacks, event) => {
       callbacks.forEach((callback) => {
         this.socket?.on(event, callback);
@@ -224,7 +235,7 @@ class RealtimeChatService {
   on(event: string, callback: (...args: any[]) => void) {
     if (this.socket) {
       this.socket.on(event, callback);
-      
+
       // Store for re-attachment on reconnect
       if (!this.eventListeners.has(event)) {
         this.eventListeners.set(event, []);
@@ -237,7 +248,7 @@ class RealtimeChatService {
     if (this.socket) {
       this.socket.off(event, callback);
     }
-    
+
     // Remove from stored listeners
     if (callback) {
       const listeners = this.eventListeners.get(event);
@@ -260,17 +271,17 @@ class RealtimeChatService {
   joinConversation(conversationId: string) {
     if (this.socket && this.socket.connected && conversationId) {
       console.log(`🚪 [Socket] Joining conversation: ${conversationId}`);
-      this.socket.emit('joinConversation', { conversationId });
+      this.socket.emit("joinConversation", { conversationId });
       this.joinedRooms.add(conversationId);
     } else {
-      console.warn('⚠️ [Socket] Cannot join conversation - socket not connected');
+      console.warn("⚠️ [Socket] Cannot join conversation - socket not connected");
     }
   }
 
   leaveConversation(conversationId: string) {
     if (this.socket && this.socket.connected) {
       console.log(`🚪 [Socket] Leaving conversation: ${conversationId}`);
-      this.socket.emit('leaveConversation', { conversationId });
+      this.socket.emit("leaveConversation", { conversationId });
       this.joinedRooms.delete(conversationId);
     }
   }
@@ -279,7 +290,7 @@ class RealtimeChatService {
   sendMessage(
     conversationId: string,
     content: string,
-    messageType: 'text' | 'image' | 'file' = 'text',
+    messageType: "text" | "image" | "file" = "text",
     fileUrl?: string,
     fileName?: string,
     fileType?: string,
@@ -288,9 +299,9 @@ class RealtimeChatService {
     if (this.socket && this.socket.connected) {
       return new Promise<void>((resolve, reject) => {
         console.log(`📤 [Socket] Sending message to ${conversationId}`);
-        
+
         this.socket?.emit(
-          'sendMessage',
+          "sendMessage",
           {
             conversationId,
             content,
@@ -302,17 +313,17 @@ class RealtimeChatService {
           },
           (response: { success: boolean; error?: string }) => {
             if (response.success) {
-              console.log('✅ [Socket] Message sent successfully');
+              console.log("✅ [Socket] Message sent successfully");
               resolve();
             } else {
-              console.error('❌ [Socket] Failed to send message:', response.error);
-              reject(new Error(response.error || 'Failed to send message'));
+              console.error("❌ [Socket] Failed to send message:", response.error);
+              reject(new Error(response.error || "Failed to send message"));
             }
           }
         );
       });
     }
-    return Promise.reject(new Error('Socket not connected'));
+    return Promise.reject(new Error("Socket not connected"));
   }
 
   // Load conversations
@@ -321,14 +332,14 @@ class RealtimeChatService {
       return new Promise<void>((resolve, reject) => {
         console.log(`📋 [Socket] Loading conversations for ${this.userId} (${this.userRole})`);
 
-        this.socket?.emit('loadConversations', {
+        this.socket?.emit("loadConversations", {
           userId: this.userId,
           userRole: this.userRole,
         });
 
         // Set up a one-time listener to resolve the promise
         const timeout = setTimeout(() => {
-          console.warn('⚠️ [Socket] Server did not respond to loadConversations after 10s');
+          console.warn("⚠️ [Socket] Server did not respond to loadConversations after 10s");
           resolve(); // Resolve anyway to not block UI
         }, 10000);
 
@@ -337,15 +348,15 @@ class RealtimeChatService {
           resolve();
         };
 
-        this.socket?.once('conversationsLoaded', handler);
+        this.socket?.once("conversationsLoaded", handler);
 
-        this.socket?.once('error', (error) => {
+        this.socket?.once("error", (error) => {
           clearTimeout(timeout);
           reject(error);
         });
       });
     }
-    return Promise.reject(new Error('Socket not connected or user info missing'));
+    return Promise.reject(new Error("Socket not connected or user info missing"));
   }
 
   // Load messages for a conversation
@@ -354,7 +365,7 @@ class RealtimeChatService {
       return new Promise<void>((resolve, reject) => {
         console.log(`📨 [Socket] Loading messages for conversation: ${conversationId}`);
 
-        this.socket?.emit('loadMessages', {
+        this.socket?.emit("loadMessages", {
           conversationId,
           userId: this.userId,
           userRole: this.userRole,
@@ -362,7 +373,7 @@ class RealtimeChatService {
         });
 
         const timeout = setTimeout(() => {
-          console.warn('⚠️ [Socket] Server did not respond to loadMessages after 10s');
+          console.warn("⚠️ [Socket] Server did not respond to loadMessages after 10s");
           resolve();
         }, 10000);
 
@@ -373,20 +384,20 @@ class RealtimeChatService {
           }
         };
 
-        this.socket?.once('messagesLoaded', handler);
+        this.socket?.once("messagesLoaded", handler);
 
-        this.socket?.once('error', (error) => {
+        this.socket?.once("error", (error) => {
           clearTimeout(timeout);
           reject(error);
         });
       });
     }
-    return Promise.reject(new Error('Socket not connected or user info missing'));
+    return Promise.reject(new Error("Socket not connected or user info missing"));
   }
 
   markMessageAsRead(conversationId: string, messageId: string) {
     if (this.socket && this.socket.connected) {
-      this.socket.emit('markMessageRead', {
+      this.socket.emit("markMessageRead", {
         conversationId,
         messageId,
       });
@@ -397,7 +408,7 @@ class RealtimeChatService {
   markConversationAsRead(conversationId: string) {
     if (this.socket && this.socket.connected) {
       console.log(`✓ [Socket] Marking conversation as read: ${conversationId}`);
-      this.socket.emit('markConversationAsRead', { conversationId });
+      this.socket.emit("markConversationAsRead", { conversationId });
     }
   }
 
@@ -406,29 +417,29 @@ class RealtimeChatService {
     if (this.socket && this.socket.connected) {
       return new Promise<any>((resolve, reject) => {
         console.log(`➕ [Socket] Creating conversation: patient=${patientId}, doctor=${doctorId}`);
-        
+
         this.socket?.emit(
-          'createConversation',
+          "createConversation",
           { patientId, doctorId },
           (response: { success: boolean; conversation?: any; error?: string }) => {
             if (response.success && response.conversation) {
-              console.log('✅ [Socket] Conversation created:', response.conversation._id);
+              console.log("✅ [Socket] Conversation created:", response.conversation._id);
               resolve(response.conversation);
             } else {
-              console.error('❌ [Socket] Failed to create conversation:', response.error);
-              reject(new Error(response.error || 'Failed to create conversation'));
+              console.error("❌ [Socket] Failed to create conversation:", response.error);
+              reject(new Error(response.error || "Failed to create conversation"));
             }
           }
         );
       });
     }
-    return Promise.reject(new Error('Socket not connected'));
+    return Promise.reject(new Error("Socket not connected"));
   }
 
   // Typing indicator
   sendTypingStatus(conversationId: string, isTyping: boolean) {
     if (this.socket && this.socket.connected) {
-      this.socket.emit('typing', {
+      this.socket.emit("typing", {
         conversationId,
         isTyping,
       });
@@ -445,9 +456,9 @@ class RealtimeChatService {
     if (this.socket && this.socket.connected) {
       return new Promise<{ success: boolean; url?: string; public_id?: string; error?: string }>((resolve) => {
         console.log(`📤 [Socket] Uploading image: ${fileName}`);
-        
+
         this.socket?.emit(
-          'uploadImage',
+          "uploadImage",
           {
             conversationId,
             image: imageData,
@@ -456,16 +467,16 @@ class RealtimeChatService {
           },
           (response: { success: boolean; url?: string; public_id?: string; error?: string }) => {
             if (response.success) {
-              console.log('✅ [Socket] Image uploaded:', response.url);
+              console.log("✅ [Socket] Image uploaded:", response.url);
             } else {
-              console.error('❌ [Socket] Image upload failed:', response.error);
+              console.error("❌ [Socket] Image upload failed:", response.error);
             }
             resolve(response);
           }
         );
       });
     }
-    return Promise.reject(new Error('Socket not connected'));
+    return Promise.reject(new Error("Socket not connected"));
   }
 
   // Check connection status
