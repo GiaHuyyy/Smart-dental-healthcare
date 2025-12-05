@@ -1323,7 +1323,7 @@ export default function SettingsPage({
                               type="button"
                               onClick={() => geocodeAddress(profile.workAddress)}
                               disabled={!hasWorkAddressChanged() || isGeocodingLoading}
-                              className="px-4 py-3 bg-linear-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                              className="px-4 py-3 bg-linear-to-br from-blue-800 to-[#00a6f4] text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                               {isGeocodingLoading ? (
                                 <Loader2 className="w-5 h-5 animate-spin" />

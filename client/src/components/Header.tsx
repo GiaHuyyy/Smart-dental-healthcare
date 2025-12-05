@@ -116,11 +116,6 @@ export default function Header() {
                   <div className="flex items-center gap-2">
                     <span
                       className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-[18px] font-semibold border border-[#8bd9fd] bg-linear-to-r from-60 to-100 from-blue-100 to-[#80d7ff] text-primary shadow-sm tracking-wide"
-                      style={{
-                        letterSpacing: "0.03em",
-                        fontFamily: "Montserrat, Arial, sans-serif",
-                        boxShadow: "0 2px 8px rgba(0,166,244,0.08)",
-                      }}
                     >
                       <span className="ml-1">{dashboardInfo.role}</span>
                     </span>

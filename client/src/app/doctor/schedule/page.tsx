@@ -48,6 +48,7 @@ interface Appointment {
   location: string;
   email?: string;
   phone?: string;
+  dateOfBirth?: string; // Patient's date of birth for age calculation
   createdAt?: string;
   followUpParentId?: string; // ID of parent appointment if this is a follow-up
   aiAnalysisData?: {
@@ -173,6 +174,7 @@ function DoctorScheduleContent() {
             location: (apt.patientId as { address?: string })?.address || "N/A",
             email: (apt.patientId as { email?: string })?.email,
             phone: (apt.patientId as { phone?: string })?.phone,
+            dateOfBirth: (apt.patientId as { dateOfBirth?: string })?.dateOfBirth,
             followUpParentId: (apt as any).followUpParentId, // CRITICAL: Include follow-up parent ID
             createdAt: apt.createdAt,
             aiAnalysisData: (apt as any).aiAnalysisData,
@@ -1128,7 +1130,12 @@ function DoctorScheduleContent() {
                               )}
                             </div>
                             <p className="text-sm text-gray-500">
-                              {apt.gender} • {apt.location}
+                              {apt.gender === "male" ? "Nam" : apt.gender === "female" ? "Nữ" : apt.gender}
+                              {apt.dateOfBirth &&
+                                ` • ${Math.floor(
+                                  (new Date().getTime() - new Date(apt.dateOfBirth).getTime()) /
+                                    (365.25 * 24 * 60 * 60 * 1000)
+                                )} tuổi`}
                             </p>
                           </div>
                         </div>
@@ -1256,7 +1263,16 @@ function DoctorScheduleContent() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{selectedAppointment.patientName}</h3>
                   <p className="text-sm text-gray-600">
-                    {selectedAppointment.gender} • {selectedAppointment.location}
+                    {selectedAppointment.gender === "male"
+                      ? "Nam"
+                      : selectedAppointment.gender === "female"
+                      ? "Nữ"
+                      : selectedAppointment.gender}
+                    {selectedAppointment.dateOfBirth &&
+                      ` • ${Math.floor(
+                        (new Date().getTime() - new Date(selectedAppointment.dateOfBirth).getTime()) /
+                          (365.25 * 24 * 60 * 60 * 1000)
+                      )} tuổi`}
                   </p>
                 </div>
               </div>
@@ -1399,17 +1415,20 @@ function DoctorScheduleContent() {
                 )}
                 {selectedAppointment.status === "completed" && (
                   <>
-                    <button
-                      onClick={() => {
-                        setAppointmentForFollowUp(selectedAppointment);
-                        setFollowUpModalOpen(true);
-                        setDetailModalOpen(false);
-                      }}
-                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
-                    >
-                      <CalendarDays className="w-4 h-4" />
-                      Tạo đề xuất tái khám
-                    </button>
+                    {/* Only show follow-up button for original appointments (not follow-up appointments) */}
+                    {!(selectedAppointment as any).followUpParentId && (
+                      <button
+                        onClick={() => {
+                          setAppointmentForFollowUp(selectedAppointment);
+                          setFollowUpModalOpen(true);
+                          setDetailModalOpen(false);
+                        }}
+                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
+                      >
+                        <CalendarDays className="w-4 h-4" />
+                        Đề xuất tái khám
+                      </button>
+                    )}
                     {pendingBill && (
                       <button
                         onClick={() => {
