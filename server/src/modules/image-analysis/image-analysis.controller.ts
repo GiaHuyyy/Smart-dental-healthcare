@@ -1,20 +1,20 @@
 import {
-    BadRequestException,
-    Controller,
-    Get,
-    Logger,
-    Post,
-    Request,
-    UploadedFile,
-    UseInterceptors,
+  BadRequestException,
+  Controller,
+  Get,
+  Logger,
+  Post,
+  Request,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Public } from '../../decorator/customize';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import {
-    ImageAnalysisResult,
-    ImageAnalysisService,
+  ImageAnalysisResult,
+  ImageAnalysisService,
 } from './image-analysis.service';
 
 @Controller('image-analysis')
@@ -23,7 +23,7 @@ export class ImageAnalysisController {
 
   constructor(
     private readonly imageAnalysisService: ImageAnalysisService,
-    private readonly cloudinaryService: CloudinaryService
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   @Public()
@@ -71,7 +71,8 @@ export class ImageAnalysisController {
         this.logger.error('Cloudinary is not configured');
         return {
           success: false,
-          error: 'Dịch vụ lưu trữ ảnh chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+          error:
+            'Dịch vụ lưu trữ ảnh chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
         };
       }
 
@@ -86,12 +87,15 @@ export class ImageAnalysisController {
       let cloudinaryResult;
       try {
         cloudinaryResult = await this.cloudinaryService.uploadImage(file);
-        this.logger.log(`Image uploaded to Cloudinary: ${cloudinaryResult.url}`);
+        this.logger.log(
+          `Image uploaded to Cloudinary: ${cloudinaryResult.url}`,
+        );
       } catch (cloudinaryError) {
         this.logger.error('Cloudinary upload failed:', cloudinaryError);
         return {
           success: false,
-          error: 'Không thể upload ảnh lên dịch vụ lưu trữ. Vui lòng kiểm tra kết nối mạng và thử lại.',
+          error:
+            'Không thể upload ảnh lên dịch vụ lưu trữ. Vui lòng kiểm tra kết nối mạng và thử lại.',
         };
       }
 
@@ -112,14 +116,21 @@ export class ImageAnalysisController {
       this.logger.error(`Image analysis failed: ${error.message}`);
 
       // Provide more specific error messages
-      let errorMessage = 'Lỗi phân tích ảnh. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.';
+      let errorMessage =
+        'Lỗi phân tích ảnh. Vui lòng thử lại hoặc liên hệ bác sĩ trực tiếp.';
 
       if (String(error.message).includes('GEMINI_API_KEY_INVALID_OR_EXPIRED')) {
-        errorMessage = 'Lỗi cấu hình API Gemini: API key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra biến môi trường GEMINI_API_KEY trong file .env.';
+        errorMessage =
+          'Lỗi cấu hình API Gemini: API key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra biến môi trường GEMINI_API_KEY trong file .env.';
       } else if (String(error.message).includes('Cloudinary')) {
-        errorMessage = 'Lỗi cấu hình dịch vụ lưu trữ ảnh. Vui lòng liên hệ quản trị viên.';
-      } else if (String(error.message).toLowerCase().includes('network') || String(error.message).toLowerCase().includes('connection')) {
-        errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.';
+        errorMessage =
+          'Lỗi cấu hình dịch vụ lưu trữ ảnh. Vui lòng liên hệ quản trị viên.';
+      } else if (
+        String(error.message).toLowerCase().includes('network') ||
+        String(error.message).toLowerCase().includes('connection')
+      ) {
+        errorMessage =
+          'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.';
       } else if (String(error.message).toLowerCase().includes('file')) {
         errorMessage = 'Lỗi xử lý file ảnh. Vui lòng thử lại với ảnh khác.';
       }
@@ -155,6 +166,84 @@ export class ImageAnalysisController {
       return {
         success: false,
         error: error.message,
+      };
+    }
+  }
+
+  @Public()
+  @Post('verify-license')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      fileFilter: (req, file, callback) => {
+        if (!file.originalname?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+          return callback(
+            new BadRequestException(
+              'Chỉ chấp nhận file ảnh (jpg, jpeg, png, gif, webp)!',
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+      },
+    }),
+  )
+  async verifyLicenseImage(@UploadedFile() file: any): Promise<{
+    success: boolean;
+    data?: {
+      isValid: boolean;
+      confidence: number;
+      message: string;
+      details?: {
+        documentType?: string;
+        issuer?: string;
+        licenseNumber?: string;
+        holderName?: string;
+        validityStatus?: string;
+      };
+    };
+    error?: string;
+  }> {
+    try {
+      this.logger.log(`License verification request received`);
+
+      if (!file) {
+        throw new BadRequestException('Không có file được upload');
+      }
+
+      // Convert file buffer to base64 directly (no Cloudinary upload)
+      const base64Image: string = file.buffer.toString('base64');
+
+      // Determine MIME type from file
+      let mimeType = 'image/jpeg';
+      const fileName = file.originalname?.toLowerCase() || '';
+      if (fileName.endsWith('.png')) {
+        mimeType = 'image/png';
+      } else if (fileName.endsWith('.gif')) {
+        mimeType = 'image/gif';
+      } else if (fileName.endsWith('.webp')) {
+        mimeType = 'image/webp';
+      }
+
+      // Verify the license image using AI (without uploading to Cloudinary)
+      const verificationResult =
+        await this.imageAnalysisService.verifyLicenseImage(
+          base64Image,
+          mimeType,
+        );
+
+      return {
+        success: true,
+        data: verificationResult,
+      };
+    } catch (error) {
+      this.logger.error(`License verification failed: ${error.message}`);
+      return {
+        success: false,
+        error: error.message || 'Lỗi xác thực ảnh chứng chỉ.',
       };
     }
   }
