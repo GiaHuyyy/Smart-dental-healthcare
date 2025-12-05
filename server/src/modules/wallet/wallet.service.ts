@@ -191,6 +191,28 @@ export class WalletService {
       });
 
       try {
+        // ⚠️ CHECK DUPLICATE: Kiểm tra xem giao dịch đã được xử lý chưa
+        const existingTransaction = await this.walletTransactionModel.findOne({
+          $or: [{ transactionId: transId }, { transactionId: orderId }],
+          status: 'completed',
+          type: 'topup',
+        });
+
+        if (existingTransaction) {
+          this.logger.warn(
+            '⚠️ Duplicate callback detected! Transaction already processed:',
+            {
+              existingTransactionId: existingTransaction._id,
+              orderId,
+              transId,
+            },
+          );
+          return {
+            success: true,
+            message: 'Transaction already processed (duplicate callback)',
+          };
+        }
+
         // Create transaction record (completed)
         const transaction = await this.walletTransactionModel.create({
           userId,
@@ -301,6 +323,40 @@ export class WalletService {
 
         const amount = momoResponse.amount;
         const transId = momoResponse.transId;
+
+        // ⚠️ DOUBLE CHECK: Kiểm tra lại một lần nữa trước khi tạo (race condition prevention)
+        const doubleCheckTransaction =
+          await this.walletTransactionModel.findOne({
+            $or: [
+              { transactionId: transId?.toString() },
+              { transactionId: orderId },
+            ],
+            status: 'completed',
+            type: 'topup',
+          });
+
+        if (doubleCheckTransaction) {
+          this.logger.warn(
+            '⚠️ Race condition detected! Transaction was processed by callback:',
+            {
+              existingTransactionId: doubleCheckTransaction._id,
+              orderId,
+              transId,
+            },
+          );
+          const user = await this.userModel
+            .findById(userId)
+            .select('walletBalance');
+          return {
+            success: true,
+            data: {
+              status: 'completed',
+              balance: user?.walletBalance || 0,
+              alreadyProcessed: true,
+            },
+            message: 'Giao dịch đã được xử lý trước đó',
+          };
+        }
 
         // Create transaction record
         const transaction = await this.walletTransactionModel.create({

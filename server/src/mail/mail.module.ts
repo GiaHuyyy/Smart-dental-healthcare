@@ -10,10 +10,23 @@ import { join } from 'path';
       useFactory: async (config: ConfigService) => ({
         transport: {
           host: config.get('MAIL_HOST', 'smtp.gmail.com'),
-          secure: false,
+          port: config.get('MAIL_PORT', 587),
+          secure: false, // true for 465, false for other ports
           auth: {
             user: config.get('MAILDEV_INCOMING_USER'),
             pass: config.get('MAILDEV_INCOMING_PASS'),
+          },
+          // Tăng timeout cho môi trường cloud (Render)
+          connectionTimeout: 30000, // 30 seconds
+          greetingTimeout: 30000,
+          socketTimeout: 60000, // 60 seconds
+          // Pool connections để tái sử dụng
+          pool: true,
+          maxConnections: 3,
+          maxMessages: 100,
+          // TLS options
+          tls: {
+            rejectUnauthorized: false, // Cho phép self-signed certs
           },
         },
         defaults: {
