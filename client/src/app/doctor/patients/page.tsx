@@ -120,6 +120,7 @@ export default function DoctorPatients() {
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
   const [patientMedicalRecords, setPatientMedicalRecords] = useState<MedicalRecord[]>([]);
   const [patientPayments, setPatientPayments] = useState<Payment[]>([]);
+  const [initialRecordId, setInitialRecordId] = useState<string | null>(null); // For auto-opening medical record modal
 
   // Patient List States
   const [searchTerm, setSearchTerm] = useState("");
@@ -155,8 +156,31 @@ export default function DoctorPatients() {
     const params = new URLSearchParams(window.location.search);
     const openDetail = params.get("openDetail");
     const patientIdFromUrl = params.get("patientId");
+    const recordIdFromUrl = params.get("recordId");
 
-    // Wait until patients are loaded before trying to match
+    // Handle new flow with recordId (from TreatmentModal)
+    if (patientIdFromUrl && recordIdFromUrl && patients.length > 0) {
+      console.log("🎯 Opening medical record:", recordIdFromUrl, "for patient:", patientIdFromUrl);
+
+      // Store the recordId for the modal
+      setInitialRecordId(recordIdFromUrl);
+
+      // Find the matching patient from the patients list by ID
+      const matchingPatient = patients.find((p) => p._id === patientIdFromUrl);
+
+      if (matchingPatient) {
+        console.log("✅ Patient found:", matchingPatient.fullName);
+        handlePatientSelect(matchingPatient);
+        // Clean up URL after successful detail open
+        window.history.replaceState(null, "", "/doctor/patients");
+      } else {
+        // Try to fetch the patient directly by ID if not in list
+        fetchPatientByIdWithRecord(patientIdFromUrl, recordIdFromUrl);
+      }
+      return;
+    }
+
+    // Handle existing flow with openDetail (from chat)
     if (openDetail === "true" && patientIdFromUrl && patients.length > 0) {
       console.log("🎯 Opening detail for patient ID from chat:", patientIdFromUrl);
 
@@ -175,6 +199,26 @@ export default function DoctorPatients() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, patients]);
+
+  const fetchPatientByIdWithRecord = async (patientId: string, recordId: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/${patientId}`);
+      const data = await response.json();
+
+      if (data?.success === true && data.data) {
+        setInitialRecordId(recordId);
+        handlePatientSelect(data.data);
+        // Clean up URL after successful detail open
+        window.history.replaceState(null, "", "/doctor/patients");
+      } else {
+        console.error("Patient not found:", patientId);
+        window.history.replaceState(null, "", "/doctor/patients");
+      }
+    } catch (error) {
+      console.error("Error fetching patient by ID:", error);
+      window.history.replaceState(null, "", "/doctor/patients");
+    }
+  };
 
   const fetchPatientById = async (patientId: string) => {
     try {
@@ -558,6 +602,8 @@ export default function DoctorPatients() {
             loading={loading}
             onBack={handleBackToList}
             onRefresh={handleRefreshPatientData}
+            initialRecordId={initialRecordId}
+            onRecordModalOpened={() => setInitialRecordId(null)}
           />
         ) : (
           <>

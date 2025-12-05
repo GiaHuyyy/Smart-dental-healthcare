@@ -1,7 +1,8 @@
 "use client";
 
-import { Lightbulb, X } from "lucide-react";
+import { Lightbulb, X, Eye, Loader2 } from "lucide-react";
 import React, { useCallback, useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 // Types
@@ -72,6 +73,8 @@ export default function TreatmentModal({
   mode = "create", // Default to create mode
   initialData, // Initial data for update mode
 }: TreatmentModalProps) {
+  const router = useRouter();
+
   // Store initial data for reset
   const initialFormData: TreatmentFormData = {
     chiefComplaints: initialData?.chiefComplaints || [],
@@ -86,6 +89,55 @@ export default function TreatmentModal({
   const [treatmentForm, setTreatmentForm] = useState<TreatmentFormData>(initialFormData);
 
   const [chiefComplaintInput, setChiefComplaintInput] = useState("");
+
+  // State for loading parent record
+  const [isLoadingParentRecord, setIsLoadingParentRecord] = useState(false);
+
+  // Handle view parent medical record
+  const handleViewParentRecord = async () => {
+    if (!appointment?.followUpParentId || !accessToken) return;
+
+    setIsLoadingParentRecord(true);
+    try {
+      // Query medical record by parent appointment ID
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/medical-records?appointmentId=${appointment.followUpParentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const records = Array.isArray(data) ? data : data?.data || data?.results || [];
+
+        if (records.length > 0) {
+          const medicalRecordId = records[0]._id;
+          const patientId =
+            typeof appointment.patientId === "string" ? appointment.patientId : appointment.patientId?._id;
+
+          if (patientId && medicalRecordId) {
+            // Close modal and navigate to patient page with record
+            onClose();
+            router.push(`/doctor/patients?patientId=${patientId}&recordId=${medicalRecordId}`);
+          } else {
+            toast.error("Không tìm thấy thông tin bệnh nhân");
+          }
+        } else {
+          toast.error("Không tìm thấy hồ sơ bệnh án gốc");
+        }
+      } else {
+        toast.error("Lỗi khi tải hồ sơ bệnh án");
+      }
+    } catch (error) {
+      console.error("Error fetching parent medical record:", error);
+      toast.error("Lỗi khi tải hồ sơ bệnh án");
+    } finally {
+      setIsLoadingParentRecord(false);
+    }
+  };
 
   // Refs for click outside detection
   const suggestionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -117,12 +169,9 @@ export default function TreatmentModal({
   // Fetch suggestions from server
   const fetchSuggestions = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat/suggestions`,
-        {
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-        }
-      );
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ai-chat/suggestions`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
       if (response.ok) {
         const data = await response.json();
         setSuggestions(data);
@@ -696,8 +745,17 @@ export default function TreatmentModal({
             {appointment?.followUpParentId && (
               <div className="col-span-2">
                 <span className="text-gray-600">Hồ sơ gốc:</span>{" "}
-                <span className="font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                <span className="font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200 inline-flex items-center gap-2">
                   🔗 {appointment.followUpParentId}
+                  <button
+                    type="button"
+                    onClick={handleViewParentRecord}
+                    disabled={isLoadingParentRecord}
+                    className="p-1 hover:bg-amber-200 rounded transition-colors disabled:opacity-50"
+                    title="Xem chi tiết hồ sơ gốc"
+                  >
+                    {isLoadingParentRecord ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </span>
               </div>
             )}

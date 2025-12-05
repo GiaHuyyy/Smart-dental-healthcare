@@ -792,4 +792,132 @@ Hãy trả về kết quả theo format JSON sau:
       return false;
     }
   }
+
+  /**
+   * Verify if an uploaded image is a valid medical/dental practice license
+   * Used during doctor registration to validate license documents
+   * Accepts base64 image data directly without requiring Cloudinary upload
+   */
+  async verifyLicenseImage(
+    base64Image: string,
+    mimeType: string = 'image/jpeg',
+  ): Promise<{
+    isValid: boolean;
+    confidence: number;
+    message: string;
+    details?: {
+      documentType?: string;
+      issuer?: string;
+      licenseNumber?: string;
+      holderName?: string;
+      validityStatus?: string;
+    };
+  }> {
+    try {
+      this.logger.log(`Starting license verification from base64 image`);
+
+      if (!this.model) {
+        throw new Error('Gemini SDK not initialized');
+      }
+
+      // Create prompt for license verification
+      const prompt = `Bạn là chuyên gia xác thực giấy tờ y tế tại Việt Nam. Hãy phân tích hình ảnh này và xác định xem đây có phải là một trong các loại giấy tờ sau KHÔNG:
+
+1. Giấy phép hoạt động khám bệnh, chữa bệnh (do Sở Y tế cấp)
+2. Chứng chỉ hành nghề khám bệnh, chữa bệnh
+3. Giấy phép hành nghề y (bác sĩ, nha sĩ, dược sĩ, ...)
+4. Bằng cấp y khoa/nha khoa (Bác sĩ Y khoa, Bác sĩ Răng Hàm Mặt, ...)
+5. Chứng nhận chuyên khoa
+6. Các loại giấy tờ hành nghề y tế hợp lệ khác
+
+QUAN TRỌNG:
+- Giấy tờ phải có dấu mộc chính thức hoặc con dấu đỏ
+- Có thể có chữ ký của cơ quan có thẩm quyền
+- Thường có tiêu đề/header của cơ quan cấp (Bộ Y tế, Sở Y tế, Trường Đại học, ...)
+- Có thể có ảnh của người được cấp
+- Có ngày cấp hoặc thời hạn hiệu lực
+
+Hãy trả về kết quả theo format JSON sau:
+{
+  "isValid": true/false,
+  "confidence": 0.0-1.0,
+  "documentType": "Loại giấy tờ (ngắn gọn)",
+  "issuer": "Cơ quan cấp (nếu có)",
+  "licenseNumber": "Số chứng chỉ (nếu đọc được)",
+  "holderName": "Tên người được cấp (nếu đọc được)",
+  "validityStatus": "còn hiệu lực/hết hạn/không xác định",
+  "reason": "Lý do ngắn gọn (1-2 câu) nếu không hợp lệ"
+}
+
+Nếu KHÔNG phải giấy tờ hành nghề y tế, đặt isValid = false. Lý do trong reason phải NGẮN GỌN, tối đa 2 câu.`;
+
+      const result = await this.model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: base64Image,
+            mimeType,
+          },
+        },
+      ]);
+
+      const response = await result.response;
+      const responseText = String(response.text() || '');
+
+      // Parse the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        this.logger.warn('Could not parse license verification response');
+        return {
+          isValid: false,
+          confidence: 0,
+          message: 'Không thể phân tích ảnh. Vui lòng thử lại với ảnh rõ hơn.',
+        };
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      this.logger.log(
+        `License verification result: isValid=${parsed.isValid}, confidence=${parsed.confidence}`,
+      );
+
+      return {
+        isValid: parsed.isValid === true,
+        confidence:
+          typeof parsed.confidence === 'number' ? parsed.confidence : 0,
+        message: parsed.isValid
+          ? `Chứng chỉ hợp lệ${parsed.documentType ? `: ${parsed.documentType}` : ''}${parsed.issuer ? ` - ${parsed.issuer}` : ''}`
+          : parsed.reason || 'Ảnh không phải chứng chỉ hành nghề y tế.',
+        details: {
+          documentType: parsed.documentType,
+          issuer: parsed.issuer,
+          licenseNumber: parsed.licenseNumber,
+          holderName: parsed.holderName,
+          validityStatus: parsed.validityStatus,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`License verification failed: ${error.message}`);
+
+      // Check for API key issues
+      const msg = String(error?.message || error);
+      if (
+        msg.includes('API key expired') ||
+        msg.includes('API_KEY_INVALID') ||
+        msg.toLowerCase().includes('api key')
+      ) {
+        return {
+          isValid: false,
+          confidence: 0,
+          message: 'Lỗi cấu hình hệ thống. Vui lòng liên hệ quản trị viên.',
+        };
+      }
+
+      return {
+        isValid: false,
+        confidence: 0,
+        message: 'Không thể xác thực ảnh. Vui lòng thử lại.',
+      };
+    }
+  }
 }
