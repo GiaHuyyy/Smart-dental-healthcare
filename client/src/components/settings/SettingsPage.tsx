@@ -19,6 +19,8 @@ import {
   X,
   CheckCircle,
   AlertTriangle,
+  MapPin,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -119,6 +121,11 @@ export default function SettingsPage({
     };
   } | null>(null);
 
+  // Geocoding state (for doctor)
+  const [isGeocodingLoading, setIsGeocodingLoading] = useState(false);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [originalWorkAddress, setOriginalWorkAddress] = useState<string>("");
+
   // Services state (for doctor)
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [customService, setCustomService] = useState("");
@@ -204,6 +211,11 @@ export default function SettingsPage({
         if (userData.services && Array.isArray(userData.services)) {
           setSelectedServices(userData.services);
           setOriginalServices(userData.services);
+        }
+
+        // Save original work address for geocoding button state
+        if (userData.workAddress) {
+          setOriginalWorkAddress(userData.workAddress);
         }
 
         // Save original profile to track changes
@@ -510,6 +522,53 @@ export default function SettingsPage({
 
   const removeService = (service: string) => {
     setSelectedServices((prev) => prev.filter((s) => s !== service));
+  };
+
+  // Geocode work address using AI (Gemini)
+  const geocodeAddress = async (address: string) => {
+    if (!address.trim()) {
+      toast.error("Vui lòng nhập địa chỉ nơi làm việc");
+      return;
+    }
+
+    setIsGeocodingLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/geocoding/geocode`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ address }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Không thể kết nối đến server");
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.latitude && data.longitude) {
+        setCoordinates({ lat: data.latitude, lng: data.longitude });
+        toast.success(`Đã xác định tọa độ thành công!`);
+        if (data.formattedAddress && data.formattedAddress !== address) {
+          setProfile((prev) => ({ ...prev, workAddress: data.formattedAddress }));
+        }
+        // Update original work address after successful geocoding
+        setOriginalWorkAddress(profile.workAddress);
+      } else {
+        toast.error(data.error || "Không tìm thấy tọa độ cho địa chỉ này. Vui lòng nhập chi tiết hơn.");
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      toast.error("Lỗi khi tìm tọa độ. Vui lòng thử lại.");
+    } finally {
+      setIsGeocodingLoading(false);
+    }
+  };
+
+  // Check if work address has changed (for enabling geocode button)
+  const hasWorkAddressChanged = () => {
+    return profile.workAddress.trim() !== originalWorkAddress.trim() && profile.workAddress.trim() !== "";
   };
 
   const saveProfile = async () => {
@@ -1240,25 +1299,58 @@ export default function SettingsPage({
                       <h3 className="healthcare-subheading mb-6 text-lg border-b border-gray-200 pb-2">
                         Địa chỉ nơi làm việc
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="md:col-span-2">
+                      <div className="space-y-4">
+                        <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">
                             <RequiredLabel>Địa chỉ phòng khám / bệnh viện</RequiredLabel>
                           </label>
-                          <input
-                            type="text"
-                            value={profile.workAddress}
-                            onChange={(e) => {
-                              setProfile({ ...profile, workAddress: e.target.value });
-                              if (errors.workAddress) setErrors({ ...errors, workAddress: "" });
-                            }}
-                            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
-                              errors.workAddress ? "border-red-500" : "border-gray-200"
-                            }`}
-                            placeholder="Ví dụ: 123 Đường Nguyễn Huệ, Quận 1, TP.HCM"
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={profile.workAddress}
+                              onChange={(e) => {
+                                setProfile({ ...profile, workAddress: e.target.value });
+                                if (errors.workAddress) setErrors({ ...errors, workAddress: "" });
+                                // Reset coordinates when address changes
+                                setCoordinates(null);
+                              }}
+                              className={`flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                                errors.workAddress ? "border-red-500" : "border-gray-200"
+                              }`}
+                              placeholder="Ví dụ: 123 Đường Nguyễn Huệ, Quận 1, TP.HCM"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => geocodeAddress(profile.workAddress)}
+                              disabled={!hasWorkAddressChanged() || isGeocodingLoading}
+                              className="px-4 py-3 bg-linear-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {isGeocodingLoading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-5 h-5" />
+                              )}
+                              AI Xác định
+                            </button>
+                          </div>
                           {errors.workAddress && <p className="mt-1 text-sm text-red-500">{errors.workAddress}</p>}
+                          <p className="text-xs text-gray-500 mt-1">
+                            Nhập địa chỉ chi tiết, sau đó nhấn &quot;AI xác định&quot; để xác nhận tọa độ
+                          </p>
                         </div>
+
+                        {/* Coordinates display */}
+                        {coordinates && (
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                            <div className="flex items-center gap-2 text-green-700">
+                              <MapPin className="w-4 h-4" />
+                              <span className="text-sm font-medium">Đã xác định tọa độ:</span>
+                              <span className="text-sm">
+                                {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 mb-2">Phí khám (VNĐ)</label>
@@ -1268,7 +1360,7 @@ export default function SettingsPage({
                             step="10000"
                             value={profile.consultationFee}
                             onChange={(e) => setProfile({ ...profile, consultationFee: parseInt(e.target.value) || 0 })}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-colors md:max-w-xs"
                             placeholder="Nhập phí khám"
                           />
                         </div>

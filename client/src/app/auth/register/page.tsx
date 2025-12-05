@@ -1049,7 +1049,7 @@ export default function RegisterPage() {
                         <button
                           type="button"
                           onClick={() => geocodeAddress(formData.workAddress)}
-                          disabled={isGeocodingLoading || !formData.workAddress}
+                          disabled={isGeocodingLoading || !formData.workAddress || coordinates !== null}
                           className="px-4 py-3 bg-linear-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                           {isGeocodingLoading ? (
@@ -1067,14 +1067,14 @@ export default function RegisterPage() {
 
                     {/* Show coordinates if available */}
                     {coordinates && (
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
                         <div className="flex items-center gap-2 text-green-700">
-                          <MapPin className="w-5 h-5" />
-                          <span className="font-medium">Đã xác định tọa độ thành công</span>
+                          <MapPin className="w-4 h-4" />
+                          <span className="text-sm font-medium">Đã xác định tọa độ:</span>
+                          <span className="text-sm">
+                            {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                          </span>
                         </div>
-                        <p className="text-sm text-green-600 mt-1">
-                          Vĩ độ: {coordinates.lat.toFixed(6)} | Kinh độ: {coordinates.lng.toFixed(6)}
-                        </p>
                       </div>
                     )}
                   </div>
