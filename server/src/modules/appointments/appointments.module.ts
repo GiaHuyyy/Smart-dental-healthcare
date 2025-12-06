@@ -16,6 +16,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
 import { RevenueModule } from '../revenue/revenue.module';
+import { MailModule } from '../../mail/mail.module';
 import {
   FollowUpSuggestion,
   FollowUpSuggestionSchema,
@@ -34,6 +35,7 @@ import {
     PaymentsModule,
     RevenueModule,
     VouchersModule,
+    MailModule,
   ],
   controllers: [AppointmentsController],
   providers: [

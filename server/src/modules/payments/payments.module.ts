@@ -10,6 +10,7 @@ import { Revenue, RevenueSchema } from '../revenue/schemas/revenue.schemas';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RevenueModule } from '../revenue/revenue.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
+import { MailModule } from '../../mail/mail.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Payment, PaymentSchema } from './schemas/payment.schemas';
@@ -29,6 +30,7 @@ import { PaymentGateway } from './payment.gateway';
     NotificationsModule,
     forwardRef(() => RevenueModule),
     VouchersModule,
+    MailModule,
   ],
   controllers: [PaymentsController],
   providers: [
