@@ -140,7 +140,7 @@ export class AppointmentNotificationGateway
             : 'Bác sĩ đã xác nhận lịch hẹn của bạn',
           type: 'APPOINTMENT_CONFIRMED',
           data: { appointmentId: appointment._id },
-          linkTo: '/patient/appointments/my-appointments',
+          linkTo: '/patient/appointments/my-appointments?tab=confirmed',
           icon: '✅',
         },
         false,
@@ -226,7 +226,7 @@ export class AppointmentNotificationGateway
           linkTo:
             cancelledBy === 'patient'
               ? '/doctor/schedule'
-              : '/patient/appointments/my-appointments',
+              : '/patient/appointments/my-appointments?tab=cancelled',
           icon: cancelledBy === 'system' ? '⚠️' : '❌',
         },
         false,
@@ -342,7 +342,7 @@ export class AppointmentNotificationGateway
             : 'Lịch khám đã hoàn tất. Bạn có thể xem hồ sơ bệnh án.',
           type: 'APPOINTMENT_COMPLETED',
           data: { appointmentId: appointment._id },
-          linkTo: '/patient/medical-records',
+          linkTo: '/patient/record',
           icon: '✅',
         },
         false,
@@ -439,7 +439,7 @@ export class AppointmentNotificationGateway
           : 'Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%',
         type: 'FOLLOW_UP_SUGGESTION',
         data: { appointmentId: appointment._id },
-        linkTo: '/patient/appointments?tab=follow-ups',
+        linkTo: '/patient/appointments/my-appointments?tab=follow-ups',
         icon: '🔔',
       },
       false,
