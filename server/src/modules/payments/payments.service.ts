@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { MailerService } from '@nestjs-modules/mailer';
+import { ResendService } from '../../mail/resend.service';
 import aqp from 'api-query-params';
 import mongoose, { Model } from 'mongoose';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
@@ -34,7 +34,7 @@ export class PaymentsService {
     private readonly revenueService: RevenueService,
     private readonly notificationGateway: NotificationGateway,
     private readonly vouchersService: VouchersService,
-    private readonly mailerService: MailerService,
+    private readonly resendService: ResendService,
   ) {}
 
   /**
@@ -1217,19 +1217,34 @@ export class PaymentsService {
           year: 'numeric',
         });
 
-        await this.mailerService.sendMail({
+        await this.resendService.sendEmail({
           to: patient.email,
-          subject: 'Xác nhận thanh toán thành công',
-          template: 'payment-confirmation',
-          context: {
-            patientName: patient.fullName,
-            doctorName: doctor.fullName,
-            amount: new Intl.NumberFormat('vi-VN').format(payment.amount),
-            paymentMethod: 'Tiền mặt',
-            paymentDate: appointmentDate,
-            transactionId: payment.transactionId,
-            viewUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/patient/payments`,
-          },
+          subject: '✅ Xác nhận thanh toán thành công',
+          html: `
+          <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; text-align: center;">
+              <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">✅ Thanh toán thành công</h1>
+            </div>
+            <div style="padding: 30px 20px;">
+              <p style="margin: 0 0 20px 0; color: #111827; font-size: 16px;">Xin chào <strong>${patient.fullName}</strong>,</p>
+              <p style="margin: 0 0 20px 0; color: #374151; font-size: 16px;">Thanh toán của bạn đã được xác nhận thành công!</p>
+              <div style="background: #ecfdf5; padding: 20px; border-radius: 12px; border-left: 4px solid #10b981; margin: 20px 0;">
+                <table style="width: 100%; color: #065f46; font-size: 14px;">
+                  <tr><td style="padding: 8px 0; width: 40%;"><strong>Bác sĩ:</strong></td><td>${doctor.fullName}</td></tr>
+                  <tr><td style="padding: 8px 0;"><strong>Số tiền:</strong></td><td>${new Intl.NumberFormat('vi-VN').format(Math.abs(payment.amount))} VNĐ</td></tr>
+                  <tr><td style="padding: 8px 0;"><strong>Phương thức:</strong></td><td>Tiền mặt</td></tr>
+                  <tr><td style="padding: 8px 0;"><strong>Mã giao dịch:</strong></td><td>${payment.transactionId || 'N/A'}</td></tr>
+                  <tr><td style="padding: 8px 0;"><strong>Ngày:</strong></td><td>${appointmentDate}</td></tr>
+                </table>
+              </div>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/patient/payments" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold;">Xem chi tiết</a>
+              </div>
+            </div>
+            <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+              <p style="margin: 0; color: #6b7280; font-size: 14px;">Smart Dental Healthcare System</p>
+            </div>
+          </div>`,
         });
         this.logger.log('✅ Email sent to:', patient.email);
       } catch (error) {

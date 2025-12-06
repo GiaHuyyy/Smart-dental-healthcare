@@ -15,13 +15,13 @@ import {
   VerifyResetCodeDto,
   ResetPasswordDto,
 } from './dto/create-auth.dto';
-import { MailerService } from '@nestjs-modules/mailer';
+import { ResendService } from 'src/mail/resend.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly mailerService: MailerService,
+    private readonly resendService: ResendService,
   ) {}
 
   @Post('login')
@@ -46,20 +46,18 @@ export class AuthController {
 
   @Get('mail')
   @Public()
-  sendMail() {
-    this.mailerService
-      .sendMail({
-        to: 'huygiavuto@gmail.com', // list of receivers
-        subject: 'Testing Nest MailerModule ✔', // Subject line
-        text: 'welcome', // plaintext body
-        template: 'register',
-        context: {
-          name: 'Userrrr',
-          activationCode: 123456,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+  async sendMail() {
+    await this.resendService.sendEmail({
+      to: 'huygiavuto@gmail.com',
+      subject: 'Testing Resend Email ✔',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px;">
+          <h1>Test Email</h1>
+          <p>Welcome <strong>Userrrr</strong>!</p>
+          <p>Your activation code is: <strong>123456</strong></p>
+        </div>
+      `,
+    });
     return 'Email sent successfully!';
   }
 
