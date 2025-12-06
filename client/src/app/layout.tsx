@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     siteName: "Smart Dental Healthcare",
     images: [
       {
-        url: "https://smartdentalhealthcare.id.vn/images/hero-doctor.png",
+        url: "https://smartdentalhealthcare.id.vn/images/blog-1.jpg",
         width: 1200,
         height: 630
       }
