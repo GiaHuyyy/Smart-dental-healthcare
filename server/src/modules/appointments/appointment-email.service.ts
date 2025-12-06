@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { SendGridService } from '../../mail/sendgrid.service';
 
 @Injectable()
 export class AppointmentEmailService {
   private readonly logger = new Logger(AppointmentEmailService.name);
 
   constructor(
-    private readonly mailerService: MailerService,
+    private readonly sendGridService: SendGridService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -31,7 +31,7 @@ export class AppointmentEmailService {
 
       const viewUrl = `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule?appointmentId=${appointment._id}`;
 
-      await this.mailerService.sendMail({
+      await this.sendGridService.sendMail({
         to: doctor.email,
         subject: 'Thông báo: Lịch hẹn mới',
         template: 'appointment-new',
@@ -52,6 +52,49 @@ export class AppointmentEmailService {
       this.logger.log(`Sent new appointment email to doctor ${doctor.email}`);
     } catch (error) {
       this.logger.error('Failed to send email to doctor:', error);
+    }
+  }
+
+  /**
+   * Send confirmation email to patient when doctor confirms appointment
+   */
+  async sendConfirmationEmailToPatient(
+    appointment: any,
+    doctor: any,
+    patient: any,
+  ) {
+    try {
+      const appointmentDate = new Date(
+        appointment.appointmentDate,
+      ).toLocaleDateString('vi-VN', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+
+      const viewUrl = `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`;
+
+      await this.sendGridService.sendMail({
+        to: patient.email,
+        subject: '✅ Lịch hẹn đã được xác nhận',
+        template: 'appointment-confirmed',
+        context: {
+          patientName: patient.fullName,
+          doctorName: doctor.fullName,
+          appointmentDate,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          appointmentType: appointment.appointmentType,
+          consultationFee: appointment.consultationFee || 0,
+          clinicAddress: doctor.workAddress || doctor.address || '',
+          viewUrl,
+        },
+      });
+
+      this.logger.log(`Sent confirmation email to patient ${patient.email}`);
+    } catch (error) {
+      this.logger.error('Failed to send confirmation email to patient:', error);
     }
   }
 
@@ -85,7 +128,7 @@ export class AppointmentEmailService {
           ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`
           : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`;
 
-      await this.mailerService.sendMail({
+      await this.sendGridService.sendMail({
         to: recipient.email,
         subject: 'Thông báo: Lịch hẹn đã bị hủy',
         template: 'appointment-cancelled',
@@ -139,7 +182,7 @@ export class AppointmentEmailService {
           ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`
           : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`;
 
-      await this.mailerService.sendMail({
+      await this.sendGridService.sendMail({
         to: recipient.email,
         subject: '⏰ Nhắc nhở: Lịch hẹn sắp bắt đầu',
         template: 'appointment-reminder',
@@ -201,7 +244,7 @@ export class AppointmentEmailService {
         `;
       }
 
-      await this.mailerService.sendMail({
+      await this.sendGridService.sendMail({
         to: patient.email,
         subject: '❌ Lịch hẹn đã bị hủy',
         html: `
@@ -264,7 +307,7 @@ export class AppointmentEmailService {
         year: 'numeric',
       });
 
-      await this.mailerService.sendMail({
+      await this.sendGridService.sendMail({
         to: doctor.email,
         subject: '⚠️ Lịch hẹn đã bị tự động hủy',
         html: `
@@ -337,7 +380,7 @@ export class AppointmentEmailService {
         `
         : '';
 
-      await this.mailerService.sendMail({
+      await this.sendGridService.sendMail({
         to: patient.email,
         subject: '🔔 Đề xuất tái khám từ bác sĩ',
         html: `
@@ -431,7 +474,7 @@ export class AppointmentEmailService {
         this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
       const scheduleUrl = `${clientUrl}/doctor/schedule`;
 
-      await this.mailerService.sendMail({
+      await this.sendGridService.sendMail({
         to: doctor.email,
         subject: '❌ Bệnh nhân từ chối lịch tái khám',
         html: `

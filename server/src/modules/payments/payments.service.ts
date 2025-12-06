@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
-import { MailerService } from '@nestjs-modules/mailer';
 import aqp from 'api-query-params';
 import mongoose, { Model } from 'mongoose';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
@@ -19,6 +18,7 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Payment } from './schemas/payment.schemas';
 import { MoMoCallbackData, MoMoService } from './services/momo.service';
+import { SendGridService } from '../../mail/sendgrid.service';
 
 @Injectable()
 export class PaymentsService {
@@ -34,7 +34,7 @@ export class PaymentsService {
     private readonly revenueService: RevenueService,
     private readonly notificationGateway: NotificationGateway,
     private readonly vouchersService: VouchersService,
-    private readonly mailerService: MailerService,
+    private readonly sendGridService: SendGridService,
   ) {}
 
   /**
@@ -1207,7 +1207,7 @@ export class PaymentsService {
         this.logger.error('⚠️ Failed to send notification:', error);
       }
 
-      // Send email notification to patient
+      // Send email notification to patient using SendGrid
       this.logger.log('📧 Sending email notification...');
       try {
         const appointmentDate = new Date().toLocaleDateString('vi-VN', {
@@ -1217,7 +1217,7 @@ export class PaymentsService {
           year: 'numeric',
         });
 
-        await this.mailerService.sendMail({
+        await this.sendGridService.sendMail({
           to: patient.email,
           subject: 'Xác nhận thanh toán thành công',
           template: 'payment-confirmation',
