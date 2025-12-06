@@ -1,4 +1,3 @@
-import { MailerService } from '@nestjs-modules/mailer';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
@@ -17,13 +16,14 @@ import { Appointment } from '../appointments/schemas/appointment.schemas';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ChangePasswordDto, UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
+import { SendGridService } from '../../mail/sendgrid.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
-    private readonly mailerService: MailerService,
+    private readonly sendGridService: SendGridService,
     private readonly aiChatHistoryService: AiChatHistoryService,
   ) {}
 
@@ -304,9 +304,9 @@ export class UsersService {
 
     const user = await this.userModel.create(userData);
 
-    // send email to user
-    await this.mailerService.sendMail({
-      to: email, // list of receivers
+    // send email to user using SendGrid
+    await this.sendGridService.sendMail({
+      to: email,
       subject: 'Kích hoạt tài khoản của bạn',
       template: 'register',
       context: {
@@ -407,10 +407,10 @@ export class UsersService {
       },
     );
 
-    // Send email with new activation code
-    await this.mailerService.sendMail({
+    // Send email with new activation code using SendGrid
+    await this.sendGridService.sendMail({
       to: user.email,
-      subject: 'Kích hoạt tài khoản của bạn',
+      subject: 'Kích hoạt tài khoản của bạn',
       template: 'register',
       context: {
         name: user.fullName,
@@ -440,8 +440,8 @@ export class UsersService {
       },
     );
 
-    // Send password reset email
-    await this.mailerService.sendMail({
+    // Send password reset email using SendGrid
+    await this.sendGridService.sendMail({
       to: user.email,
       subject: 'Đặt lại mật khẩu tài khoản của bạn',
       template: 'forgot-password',
