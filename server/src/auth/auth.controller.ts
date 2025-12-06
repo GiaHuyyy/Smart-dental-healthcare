@@ -15,13 +15,13 @@ import {
   VerifyResetCodeDto,
   ResetPasswordDto,
 } from './dto/create-auth.dto';
-import { MailerService } from '@nestjs-modules/mailer';
+import { SendGridService } from '../mail/sendgrid.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly mailerService: MailerService,
+    private readonly sendGridService: SendGridService,
   ) {}
 
   @Post('login')
@@ -46,20 +46,16 @@ export class AuthController {
 
   @Get('mail')
   @Public()
-  sendMail() {
-    this.mailerService
-      .sendMail({
-        to: 'huygiavuto@gmail.com', // list of receivers
-        subject: 'Testing Nest MailerModule ✔', // Subject line
-        text: 'welcome', // plaintext body
-        template: 'register',
-        context: {
-          name: 'Userrrr',
-          activationCode: 123456,
-        },
-      })
-      .then(() => {})
-      .catch(() => {});
+  async sendMail() {
+    await this.sendGridService.sendMail({
+      to: 'huygiavuto@gmail.com',
+      subject: 'Testing SendGrid ✔',
+      template: 'register',
+      context: {
+        name: 'Userrrr',
+        activationCode: 123456,
+      },
+    });
     return 'Email sent successfully!';
   }
 

@@ -890,6 +890,15 @@ export class AppointmentsService {
       appointmentData,
     );
 
+    // Send confirmation email to patient
+    const doctor = appointment.doctorId as any;
+    const patient = appointment.patientId as any;
+    void this.emailService.sendConfirmationEmailToPatient(
+      appointment,
+      doctor,
+      patient,
+    );
+
     return appointment;
   }
 
@@ -1727,6 +1736,15 @@ export class AppointmentsService {
       cancelledBy,
       feeCharged,
       voucherCreated,
+    );
+
+    // Send cancellation email to patient/doctor
+    void this.emailService.sendCancellationEmail(
+      appointment,
+      appointment.doctorId,
+      appointment.patientId,
+      cancelledBy,
+      reason,
     );
 
     return {
