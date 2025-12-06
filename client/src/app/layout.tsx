@@ -16,6 +16,21 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Smart Dental Healthcare",
   description: "Hệ thống chăm sóc sức khỏe răng miệng thông minh",
+  openGraph: {
+    title: "Smart Dental Healthcare",
+    description: "Hệ thống chăm sóc sức khỏe răng miệng thông minh",
+    url: "https://smartdentalhealthcare.id.vn",
+    siteName: "Smart Dental Healthcare",
+    images: [
+      {
+        url: "https://smartdentalhealthcare.id.vn/images/hero-doctor.png",
+        width: 1200,
+        height: 630
+      }
+    ],
+    locale: "vi_VN",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
