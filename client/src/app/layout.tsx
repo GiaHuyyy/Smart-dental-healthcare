@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     siteName: "Smart Dental Healthcare",
     images: [
       {
-        url: "https://smartdentalhealthcare.id.vn/images/og-image.png",
+        url: "https://prohealth-wp.laralink.com/wp-content/uploads/2023/10/hero_bg-1.jpeg",
         width: 1200,
         height: 630
       }
