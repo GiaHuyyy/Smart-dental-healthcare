@@ -9,28 +9,22 @@ import { join } from 'path';
     MailerModule.forRootAsync({
       useFactory: async (config: ConfigService) => ({
         transport: {
-          host: config.get('MAIL_HOST', 'smtp.gmail.com'),
-          port: config.get('MAIL_PORT', 587),
-          secure: false, // true for 465, false for other ports
+          // SendGrid SMTP Configuration
+          host: 'smtp.sendgrid.net',
+          port: 587,
+          secure: false,
           auth: {
-            user: config.get('MAILDEV_INCOMING_USER'),
-            pass: config.get('MAILDEV_INCOMING_PASS'),
+            user: 'apikey', // SendGrid requires 'apikey' as username
+            pass: config.get('SENDGRID_API_KEY'),
           },
-          // Tăng timeout cho môi trường cloud (Render)
-          connectionTimeout: 30000, // 30 seconds
+          // Timeout settings cho cloud environment
+          connectionTimeout: 30000,
           greetingTimeout: 30000,
-          socketTimeout: 60000, // 60 seconds
-          // Pool connections để tái sử dụng
-          pool: true,
-          maxConnections: 3,
-          maxMessages: 100,
-          // TLS options
-          tls: {
-            rejectUnauthorized: false, // Cho phép self-signed certs
-          },
+          socketTimeout: 60000,
         },
         defaults: {
-          from: `"Smart Dental Healthcare" <${config.get('MAIL_FROM', 'noreply@smartdental.com')}>`,
+          from: `"Smart Dental Healthcare" <${config.get('SENDGRID_FROM_EMAIL', 'noreply@smartdental.com')}>`,
+          replyTo: config.get('SENDGRID_REPLY_TO'),
         },
         template: {
           dir: join(__dirname, 'templates'),
