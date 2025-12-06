@@ -1,4 +1,4 @@
-import { MailerService } from '@nestjs-modules/mailer';
+import { ResendService } from '../../mail/resend.service';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import aqp from 'api-query-params';
@@ -23,7 +23,7 @@ export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
-    private readonly mailerService: MailerService,
+    private readonly resendService: ResendService,
     private readonly aiChatHistoryService: AiChatHistoryService,
   ) {}
 
@@ -304,15 +304,28 @@ export class UsersService {
 
     const user = await this.userModel.create(userData);
 
-    // send email to user
-    await this.mailerService.sendMail({
-      to: email, // list of receivers
+    // send email to user using Resend
+    await this.resendService.sendEmail({
+      to: email,
       subject: 'Kích hoạt tài khoản của bạn',
-      template: 'register',
-      context: {
-        name: finalFullName,
-        activationCode: codeId,
-      },
+      html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">🏥 Smart Dental Healthcare</h1>
+          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">Kích hoạt tài khoản</p>
+        </div>
+        <div style="padding: 30px 20px;">
+          <p style="margin: 0 0 20px 0; color: #111827; font-size: 16px;">Xin chào <strong>${finalFullName}</strong>,</p>
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 16px;">Cảm ơn bạn đã đăng ký tài khoản. Vui lòng sử dụng mã sau để kích hoạt:</p>
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
+            <p style="margin: 0; color: white; font-size: 32px; font-weight: bold; letter-spacing: 4px;">${codeId}</p>
+          </div>
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px;">Mã này có hiệu lực trong 1 giờ.</p>
+        </div>
+        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Smart Dental Healthcare System</p>
+        </div>
+      </div>`,
     });
 
     return {
@@ -408,14 +421,27 @@ export class UsersService {
     );
 
     // Send email with new activation code
-    await this.mailerService.sendMail({
+    await this.resendService.sendEmail({
       to: user.email,
-      subject: 'Kích hoạt tài khoản của bạn',
-      template: 'register',
-      context: {
-        name: user.fullName,
-        activationCode: codeId,
-      },
+      subject: 'Kích hoạt tài khoản của bạn',
+      html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">🏥 Smart Dental Healthcare</h1>
+          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">Kích hoạt tài khoản</p>
+        </div>
+        <div style="padding: 30px 20px;">
+          <p style="margin: 0 0 20px 0; color: #111827; font-size: 16px;">Xin chào <strong>${user.fullName}</strong>,</p>
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 16px;">Đây là mã kích hoạt mới của bạn:</p>
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
+            <p style="margin: 0; color: white; font-size: 32px; font-weight: bold; letter-spacing: 4px;">${codeId}</p>
+          </div>
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px;">Mã này có hiệu lực trong 1 giờ.</p>
+        </div>
+        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Smart Dental Healthcare System</p>
+        </div>
+      </div>`,
     });
 
     return {
@@ -441,14 +467,26 @@ export class UsersService {
     );
 
     // Send password reset email
-    await this.mailerService.sendMail({
+    await this.resendService.sendEmail({
       to: user.email,
       subject: 'Đặt lại mật khẩu tài khoản của bạn',
-      template: 'forgot-password',
-      context: {
-        name: user.fullName,
-        resetCode: codeId,
-      },
+      html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">🔐 Đặt lại mật khẩu</h1>
+        </div>
+        <div style="padding: 30px 20px;">
+          <p style="margin: 0 0 20px 0; color: #111827; font-size: 16px;">Xin chào <strong>${user.fullName}</strong>,</p>
+          <p style="margin: 0 0 20px 0; color: #374151; font-size: 16px;">Bạn đã yêu cầu đặt lại mật khẩu. Vui lòng sử dụng mã sau:</p>
+          <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
+            <p style="margin: 0; color: white; font-size: 32px; font-weight: bold; letter-spacing: 4px;">${codeId}</p>
+          </div>
+          <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px;">Mã này có hiệu lực trong 1 giờ. Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+        </div>
+        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Smart Dental Healthcare System</p>
+        </div>
+      </div>`,
     });
 
     return {

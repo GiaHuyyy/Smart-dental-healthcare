@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { ResendService } from '../../mail/resend.service';
 
 @Injectable()
 export class AppointmentEmailService {
   private readonly logger = new Logger(AppointmentEmailService.name);
 
   constructor(
-    private readonly mailerService: MailerService,
+    private readonly resendService: ResendService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -31,25 +31,42 @@ export class AppointmentEmailService {
 
       const viewUrl = `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule?appointmentId=${appointment._id}`;
 
-      await this.mailerService.sendMail({
+      const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">🏥 Smart Dental Healthcare</h1>
+          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">Thông báo lịch hẹn mới</p>
+        </div>
+        <div style="padding: 30px 20px;">
+          <p style="margin: 0 0 20px 0; color: #111827; font-size: 16px;">Xin chào <strong>Bác sĩ ${doctor.fullName}</strong>,</p>
+          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+            <p style="margin: 0; color: #1e40af;">Bạn có một lịch hẹn mới từ bệnh nhân <strong>${patient.fullName}</strong></p>
+          </div>
+          <table style="width: 100%; color: #4b5563; font-size: 14px; margin: 20px 0;">
+            <tr><td style="padding: 8px 0; width: 40%;"><strong>📅 Ngày:</strong></td><td>${appointmentDate}</td></tr>
+            <tr><td style="padding: 8px 0;"><strong>⏰ Giờ:</strong></td><td>${appointment.startTime} - ${appointment.endTime}</td></tr>
+            <tr><td style="padding: 8px 0;"><strong>📞 SĐT:</strong></td><td>${patient.phone || 'Chưa cung cấp'}</td></tr>
+            <tr><td style="padding: 8px 0;"><strong>💰 Phí khám:</strong></td><td>${(appointment.consultationFee || 0).toLocaleString('vi-VN')} VND</td></tr>
+            ${appointment.notes ? `<tr><td style="padding: 8px 0;"><strong>📝 Ghi chú:</strong></td><td>${appointment.notes}</td></tr>` : ''}
+          </table>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${viewUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold;">Xem lịch hẹn</a>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Smart Dental Healthcare System</p>
+        </div>
+      </div>`;
+
+      await this.resendService.sendEmail({
         to: doctor.email,
-        subject: 'Thông báo: Lịch hẹn mới',
-        template: 'appointment-new',
-        context: {
-          doctorName: doctor.fullName,
-          patientName: patient.fullName,
-          patientPhone: patient.phone,
-          appointmentDate,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          appointmentType: appointment.appointmentType,
-          consultationFee: appointment.consultationFee || 0,
-          notes: appointment.notes,
-          viewUrl,
-        },
+        subject: '🔔 Thông báo: Lịch hẹn mới',
+        html,
       });
 
-      this.logger.log(`Sent new appointment email to doctor ${doctor.email}`);
+      this.logger.log(
+        `✅ Sent new appointment email to doctor ${doctor.email}`,
+      );
     } catch (error) {
       this.logger.error('Failed to send email to doctor:', error);
     }
@@ -78,32 +95,38 @@ export class AppointmentEmailService {
       const recipient = cancelledBy === 'doctor' ? patient : doctor;
       const cancellerName =
         cancelledBy === 'doctor' ? `BS. ${doctor.fullName}` : patient.fullName;
-      const otherPartyName =
-        cancelledBy === 'doctor' ? patient.fullName : `BS. ${doctor.fullName}`;
       const viewUrl =
         cancelledBy === 'doctor'
           ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`
           : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`;
 
-      await this.mailerService.sendMail({
+      const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">❌ Lịch hẹn đã bị hủy</h1>
+        </div>
+        <div style="padding: 30px 20px;">
+          <p style="margin: 0 0 20px 0; color: #111827; font-size: 16px;">Xin chào <strong>${recipient.fullName}</strong>,</p>
+          <div style="background: #fef2f2; padding: 20px; border-radius: 12px; border-left: 4px solid #ef4444; margin: 20px 0;">
+            <p style="margin: 0; color: #991b1b;">Lịch hẹn ngày <strong>${appointmentDate}</strong> lúc <strong>${appointment.startTime} - ${appointment.endTime}</strong> đã bị hủy bởi <strong>${cancellerName}</strong>.</p>
+            ${reason ? `<p style="margin: 10px 0 0 0; color: #7f1d1d;">Lý do: ${reason}</p>` : ''}
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${viewUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold;">Xem chi tiết</a>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Smart Dental Healthcare System</p>
+        </div>
+      </div>`;
+
+      await this.resendService.sendEmail({
         to: recipient.email,
-        subject: 'Thông báo: Lịch hẹn đã bị hủy',
-        template: 'appointment-cancelled',
-        context: {
-          recipientName: recipient.fullName,
-          cancellerName,
-          otherPartyName,
-          appointmentDate,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          consultationFee: appointment.consultationFee || 0,
-          reason,
-          isDoctor: cancelledBy === 'doctor', // Nếu doctor hủy → recipient là patient → isDoctor = false (FIXED!)
-          viewUrl,
-        },
+        subject: '❌ Thông báo: Lịch hẹn đã bị hủy',
+        html,
       });
 
-      this.logger.log(`Sent cancellation email to ${recipient.email}`);
+      this.logger.log(`✅ Sent cancellation email to ${recipient.email}`);
     } catch (error) {
       this.logger.error('Failed to send cancellation email:', error);
     }
@@ -139,27 +162,40 @@ export class AppointmentEmailService {
           ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`
           : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`;
 
-      await this.mailerService.sendMail({
+      const html = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; color: white; font-size: 28px; font-weight: bold;">⏰ Nhắc nhở lịch hẹn</h1>
+          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">Còn 30 phút nữa!</p>
+        </div>
+        <div style="padding: 30px 20px;">
+          <p style="margin: 0 0 20px 0; color: #111827; font-size: 16px;">Xin chào <strong>${recipient.fullName}</strong>,</p>
+          <div style="background: #fffbeb; padding: 20px; border-radius: 12px; border-left: 4px solid #f59e0b; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e;">Lịch hẹn của bạn với <strong>${otherPartyName}</strong> sẽ bắt đầu trong <strong>30 phút</strong> nữa!</p>
+          </div>
+          <table style="width: 100%; color: #4b5563; font-size: 14px; margin: 20px 0;">
+            <tr><td style="padding: 8px 0; width: 40%;"><strong>📅 Ngày:</strong></td><td>${appointmentDate}</td></tr>
+            <tr><td style="padding: 8px 0;"><strong>⏰ Giờ:</strong></td><td>${appointment.startTime} - ${appointment.endTime}</td></tr>
+            <tr><td style="padding: 8px 0;"><strong>📞 SĐT:</strong></td><td>${otherParty.phone || 'Chưa cung cấp'}</td></tr>
+            ${doctor.address ? `<tr><td style="padding: 8px 0;"><strong>📍 Địa chỉ:</strong></td><td>${doctor.address}</td></tr>` : ''}
+          </table>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${viewUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold;">Xem chi tiết</a>
+          </div>
+        </div>
+        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Smart Dental Healthcare System</p>
+        </div>
+      </div>`;
+
+      await this.resendService.sendEmail({
         to: recipient.email,
         subject: '⏰ Nhắc nhở: Lịch hẹn sắp bắt đầu',
-        template: 'appointment-reminder',
-        context: {
-          recipientName: recipient.fullName,
-          otherPartyName,
-          otherPartyPhone: otherParty.phone || '',
-          appointmentDate,
-          startTime: appointment.startTime,
-          endTime: appointment.endTime,
-          appointmentType: appointment.appointmentType,
-          clinicAddress: doctor.address || doctor.clinicAddress || '',
-          timeUntil: '30 phút',
-          isDoctor: recipientType === 'doctor',
-          viewUrl,
-        },
+        html,
       });
 
       this.logger.log(
-        `Sent reminder email to ${recipientType} ${recipient.email}`,
+        `✅ Sent reminder email to ${recipientType} ${recipient.email}`,
       );
     } catch (error) {
       this.logger.error(
@@ -201,7 +237,7 @@ export class AppointmentEmailService {
         `;
       }
 
-      await this.mailerService.sendMail({
+      await this.resendService.sendEmail({
         to: patient.email,
         subject: '❌ Lịch hẹn đã bị hủy',
         html: `
@@ -264,7 +300,7 @@ export class AppointmentEmailService {
         year: 'numeric',
       });
 
-      await this.mailerService.sendMail({
+      await this.resendService.sendEmail({
         to: doctor.email,
         subject: '⚠️ Lịch hẹn đã bị tự động hủy',
         html: `
@@ -337,7 +373,7 @@ export class AppointmentEmailService {
         `
         : '';
 
-      await this.mailerService.sendMail({
+      await this.resendService.sendEmail({
         to: patient.email,
         subject: '🔔 Đề xuất tái khám từ bác sĩ',
         html: `
@@ -431,7 +467,7 @@ export class AppointmentEmailService {
         this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
       const scheduleUrl = `${clientUrl}/doctor/schedule`;
 
-      await this.mailerService.sendMail({
+      await this.resendService.sendEmail({
         to: doctor.email,
         subject: '❌ Bệnh nhân từ chối lịch tái khám',
         html: `
