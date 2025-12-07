@@ -59,7 +59,12 @@ const isAppointmentPastConsultation = (appointment: Appointment): boolean => {
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
+  const {
+    registerAppointmentCallback,
+    unregisterAppointmentCallback,
+    registerFollowUpCallback,
+    unregisterFollowUpCallback,
+  } = useAppointment();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "follow-up" | AppointmentStatus>("all");
@@ -184,6 +189,17 @@ function MyAppointmentsContent() {
       console.log("🔇 Patient my-appointments unregistered from global socket");
     };
   }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
+
+  // Register follow-up refresh callback with global socket
+  useEffect(() => {
+    registerFollowUpCallback(fetchFollowUpSuggestionsCount);
+    console.log("✅ Patient my-appointments follow-up callback registered");
+
+    return () => {
+      unregisterFollowUpCallback();
+      console.log("🔇 Patient my-appointments follow-up callback unregistered");
+    };
+  }, [registerFollowUpCallback, unregisterFollowUpCallback, fetchFollowUpSuggestionsCount]);
 
   const handleContactDoctor = async (appointment: Appointment) => {
     const doctorId = typeof appointment.doctorId === "string" ? appointment.doctorId : appointment.doctorId?._id;

@@ -17,38 +17,24 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import patientDashboardService, { PatientDashboardStats, RecentActivity } from "@/services/patientDashboardService";
+import { useAppointment } from "@/contexts/AppointmentContext";
 
 export default function PatientDashboard() {
   const router = useRouter();
   const { data: session } = useSession();
+  const { registerFollowUpCallback, unregisterFollowUpCallback } = useAppointment();
   const [stats, setStats] = useState<PatientDashboardStats | null>(null);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  useEffect(() => {
-    if (session?.user) {
-      fetchDashboardData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
-
-  // Cập nhật thời gian thực mỗi phút
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000); // Cập nhật mỗi 1 phút
-
-    return () => clearInterval(timer);
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      const userId = (session?.user as { _id?: string })._id;
-      const accessToken = (session as any)?.access_token;
+      const userId = (session?.user as { _id?: string })?._id;
+      const accessToken = (session as { access_token?: string })?.access_token;
 
       if (!userId) {
         console.log("No user ID found");
@@ -71,7 +57,30 @@ export default function PatientDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchDashboardData();
+    }
+  }, [session, fetchDashboardData]);
+
+  // Register follow-up callback for real-time updates
+  useEffect(() => {
+    registerFollowUpCallback(fetchDashboardData);
+    return () => {
+      unregisterFollowUpCallback();
+    };
+  }, [registerFollowUpCallback, unregisterFollowUpCallback, fetchDashboardData]);
+
+  // Cập nhật thời gian thực mỗi phút
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Cập nhật mỗi 1 phút
+
+    return () => clearInterval(timer);
+  }, []);
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}

@@ -511,6 +511,45 @@ export class AppointmentNotificationGateway
   }
 
   /**
+   * Notify patient about new follow-up suggestion from doctor
+   * Used to trigger UI refresh of follow-up count
+   */
+  notifyFollowUpSuggestionCreated(patientId: string, suggestion: any) {
+    this.logger.log(`Emitting followup:new to patient ${patientId}`);
+    this.server.to(`user_${patientId}`).emit('followup:new', {
+      type: 'FOLLOW_UP_SUGGESTION_NEW',
+      suggestion,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Notify patient when follow-up suggestion is scheduled/accepted
+   * Used to trigger UI refresh of follow-up count
+   */
+  notifyFollowUpScheduled(patientId: string, suggestionId: string) {
+    this.logger.log(`Emitting followup:scheduled to patient ${patientId}`);
+    this.server.to(`user_${patientId}`).emit('followup:scheduled', {
+      type: 'FOLLOW_UP_SCHEDULED',
+      suggestionId,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Notify patient when follow-up suggestion is declined
+   * Used to trigger UI refresh of follow-up count
+   */
+  notifyFollowUpDeclined(patientId: string, suggestionId: string) {
+    this.logger.log(`Emitting followup:declined to patient ${patientId}`);
+    this.server.to(`user_${patientId}`).emit('followup:declined', {
+      type: 'FOLLOW_UP_DECLINED',
+      suggestionId,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
    * Check if user is online
    */
   isUserOnline(userId: string): boolean {

@@ -362,7 +362,7 @@ export class AppointmentEmailService {
     try {
       const clientUrl =
         this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
-      const viewUrl = `${clientUrl}/patient/appointments?tab=follow-ups`;
+      const viewUrl = `${clientUrl}/patient/appointments/my-appointments?tab=follow-ups`;
 
       const voucherInfo = suggestion.voucherId
         ? `

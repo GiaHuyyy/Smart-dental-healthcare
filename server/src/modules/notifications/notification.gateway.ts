@@ -208,7 +208,7 @@ export class NotificationGateway
       data: {
         appointmentId: suggestion._id,
       },
-      linkTo: '/patient/appointments?tab=follow-ups',
+      linkTo: '/patient/appointments/my-appointments?tab=follow-ups',
       icon: '🔔',
     };
 
@@ -265,7 +265,7 @@ export class NotificationGateway
         suggestionId: suggestion._id,
         patientId: suggestion.patientId,
       },
-      linkTo: '/doctor/follow-ups',
+      linkTo: '/doctor/schedule',
       icon: '❌',
     };
 
