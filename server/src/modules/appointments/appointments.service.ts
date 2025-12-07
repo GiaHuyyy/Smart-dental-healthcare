@@ -1932,7 +1932,10 @@ export class AppointmentsService {
       .find({
         doctorId,
       })
-      .populate('patientId', 'fullName email avatar phone')
+      .populate(
+        'patientId',
+        'fullName email avatarUrl phone gender dateOfBirth',
+      )
       .populate('parentAppointmentId')
       .populate('voucherId')
       .sort({ createdAt: -1 });

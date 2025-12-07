@@ -134,6 +134,7 @@ function DoctorScheduleContent() {
   // Follow-up suggestions state
   const [followUpSuggestions, setFollowUpSuggestions] = useState<FollowUpSuggestion[]>([]);
   const [followUpSuggestionsModalOpen, setFollowUpSuggestionsModalOpen] = useState(false);
+  const [followUpFilterTab, setFollowUpFilterTab] = useState<"all" | "pending" | "scheduled" | "rejected">("all");
 
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
@@ -1667,6 +1668,52 @@ function DoctorScheduleContent() {
               </button>
             </div>
 
+            {/* Tabs */}
+            <div className="shrink-0 bg-gray-50 px-6 py-3 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setFollowUpFilterTab("all")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "all"
+                      ? "bg-primary text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Tất cả ({followUpSuggestions.length})
+                </button>
+                <button
+                  onClick={() => setFollowUpFilterTab("pending")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "pending"
+                      ? "bg-yellow-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Chờ phản hồi ({followUpSuggestions.filter((s) => s.status === "pending").length})
+                </button>
+                <button
+                  onClick={() => setFollowUpFilterTab("scheduled")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "scheduled"
+                      ? "bg-green-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Đã đặt lịch ({followUpSuggestions.filter((s) => s.status === "scheduled").length})
+                </button>
+                <button
+                  onClick={() => setFollowUpFilterTab("rejected")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "rejected"
+                      ? "bg-red-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Đã từ chối ({followUpSuggestions.filter((s) => s.status === "rejected").length})
+                </button>
+              </div>
+            </div>
+
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               {followUpSuggestions.length === 0 ? (
@@ -1676,65 +1723,86 @@ function DoctorScheduleContent() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {followUpSuggestions.map((suggestion) => (
-                    <div
-                      key={suggestion._id}
-                      className={`bg-white rounded-lg border-2 p-4 ${
-                        suggestion.status === "pending"
-                          ? "border-yellow-200 bg-yellow-50/30"
-                          : suggestion.status === "scheduled"
-                          ? "border-green-200 bg-green-50/30"
-                          : "border-gray-200"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <img
-                            src={(suggestion.patientId as any)?.avatarUrl}
-                            alt={(suggestion.patientId as any)?.fullName || "Bệnh nhân"}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                          <div>
-                            <h3 className="font-semibold text-gray-900">
-                              {(suggestion.patientId as any)?.fullName || "Bệnh nhân"}
-                            </h3>
-                            <div>
-                              <p className="text-sm text-gray-600">{(suggestion.patientId as any)?.phone || ""}</p>
-                            </div>
-                            {suggestion.notes && (
-                              <div className="mt-1 flex items-start gap-2 text-sm text-gray-600 mb-3">
-                                <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                                <p className="line-clamp-2">{suggestion.notes}</p>
+                  {followUpSuggestions
+                    .filter((s) => followUpFilterTab === "all" || s.status === followUpFilterTab)
+                    .map((suggestion) => {
+                      const patient = suggestion.patientId as any;
+                      const patientAge = patient?.dateOfBirth
+                        ? Math.floor(
+                            (new Date().getTime() - new Date(patient.dateOfBirth).getTime()) /
+                              (365.25 * 24 * 60 * 60 * 1000)
+                          )
+                        : null;
+                      const patientGender =
+                        patient?.gender === "male" ? "Nam" : patient?.gender === "female" ? "Nữ" : "";
+
+                      return (
+                        <div
+                          key={suggestion._id}
+                          className={`bg-white rounded-lg border-2 p-4 ${
+                            suggestion.status === "pending"
+                              ? "border-yellow-200 bg-yellow-50/30"
+                              : suggestion.status === "scheduled"
+                              ? "border-green-200 bg-green-50/30"
+                              : "border-gray-200"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                              <img
+                                src={patient?.avatarUrl || "/images/default-avatar.png"}
+                                alt={patient?.fullName || "Bệnh nhân"}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                              <div>
+                                <h3 className="font-semibold text-gray-900">{patient?.fullName || "Bệnh nhân"}</h3>
+                                <p className="text-sm text-gray-600">
+                                  {patientGender}
+                                  {patientGender && patientAge ? " • " : ""}
+                                  {patientAge ? `${patientAge} tuổi` : ""}
+                                </p>
+                                {suggestion.notes && (
+                                  <div className="mt-1 flex items-start gap-2 text-sm text-gray-600 mb-3">
+                                    <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                                    <p className="line-clamp-2">{suggestion.notes}</p>
+                                  </div>
+                                )}
                               </div>
+                            </div>
+                            <div className="shrink-0">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  suggestion.status === "pending"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : suggestion.status === "scheduled"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {suggestion.status === "pending"
+                                  ? "Chờ phản hồi"
+                                  : suggestion.status === "scheduled"
+                                  ? "Đã đặt lịch"
+                                  : "Đã từ chối"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                            <span>Tạo lúc: {new Date(suggestion.createdAt).toLocaleString("vi-VN")}</span>
+                            {suggestion.voucherId && (
+                              <span className="flex items-center gap-1 text-green-600">🎁 Có voucher giảm giá 5%</span>
                             )}
                           </div>
                         </div>
-                        <div className="shrink-0">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              suggestion.status === "pending"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : suggestion.status === "scheduled"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
-                            }`}
-                          >
-                            {suggestion.status === "pending"
-                              ? "Chờ phản hồi"
-                              : suggestion.status === "scheduled"
-                              ? "Đã đặt lịch"
-                              : "Đã từ chối"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
-                        <span>Tạo lúc: {new Date(suggestion.createdAt).toLocaleString("vi-VN")}</span>
-                        {suggestion.voucherId && (
-                          <span className="flex items-center gap-1 text-green-600">🎁 Có voucher giảm giá 5%</span>
-                        )}
-                      </div>
+                      );
+                    })}
+                  {followUpSuggestions.filter((s) => followUpFilterTab === "all" || s.status === followUpFilterTab)
+                    .length === 0 && (
+                    <div className="text-center py-12">
+                      <RefreshCw className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-500">Không có đề xuất nào trong mục này</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
