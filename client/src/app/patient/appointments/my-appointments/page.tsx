@@ -26,8 +26,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import RescheduleWithBillingModal from "@/components/appointments/RescheduleWithBillingModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
@@ -59,6 +59,7 @@ const isAppointmentPastConsultation = (appointment: Appointment): boolean => {
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     registerAppointmentCallback,
     unregisterAppointmentCallback,
@@ -77,6 +78,9 @@ function MyAppointmentsContent() {
   const [startFilterDate, setStartFilterDate] = useState<string>("");
   const [endFilterDate, setEndFilterDate] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
+
+  // Track if we've already processed the current URL params
+  const lastProcessedParams = useRef<string>("");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -153,37 +157,41 @@ function MyAppointmentsContent() {
   useEffect(() => {
     try {
       if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
-      const filterParam = params.get("filter");
 
-      // Handle filter parameter for different statuses
-      if (filterParam === "follow-up") {
-        setFilter("follow-up" as "all" | "follow-up" | AppointmentStatus);
-      } else if (filterParam === "confirmed") {
-        setFilter(AppointmentStatus.CONFIRMED);
-      } else if (filterParam === "cancelled") {
-        setFilter(AppointmentStatus.CANCELLED);
-      } else if (filterParam === "completed") {
-        setFilter(AppointmentStatus.COMPLETED);
-      } else if (filterParam === "pending") {
-        setFilter(AppointmentStatus.PENDING);
+      // Get current params from searchParams hook (reactive to URL changes)
+      const appointmentId = searchParams.get("appointmentId");
+      const timestamp = searchParams.get("_t"); // Timestamp for forcing re-process
+
+      // Only process if there's an appointmentId to handle
+      if (!appointmentId) return;
+
+      // Create a unique key for current params to avoid re-processing
+      const currentParamsKey = `${appointmentId}-${timestamp || ""}`;
+
+      // Skip if we've already processed these exact params (prevents double-open)
+      if (currentParamsKey === lastProcessedParams.current) {
+        return;
       }
 
       // If there's a specific appointment to view
-      const appointmentId = params.get("appointmentId");
-      if (appointmentId && appointments.length > 0) {
+      if (appointments.length > 0) {
         const apt = appointments.find((a) => a._id === appointmentId);
         if (apt) {
-          handleViewDetail(apt);
+          // Mark as processed BEFORE opening modal
+          lastProcessedParams.current = currentParamsKey;
+          // Open modal directly instead of calling handleViewDetail
+          setSelectedAppointment(apt);
+          setDetailDialogOpen(true);
           // Clear the URL params after opening the modal
           window.history.replaceState({}, "", "/patient/appointments/my-appointments");
         }
       }
+      // If appointments not loaded yet, don't mark as processed - will retry when appointments load
     } catch {
       // ignore malformed URL or other errors
     }
-    // run when appointments update (so we can open detail when data is loaded)
-  }, [appointments]);
+    // React to both searchParams changes AND appointments loading
+  }, [searchParams, appointments]);
 
   useEffect(() => {
     if (!session?.user) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -136,6 +136,9 @@ function DoctorScheduleContent() {
   const [followUpSuggestionsModalOpen, setFollowUpSuggestionsModalOpen] = useState(false);
   const [followUpFilterTab, setFollowUpFilterTab] = useState<"all" | "pending" | "scheduled" | "rejected">("all");
 
+  // Track if we've already processed the current URL params
+  const lastProcessedParams = useRef<string>("");
+
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
     const userId = (session?.user as { _id?: string })?._id;
@@ -245,20 +248,37 @@ function DoctorScheduleContent() {
   useEffect(() => {
     const appointmentId = searchParams.get("appointmentId");
     const openFollowUpModal = searchParams.get("openFollowUpModal");
+    const timestamp = searchParams.get("_t"); // Timestamp for forcing re-process
 
-    // Handle openFollowUpModal param (from follow-up confirmed/rejected notification)
-    if (openFollowUpModal === "true" && !followUpSuggestionsModalOpen) {
-      setFollowUpSuggestionsModalOpen(true);
-      // Remove the param from URL
-      window.history.replaceState({}, "", "/doctor/schedule");
+    // Handle openFollowUpModal param first (doesn't need appointments to be loaded)
+    if (openFollowUpModal === "true") {
+      const followUpKey = `followup-${timestamp || ""}`;
+      if (followUpKey !== lastProcessedParams.current) {
+        lastProcessedParams.current = followUpKey;
+        setFollowUpSuggestionsModalOpen(true);
+        // Remove the param from URL
+        window.history.replaceState({}, "", "/doctor/schedule");
+      }
       return;
     }
 
-    if (appointmentId && appointments.length > 0 && !detailModalOpen) {
+    // Handle appointmentId - needs appointments to be loaded
+    if (!appointmentId) return;
+
+    // Create a unique key for current params to avoid re-processing
+    const currentParamsKey = `${appointmentId}-${timestamp || ""}`;
+
+    // Skip if we've already processed these exact params (prevents double-open)
+    if (currentParamsKey === lastProcessedParams.current) {
+      return;
+    }
+
+    if (appointments.length > 0) {
       // Find the appointment by ID
       const appointment = appointments.find((apt) => apt._id === appointmentId || apt.id === appointmentId);
 
       if (appointment) {
+        lastProcessedParams.current = currentParamsKey;
         setSelectedAppointment(appointment);
         setDetailModalOpen(true);
 
@@ -266,7 +286,8 @@ function DoctorScheduleContent() {
         window.history.replaceState({}, "", "/doctor/schedule");
       }
     }
-  }, [searchParams, appointments, detailModalOpen, followUpSuggestionsModalOpen]);
+    // If appointments not loaded yet, don't mark as processed - will retry when appointments load
+  }, [searchParams, appointments]);
 
   // Auto-switch calendar view based on date filter selection
   useEffect(() => {
