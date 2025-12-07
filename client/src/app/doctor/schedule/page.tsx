@@ -244,6 +244,15 @@ function DoctorScheduleContent() {
   // Handle appointmentId from URL params (from dashboard click)
   useEffect(() => {
     const appointmentId = searchParams.get("appointmentId");
+    const openFollowUpModal = searchParams.get("openFollowUpModal");
+
+    // Handle openFollowUpModal param (from follow-up confirmed/rejected notification)
+    if (openFollowUpModal === "true" && !followUpSuggestionsModalOpen) {
+      setFollowUpSuggestionsModalOpen(true);
+      // Remove the param from URL
+      window.history.replaceState({}, "", "/doctor/schedule");
+      return;
+    }
 
     if (appointmentId && appointments.length > 0 && !detailModalOpen) {
       // Find the appointment by ID
@@ -257,7 +266,7 @@ function DoctorScheduleContent() {
         window.history.replaceState({}, "", "/doctor/schedule");
       }
     }
-  }, [searchParams, appointments, detailModalOpen]);
+  }, [searchParams, appointments, detailModalOpen, followUpSuggestionsModalOpen]);
 
   // Auto-switch calendar view based on date filter selection
   useEffect(() => {

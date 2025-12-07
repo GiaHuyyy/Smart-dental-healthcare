@@ -496,7 +496,7 @@ export class AppointmentEmailService {
     try {
       const clientUrl =
         this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
-      const scheduleUrl = `${clientUrl}/doctor/schedule`;
+      const scheduleUrl = `${clientUrl}/doctor/schedule?openFollowUpModal=true`;
 
       await this.sendGridService.sendMail({
         to: doctor.email,
