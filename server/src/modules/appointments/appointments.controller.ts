@@ -339,6 +339,13 @@ export class AppointmentsController {
     return this.appointmentsService.getFollowUpSuggestions(patientId);
   }
 
+  @Get('follow-up/doctor/:doctorId')
+  @Public()
+  @ResponseMessage('Lấy danh sách đề xuất tái khám của bác sĩ thành công')
+  async getFollowUpSuggestionsByDoctor(@Param('doctorId') doctorId: string) {
+    return this.appointmentsService.getFollowUpSuggestionsByDoctor(doctorId);
+  }
+
   @Post('follow-up/:id/reject')
   @Public()
   @ResponseMessage('Từ chối đề xuất tái khám thành công')

@@ -740,6 +740,53 @@ const appointmentService = {
   },
 
   /**
+   * Get follow-up suggestions by doctor
+   */
+  async getFollowUpSuggestionsByDoctor(
+    doctorId: string,
+    token?: string
+  ): Promise<{
+    success: boolean;
+    data?: FollowUpSuggestion[];
+    message?: string;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/follow-up/doctor/${doctorId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || "Lấy đề xuất tái khám của bác sĩ thất bại",
+        };
+      }
+
+      return {
+        success: true,
+        data: data.data || data,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error("Get follow-up suggestions by doctor error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Lỗi kết nối server",
+      };
+    }
+  },
+
+  /**
    * Reject follow-up suggestion
    */
   async rejectFollowUpSuggestion(suggestionId: string, token?: string): Promise<AppointmentResponse> {

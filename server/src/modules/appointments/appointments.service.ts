@@ -1925,6 +1925,22 @@ export class AppointmentsService {
   }
 
   /**
+   * Get follow-up suggestions created by doctor
+   */
+  async getFollowUpSuggestionsByDoctor(doctorId: string) {
+    const suggestions = await this.followUpSuggestionModel
+      .find({
+        doctorId,
+      })
+      .populate('patientId', 'fullName email avatar phone')
+      .populate('parentAppointmentId')
+      .populate('voucherId')
+      .sort({ createdAt: -1 });
+
+    return suggestions;
+  }
+
+  /**
    * Reject follow-up suggestion
    */
   async rejectFollowUpSuggestion(suggestionId: string) {
