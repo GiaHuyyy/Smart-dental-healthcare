@@ -50,7 +50,11 @@ export class CreateAppointmentDto {
 
   @IsOptional()
   @IsString()
-  notes: string;
+  reason: string; // Lý do khám
+
+  @IsOptional()
+  @IsString()
+  notes: string; // Ghi chú bổ sung
 
   @IsOptional()
   @IsEnum(AppointmentStatus)

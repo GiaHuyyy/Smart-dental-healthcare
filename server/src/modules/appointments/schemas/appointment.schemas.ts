@@ -58,7 +58,10 @@ export class Appointment {
   consultationFee: number; // Phí khám bệnh
 
   @Prop()
-  notes: string;
+  reason: string; // Lý do khám (chiefComplaint from frontend)
+
+  @Prop()
+  notes: string; // Ghi chú bổ sung
 
   @Prop({ default: AppointmentStatus.PENDING })
   status: string;

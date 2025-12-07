@@ -70,6 +70,16 @@ export class AppointmentsController {
     );
   }
 
+  @Get('patient/:patientId/booked-slots')
+  @Public()
+  @ResponseMessage('Lấy danh sách khung giờ đã đặt của bệnh nhân thành công')
+  getPatientBookedSlots(
+    @Param('patientId') patientId: string,
+    @Query('date') date: string,
+  ) {
+    return this.appointmentsService.getPatientBookedSlots(patientId, date);
+  }
+
   @Get(':id')
   @Public()
   @ResponseMessage('Lấy thông tin lịch hẹn thành công')
@@ -327,6 +337,13 @@ export class AppointmentsController {
   @ResponseMessage('Lấy danh sách đề xuất tái khám thành công')
   async getFollowUpSuggestions(@Param('patientId') patientId: string) {
     return this.appointmentsService.getFollowUpSuggestions(patientId);
+  }
+
+  @Get('follow-up/doctor/:doctorId')
+  @Public()
+  @ResponseMessage('Lấy danh sách đề xuất tái khám của bác sĩ thành công')
+  async getFollowUpSuggestionsByDoctor(@Param('doctorId') doctorId: string) {
+    return this.appointmentsService.getFollowUpSuggestionsByDoctor(doctorId);
   }
 
   @Post('follow-up/:id/reject')

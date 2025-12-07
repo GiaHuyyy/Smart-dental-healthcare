@@ -314,7 +314,8 @@ export default function PatientAppointmentsPage() {
             : dataToSubmit.consultType === ConsultType.HOME_VISIT
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
-        notes: dataToSubmit.chiefComplaint || "",
+        reason: dataToSubmit.chiefComplaint || "", // Lý do khám
+        notes: dataToSubmit.notes || "", // Ghi chú bổ sung
         status: AppointmentStatus.PENDING,
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
@@ -468,7 +469,8 @@ export default function PatientAppointmentsPage() {
             : dataToSubmit.consultType === ConsultType.HOME_VISIT
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
-        notes: dataToSubmit.chiefComplaint || "",
+        reason: dataToSubmit.chiefComplaint || "", // Lý do khám
+        notes: dataToSubmit.notes || "", // Ghi chú bổ sung
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),
         // Include AI analysis data if user chose to use it
@@ -606,7 +608,8 @@ export default function PatientAppointmentsPage() {
             : dataToSubmit.consultType === ConsultType.HOME_VISIT
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
-        notes: dataToSubmit.chiefComplaint || "",
+        reason: dataToSubmit.chiefComplaint || "", // Lý do khám
+        notes: dataToSubmit.notes || "", // Ghi chú bổ sung
         paymentMethod: dataToSubmit.paymentMethod || "later", // Add payment method
         ...(dataToSubmit.voucherCode && { voucherCode: dataToSubmit.voucherCode }),
         ...(dataToSubmit.voucherId && { voucherId: dataToSubmit.voucherId }),

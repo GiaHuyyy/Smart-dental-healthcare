@@ -129,7 +129,7 @@ export class AppointmentReminderService {
         startTime: appointment.startTime,
         endTime: appointment.endTime,
         message: `Nhắc nhở: Lịch hẹn với ${patient.fullName} sẽ bắt đầu lúc ${appointment.startTime}`,
-        linkTo: '/doctor/schedule',
+        linkTo: `/doctor/schedule?appointmentId=${appointment._id}`,
       });
 
       // Send socket notification to patient
@@ -139,7 +139,7 @@ export class AppointmentReminderService {
         startTime: appointment.startTime,
         endTime: appointment.endTime,
         message: `Nhắc nhở: Lịch hẹn với BS. ${doctor.fullName} sẽ bắt đầu lúc ${appointment.startTime}`,
-        linkTo: '/patient/appointments/my-appointments',
+        linkTo: `/patient/appointments/my-appointments?filter=confirmed&appointmentId=${appointment._id}`,
       });
 
       this.logger.log(
