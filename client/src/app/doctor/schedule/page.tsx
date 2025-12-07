@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -1857,5 +1857,15 @@ function DoctorScheduleContent() {
 }
 
 export default function DoctorSchedulePage() {
-  return <DoctorScheduleContent />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      }
+    >
+      <DoctorScheduleContent />
+    </Suspense>
+  );
 }

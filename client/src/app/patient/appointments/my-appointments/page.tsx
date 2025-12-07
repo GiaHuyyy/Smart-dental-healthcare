@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useAppointment } from "@/contexts/AppointmentContext";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
@@ -1369,5 +1370,15 @@ function MyAppointmentsContent() {
 }
 
 export default function MyAppointmentsPage() {
-  return <MyAppointmentsContent />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      }
+    >
+      <MyAppointmentsContent />
+    </Suspense>
+  );
 }
