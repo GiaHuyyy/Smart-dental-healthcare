@@ -1818,7 +1818,10 @@ function DoctorScheduleContent() {
                             </div>
                           </div>
                           <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
-                            <span>Tạo lúc: {new Date(suggestion.createdAt).toLocaleString("vi-VN")}</span>
+                            <span>
+                              Tạo lúc:{" "}
+                              {suggestion.createdAt ? new Date(suggestion.createdAt).toLocaleString("vi-VN") : "N/A"}
+                            </span>
                             {suggestion.voucherId && (
                               <span className="flex items-center gap-1 text-green-600">🎁 Có voucher giảm giá 5%</span>
                             )}
