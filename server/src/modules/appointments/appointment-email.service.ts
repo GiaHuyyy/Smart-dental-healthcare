@@ -73,7 +73,7 @@ export class AppointmentEmailService {
         year: 'numeric',
       });
 
-      const viewUrl = `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`;
+      const viewUrl = `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments?filter=confirmed&appointmentId=${appointment._id}`;
 
       await this.sendGridService.sendMail({
         to: patient.email,
@@ -125,8 +125,8 @@ export class AppointmentEmailService {
         cancelledBy === 'doctor' ? patient.fullName : `BS. ${doctor.fullName}`;
       const viewUrl =
         cancelledBy === 'doctor'
-          ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`
-          : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`;
+          ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments?filter=cancelled&appointmentId=${appointment._id}`
+          : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule?appointmentId=${appointment._id}`;
 
       await this.sendGridService.sendMail({
         to: recipient.email,
@@ -179,8 +179,8 @@ export class AppointmentEmailService {
           : `BS. ${doctor.fullName}`;
       const viewUrl =
         recipientType === 'doctor'
-          ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule`
-          : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments`;
+          ? `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/doctor/schedule?appointmentId=${appointment._id}`
+          : `${this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000'}/patient/appointments/my-appointments?filter=confirmed&appointmentId=${appointment._id}`;
 
       await this.sendGridService.sendMail({
         to: recipient.email,
@@ -223,6 +223,11 @@ export class AppointmentEmailService {
     refundAmount = 0,
   ) {
     try {
+      const clientUrl =
+        this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
+      const viewUrl = `${clientUrl}/patient/appointments/my-appointments?filter=cancelled&appointmentId=${appointment._id}`;
+      const bookUrl = `${clientUrl}/patient/appointments`;
+
       const appointmentDate = new Date(
         appointment.appointmentDate,
       ).toLocaleDateString('vi-VN', {
@@ -271,6 +276,15 @@ export class AppointmentEmailService {
             </p>
           </div>
 
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${bookUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3); margin-right: 10px;">
+              Đặt Lịch Hẹn Mới →
+            </a>
+            <a href="${viewUrl}" style="display: inline-block; background: #6b7280; color: white; text-decoration: none; padding: 14px 24px; border-radius: 8px; font-weight: bold; font-size: 14px;">
+              Xem Chi Tiết
+            </a>
+          </div>
+
           <p style="font-size: 16px; color: #374151;">Chúng tôi thành thật xin lỗi vì sự bất tiện này.</p>
 
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
@@ -298,6 +312,10 @@ export class AppointmentEmailService {
     patient: any,
   ) {
     try {
+      const clientUrl =
+        this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
+      const viewUrl = `${clientUrl}/doctor/schedule?appointmentId=${appointment._id}`;
+
       const appointmentDate = new Date(
         appointment.appointmentDate,
       ).toLocaleDateString('vi-VN', {
@@ -328,6 +346,12 @@ export class AppointmentEmailService {
               <strong>⚠️ Lưu ý:</strong> Các lịch hẹn cần được xác nhận trước ít nhất <strong>30 phút</strong>
               để tránh tự động hủy và đảm bảo trải nghiệm tốt nhất cho bệnh nhân.
             </p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${viewUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);">
+              Xem Chi Tiết Lịch Hẹn →
+            </a>
           </div>
 
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
@@ -362,7 +386,7 @@ export class AppointmentEmailService {
     try {
       const clientUrl =
         this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
-      const viewUrl = `${clientUrl}/patient/appointments/my-appointments?tab=follow-ups`;
+      const viewUrl = `${clientUrl}/patient/appointments/my-appointments?filter=follow-up`;
 
       const voucherInfo = suggestion.voucherId
         ? `

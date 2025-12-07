@@ -96,7 +96,7 @@ export class AppointmentNotificationGateway
             : 'Bạn có lịch hẹn mới',
           type: 'APPOINTMENT_NEW',
           data: { appointmentId: appointment._id },
-          linkTo: '/doctor/schedule',
+          linkTo: `/doctor/schedule?appointmentId=${appointment._id}`,
           icon: '📅',
         },
         false,
@@ -140,7 +140,7 @@ export class AppointmentNotificationGateway
             : 'Bác sĩ đã xác nhận lịch hẹn của bạn',
           type: 'APPOINTMENT_CONFIRMED',
           data: { appointmentId: appointment._id },
-          linkTo: '/patient/appointments/my-appointments?tab=confirmed',
+          linkTo: `/patient/appointments/my-appointments?filter=confirmed&appointmentId=${appointment._id}`,
           icon: '✅',
         },
         false,
@@ -225,8 +225,8 @@ export class AppointmentNotificationGateway
           },
           linkTo:
             cancelledBy === 'patient'
-              ? '/doctor/schedule'
-              : '/patient/appointments/my-appointments?tab=cancelled',
+              ? `/doctor/schedule?appointmentId=${appointment._id}`
+              : `/patient/appointments/my-appointments?filter=cancelled&appointmentId=${appointment._id}`,
           icon: cancelledBy === 'system' ? '⚠️' : '❌',
         },
         false,
@@ -297,8 +297,8 @@ export class AppointmentNotificationGateway
           data: { appointmentId: appointment._id, feeCharged },
           linkTo:
             userRole === 'doctor'
-              ? '/doctor/schedule'
-              : '/patient/appointments/my-appointments',
+              ? `/doctor/schedule?appointmentId=${appointment._id}`
+              : `/patient/appointments/my-appointments?filter=confirmed&appointmentId=${appointment._id}`,
           icon: '🔄',
         },
         false,
@@ -439,7 +439,7 @@ export class AppointmentNotificationGateway
           : 'Bác sĩ đã đề xuất lịch tái khám cho bạn với ưu đãi giảm giá 5%',
         type: 'FOLLOW_UP_SUGGESTION',
         data: { appointmentId: appointment._id },
-        linkTo: '/patient/appointments/my-appointments?tab=follow-ups',
+        linkTo: '/patient/appointments/my-appointments?filter=follow-up',
         icon: '🔔',
       },
       false,
@@ -471,7 +471,7 @@ export class AppointmentNotificationGateway
           : 'Bệnh nhân đã xác nhận lịch tái khám',
         type: 'FOLLOW_UP_CONFIRMED',
         data: { appointmentId: appointment._id },
-        linkTo: '/doctor/schedule',
+        linkTo: `/doctor/schedule?appointmentId=${appointment._id}`,
         icon: '✅',
       },
       false,
@@ -503,7 +503,7 @@ export class AppointmentNotificationGateway
           : 'Bệnh nhân đã từ chối lịch tái khám',
         type: 'FOLLOW_UP_REJECTED',
         data: { appointmentId: appointment._id },
-        linkTo: '/doctor/schedule',
+        linkTo: `/doctor/schedule?appointmentId=${appointment._id}`,
         icon: '❌',
       },
       false,

@@ -149,14 +149,24 @@ function MyAppointmentsContent() {
     }
   }, [session?.user?._id, session]);
 
-  // Auto-open detail modal from URL parameter (from dashboard click)
+  // Auto-open detail modal from URL parameter (from dashboard click or notification)
   useEffect(() => {
     try {
       if (typeof window === "undefined") return;
       const params = new URLSearchParams(window.location.search);
       const filterParam = params.get("filter");
+
+      // Handle filter parameter for different statuses
       if (filterParam === "follow-up") {
-        setFilter("follow-up" as AppointmentStatus);
+        setFilter("follow-up" as "all" | "follow-up" | AppointmentStatus);
+      } else if (filterParam === "confirmed") {
+        setFilter(AppointmentStatus.CONFIRMED);
+      } else if (filterParam === "cancelled") {
+        setFilter(AppointmentStatus.CANCELLED);
+      } else if (filterParam === "completed") {
+        setFilter(AppointmentStatus.COMPLETED);
+      } else if (filterParam === "pending") {
+        setFilter(AppointmentStatus.PENDING);
       }
 
       // If there's a specific appointment to view
@@ -165,6 +175,8 @@ function MyAppointmentsContent() {
         const apt = appointments.find((a) => a._id === appointmentId);
         if (apt) {
           handleViewDetail(apt);
+          // Clear the URL params after opening the modal
+          window.history.replaceState({}, "", "/patient/appointments/my-appointments");
         }
       }
     } catch {

@@ -208,7 +208,7 @@ export class NotificationGateway
       data: {
         appointmentId: suggestion._id,
       },
-      linkTo: '/patient/appointments/my-appointments?tab=follow-ups',
+      linkTo: '/patient/appointments/my-appointments?filter=follow-up',
       icon: '🔔',
     };
 
