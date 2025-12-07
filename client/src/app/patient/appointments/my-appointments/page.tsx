@@ -153,14 +153,27 @@ function MyAppointmentsContent() {
     }
   }, [session?.user?._id, session]);
 
-  // Auto-open detail modal from URL parameter (from dashboard click or notification)
+  // Auto-open detail modal OR switch to follow-up tab from URL parameter
   useEffect(() => {
     try {
       if (typeof window === "undefined") return;
 
       // Get current params from searchParams hook (reactive to URL changes)
       const appointmentId = searchParams.get("appointmentId");
+      const filterParam = searchParams.get("filter");
       const timestamp = searchParams.get("_t"); // Timestamp for forcing re-process
+
+      // Handle follow-up filter (switch to "Cần tái khám" tab)
+      if (filterParam === "follow-up") {
+        const followUpKey = `followup-${timestamp || ""}`;
+        if (followUpKey !== lastProcessedParams.current) {
+          lastProcessedParams.current = followUpKey;
+          setFilter("follow-up" as "all" | "follow-up" | AppointmentStatus);
+          // Clear the URL params after switching tab
+          window.history.replaceState({}, "", "/patient/appointments/my-appointments");
+        }
+        return;
+      }
 
       // Only process if there's an appointmentId to handle
       if (!appointmentId) return;

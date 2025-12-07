@@ -265,7 +265,7 @@ export class NotificationGateway
         suggestionId: suggestion._id,
         patientId: suggestion.patientId,
       },
-      linkTo: '/doctor/schedule',
+      linkTo: '/doctor/schedule?openFollowUpModal=true',
       icon: '❌',
     };
 
