@@ -117,7 +117,7 @@ function MedicationsList({ medications }: { medications?: PrescriptionMedication
   const meds = ensureArray<PrescriptionMedication>(medications);
   if (meds.length === 0) return null;
   return (
-    <View className="mt-4 space-y-3">
+    <View className="mt-4" style={{ gap: 12 }}>
       {meds.map((med, index) => (
         <View
           key={`${med.name ?? index}-${index}`}
@@ -177,7 +177,7 @@ function PrescriptionCard({ prescription }: { prescription: Prescription }) {
             Liên kết hồ sơ: {extractRecordSummary(prescription.medicalRecordId)}
           </Text>
         </View>
-        <View className="items-end space-y-2">
+        <View className="items-end" style={{ gap: 8 }}>
           <PrescriptionBadge text={badge.label} color={badge.color} background={badge.background} />
           {dispensed ? (
             <PrescriptionBadge text="Đã phát thuốc" color={Colors.success[700]} background={Colors.success[50]} />
@@ -188,7 +188,7 @@ function PrescriptionCard({ prescription }: { prescription: Prescription }) {
       </View>
 
       {prescription.diagnosis ? (
-        <View className="mt-4 flex-row items-start space-x-3">
+        <View className="mt-4 flex-row items-start" style={{ gap: 12 }}>
           <Ionicons name="clipboard-outline" size={18} color={Colors.primary[600]} />
           <View className="flex-1">
             <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
@@ -236,7 +236,7 @@ function PrescriptionCard({ prescription }: { prescription: Prescription }) {
           className="mt-4 rounded-2xl p-4"
           style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}
         >
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             <Ionicons name="time-outline" size={18} color={Colors.warning[700]} />
             <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
               Nhắc nhở tái khám
@@ -253,7 +253,7 @@ function PrescriptionCard({ prescription }: { prescription: Prescription }) {
           className="mt-4 rounded-2xl p-3"
           style={{ backgroundColor: Colors.success[50], borderWidth: 1, borderColor: Colors.success[100] }}
         >
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             <Ionicons name="checkmark-circle-outline" size={16} color={Colors.success[700]} />
             <Text className="text-xs font-semibold" style={{ color: Colors.success[700] }}>
               Đã phát thuốc ngày {formatDate(prescription.dispensedDate)}
@@ -424,7 +424,7 @@ export default function PrescriptionsScreen() {
           ) : undefined
         }
       >
-        <View className="space-y-6">
+        <View style={{ gap: 24 }}>
           {/* Header Card */}
           <Card shadow="md" className="p-6">
             <View className="flex-row items-start justify-between">
@@ -442,7 +442,7 @@ export default function PrescriptionsScreen() {
                   Xem liều dùng, theo dõi trạng thái phát thuốc và nhận nhắc nhở tái khám từ bác sĩ.
                 </Text>
               </View>
-              <View className="w-28 space-y-3">
+              <View className="w-28" style={{ gap: 12 }}>
                 <View className="rounded-2xl px-3 py-2" style={{ backgroundColor: Colors.primary[50] }}>
                   <Text className="text-[11px] font-semibold" style={{ color: Colors.primary[600] }}>
                     Đơn thuốc
@@ -462,7 +462,7 @@ export default function PrescriptionsScreen() {
               </View>
             </View>
 
-            <View className="mt-6 space-y-3">
+            <View className="mt-6" style={{ gap: 12 }}>
               <View
                 className="rounded-2xl p-3"
                 style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
@@ -476,7 +476,7 @@ export default function PrescriptionsScreen() {
                   style={{ color: theme.text.primary }}
                 />
               </View>
-              <View className="flex-row flex-wrap gap-3">
+              <View className="flex-row flex-wrap" style={{ gap: 12 }}>
                 {FILTER_OPTIONS.map((option) => {
                   const active = option.id === activeFilter;
                   return (
@@ -504,10 +504,10 @@ export default function PrescriptionsScreen() {
           </Card>
 
           {/* Stats Cards */}
-          <View className="flex-row flex-wrap gap-4">
+          <View className="flex-row flex-wrap" style={{ gap: 16 }}>
             <View className="w-full flex-1" style={{ minWidth: '48%' }}>
               <Card shadow="md" className="h-full p-4">
-                <View className="flex-row items-center space-x-3">
+                <View className="flex-row items-center" style={{ gap: 12 }}>
                   <View
                     className="h-12 w-12 items-center justify-center rounded-2xl"
                     style={{ backgroundColor: Colors.success[50] }}
@@ -530,7 +530,7 @@ export default function PrescriptionsScreen() {
             </View>
             <View className="w-full flex-1" style={{ minWidth: '48%' }}>
               <Card shadow="md" className="h-full p-4">
-                <View className="flex-row items-center space-x-3">
+                <View className="flex-row items-center" style={{ gap: 12 }}>
                   <View
                     className="h-12 w-12 items-center justify-center rounded-2xl"
                     style={{ backgroundColor: Colors.warning[50] }}
@@ -553,7 +553,7 @@ export default function PrescriptionsScreen() {
             </View>
             <View className="w-full flex-1" style={{ minWidth: '48%' }}>
               <Card shadow="md" className="h-full p-4">
-                <View className="flex-row items-center space-x-3">
+                <View className="flex-row items-center" style={{ gap: 12 }}>
                   <View
                     className="h-12 w-12 items-center justify-center rounded-2xl"
                     style={{ backgroundColor: Colors.primary[50] }}
@@ -583,7 +583,7 @@ export default function PrescriptionsScreen() {
               className="p-4"
               style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}
             >
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[700]} />
                 <Text className="flex-1 text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                   {errorMessage}
@@ -616,7 +616,7 @@ export default function PrescriptionsScreen() {
               </Text>
             </Card>
           ) : (
-            <View className="space-y-5">
+            <View style={{ gap: 20 }}>
               {filteredPrescriptions.map((item) => (
                 <PrescriptionCard key={item._id ?? `${item.prescriptionDate}-${extractDoctorName(item.doctorId)}`} prescription={item} />
               ))}

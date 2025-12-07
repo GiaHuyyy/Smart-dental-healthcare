@@ -16,6 +16,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/layout/AppHeader';
 import { PolicyButton, PolicyModal } from '@/components/policy';
@@ -165,7 +166,7 @@ function ProceduresPreview({ procedures }: { procedures?: MedicalRecordProcedure
   const items = ensureArray<MedicalRecordProcedure>(procedures).slice(0, 3);
   if (items.length === 0) return null;
   return (
-    <View className="mt-4 space-y-2">
+    <View className="mt-4" style={{ gap: 8 }}>
       <Text className="text-xs font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
         Thủ thuật chính
       </Text>
@@ -184,7 +185,7 @@ function ProceduresPreview({ procedures }: { procedures?: MedicalRecordProcedure
             </Text>
           ) : null}
           {item.status ? (
-            <View className="mt-2 flex-row items-center space-x-2">
+            <View className="mt-2 flex-row items-center" style={{ gap: 8 }}>
               <Ionicons name="checkmark-done-outline" size={14} color={Colors.primary[600]} />
               <Text className="text-xs font-medium" style={{ color: Colors.primary[700] }}>
                 {item.status}
@@ -225,13 +226,13 @@ function MedicationsPreview({ medications, detailedMedications }: { medications?
       className="mt-3 rounded-xl p-2.5"
       style={{ backgroundColor: Colors.success[50], borderWidth: 1, borderColor: Colors.success[100] }}
     >
-      <View className="flex-row items-center gap-1.5">
+      <View className="flex-row items-center" style={{ gap: 6 }}>
         <Ionicons name="medkit-outline" size={14} color={Colors.success[700]} />
         <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: Colors.success[700] }}>
           Thuốc kê đơn
         </Text>
       </View>
-      <View className="mt-2 space-y-1.5">
+      <View className="mt-2" style={{ gap: 6 }}>
         {displayMeds.map((med, index) => {
           // Handle string medications
           if (typeof med === 'string') {
@@ -302,12 +303,12 @@ function RecordCard({
     <Card shadow="sm" className="p-4" style={isChild ? { 
       marginLeft: 20, 
       borderLeftWidth: 3, 
-      borderLeftColor: Colors.warning[300],
+      borderLeftColor: Colors.warning[500],
       backgroundColor: Colors.warning[50]
     } : undefined}>
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-3">
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             {hasChildren && !isChild ? (
               <TouchableOpacity
                 onPress={onToggleExpand}
@@ -333,7 +334,7 @@ function RecordCard({
               </View>
             )}
             <View className="flex-1">
-              <View className="flex-row items-center gap-2 flex-wrap">
+              <View className="flex-row items-center flex-wrap" style={{ gap: 8 }}>
                 <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
                   {isChild ? `Tái khám ${childIndex}` : `Khám ${formatDate(record.recordDate)}`}
                 </Text>
@@ -364,8 +365,8 @@ function RecordCard({
       {/* Show expand instruction for parent with children */}
       {hasChildren && !isChild && !isExpanded && (
         <View 
-          className="mt-3 rounded-xl p-2.5 flex-row items-center gap-2"
-          style={{ backgroundColor: Colors.primary[100] }}
+          className="mt-3 rounded-xl p-2.5 flex-row items-center"
+          style={{ backgroundColor: Colors.primary[100], gap: 8 }}
         >
           <Ionicons name="information-circle" size={16} color={Colors.primary[700]} />
           <Text className="text-xs font-medium flex-1" style={{ color: Colors.primary[700] }}>
@@ -374,9 +375,9 @@ function RecordCard({
         </View>
       )}
 
-      <View className="mt-3 space-y-2">
+      <View className="mt-3" style={{ gap: 8 }}>
         {record.chiefComplaint ? (
-          <View className="flex-row items-start gap-2">
+          <View className="flex-row items-start" style={{ gap: 8 }}>
             <Ionicons name="alert-circle-outline" size={16} color={Colors.warning[600]} />
             <View className="flex-1">
               <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
@@ -391,13 +392,13 @@ function RecordCard({
         
         {/* Diagnosis Groups (priority) or fallback to diagnosis */}
         {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
-          <View className="flex-row items-start gap-2">
+          <View className="flex-row items-start" style={{ gap: 8 }}>
             <Ionicons name="clipboard-outline" size={16} color={Colors.primary[600]} />
             <View className="flex-1">
               <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
                 Chẩn đoán
               </Text>
-              <View className="mt-1 space-y-1">
+              <View className="mt-1" style={{ gap: 4 }}>
                 {record.diagnosisGroups.map((group, idx) => (
                   <View key={idx} className="rounded-lg p-2" style={{ backgroundColor: Colors.primary[50] }}>
                     <Text className="text-xs font-semibold" style={{ color: theme.text.primary }}>
@@ -422,7 +423,7 @@ function RecordCard({
             </View>
           </View>
         ) : record.diagnosis ? (
-          <View className="flex-row items-start gap-2">
+          <View className="flex-row items-start" style={{ gap: 8 }}>
             <Ionicons name="clipboard-outline" size={16} color={Colors.primary[600]} />
             <View className="flex-1">
               <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
@@ -434,7 +435,7 @@ function RecordCard({
             </View>
           </View>
         ) : (
-          <View className="flex-row items-start gap-2">
+          <View className="flex-row items-start" style={{ gap: 8 }}>
             <Ionicons name="clipboard-outline" size={16} color={Colors.error[500]} />
             <View className="flex-1">
               <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
@@ -448,7 +449,7 @@ function RecordCard({
         )}
 
         {record.treatmentPlan ? (
-          <View className="flex-row items-start gap-2">
+          <View className="flex-row items-start" style={{ gap: 8 }}>
             <Ionicons name="checkmark-circle-outline" size={16} color={Colors.success[600]} />
             <View className="flex-1">
               <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
@@ -461,7 +462,7 @@ function RecordCard({
           </View>
         ) : null}
         {record.notes ? (
-          <View className="flex-row items-start gap-2">
+          <View className="flex-row items-start" style={{ gap: 8 }}>
             <Ionicons name="document-text-outline" size={16} color={theme.text.secondary} />
             <View className="flex-1">
               <Text className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>
@@ -480,7 +481,7 @@ function RecordCard({
           className="mt-3 rounded-xl p-3"
           style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}
         >
-          <View className="flex-row items-center gap-1.5">
+          <View className="flex-row items-center" style={{ gap: 6 }}>
             <Ionicons name="time-outline" size={16} color={Colors.warning[700]} />
             <Text className="text-xs font-semibold" style={{ color: Colors.warning[700] }}>
               Cần tái khám
@@ -502,7 +503,7 @@ function RecordCard({
         className="mt-3 rounded-xl py-2.5"
         style={{ backgroundColor: Colors.primary[600] }}
       >
-        <View className="flex-row items-center justify-center gap-1.5">
+        <View className="flex-row items-center justify-center" style={{ gap: 6 }}>
           <Ionicons name="eye-outline" size={16} color="#ffffff" />
           <Text className="text-xs font-semibold text-white">Xem chi tiết</Text>
         </View>
@@ -971,7 +972,7 @@ export default function RecordsScreen() {
 
   if (!isHydrating && !isAuthenticated) {
     return (
-      <>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['bottom']}>
         <AppHeader 
           title="Hồ sơ bệnh án" 
           showNotification 
@@ -998,12 +999,12 @@ export default function RecordsScreen() {
         </View>
 
         <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
-      </>
+      </SafeAreaView>
     );
   }
 
   return (
-    <>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['bottom']}>
       <AppHeader 
         title="Hồ sơ bệnh án" 
         showNotification 
@@ -1021,12 +1022,12 @@ export default function RecordsScreen() {
           ) : undefined
         }
       >
-        <View className="space-y-4">
+        <View style={{ gap: 16 }}>
           {/* Header Card */}
           <Card className="p-4">
             <View className="flex-row items-start justify-between">
               <View className="flex-1 pr-3">
-                <View className="flex-row items-center gap-2 mb-2">
+                <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                   <View
                     className="h-10 w-10 items-center justify-center rounded-xl"
                     style={{ backgroundColor: Colors.primary[600] }}
@@ -1058,7 +1059,7 @@ export default function RecordsScreen() {
                 className="mt-3 rounded-xl p-3"
                 style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
               >
-                <View className="flex-row items-center gap-1.5">
+                <View className="flex-row items-center" style={{ gap: 6 }}>
                   <Ionicons name="medical-outline" size={16} color={Colors.primary[600]} />
                   <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
                     Lần khám gần nhất
@@ -1072,7 +1073,7 @@ export default function RecordsScreen() {
           </Card>
 
           {/* Quick Stats - Clickable Filters */}
-          <View className="flex-row flex-wrap gap-2">
+          <View className="flex-row flex-wrap" style={{ gap: 8 }}>
             {quickStats.map(({ id, label, value, description, background, color, icon }) => {
               const isActive = selectedStatFilter === id;
               return (
@@ -1092,7 +1093,7 @@ export default function RecordsScreen() {
                       backgroundColor: isActive ? background : theme.card,
                     }}
                   >
-                    <View className="flex-row items-center gap-2">
+                    <View className="flex-row items-center" style={{ gap: 8 }}>
                       <View
                         className="h-9 w-9 items-center justify-center rounded-xl"
                         style={{ backgroundColor: isActive ? theme.card : background }}
@@ -1116,7 +1117,7 @@ export default function RecordsScreen() {
 
           {/* Search Input */}
           <Card shadow="sm" className="p-3">
-            <View className="flex-row items-center gap-2">
+            <View className="flex-row items-center" style={{ gap: 8 }}>
               <Ionicons name="search-outline" size={16} color={Colors.primary[600]} />
               <View
                 className="flex-1 rounded-xl p-2"
@@ -1135,9 +1136,9 @@ export default function RecordsScreen() {
           </Card>
 
           {/* Date & Status Filters */}
-          <Card shadow="sm" className="p-3 space-y-3">
+          <Card shadow="sm" className="p-3" style={{ gap: 12 }}>
             {/* Date Filter Row */}
-            <View className="flex-row items-center gap-2">
+            <View className="flex-row items-center" style={{ gap: 8 }}>
               <Ionicons name="calendar-outline" size={16} color={Colors.primary[600]} />
               <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
                 Từ
@@ -1166,7 +1167,7 @@ export default function RecordsScreen() {
             </View>
 
             {/* Status Filter Buttons */}
-            <View className="flex-row gap-2">
+            <View className="flex-row" style={{ gap: 8 }}>
               <TouchableOpacity
                 className="flex-1 rounded-xl px-3 py-2"
                 style={{ 
@@ -1238,7 +1239,7 @@ export default function RecordsScreen() {
               className="p-4"
               style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}
             >
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[700]} />
                 <Text className="flex-1 text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                   {errorMessage}
@@ -1271,7 +1272,7 @@ export default function RecordsScreen() {
               </Text>
             </Card>
           ) : (
-            <View className="space-y-3">
+            <View style={{ gap: 12 }}>
               {(() => {
                 // Build filtered parent records with their children
                 const filteredIds = new Set(filteredItems.map(r => r._id));
@@ -1288,7 +1289,7 @@ export default function RecordsScreen() {
                   const showParent = filteredIds.has(parent._id);
 
                   return (
-                    <View key={parent._id ?? `parent-${parent.recordDate}`} className="space-y-2">
+                    <View key={parent._id ?? `parent-${parent.recordDate}`} style={{ gap: 8 }}>
                       {/* Parent Record */}
                       {showParent && (
                         <RecordCard 
@@ -1362,7 +1363,7 @@ export default function RecordsScreen() {
                   locale="vi-VN"
                 />
 
-                <View className="flex-row gap-2 mt-4">
+                <View className="flex-row mt-4" style={{ gap: 8 }}>
                   <TouchableOpacity
                     className="flex-1 rounded-xl py-3"
                     style={{ backgroundColor: Colors.error[50] }}
@@ -1413,69 +1414,54 @@ export default function RecordsScreen() {
       )}
 
       {/* Detail Modal */}
-      {showDetailModal && selectedRecord && (
-        <Modal
-          visible={true}
-          transparent
-          animationType="slide"
-          onRequestClose={() => {
-            setShowDetailModal(false);
-            setSelectedRecord(null);
-          }}
-        >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
-            <TouchableOpacity 
-              style={{ flex: 1 }}
-              activeOpacity={1}
-              onPress={() => {
-                setShowDetailModal(false);
-                setSelectedRecord(null);
-              }}
-            />
+      <Modal
+        visible={showDetailModal && selectedRecord !== null}
+        transparent={false}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowDetailModal(false);
+          setSelectedRecord(null);
+        }}
+      >
+        {selectedRecord && (
+          <SafeAreaView style={{ flex: 1, backgroundColor: theme.card }}>
+            {/* Modal Header */}
             <View 
-              style={{ 
-                maxHeight: '85%',
-                backgroundColor: theme.card,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-              }}
+              className="flex-row items-center justify-between p-4 border-b"
+              style={{ borderBottomColor: theme.border }}
             >
-              {/* Modal Header */}
-              <View 
-                className="flex-row items-center justify-between p-4 border-b"
-                style={{ borderBottomColor: theme.border }}
-              >
-                <View className="flex-1">
-                  <Text className="text-lg font-bold" style={{ color: theme.text.primary }}>
-                    Chi tiết hồ sơ điều trị
-                  </Text>
-                  <Text className="text-xs mt-0.5" style={{ color: theme.text.secondary }}>
-                    {formatDateTime(selectedRecord.recordDate)}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  <TouchableOpacity
-                    onPress={handleShareSelectedRecord}
-                    className="h-8 w-8 items-center justify-center rounded-full"
-                    style={{ backgroundColor: Colors.primary[100] }}
-                  >
-                    <Ionicons name="share-social-outline" size={18} color={Colors.primary[700]} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handlePrintSelectedRecord}
-                    className="h-8 w-8 items-center justify-center rounded-full"
-                    style={{ backgroundColor: Colors.primary[100] }}
-                  >
-                    <Ionicons name="print-outline" size={18} color={Colors.primary[700]} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setShowDetailModal(false);
-                      setSelectedRecord(null);
-                    }}
-                    className="h-8 w-8 items-center justify-center rounded-full"
-                    style={{ backgroundColor: Colors.error[100] }}
-                  >
+              <View className="flex-1">
+                <Text className="text-lg font-bold" style={{ color: theme.text.primary }}>
+                  Chi tiết hồ sơ điều trị
+                </Text>
+                <Text className="text-xs mt-0.5" style={{ color: theme.text.secondary }}>
+                  {formatDateTime(selectedRecord.recordDate)}
+                </Text>
+              </View>
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                <TouchableOpacity
+                  onPress={handleShareSelectedRecord}
+                  className="h-8 w-8 items-center justify-center rounded-full"
+                  style={{ backgroundColor: Colors.primary[100] }}
+                >
+                  <Ionicons name="share-social-outline" size={18} color={Colors.primary[700]} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handlePrintSelectedRecord}
+                  className="h-8 w-8 items-center justify-center rounded-full"
+                  style={{ backgroundColor: Colors.primary[100] }}
+                >
+                  <Ionicons name="print-outline" size={18} color={Colors.primary[700]} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowDetailModal(false);
+                    setSelectedRecord(null);
+                  }}
+                  className="h-8 w-8 items-center justify-center rounded-full"
+                  style={{ backgroundColor: Colors.error[100] }}
+                >
                     <Ionicons name="close" size={20} color={Colors.error[700]} />
                   </TouchableOpacity>
                 </View>
@@ -1487,10 +1473,10 @@ export default function RecordsScreen() {
                 contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
                 showsVerticalScrollIndicator={false}
               >
-                <View className="space-y-4">
+                <View style={{ gap: 16 }}>
                   {/* Doctor Info */}
                   <Card className="p-3" style={{ backgroundColor: Colors.primary[50] }}>
-                    <View className="flex-row items-center gap-2 mb-2">
+                    <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                       <Ionicons name="person" size={16} color={Colors.primary[700]} />
                       <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
                         Thông tin bác sĩ
@@ -1509,7 +1495,7 @@ export default function RecordsScreen() {
                   {/* Chief Complaint */}
                   {selectedRecord.chiefComplaint && (
                     <Card className="p-3" style={{ backgroundColor: Colors.warning[50] }}>
-                      <View className="flex-row items-center gap-2 mb-2">
+                      <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                         <Ionicons name="alert-circle" size={16} color={Colors.warning[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                           Lý do khám
@@ -1523,8 +1509,8 @@ export default function RecordsScreen() {
 
                   {/* Diagnosis Groups or Diagnosis */}
                   {selectedRecord.diagnosisGroups && selectedRecord.diagnosisGroups.length > 0 ? (
-                    <View className="space-y-2">
-                      <View className="flex-row items-center gap-2 mb-1">
+                    <View style={{ gap: 8 }}>
+                      <View className="flex-row items-center mb-1" style={{ gap: 8 }}>
                         <Ionicons name="clipboard" size={16} color={Colors.primary[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
                           Chẩn đoán
@@ -1540,7 +1526,7 @@ export default function RecordsScreen() {
                             borderLeftColor: Colors.primary[600]
                           }}
                         >
-                          <View className="flex-row items-start gap-2">
+                          <View className="flex-row items-start" style={{ gap: 8 }}>
                             <View 
                               className="h-5 w-5 rounded-full items-center justify-center"
                               style={{ backgroundColor: Colors.primary[600] }}
@@ -1554,7 +1540,7 @@ export default function RecordsScreen() {
                                 {group.diagnosis}
                               </Text>
                               {group.treatmentPlans && group.treatmentPlans.length > 0 && (
-                                <View className="mt-2 space-y-1">
+                                <View className="mt-2" style={{ gap: 4 }}>
                                   <Text className="text-xs font-medium" style={{ color: theme.text.secondary }}>
                                     Phương pháp điều trị:
                                   </Text>
@@ -1580,7 +1566,7 @@ export default function RecordsScreen() {
                       borderLeftWidth: 3,
                       borderLeftColor: Colors.primary[600]
                     }}>
-                      <View className="flex-row items-center gap-2 mb-2">
+                      <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                         <Ionicons name="clipboard" size={16} color={Colors.primary[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
                           Chẩn đoán
@@ -1595,7 +1581,7 @@ export default function RecordsScreen() {
                   {/* Treatment Plan */}
                   {selectedRecord.treatmentPlan && (
                     <Card className="p-3" style={{ backgroundColor: Colors.success[50] }}>
-                      <View className="flex-row items-center gap-2 mb-2">
+                      <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                         <Ionicons name="checkmark-circle" size={16} color={Colors.success[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.success[700] }}>
                           Kế hoạch điều trị
@@ -1619,8 +1605,8 @@ export default function RecordsScreen() {
                     if (meds.length === 0) return null;
                     
                     return (
-                      <View className="space-y-2">
-                        <View className="flex-row items-center gap-2">
+                      <View style={{ gap: 8 }}>
+                        <View className="flex-row items-center" style={{ gap: 8 }}>
                           <Ionicons name="medkit" size={16} color={Colors.success[700]} />
                           <Text className="text-sm font-semibold" style={{ color: Colors.success[700] }}>
                             Thuốc kê đơn ({meds.length})
@@ -1661,8 +1647,8 @@ export default function RecordsScreen() {
 
                   {/* Procedures */}
                   {selectedRecord.procedures && selectedRecord.procedures.length > 0 && (
-                    <View className="space-y-2">
-                      <View className="flex-row items-center gap-2">
+                    <View style={{ gap: 8 }}>
+                      <View className="flex-row items-center" style={{ gap: 8 }}>
                         <Ionicons name="build" size={16} color={Colors.primary[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
                           Thủ thuật ({selectedRecord.procedures.length})
@@ -1700,7 +1686,7 @@ export default function RecordsScreen() {
                   {/* Notes */}
                   {selectedRecord.notes && (
                     <Card className="p-3" style={{ backgroundColor: Colors.warning[50] }}>
-                      <View className="flex-row items-center gap-2 mb-2">
+                      <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                         <Ionicons name="document-text" size={16} color={Colors.warning[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                           Ghi chú
@@ -1717,9 +1703,9 @@ export default function RecordsScreen() {
                     <Card className="p-3" style={{ 
                       backgroundColor: Colors.error[50],
                       borderWidth: 1,
-                      borderColor: Colors.error[200]
+                      borderColor: Colors.error[100]
                     }}>
-                      <View className="flex-row items-center gap-2 mb-2">
+                      <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                         <Ionicons name="time" size={16} color={Colors.error[700]} />
                         <Text className="text-sm font-semibold" style={{ color: Colors.error[700] }}>
                           Lịch tái khám
@@ -1732,12 +1718,11 @@ export default function RecordsScreen() {
                   )}
                 </View>
               </ScrollView>
-            </View>
-          </View>
-        </Modal>
-      )}
+          </SafeAreaView>
+        )}
+      </Modal>
 
       <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
-    </>
+    </SafeAreaView>
   );
 }

@@ -6,13 +6,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
+    ActivityIndicator,
+    Modal,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    Text,
+    View,
 } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -154,20 +154,6 @@ export default function DoctorRevenue() {
     }
   };
 
-  if (loading) {
-    return (
-      <>
-        <AppHeader title="Doanh thu" showNotification />
-        <View
-          className="flex-1 items-center justify-center"
-          style={{ backgroundColor: theme.background }}
-        >
-          <ActivityIndicator size="large" color={Colors.primary[600]} />
-        </View>
-      </>
-    );
-  }
-
   const getPeriodLabel = (period: PeriodFilter) => {
     switch (period) {
       case 'today':
@@ -211,7 +197,7 @@ export default function DoctorRevenue() {
 
   return (
     <>
-      <AppHeader title="Doanh thu" showNotification />
+      <AppHeader title="Doanh thu" showNotification showAvatar />
 
       <ScrollView
         className="flex-1"
@@ -220,7 +206,7 @@ export default function DoctorRevenue() {
       >
         <View className="px-4 pt-4 pb-24">
           {/* Filters Bar */}
-          <View className="flex-row items-center gap-2 mb-4">
+          <View className="flex-row items-center mb-4" style={{ gap: 8 }}>
             <Pressable
               className="flex-row items-center px-4 py-2 rounded-lg flex-1"
               style={{ backgroundColor: theme.card }}
@@ -255,7 +241,7 @@ export default function DoctorRevenue() {
           </View>
 
           {/* Summary Cards */}
-          <View className="gap-4 mb-6">
+          <View className="mb-6" style={{ gap: 16 }}>
             {/* Total Revenue Card with Gradient */}
             <View
               className="rounded-xl p-4 overflow-hidden"
@@ -283,7 +269,7 @@ export default function DoctorRevenue() {
             </View>
 
             {/* Platform Fee & Net Revenue */}
-            <View className="flex-row gap-4">
+            <View className="flex-row" style={{ gap: 16 }}>
               <View className="flex-1 rounded-xl p-4" style={{ backgroundColor: theme.card }}>
                 <View
                   className="w-10 h-10 rounded-full items-center justify-center mb-3"
@@ -324,7 +310,7 @@ export default function DoctorRevenue() {
             {/* Growth Card */}
             <View className="rounded-xl p-4" style={{ backgroundColor: theme.card }}>
               <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-3">
+                <View className="flex-row items-center" style={{ gap: 12 }}>
                   <View
                     className="w-10 h-10 rounded-full items-center justify-center"
                     style={{ backgroundColor: Colors.success[50] }}
@@ -378,7 +364,7 @@ export default function DoctorRevenue() {
               </Text>
             </View>
           ) : (
-            <View className="gap-3">
+            <View style={{ gap: 12 }}>
               {transactions.map((transaction) => (
                 <View
                   key={transaction._id}
@@ -390,7 +376,7 @@ export default function DoctorRevenue() {
                       <Text className="font-semibold text-base mb-1" style={{ color: theme.text.primary }}>
                         {transaction.patientName}
                       </Text>
-                      <View className="flex-row items-center gap-2">
+                      <View className="flex-row items-center" style={{ gap: 8 }}>
                         <Ionicons name="calendar-outline" size={14} color={theme.text.secondary} />
                         <Text className="text-sm" style={{ color: theme.text.secondary }}>
                           {new Date(transaction.date).toLocaleDateString('vi-VN')}
@@ -468,7 +454,7 @@ export default function DoctorRevenue() {
                 <Text className="text-sm font-semibold mb-3" style={{ color: theme.text.primary }}>
                   Khoảng thời gian
                 </Text>
-                <View className="gap-2">
+                <View style={{ gap: 8 }}>
                   {[
                     { value: 'today' as PeriodFilter, label: 'Hôm nay', icon: 'today-outline' },
                     { value: 'week' as PeriodFilter, label: 'Tuần này', icon: 'calendar-outline' },
@@ -484,7 +470,7 @@ export default function DoctorRevenue() {
                       }}
                       onPress={() => setPeriodFilter(option.value)}
                     >
-                      <View className="flex-row items-center gap-3">
+                      <View className="flex-row items-center" style={{ gap: 12 }}>
                         <Ionicons
                           name={option.icon as any}
                           size={20}
@@ -519,7 +505,7 @@ export default function DoctorRevenue() {
                 <Text className="text-sm font-semibold mb-3" style={{ color: theme.text.primary }}>
                   Trạng thái
                 </Text>
-                <View className="gap-2">
+                <View style={{ gap: 8 }}>
                   {[
                     { value: 'all' as StatusFilter, label: 'Tất cả', icon: 'list-outline' },
                     { value: 'completed' as StatusFilter, label: 'Hoàn thành', icon: 'checkmark-circle-outline' },
@@ -534,7 +520,7 @@ export default function DoctorRevenue() {
                       }}
                       onPress={() => setStatusFilter(option.value)}
                     >
-                      <View className="flex-row items-center gap-3">
+                      <View className="flex-row items-center" style={{ gap: 12 }}>
                         <Ionicons
                           name={option.icon as any}
                           size={20}

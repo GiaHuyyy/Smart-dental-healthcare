@@ -93,7 +93,7 @@ export function AppHeader({
 
   const containerStyle = {
     paddingTop: insets.top + 8,
-    paddingBottom: 12,
+    paddingBottom: 8,
     paddingHorizontal: 16,
   };
 
@@ -121,7 +121,7 @@ export function AppHeader({
         </View>
 
         {/* Right Section */}
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center" style={{ gap: 8 }}>
           {showSearch && (
             <Pressable
               onPress={onSearchPress}

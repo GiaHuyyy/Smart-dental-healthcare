@@ -157,31 +157,39 @@ export default function LoginScreen() {
                 </View>
 
                 {/* User Type Selection */}
-                <View className="mt-6 space-y-4 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl">
-                  <View className="flex-row gap-4">
+                <View className="mt-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl" style={{ gap: 16 }}>
+                  <View className="flex-row" style={{ gap: 16 }}>
                     {/* Patient Card */}
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      className={`flex-1 rounded-2xl border-2 p-4 ${
-                        userType === 'patient'
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 bg-white'
-                      }`}
+                      style={{
+                        flex: 1,
+                        borderRadius: 16,
+                        borderWidth: 2,
+                        padding: 16,
+                        borderColor: userType === 'patient' ? '#3b82f6' : '#e5e7eb',
+                        backgroundColor: userType === 'patient' ? '#eff6ff' : '#ffffff',
+                      }}
                       onPress={() => {
                         setUserType('patient');
-                        setEmail('');
-                        setPassword('');
+                        setError(null);
                       }}
                     >
                       <View className="items-center">
                         <View
-                          className={`mb-2 h-12 w-12 items-center justify-center rounded-xl ${
-                            userType === 'patient' ? 'bg-blue-100' : 'bg-gray-100'
-                          }`}
+                          style={{
+                            marginBottom: 8,
+                            height: 48,
+                            width: 48,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 12,
+                            backgroundColor: userType === 'patient' ? '#dbeafe' : '#f3f4f6',
+                          }}
                         >
                           <User color={userType === 'patient' ? '#1d4ed8' : '#6b7280'} size={24} />
                         </View>
-                        <Text className={`font-semibold ${userType === 'patient' ? 'text-blue-700' : 'text-gray-700'}`}>
+                        <Text style={{ fontWeight: '600', color: userType === 'patient' ? '#1d4ed8' : '#374151' }}>
                           Bệnh nhân
                         </Text>
                         <Text className="mt-1 text-center text-xs text-gray-500">Đặt lịch & theo dõi sức khỏe</Text>
@@ -191,26 +199,34 @@ export default function LoginScreen() {
                     {/* Doctor Card */}
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      className={`flex-1 rounded-2xl border-2 p-4 ${
-                        userType === 'doctor'
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 bg-white'
-                      }`}
+                      style={{
+                        flex: 1,
+                        borderRadius: 16,
+                        borderWidth: 2,
+                        padding: 16,
+                        borderColor: userType === 'doctor' ? '#3b82f6' : '#e5e7eb',
+                        backgroundColor: userType === 'doctor' ? '#eff6ff' : '#ffffff',
+                      }}
                       onPress={() => {
                         setUserType('doctor');
-                        setEmail('');
-                        setPassword('');
+                        setError(null);
                       }}
                     >
                       <View className="items-center">
                         <View
-                          className={`mb-2 h-12 w-12 items-center justify-center rounded-xl ${
-                            userType === 'doctor' ? 'bg-blue-100' : 'bg-gray-100'
-                          }`}
+                          style={{
+                            marginBottom: 8,
+                            height: 48,
+                            width: 48,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 12,
+                            backgroundColor: userType === 'doctor' ? '#dbeafe' : '#f3f4f6',
+                          }}
                         >
                           <Stethoscope color={userType === 'doctor' ? '#1d4ed8' : '#6b7280'} size={24} />
                         </View>
-                        <Text className={`font-semibold ${userType === 'doctor' ? 'text-blue-700' : 'text-gray-700'}`}>
+                        <Text style={{ fontWeight: '600', color: userType === 'doctor' ? '#1d4ed8' : '#374151' }}>
                           Bác sĩ
                         </Text>
                         <Text className="mt-1 text-center text-xs text-gray-500">Quản lý bệnh nhân & điều trị</Text>
@@ -226,7 +242,7 @@ export default function LoginScreen() {
                       </View>
                     ) : null}
 
-                    <View className="space-y-6">
+                    <View style={{ gap: 24 }}>
                       <View>
                         <Text className="mb-2 text-sm font-semibold text-slate-700">Địa chỉ email</Text>
                         <TextInput
@@ -263,7 +279,7 @@ export default function LoginScreen() {
                       </View>
 
                       <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center space-x-3">
+                        <View className="flex-row items-center" style={{ gap: 12 }}>
                           <Switch
                             value={rememberMe}
                             onValueChange={setRememberMe}
@@ -287,12 +303,13 @@ export default function LoginScreen() {
 
                     <TouchableOpacity
                       activeOpacity={0.9}
-                      className={`mt-8 rounded-2xl bg-blue-600 py-4 ${isLoading ? 'opacity-60' : ''}`}
+                      className="mt-8 rounded-2xl bg-blue-600 py-4"
+                      style={{ opacity: isLoading ? 0.6 : 1 }}
                       disabled={isLoading}
                       onPress={handleLogin}
                     >
                       {isLoading ? (
-                        <View className="flex-row items-center justify-center space-x-2">
+                        <View className="flex-row items-center justify-center" style={{ gap: 8 }}>
                           <ActivityIndicator color="#ffffff" />
                           <Text className="text-base font-semibold text-white">Đang đăng nhập...</Text>
                         </View>

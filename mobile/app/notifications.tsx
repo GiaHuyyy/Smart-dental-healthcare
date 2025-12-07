@@ -89,7 +89,7 @@ function NotificationCard({ notification, onPress }: { notification: Notificatio
           borderLeftColor: notification.isRead ? 'transparent' : Colors.primary[600],
         }}
       >
-        <View className="flex-row items-start space-x-3">
+        <View className="flex-row items-start" style={{ gap: 12 }}>
           <View
             className="h-12 w-12 items-center justify-center rounded-full"
             style={{ backgroundColor: iconConfig.bg }}
@@ -301,7 +301,7 @@ export default function NotificationsScreen() {
             </View>
             
             {unreadCount > 0 && (
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center" style={{ gap: 12 }}>
                 <View
                   className="px-3 py-1 rounded-full"
                   style={{ backgroundColor: Colors.primary[50] }}
@@ -327,7 +327,7 @@ export default function NotificationsScreen() {
           </View>
 
           {/* Filter Tabs */}
-          <View className="flex-row gap-2 mt-4">
+          <View className="flex-row mt-4" style={{ gap: 8 }}>
             <TouchableOpacity
               onPress={() => setFilter('all')}
               className="px-4 py-2 rounded-full border"
@@ -372,7 +372,7 @@ export default function NotificationsScreen() {
         >
           {errorMessage ? (
             <Card className="p-4 border" style={{ borderColor: Colors.warning[100], backgroundColor: Colors.warning[50] }}>
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[600]} />
                 <Text className="flex-1 text-sm" style={{ color: Colors.warning[700] }}>
                   {errorMessage}
@@ -399,7 +399,7 @@ export default function NotificationsScreen() {
               </Text>
             </View>
           ) : (
-            <View className="space-y-3">
+            <View style={{ gap: 12 }}>
               {filteredNotifications.map((notification) => (
                 <NotificationCard
                   key={notification._id ?? `notif-${notification.createdAt}`}

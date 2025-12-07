@@ -612,7 +612,7 @@ export default function TreatmentModal({
                   Triệu chứng chính *
                 </Text>
                 <View className="mb-2">
-                  <View className="flex-row gap-2">
+                  <View className="flex-row" style={{ gap: 8 }}>
                     <TextInput
                       value={chiefComplaintInput}
                       onChangeText={handleChiefComplaintChange}
@@ -741,8 +741,8 @@ export default function TreatmentModal({
                   </Text>
                   <Pressable
                     onPress={addDiagnosisGroup}
-                    className="flex-row items-center gap-1 px-3 py-1 rounded-lg"
-                    style={{ backgroundColor: Colors.success[600] }}
+                    className="flex-row items-center px-3 py-1 rounded-lg"
+                    style={{ backgroundColor: Colors.success[600], gap: 4 }}>
                   >
                     <Ionicons name="add" size={16} color="#fff" />
                     <Text className="text-xs font-semibold text-white">Thêm</Text>
@@ -761,7 +761,7 @@ export default function TreatmentModal({
                         <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
                           Chẩn đoán {groupIndex + 1}
                         </Text>
-                        <View className="flex-row gap-2">
+                        <View className="flex-row" style={{ gap: 8 }}>
                           <Pressable onPress={() => toggleDiagnosisSuggestions(groupIndex)}>
                             <Ionicons name="bulb" size={18} color={Colors.warning[500]} />
                           </Pressable>
@@ -829,7 +829,7 @@ export default function TreatmentModal({
                       </View>
                       {group.treatmentPlans.map((plan, planIndex) => (
                         <View key={planIndex} className="mb-2">
-                          <View className="flex-row gap-2 mb-1">
+                          <View className="flex-row mb-1" style={{ gap: 8 }}>
                             <TextInput
                               value={plan}
                               onChangeText={(text) => updateTreatmentPlan(groupIndex, planIndex, text)}

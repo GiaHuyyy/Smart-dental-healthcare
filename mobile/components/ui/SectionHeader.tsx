@@ -25,7 +25,7 @@ export function SectionHeader({ title, subtitle, action, icon }: SectionHeaderPr
 
   return (
     <View className="flex-row items-center justify-between mb-3">
-      <View className="flex-row items-center gap-2 flex-1">
+      <View className="flex-row items-center flex-1" style={{ gap: 8 }}>
         {icon}
         <View className="flex-1">
           <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>

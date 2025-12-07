@@ -68,12 +68,12 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
             </Text>
           ) : null}
         </View>
-        <View className="items-end gap-2">
+        <View className="items-end" style={{ gap: 8 }}>
           <Badge variant="primary" size="sm">
             {doctor.experienceYears ?? 5}+ năm
           </Badge>
           {hasHighRating ? (
-            <View className="flex-row items-center gap-1 rounded-full px-2 py-1" style={{ backgroundColor: Colors.success[50] }}>
+            <View className="flex-row items-center rounded-full px-2 py-1" style={{ backgroundColor: Colors.success[50], gap: 4 }}>
               <Ionicons name="star" size={14} color={Colors.success[600]} />
               <Text className="text-xs font-semibold" style={{ color: Colors.success[700] }}>
                 {(doctor.rating ?? 4.7).toFixed(1)}
@@ -83,15 +83,15 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
         </View>
       </TouchableOpacity>
 
-      <View className="mt-4 gap-2">
-        <View className="flex-row items-center gap-2">
+      <View className="mt-4" style={{ gap: 8 }}>
+        <View className="flex-row items-center" style={{ gap: 8 }}>
           <Ionicons name="medical-outline" size={16} color={Colors.primary[600]} />
           <Text className="flex-1 text-xs" style={{ color: theme.text.secondary }}>
             Đang nhận bệnh tại{' '}
             <Text className="font-semibold">Smart Dental Clinic</Text>
           </Text>
         </View>
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center" style={{ gap: 8 }}>
           <Ionicons name="location-outline" size={16} color={Colors.primary[600]} />
           <Text className="flex-1 text-xs" style={{ color: theme.text.secondary }}>
             123 Nguyễn Đình Chiểu, Q.1, TP.HCM
@@ -99,13 +99,13 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
         </View>
       </View>
 
-      <View className="mt-5 flex-row gap-3">
+      <View className="mt-5 flex-row" style={{ gap: 12 }}>
         <TouchableOpacity
           className="flex-1 items-center justify-center rounded-2xl py-3"
           style={{ backgroundColor: Colors.primary[600] }}
           onPress={() => onBook(doctor)}
         >
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             <Ionicons name="calendar-outline" size={18} color="#ffffff" />
             <Text className="text-sm font-semibold text-white">Đặt lịch</Text>
           </View>
@@ -115,7 +115,7 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
           style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[200] }}
           onPress={() => onChat(doctor)}
         >
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             <Ionicons name="chatbubble-outline" size={18} color={Colors.primary[600]} />
             <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
               Trao đổi
@@ -290,7 +290,7 @@ export default function DoctorsScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, paddingTop: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="space-y-6">
+        <View style={{ gap: 24 }}>
           {/* Header Card */}
           <Card className="mb-6">
             <View className="flex-row items-start justify-between">
@@ -328,7 +328,7 @@ export default function DoctorsScreen() {
 
           {/* Search & Filter Card */}
           <Card className="mb-6">
-            <View className="space-y-4">
+            <View style={{ gap: 16 }}>
               <View
                 className="flex-row items-center rounded-2xl px-4 py-3"
                 style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
@@ -344,10 +344,10 @@ export default function DoctorsScreen() {
                 />
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View className="flex-row items-center space-x-3">
+                <View className="flex-row items-center" style={{ gap: 12 }}>
                   <View
-                    className="flex-row items-center space-x-2 rounded-2xl px-3 py-2"
-                    style={{ backgroundColor: Colors.primary[50] }}
+                    className="flex-row items-center rounded-2xl px-3 py-2"
+                    style={{ backgroundColor: Colors.primary[50], gap: 8 }}
                   >
                     <Ionicons name="filter-outline" size={16} color={Colors.primary[600]} />
                     <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
@@ -431,7 +431,7 @@ export default function DoctorsScreen() {
               </Text>
             </Card>
           ) : (
-            <View className="space-y-4">
+            <View style={{ gap: 16 }}>
               {filteredDoctors.map((doctor) => (
                 <DoctorCard
                   key={doctor._id ?? doctor.id ?? doctor.email ?? doctor.fullName}

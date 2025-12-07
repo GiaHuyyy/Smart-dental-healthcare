@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -9,13 +9,13 @@ import {
     Modal,
     Pressable,
     RefreshControl,
+    SafeAreaView,
     Text,
     TextInput,
     View,
 } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
-import { SafeContainer } from '@/components/layout/SafeContainer';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
 import { useChat } from '@/contexts/chat-context';
@@ -44,7 +44,7 @@ export default function DoctorChat() {
   const { refreshUnreadCount } = useChat();
   const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<ConversationItem[]>([]);
@@ -54,9 +54,15 @@ export default function DoctorChat() {
 
   // Fetch conversations using REST API (like patient chat)
   const fetchConversations = useCallback(async () => {
-    if (!session?.user?._id || !session?.token) return;
+    if (!session?.user?._id || !session?.token) {
+      setLoading(false);
+      setConversations([]);
+      setFilteredConversations([]);
+      return;
+    }
 
     try {
+      setLoading(true);
       const userId = session.user._id;
       const userRole = 'doctor';
       
@@ -187,9 +193,12 @@ export default function DoctorChat() {
       }).filter((item): item is ConversationItem => item !== null);
       
       console.log(`✅ [Doctor Chat] Processed ${items.length} valid conversations`);
+      console.log('✅ [Doctor Chat] First conversation:', items[0]);
       
+      console.log('✅ [Doctor Chat] Setting conversations state...');
       setConversations(items);
       setFilteredConversations(items);
+      console.log('✅ [Doctor Chat] State updated successfully');
       
       // If lastMessage is not populated, try to fetch messages for each conversation
       const itemsWithUnpopulatedMessage = items.filter(item => 
@@ -293,33 +302,41 @@ export default function DoctorChat() {
   }, [session]);
 
   // Connect to socket for real-time updates
-  useEffect(() => {
-    if (!session?.user?._id || !session?.token) return;
-
-    const initializeChat = async () => {
-      try {
-        // Connect to socket
-        await realtimeChatService.connect(session.token, session.user._id, 'doctor');
-        
-        // Setup real-time event listeners
-        setupSocketListeners();
-        
-        // Load initial conversations via REST API
-        await fetchConversations();
-        
-        console.log('✅ Chat initialized');
-      } catch (error) {
-        console.error('Error initializing chat:', error);
-        setLoading(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?._id || !session?.token) {
+        console.log('❌ [Doctor Chat] No session in useFocusEffect');
+        return;
       }
-    };
 
-    initializeChat();
+      console.log('🔄 [Doctor Chat] useFocusEffect triggered');
+      
+      const initializeChat = async () => {
+        try {
+          // Connect to socket
+          await realtimeChatService.connect(session.token, session.user._id, 'doctor');
+          
+          // Setup real-time event listeners
+          setupSocketListeners();
+          
+          // Load initial conversations via REST API
+          await fetchConversations();
+          
+          console.log('✅ Chat initialized');
+        } catch (error) {
+          console.error('Error initializing chat:', error);
+          setLoading(false);
+        }
+      };
 
-    return () => {
-      realtimeChatService.disconnect();
-    };
-  }, [session, fetchConversations]);
+      initializeChat();
+
+      return () => {
+        console.log('🔌 [Doctor Chat] Disconnecting socket');
+        realtimeChatService.disconnect();
+      };
+    }, [session?.user?._id, session?.token])
+  );
 
   // Setup socket event listeners for real-time updates only
   const setupSocketListeners = () => {
@@ -399,8 +416,9 @@ export default function DoctorChat() {
     });
   };
 
-  // Search and filter
-  useEffect(() => {
+  // Search and filter - use useMemo for better performance
+  React.useEffect(() => {
+    console.log('🔄 [Doctor Chat] Filtering conversations, conversations.length:', conversations.length);
     let result = [...conversations];
 
     // Search by patient name or email
@@ -427,6 +445,7 @@ export default function DoctorChat() {
         break;
     }
 
+    console.log('✅ [Doctor Chat] Filtered result.length:', result.length);
     setFilteredConversations(result);
   }, [conversations, searchTerm, sortBy]);
 
@@ -486,29 +505,33 @@ export default function DoctorChat() {
     }
   };
 
-  const renderConversationItem = ({ item }: { item: ConversationItem }) => (
-    <Pressable
-      className="flex-row items-center p-4 border-b"
-      style={{ 
-        backgroundColor: theme.card,
-        borderBottomColor: theme.border,
-      }}
-      onPress={() => handleOpenChat(item)}
-    >
+  const renderConversationItem = ({ item }: { item: ConversationItem }) => {
+    console.log('💬 [Doctor Chat] Rendering conversation:', item.patientName);
+    return (
+      <Pressable
+        style={{ 
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: 16,
+          borderBottomWidth: 1,
+          backgroundColor: theme.card,
+          borderBottomColor: theme.border,
+        }}
+        onPress={() => handleOpenChat(item)}
+      >
       {/* Avatar */}
-      <View className="relative">
+      <View style={{ position: 'relative' }}>
         {item.patientAvatar ? (
           <Image
             source={{ uri: item.patientAvatar }}
-            className="w-14 h-14 rounded-full"
+            style={{ width: 56, height: 56, borderRadius: 28 }}
             contentFit="cover"
           />
         ) : (
           <View
-            className="w-14 h-14 rounded-full items-center justify-center"
-            style={{ backgroundColor: Colors.primary[100] }}
+            style={{ width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary[100] }}
           >
-            <Text className="text-xl font-bold" style={{ color: Colors.primary[600] }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: Colors.primary[600] }}>
               {item.patientName.charAt(0).toUpperCase()}
             </Text>
           </View>
@@ -516,26 +539,24 @@ export default function DoctorChat() {
         
         {/* Online indicator */}
         {item.isOnline && (
-          <View className="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white" 
-                style={{ backgroundColor: Colors.success[500] }} />
+          <View style={{ position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: 'white', backgroundColor: Colors.success[500] }} />
         )}
       </View>
 
       {/* Content */}
-      <View className="flex-1 ml-3">
-        <View className="flex-row items-center justify-between mb-1">
-          <Text className="text-base font-semibold flex-1" style={{ color: theme.text.primary }} numberOfLines={1}>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <Text style={{ fontSize: 15, fontWeight: '600', flex: 1, color: theme.text.primary }} numberOfLines={1}>
             {item.patientName}
           </Text>
-          <Text className="text-xs ml-2" style={{ color: theme.text.secondary }}>
+          <Text style={{ fontSize: 12, marginLeft: 8, color: theme.text.secondary }}>
             {formatTime(item.lastMessageTime)}
           </Text>
         </View>
         
-        <View className="flex-row items-center justify-between">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text 
-            className="text-sm flex-1" 
-            style={{ color: theme.text.secondary }}
+            style={{ fontSize: 13, flex: 1, color: theme.text.secondary }}
             numberOfLines={1}
           >
             {item.lastMessage}
@@ -543,10 +564,9 @@ export default function DoctorChat() {
           
           {item.unreadCount > 0 && (
             <View 
-              className="ml-2 min-w-[20px] h-5 rounded-full items-center justify-center px-1.5"
-              style={{ backgroundColor: Colors.primary[600] }}
+              style={{ marginLeft: 8, minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: Colors.primary[600] }}
             >
-              <Text className="text-xs font-bold text-white">
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: 'white' }}>
                 {item.unreadCount > 99 ? '99+' : item.unreadCount}
               </Text>
             </View>
@@ -555,9 +575,10 @@ export default function DoctorChat() {
       </View>
 
       {/* Arrow */}
-      <Ionicons name="chevron-forward" size={20} color={theme.text.secondary} className="ml-2" />
+      <Ionicons name="chevron-forward" size={20} color={theme.text.secondary} style={{ marginLeft: 8 }} />
     </Pressable>
-  );
+    );
+  };
 
   const renderEmptyState = () => (
     <View className="flex-1 items-center justify-center py-12">
@@ -578,37 +599,19 @@ export default function DoctorChat() {
     </View>
   );
 
-  if (loading) {
-    return (
-      <>
-        <AppHeader title="Tin nhắn" showNotification />
-        <SafeContainer>
-          <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
-            <ActivityIndicator size="large" color={Colors.primary[600]} />
-            <Text className="mt-4 text-sm" style={{ color: theme.text.secondary }}>
-              Đang kết nối...
-            </Text>
-          </View>
-        </SafeContainer>
-      </>
-    );
-  }
-
   return (
-    <>
-      <AppHeader title="Tin nhắn" showNotification />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <AppHeader title="Tin nhắn" showNotification showAvatar />
       
-      <SafeContainer>
-        <View className="flex-1" style={{ backgroundColor: theme.background }}>
+      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 4 }}>
           {/* Search and Filter Bar */}
-          <View className="px-4 pt-4 pb-3 border-b" style={{ backgroundColor: theme.card, borderBottomColor: theme.border }}>
-            <View className="flex-row items-center gap-2">
+          <View style={{ marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {/* Search Input */}
-              <View className="flex-1 flex-row items-center px-3 py-2.5 rounded-lg" style={{ backgroundColor: theme.background }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: Colors.gray[100] }}>
                 <Ionicons name="search-outline" size={20} color={theme.text.secondary} />
                 <TextInput
-                  className="flex-1 ml-2 text-base"
-                  style={{ color: theme.text.primary }}
+                  style={{ flex: 1, marginLeft: 8, fontSize: 14, color: theme.text.primary }}
                   placeholder="Tìm bệnh nhân..."
                   placeholderTextColor={theme.text.secondary}
                   value={searchTerm}
@@ -623,8 +626,7 @@ export default function DoctorChat() {
 
               {/* Filter Button */}
               <Pressable
-                className="relative p-2.5 rounded-lg"
-                style={{ backgroundColor: theme.background }}
+                style={{ position: 'relative', padding: 10, borderRadius: 8, backgroundColor: Colors.gray[100] }}
                 onPress={() => setShowFilterModal(true)}
               >
                 <Ionicons
@@ -634,10 +636,9 @@ export default function DoctorChat() {
                 />
                 {getActiveFilterCount() > 0 && (
                   <View
-                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full items-center justify-center"
-                    style={{ backgroundColor: Colors.primary[600] }}
+                    style={{ position: 'absolute', top: -4, right: -4, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary[600] }}
                   >
-                    <Text className="text-xs font-bold text-white">{getActiveFilterCount()}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: 'white' }}>{getActiveFilterCount()}</Text>
                   </View>
                 )}
               </Pressable>
@@ -646,15 +647,14 @@ export default function DoctorChat() {
 
           {/* Stats */}
           {!searchTerm && conversations.length > 0 && (
-            <View className="px-4 py-3 flex-row items-center justify-between border-b" 
-                  style={{ backgroundColor: theme.card, borderBottomColor: theme.border }}>
-              <Text className="text-sm" style={{ color: theme.text.secondary }}>
+            <View style={{ paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, color: theme.text.secondary }}>
                 {conversations.length} cuộc trò chuyện
               </Text>
               {conversations.filter((c) => c.unreadCount > 0).length > 0 && (
-                <View className="flex-row items-center">
-                  <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: Colors.primary[600] }} />
-                  <Text className="text-sm font-medium" style={{ color: Colors.primary[600] }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, marginRight: 6, backgroundColor: Colors.primary[600] }} />
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.primary[600] }}>
                     {conversations.filter((c) => c.unreadCount > 0).length} chưa đọc
                   </Text>
                 </View>
@@ -663,32 +663,43 @@ export default function DoctorChat() {
           )}
 
           {/* Conversations List */}
-          <FlatList
-            data={filteredConversations}
-            renderItem={renderConversationItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ flexGrow: 1 }}
-            ListEmptyComponent={renderEmptyState}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={Colors.primary[600]}
-              />
-            }
+          {loading ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="large" color={Colors.primary[600]} />
+              <Text style={{ marginTop: 16, fontSize: 13, color: theme.text.secondary }}>
+                Đang kết nối...
+              </Text>
+            </View>
+          ) : (
+            <>
+              {console.log('📝 [Doctor Chat] Rendering FlatList with data.length:', filteredConversations.length)}
+              <FlatList
+                style={{ flex: 1 }}
+                data={filteredConversations}
+                renderItem={renderConversationItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={{ flexGrow: 1 }}
+                ListEmptyComponent={renderEmptyState}
+                refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={Colors.primary[600]}
+                />
+              }
           />
-        </View>
-      </SafeContainer>
-
-      {/* Filter Modal */}
-      <Modal visible={showFilterModal} transparent animationType="slide">
-        <Pressable
-          className="flex-1 justify-end"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onPress={() => setShowFilterModal(false)}
-        >
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <View className="rounded-t-3xl p-6" style={{ backgroundColor: theme.card }}>
+          </>
+        )}
+        
+        {/* Filter Modal */}
+        <Modal visible={showFilterModal} transparent animationType="slide">
+          <Pressable
+            className="flex-1 justify-end"
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+            onPress={() => setShowFilterModal(false)}
+          >
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              <View className="rounded-t-3xl p-6" style={{ backgroundColor: theme.card }}>
               {/* Modal Header */}
               <View className="flex-row items-center justify-between mb-6">
                 <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>
@@ -702,7 +713,7 @@ export default function DoctorChat() {
               </View>
 
               {/* Sort Options */}
-              <View className="gap-2">
+              <View style={{ gap: 8 }}>
                 {[
                   { value: 'recent' as SortBy, label: 'Mới nhất', icon: 'time-outline' },
                   { value: 'unread' as SortBy, label: 'Chưa đọc', icon: 'mail-unread-outline' },
@@ -719,7 +730,7 @@ export default function DoctorChat() {
                       setShowFilterModal(false);
                     }}
                   >
-                    <View className="flex-row items-center gap-3">
+                    <View className="flex-row items-center" style={{ gap: 12 }}>
                       <Ionicons
                         name={option.icon as any}
                         size={20}
@@ -728,22 +739,23 @@ export default function DoctorChat() {
                       <Text
                         className="text-sm font-medium"
                         style={{
-                          color: sortBy === option.value ? Colors.primary[600] : theme.text.primary,
-                        }}
-                      >
-                        {option.label}
-                      </Text>
-                    </View>
-                    {sortBy === option.value && (
-                      <Ionicons name="checkmark-circle" size={20} color={Colors.primary[600]} />
-                    )}
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </>
+                      color: sortBy === option.value ? Colors.primary[600] : theme.text.primary,
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+                </View>
+                {sortBy === option.value && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary[600]} />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </Pressable>
+    </Pressable>
+  </Modal>
+      </View>
+    </SafeAreaView>
   );
 }

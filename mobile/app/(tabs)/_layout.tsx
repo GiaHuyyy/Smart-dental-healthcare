@@ -3,7 +3,9 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Text, View } from 'react-native';
 
+import IncomingCallModal from '@/components/call/IncomingCallModal';
 import { Colors } from '@/constants/colors';
+import { CallProvider } from '@/contexts/CallContext';
 import { useChat } from '@/contexts/chat-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -12,20 +14,21 @@ export default function PatientTabLayout() {
   const { unreadMessagesCount } = useChat();
 
   return (
-    <Tabs
-      initialRouteName="dashboard"
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: Colors[colorScheme ?? 'light'].surface,
-          borderTopColor: Colors[colorScheme ?? 'light'].border,
-          height: 70,
-          paddingBottom: 12,
-          paddingTop: 8,
-        },
-      }}
-    >
+    <CallProvider>
+      <Tabs
+        initialRouteName="dashboard"
+        screenOptions={{
+          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: Colors[colorScheme ?? 'light'].surface,
+            borderTopColor: Colors[colorScheme ?? 'light'].border,
+            height: 70,
+            paddingBottom: 12,
+            paddingTop: 8,
+          },
+        }}
+      >
       <Tabs.Screen
         name="dashboard"
         options={{
@@ -140,6 +143,8 @@ export default function PatientTabLayout() {
           href: null,
         }}
       />
-    </Tabs>
+      </Tabs>
+      <IncomingCallModal />
+    </CallProvider>
   );
 }

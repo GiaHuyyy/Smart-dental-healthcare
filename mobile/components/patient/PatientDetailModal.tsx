@@ -346,7 +346,7 @@ export default function PatientDetailModal({
           {/* Header */}
           <View className="px-4 pt-4 pb-3 border-b border-gray-200 bg-white">
             <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center flex-1 gap-3">
+              <View className="flex-row items-center flex-1" style={{ gap: 12 }}>
                 <View
                   className="w-12 h-12 rounded-full items-center justify-center"
                   style={{ backgroundColor: Colors.primary[100] }}
@@ -385,7 +385,7 @@ export default function PatientDetailModal({
                     borderBottomColor: activeTab === tab.id ? Colors.primary[600] : 'transparent',
                   }}
                 >
-                  <View className="items-center gap-1">
+                  <View className="items-center" style={{ gap: 4 }}>
                     <Ionicons
                       name={tab.icon as any}
                       size={18}
@@ -410,10 +410,10 @@ export default function PatientDetailModal({
             <View className="p-4">
               {/* TAB: OVERVIEW */}
               {activeTab === 'overview' && (
-                <View className="gap-3">
+                <View style={{ gap: 12 }}>
                   {/* Quick Stats */}
                   {appointmentsLoading || recordsLoading ? (
-                    <View className="flex-row gap-3">
+                    <View className="flex-row" style={{ gap: 12 }}>
                       <View className="flex-1">
                         <SkeletonBox width="100%" height={80} />
                       </View>
@@ -422,7 +422,7 @@ export default function PatientDetailModal({
                       </View>
                     </View>
                   ) : (
-                    <View className="flex-row gap-3">
+                    <View className="flex-row" style={{ gap: 12 }}>
                       <View className="flex-1 rounded-xl p-4 items-center" style={{ backgroundColor: Colors.primary[50] }}>
                         <Text className="text-xs text-gray-600 mb-1">Lịch khám</Text>
                         <Text className="text-2xl font-bold" style={{ color: Colors.primary[700] }}>
@@ -444,8 +444,8 @@ export default function PatientDetailModal({
                   ) : patient ? (
                     <View className="rounded-xl p-4 bg-white border border-gray-100">
                       <Text className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Thông tin liên hệ</Text>
-                      <View className="gap-3">
-                        <View className="flex-row items-center gap-3">
+                      <View style={{ gap: 12 }}>
+                        <View className="flex-row items-center" style={{ gap: 12 }}>
                           <View className="w-8 h-8 rounded-lg items-center justify-center bg-gray-50">
                             <Ionicons name="mail-outline" size={16} color={Colors.gray[600]} />
                           </View>
@@ -453,13 +453,14 @@ export default function PatientDetailModal({
                             {patient.email}
                           </Text>
                         </View>
-                        <View className="flex-row items-center gap-3">
+                        <View className="flex-row items-center" style={{ gap: 12 }}>
                           <View className="w-8 h-8 rounded-lg items-center justify-center bg-gray-50">
                             <Ionicons name="call-outline" size={16} color={Colors.gray[600]} />
                           </View>
                           <Pressable
                             onPress={() => handleCall(patient.phone)}
-                            className="flex-row items-center gap-2 active:opacity-70"
+                            className="flex-row items-center active:opacity-70"
+                            style={{ gap: 8 }}
                           >
                             <Text className="text-sm font-medium" style={{ color: Colors.primary[600] }}>
                               {patient.phone}
@@ -468,7 +469,7 @@ export default function PatientDetailModal({
                           </Pressable>
                         </View>
                         {patient.address && (
-                          <View className="flex-row gap-3">
+                          <View className="flex-row" style={{ gap: 12 }}>
                             <View className="w-8 h-8 rounded-lg items-center justify-center bg-gray-50">
                               <Ionicons name="location-outline" size={16} color={Colors.gray[600]} />
                             </View>
@@ -485,7 +486,7 @@ export default function PatientDetailModal({
                   ) : patient ? (
                     <View className="rounded-xl p-4 bg-white border border-gray-100">
                       <Text className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Thông tin cá nhân</Text>
-                      <View className="gap-2.5">
+                      <View style={{ gap: 10 }}>
                         <View className="flex-row justify-between items-center">
                           <Text className="text-sm text-gray-600">Ngày sinh</Text>
                           <Text className="text-sm font-semibold text-gray-900">
@@ -502,7 +503,7 @@ export default function PatientDetailModal({
                         <View className="h-px bg-gray-100" />
                         <View className="flex-row justify-between items-center">
                           <Text className="text-sm text-gray-600">Trạng thái</Text>
-                          <View className="flex-row items-center gap-2">
+                          <View className="flex-row items-center" style={{ gap: 8 }}>
                             <View
                               className="w-2 h-2 rounded-full"
                               style={{ backgroundColor: getStatusColor(patient.isActive) }}
@@ -532,7 +533,7 @@ export default function PatientDetailModal({
                           </Text>
                         </View>
                       </View>
-                      <View className="flex-row items-center gap-3">
+                      <View className="flex-row items-center" style={{ gap: 12 }}>
                         <View 
                           className="w-12 h-12 rounded-xl items-center justify-center"
                           style={{ backgroundColor: Colors.primary[100] }}
@@ -561,7 +562,7 @@ export default function PatientDetailModal({
                   ) : (
                     <View className="rounded-xl p-4 bg-white border border-gray-100">
                       <Text className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Thống kê</Text>
-                      <View className="gap-2.5">
+                      <View style={{ gap: 10 }}>
                         <View className="flex-row justify-between items-center">
                           <Text className="text-sm text-gray-600">Lần khám gần nhất</Text>
                           <Text className="text-sm font-semibold text-gray-900">
@@ -601,7 +602,7 @@ export default function PatientDetailModal({
 
               {/* TAB: APPOINTMENTS */}
               {activeTab === 'appointments' && (
-                <View className="gap-2.5">
+                <View style={{ gap: 10 }}>
                   {appointmentsLoading ? (
                     <>
                       <SkeletonBox width="100%" height={90} />
@@ -617,7 +618,8 @@ export default function PatientDetailModal({
                     stats.appointments.map((appointment) => (
                       <View
                         key={appointment._id}
-                        className="rounded-xl p-4 bg-white border border-gray-100 flex-row items-center gap-3"
+                        className="rounded-xl p-4 bg-white border border-gray-100 flex-row items-center"
+                        style={{ gap: 12 }}
                       >
                         <View
                           className="w-14 h-14 rounded-xl items-center justify-center"
@@ -656,7 +658,7 @@ export default function PatientDetailModal({
 
               {/* TAB: MEDICAL RECORDS */}
               {activeTab === 'medical-records' && (
-                <View className="gap-2.5">
+                <View style={{ gap: 10 }}>
                   {recordsLoading ? (
                     <>
                       <SkeletonBox width="100%" height={120} />

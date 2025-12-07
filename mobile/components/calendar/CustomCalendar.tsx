@@ -240,7 +240,7 @@ export function CustomCalendar({
 
                 {/* Dots indicator - Smaller */}
                 {item.dots && item.dots.length > 0 && (
-                  <View className="flex-row gap-0.5 absolute -bottom-0.5">
+                  <View className="flex-row absolute -bottom-0.5" style={{ gap: 2 }}>
                     {item.dots.slice(0, 3).map((dot, dotIndex) => (
                       <View
                         key={dotIndex}

@@ -218,7 +218,7 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                   </Text>
                 </View>
               ) : (
-              <View className="space-y-4">
+              <View style={{ gap: 16 }}>
                 {/* Họ tên */}
                 <View>
                   <Text className="text-sm font-semibold text-gray-700 mb-2">
@@ -318,37 +318,35 @@ export function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
                   <Text className="text-sm font-semibold text-gray-700 mb-2">
                     Giới tính
                   </Text>
-                  <View className="flex-row space-x-3">
+                  <View className="flex-row" style={{ gap: 12 }}>
                     <TouchableOpacity
-                      className={`flex-1 border rounded-xl px-4 py-3 ${
-                        gender === 'Nam' 
-                          ? 'bg-blue-50 border-blue-500' 
-                          : 'border-gray-300'
-                      }`}
+                      className="flex-1 border rounded-xl px-4 py-3"
+                      style={{
+                        backgroundColor: gender === 'Nam' ? Colors.primary[50] : 'transparent',
+                        borderColor: gender === 'Nam' ? Colors.primary[500] : Colors.gray[300],
+                      }}
                       onPress={() => setGender('Nam')}
                       disabled={loading}
                     >
                       <Text 
-                        className={`text-center font-semibold ${
-                          gender === 'Nam' ? 'text-blue-700' : 'text-gray-600'
-                        }`}
+                        className="text-center font-semibold"
+                        style={{ color: gender === 'Nam' ? Colors.primary[700] : Colors.gray[600] }}
                       >
                         Nam
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      className={`flex-1 border rounded-xl px-4 py-3 ${
-                        gender === 'Nữ' 
-                          ? 'bg-pink-50 border-pink-500' 
-                          : 'border-gray-300'
-                      }`}
+                      className="flex-1 border rounded-xl px-4 py-3"
+                      style={{
+                        backgroundColor: gender === 'Nữ' ? Colors.error[50] : 'transparent',
+                        borderColor: gender === 'Nữ' ? Colors.error[500] : Colors.gray[300],
+                      }}
                       onPress={() => setGender('Nữ')}
                       disabled={loading}
                     >
                       <Text 
-                        className={`text-center font-semibold ${
-                          gender === 'Nữ' ? 'text-pink-700' : 'text-gray-600'
-                        }`}
+                        className="text-center font-semibold"
+                        style={{ color: gender === 'Nữ' ? Colors.error[700] : Colors.gray[600] }}
                       >
                         Nữ
                       </Text>
