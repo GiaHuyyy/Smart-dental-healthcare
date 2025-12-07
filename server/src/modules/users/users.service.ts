@@ -10,13 +10,14 @@ import {
   VerifyResetCodeDto,
 } from 'src/auth/dto/create-auth.dto';
 import { comparePasswordHelper, hashPasswordHelper } from 'src/helpers/utils';
-import { v4 as uuidv4 } from 'uuid';
+import { generateOTP, hashOTP, compareOTP } from 'src/helpers/otp';
 import { AiChatHistoryService } from '../ai-chat-history/ai-chat-history.service';
 import { Appointment } from '../appointments/schemas/appointment.schemas';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ChangePasswordDto, UpdateUserDto } from './dto/update-user.dto';
 import { User } from './schemas/user.schemas';
 import { SendGridService } from '../../mail/sendgrid.service';
+import { ZeroBounceService } from '../../mail/zerobounce.service';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +25,7 @@ export class UsersService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Appointment.name) private appointmentModel: Model<Appointment>,
     private readonly sendGridService: SendGridService,
+    private readonly zeroBounceService: ZeroBounceService,
     private readonly aiChatHistoryService: AiChatHistoryService,
   ) {}
 
@@ -251,7 +253,7 @@ export class UsersService {
       longitude,
     } = createRegisterDto;
 
-    // Check if email already exists
+    // Check if email already exists in database
     const emailExists = await this.isEmailExists(email);
     if (emailExists) {
       throw new BadRequestException(
@@ -259,9 +261,21 @@ export class UsersService {
       );
     }
 
+    // Validate email using ZeroBounce (only for new registrations)
+    const emailValidation = await this.zeroBounceService.validateEmail(email);
+    if (!emailValidation.isValid) {
+      throw new BadRequestException(
+        emailValidation.message ||
+          'Email không hợp lệ. Vui lòng sử dụng email khác.',
+      );
+    }
+
     // hash the password before saving
     const hashedPassword = await hashPasswordHelper(password);
-    const codeId = uuidv4();
+
+    // Generate 6-digit OTP and hash it
+    const otp = generateOTP();
+    const hashedOTP = await hashOTP(otp);
 
     // Add "BS. " prefix for doctor's fullName if not already present
     let finalFullName = fullName;
@@ -280,8 +294,8 @@ export class UsersService {
       dateOfBirth,
       phone,
       isActive: false,
-      codeId: codeId,
-      codeExpired: dayjs().add(1, 'hour'),
+      codeId: hashedOTP, // Store hashed OTP
+      codeExpired: dayjs().add(10, 'minutes'), // OTP expires in 10 minutes
     };
 
     // Add optional avatar
@@ -304,14 +318,14 @@ export class UsersService {
 
     const user = await this.userModel.create(userData);
 
-    // send email to user using SendGrid
+    // send email to user using SendGrid with plain OTP (not hashed)
     await this.sendGridService.sendMail({
       to: email,
       subject: 'Kích hoạt tài khoản của bạn',
       template: 'register',
       context: {
         name: finalFullName,
-        activationCode: codeId,
+        activationCode: otp, // Send plain OTP to user
       },
     });
 
@@ -322,45 +336,50 @@ export class UsersService {
 
   async handleCheckCode(checkCodeDto: CodeAuthDto) {
     const { id, code } = checkCodeDto;
-    const user = await this.userModel.findOne({
-      _id: id,
-      codeId: code,
-    });
-    if (!user) {
+
+    // Find user by ID first
+    const user = await this.userModel.findOne({ _id: id });
+    if (!user || !user.codeId) {
       throw new BadRequestException(
         'Mã kích hoạt không hợp lệ hoặc người dùng không tồn tại',
       );
     }
 
+    // Compare plain OTP with hashed OTP in database
+    const isValidOTP = await compareOTP(code, user.codeId);
+    if (!isValidOTP) {
+      throw new BadRequestException('Mã kích hoạt không chính xác');
+    }
+
     // check code expiration
     if (dayjs().isAfter(user.codeExpired)) {
       throw new BadRequestException('Mã kích hoạt đã hết hạn');
-    } else {
-      // Activate user account
-      await this.userModel.updateOne(
-        { _id: id },
-        { isActive: true, codeId: null, codeExpired: null },
-      );
-
-      // Create AI chat session for patient after successful account activation
-      if (user.role === 'patient') {
-        try {
-          await this.aiChatHistoryService.initializeUserSession(id);
-          console.log(`Created AI chat session for patient: ${id}`);
-        } catch (error) {
-          console.error(
-            `Failed to create AI chat session for patient ${id}:`,
-            error,
-          );
-          // Don't throw error here, account activation should still succeed
-        }
-      }
-
-      return {
-        _id: user._id,
-        message: 'Kích hoạt tài khoản thành công',
-      };
     }
+
+    // Activate user account
+    await this.userModel.updateOne(
+      { _id: id },
+      { isActive: true, codeId: null, codeExpired: null },
+    );
+
+    // Create AI chat session for patient after successful account activation
+    if (user.role === 'patient') {
+      try {
+        await this.aiChatHistoryService.initializeUserSession(id);
+        console.log(`Created AI chat session for patient: ${id}`);
+      } catch (error) {
+        console.error(
+          `Failed to create AI chat session for patient ${id}:`,
+          error,
+        );
+        // Don't throw error here, account activation should still succeed
+      }
+    }
+
+    return {
+      _id: user._id,
+      message: 'Kích hoạt tài khoản thành công',
+    };
   }
 
   async activateForTest(email: string) {
@@ -395,15 +414,17 @@ export class UsersService {
       throw new BadRequestException('Người dùng không tồn tại');
     }
 
-    // Generate new activation code
-    const codeId = uuidv4();
+    // Generate new 6-digit OTP and hash it
+    const otp = generateOTP();
+    const hashedOTP = await hashOTP(otp);
+
     await this.userModel.updateOne(
       {
         _id: user._id,
       },
       {
-        codeId: codeId,
-        codeExpired: dayjs().add(1, 'hour'),
+        codeId: hashedOTP,
+        codeExpired: dayjs().add(10, 'minutes'), // OTP expires in 10 minutes
       },
     );
 
@@ -414,7 +435,7 @@ export class UsersService {
       template: 'register',
       context: {
         name: user.fullName,
-        activationCode: codeId,
+        activationCode: otp, // Send plain OTP
       },
     });
 
@@ -430,13 +451,15 @@ export class UsersService {
       throw new BadRequestException('Không tìm thấy tài khoản với email này');
     }
 
-    // Generate password reset code
-    const codeId = uuidv4();
+    // Generate 6-digit OTP for password reset and hash it
+    const otp = generateOTP();
+    const hashedOTP = await hashOTP(otp);
+
     await this.userModel.updateOne(
       { _id: user._id },
       {
-        codeIdPassword: codeId,
-        codeExpiredPassword: dayjs().add(1, 'hour'),
+        codeIdPassword: hashedOTP,
+        codeExpiredPassword: dayjs().add(10, 'minutes'), // OTP expires in 10 minutes
       },
     );
 
@@ -447,7 +470,7 @@ export class UsersService {
       template: 'forgot-password',
       context: {
         name: user.fullName,
-        resetCode: codeId,
+        resetCode: otp, // Send plain OTP
       },
     });
 
@@ -460,15 +483,19 @@ export class UsersService {
   async handleVerifyResetCode(verifyResetCodeDto: VerifyResetCodeDto) {
     const { id, code } = verifyResetCodeDto;
 
-    const user = await this.userModel.findOne({
-      _id: id,
-      codeIdPassword: code,
-    });
+    // Find user by ID first
+    const user = await this.userModel.findOne({ _id: id });
 
-    if (!user) {
+    if (!user || !user.codeIdPassword) {
       throw new BadRequestException(
         'Mã đặt lại mật khẩu không hợp lệ hoặc người dùng không tồn tại',
       );
+    }
+
+    // Compare plain OTP with hashed OTP in database
+    const isValidOTP = await compareOTP(code, user.codeIdPassword);
+    if (!isValidOTP) {
+      throw new BadRequestException('Mã đặt lại mật khẩu không chính xác');
     }
 
     // Check code expiration
@@ -483,15 +510,20 @@ export class UsersService {
 
   async handleResetPassword(resetPasswordDto: ResetPasswordDto) {
     const { id, code, newPassword } = resetPasswordDto;
-    const user = await this.userModel.findOne({
-      _id: id,
-      codeIdPassword: code,
-    });
 
-    if (!user) {
+    // Find user by ID first
+    const user = await this.userModel.findOne({ _id: id });
+
+    if (!user || !user.codeIdPassword) {
       throw new BadRequestException(
         'Mã đặt lại mật khẩu không hợp lệ hoặc người dùng không tồn tại',
       );
+    }
+
+    // Compare plain OTP with hashed OTP in database
+    const isValidOTP = await compareOTP(code, user.codeIdPassword);
+    if (!isValidOTP) {
+      throw new BadRequestException('Mã đặt lại mật khẩu không chính xác');
     }
 
     // Check code expiration

@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useAppointment } from "@/contexts/AppointmentContext";
 import appointmentService from "@/services/appointmentService";
 import { Appointment, AppointmentStatus, ConsultType } from "@/types/appointment";
@@ -26,8 +27,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import RescheduleWithBillingModal from "@/components/appointments/RescheduleWithBillingModal";
 import CancelWithBillingModal from "@/components/appointments/CancelWithBillingModal";
@@ -59,7 +60,13 @@ const isAppointmentPastConsultation = (appointment: Appointment): boolean => {
 function MyAppointmentsContent() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { registerAppointmentCallback, unregisterAppointmentCallback } = useAppointment();
+  const searchParams = useSearchParams();
+  const {
+    registerAppointmentCallback,
+    unregisterAppointmentCallback,
+    registerFollowUpCallback,
+    unregisterFollowUpCallback,
+  } = useAppointment();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "follow-up" | AppointmentStatus>("all");
@@ -72,6 +79,9 @@ function MyAppointmentsContent() {
   const [startFilterDate, setStartFilterDate] = useState<string>("");
   const [endFilterDate, setEndFilterDate] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
+
+  // Track if we've already processed the current URL params
+  const lastProcessedParams = useRef<string>("");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -144,29 +154,58 @@ function MyAppointmentsContent() {
     }
   }, [session?.user?._id, session]);
 
-  // Auto-open detail modal from URL parameter (from dashboard click)
+  // Auto-open detail modal OR switch to follow-up tab from URL parameter
   useEffect(() => {
     try {
       if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
-      const filterParam = params.get("filter");
+
+      // Get current params from searchParams hook (reactive to URL changes)
+      const appointmentId = searchParams.get("appointmentId");
+      const filterParam = searchParams.get("filter");
+      const timestamp = searchParams.get("_t"); // Timestamp for forcing re-process
+
+      // Handle follow-up filter (switch to "Cần tái khám" tab)
       if (filterParam === "follow-up") {
-        setFilter("follow-up" as AppointmentStatus);
+        const followUpKey = `followup-${timestamp || ""}`;
+        if (followUpKey !== lastProcessedParams.current) {
+          lastProcessedParams.current = followUpKey;
+          setFilter("follow-up" as "all" | "follow-up" | AppointmentStatus);
+          // Clear the URL params after switching tab
+          window.history.replaceState({}, "", "/patient/appointments/my-appointments");
+        }
+        return;
+      }
+
+      // Only process if there's an appointmentId to handle
+      if (!appointmentId) return;
+
+      // Create a unique key for current params to avoid re-processing
+      const currentParamsKey = `${appointmentId}-${timestamp || ""}`;
+
+      // Skip if we've already processed these exact params (prevents double-open)
+      if (currentParamsKey === lastProcessedParams.current) {
+        return;
       }
 
       // If there's a specific appointment to view
-      const appointmentId = params.get("appointmentId");
-      if (appointmentId && appointments.length > 0) {
+      if (appointments.length > 0) {
         const apt = appointments.find((a) => a._id === appointmentId);
         if (apt) {
-          handleViewDetail(apt);
+          // Mark as processed BEFORE opening modal
+          lastProcessedParams.current = currentParamsKey;
+          // Open modal directly instead of calling handleViewDetail
+          setSelectedAppointment(apt);
+          setDetailDialogOpen(true);
+          // Clear the URL params after opening the modal
+          window.history.replaceState({}, "", "/patient/appointments/my-appointments");
         }
       }
+      // If appointments not loaded yet, don't mark as processed - will retry when appointments load
     } catch {
       // ignore malformed URL or other errors
     }
-    // run when appointments update (so we can open detail when data is loaded)
-  }, [appointments]);
+    // React to both searchParams changes AND appointments loading
+  }, [searchParams, appointments]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -184,6 +223,17 @@ function MyAppointmentsContent() {
       console.log("🔇 Patient my-appointments unregistered from global socket");
     };
   }, [registerAppointmentCallback, unregisterAppointmentCallback, fetchAppointments]);
+
+  // Register follow-up refresh callback with global socket
+  useEffect(() => {
+    registerFollowUpCallback(fetchFollowUpSuggestionsCount);
+    console.log("✅ Patient my-appointments follow-up callback registered");
+
+    return () => {
+      unregisterFollowUpCallback();
+      console.log("🔇 Patient my-appointments follow-up callback unregistered");
+    };
+  }, [registerFollowUpCallback, unregisterFollowUpCallback, fetchFollowUpSuggestionsCount]);
 
   const handleContactDoctor = async (appointment: Appointment) => {
     const doctorId = typeof appointment.doctorId === "string" ? appointment.doctorId : appointment.doctorId?._id;
@@ -1103,7 +1153,9 @@ function MyAppointmentsContent() {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="text-primary">{getConsultTypeIcon(selectedAppointment.consultType || selectedAppointment.appointmentType)}</span>
+                    <span className="text-primary">
+                      {getConsultTypeIcon(selectedAppointment.consultType || selectedAppointment.appointmentType)}
+                    </span>
                     <div className="flex-1">
                       <p className="text-sm text-gray-500">Hình thức khám</p>
                       <p className="font-medium text-gray-900">
@@ -1217,6 +1269,16 @@ function MyAppointmentsContent() {
                 </div>
               )}
 
+              {/* Reason */}
+              {(selectedAppointment.reason || (selectedAppointment as any).reason) && (
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Lý do khám</h4>
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-gray-700">{selectedAppointment.reason || (selectedAppointment as any).reason}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Notes */}
               {selectedAppointment.notes && (
                 <div>
@@ -1308,5 +1370,15 @@ function MyAppointmentsContent() {
 }
 
 export default function MyAppointmentsPage() {
-  return <MyAppointmentsContent />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      }
+    >
+      <MyAppointmentsContent />
+    </Suspense>
+  );
 }

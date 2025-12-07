@@ -1304,6 +1304,51 @@ export class AppointmentsService {
     };
   }
 
+  // Get patient's booked time slots on a specific date (across all doctors)
+  async getPatientBookedSlots(patientId: string, date: string) {
+    if (!patientId || !date) {
+      throw new BadRequestException('Thiếu patientId hoặc date');
+    }
+
+    // Parse date string (YYYY-MM-DD) to Date object
+    const targetDate = new Date(date);
+    if (isNaN(targetDate.getTime())) {
+      throw new BadRequestException('Định dạng ngày không hợp lệ');
+    }
+
+    // Set to start of day
+    targetDate.setHours(0, 0, 0, 0);
+
+    // End of day
+    const endDate = new Date(targetDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Fetch all booked appointments for this patient on this date
+    const bookedAppointments = await this.appointmentModel
+      .find({
+        patientId,
+        appointmentDate: {
+          $gte: targetDate,
+          $lte: endDate,
+        },
+        status: {
+          $nin: [AppointmentStatus.CANCELLED], // Exclude cancelled appointments
+        },
+      })
+      .select('startTime endTime doctorId')
+      .lean();
+
+    // Extract booked time slots
+    const bookedSlots = bookedAppointments.map((appt) => appt.startTime);
+
+    return {
+      date,
+      patientId,
+      bookedSlots,
+      totalBookings: bookedAppointments.length,
+    };
+  }
+
   // Helper: Generate time slots from 8:00 to 17:00
   private generateTimeSlots(durationMinutes: number): string[] {
     const slots: string[] = [];
@@ -1821,6 +1866,13 @@ export class AppointmentsService {
           populatedSuggestion,
         );
         console.log('Notification sent successfully');
+
+        // Emit socket event for real-time UI update
+        this.appointmentNotificationGateway.notifyFollowUpSuggestionCreated(
+          String((parentAppointment.patientId as any)._id),
+          populatedSuggestion,
+        );
+        console.log('Follow-up socket event emitted');
       } catch (notifError) {
         console.error('Error sending notification:', notifError);
         // Don't throw - notification failure shouldn't break the flow
@@ -1873,6 +1925,25 @@ export class AppointmentsService {
   }
 
   /**
+   * Get follow-up suggestions created by doctor
+   */
+  async getFollowUpSuggestionsByDoctor(doctorId: string) {
+    const suggestions = await this.followUpSuggestionModel
+      .find({
+        doctorId,
+      })
+      .populate(
+        'patientId',
+        'fullName email avatarUrl phone gender dateOfBirth',
+      )
+      .populate('parentAppointmentId')
+      .populate('voucherId')
+      .sort({ createdAt: -1 });
+
+    return suggestions;
+  }
+
+  /**
    * Reject follow-up suggestion
    */
   async rejectFollowUpSuggestion(suggestionId: string) {
@@ -1901,10 +1972,22 @@ export class AppointmentsService {
             ? (suggestion.doctorId as any)._id.toString()
             : (suggestion.doctorId as any).toString();
 
+        const patientIdString =
+          typeof suggestion.patientId === 'object'
+            ? (suggestion.patientId as any)._id.toString()
+            : (suggestion.patientId as any).toString();
+
         await this.notificationGateway.notifyFollowUpRejected(
           doctorIdString,
           suggestion as any,
         );
+
+        // Emit socket event for real-time UI update (patient's count should decrease)
+        this.appointmentNotificationGateway.notifyFollowUpDeclined(
+          patientIdString,
+          suggestionId,
+        );
+        console.log('Follow-up declined socket event emitted');
       } catch (notifError) {
         console.error('Error sending notification:', notifError);
         // Continue execution even if notification fails
@@ -1962,6 +2045,21 @@ export class AppointmentsService {
     suggestion.scheduledAppointmentId = appointmentId as any;
     suggestion.scheduledAt = new Date();
     await suggestion.save();
+
+    // Emit socket event for real-time UI update (patient's count should decrease)
+    const patientIdString =
+      typeof suggestion.patientId === 'object'
+        ? (suggestion.patientId as any)._id?.toString() ||
+          (suggestion.patientId as any).toString()
+        : (suggestion.patientId as any).toString();
+
+    this.appointmentNotificationGateway.notifyFollowUpScheduled(
+      patientIdString,
+      suggestionId,
+    );
+    this.logger.log(
+      `Follow-up scheduled socket event emitted to ${patientIdString}`,
+    );
 
     return suggestion;
   }

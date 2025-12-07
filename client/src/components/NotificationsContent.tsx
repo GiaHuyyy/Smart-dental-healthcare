@@ -287,7 +287,10 @@ export default function NotificationsContent() {
                               if (!notification.isRead) {
                                 handleMarkAsRead(notification._id);
                               }
-                              router.push(notification.linkTo as string);
+                              // Add timestamp to URL to force re-processing when already on the same page
+                              const url = new URL(notification.linkTo as string, window.location.origin);
+                              url.searchParams.set("_t", Date.now().toString());
+                              router.push(url.pathname + url.search);
                             }}
                             className="text-sm px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition shadow-md"
                           >

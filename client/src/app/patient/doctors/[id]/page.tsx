@@ -1,9 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import DoctorProfile from "@/components/doctors/DoctorProfile";
 
-export default function DoctorDetailsPage() {
+function DoctorDetailsContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -30,5 +31,19 @@ export default function DoctorDetailsPage() {
       highlightReviewId={highlightReview}
       appointmentId={appointmentId}
     />
+  );
+}
+
+export default function DoctorDetailsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      }
+    >
+      <DoctorDetailsContent />
+    </Suspense>
   );
 }

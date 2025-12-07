@@ -62,7 +62,10 @@ export function NotificationButton() {
 
     // Navigate if linkTo exists
     if (notification.linkTo) {
-      router.push(notification.linkTo);
+      // Add timestamp to URL to force re-processing when already on the same page
+      const url = new URL(notification.linkTo, window.location.origin);
+      url.searchParams.set("_t", Date.now().toString());
+      router.push(url.pathname + url.search);
     }
 
     setIsOpen(false);

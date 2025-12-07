@@ -21,6 +21,9 @@ interface AppointmentContextType {
   onAppointmentUpdate?: () => void;
   registerAppointmentCallback: (callback: () => void) => void;
   unregisterAppointmentCallback: () => void;
+  // Follow-up callback for refreshing follow-up count
+  registerFollowUpCallback: (callback: () => void) => void;
+  unregisterFollowUpCallback: () => void;
 }
 
 const AppointmentContext = createContext<AppointmentContextType>({
@@ -29,6 +32,8 @@ const AppointmentContext = createContext<AppointmentContextType>({
   clearNotifications: () => {},
   registerAppointmentCallback: () => {},
   unregisterAppointmentCallback: () => {},
+  registerFollowUpCallback: () => {},
+  unregisterFollowUpCallback: () => {},
 });
 
 export function AppointmentProvider({ children }: { children: React.ReactNode }) {
@@ -36,6 +41,7 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
   const { socket, isConnected } = useGlobalSocket(); // ✅ Sử dụng socket từ GlobalSocketContext
   const [notifications, setNotifications] = useState<AppointmentNotification[]>([]);
   const appointmentCallbackRef = React.useRef<(() => void) | null>(null);
+  const followUpCallbackRef = React.useRef<(() => void) | null>(null);
 
   const clearNotifications = useCallback(() => {
     setNotifications([]);
@@ -49,10 +55,25 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
     appointmentCallbackRef.current = null;
   }, []);
 
+  const registerFollowUpCallback = useCallback((callback: () => void) => {
+    followUpCallbackRef.current = callback;
+  }, []);
+
+  const unregisterFollowUpCallback = useCallback(() => {
+    followUpCallbackRef.current = null;
+  }, []);
+
   // Trigger appointment refresh callback
   const triggerAppointmentRefresh = useCallback(() => {
     if (appointmentCallbackRef.current) {
       appointmentCallbackRef.current();
+    }
+  }, []);
+
+  // Trigger follow-up refresh callback
+  const triggerFollowUpRefresh = useCallback(() => {
+    if (followUpCallbackRef.current) {
+      followUpCallbackRef.current();
     }
   }, []);
 
@@ -124,6 +145,11 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
       triggerAppointmentRefresh();
     };
 
+    // Handle follow-up count changed (for patients)
+    const handleFollowUpCountChanged = () => {
+      triggerFollowUpRefresh();
+    };
+
     // Register listeners
     socket.on("appointment:new", handleAppointmentNew);
     socket.on("appointment:confirmed", handleAppointmentConfirmed);
@@ -131,6 +157,10 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
     socket.on("appointment:rescheduled", handleAppointmentRescheduled);
     socket.on("appointment:completed", handleAppointmentCompleted);
     socket.on("appointment:reminder", handleAppointmentReminder);
+    // Follow-up events that affect the count
+    socket.on("followup:new", handleFollowUpCountChanged);
+    socket.on("followup:scheduled", handleFollowUpCountChanged);
+    socket.on("followup:declined", handleFollowUpCountChanged);
 
     // Cleanup
     return () => {
@@ -140,8 +170,11 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
       socket.off("appointment:rescheduled", handleAppointmentRescheduled);
       socket.off("appointment:completed", handleAppointmentCompleted);
       socket.off("appointment:reminder", handleAppointmentReminder);
+      socket.off("followup:new", handleFollowUpCountChanged);
+      socket.off("followup:scheduled", handleFollowUpCountChanged);
+      socket.off("followup:declined", handleFollowUpCountChanged);
     };
-  }, [socket, session, status, triggerAppointmentRefresh]);
+  }, [socket, session, status, triggerAppointmentRefresh, triggerFollowUpRefresh]);
 
   return (
     <AppointmentContext.Provider
@@ -151,6 +184,8 @@ export function AppointmentProvider({ children }: { children: React.ReactNode })
         clearNotifications,
         registerAppointmentCallback,
         unregisterAppointmentCallback,
+        registerFollowUpCallback,
+        unregisterFollowUpCallback,
       }}
     >
       {children}

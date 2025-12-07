@@ -45,6 +45,29 @@ const VALIDATION = {
   password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
 };
 
+// Minimum age requirement (18 years old)
+const MIN_AGE = 18;
+
+// Calculate max date of birth (must be at least 18 years old)
+const getMaxDateOfBirth = (): string => {
+  const today = new Date();
+  const maxDate = new Date(today.getFullYear() - MIN_AGE, today.getMonth(), today.getDate());
+  return maxDate.toISOString().split("T")[0];
+};
+
+// Check if user is at least 18 years old
+const isAtLeast18YearsOld = (dateOfBirth: string): boolean => {
+  if (!dateOfBirth) return false;
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  const age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    return age - 1 >= MIN_AGE;
+  }
+  return age >= MIN_AGE;
+};
+
 // Required field label component
 const RequiredLabel = ({ children }: { children: React.ReactNode }) => (
   <span>
@@ -330,6 +353,13 @@ export default function RegisterPage() {
     if (!VALIDATION.phone.test(formData.phone)) {
       setErrors((prev) => ({ ...prev, phone: "Số điện thoại không hợp lệ (VD: 0912345678)" }));
       toast.error("Số điện thoại không hợp lệ. VD: 0912345678 hoặc +84912345678");
+      return;
+    }
+
+    // Validate age - must be at least 18 years old (for both patient and doctor)
+    if (!isAtLeast18YearsOld(formData.dateOfBirth)) {
+      setErrors((prev) => ({ ...prev, dateOfBirth: "Bạn phải đủ 18 tuổi để đăng ký" }));
+      toast.error("Bạn phải đủ 18 tuổi để đăng ký tài khoản");
       return;
     }
 
@@ -634,16 +664,21 @@ export default function RegisterPage() {
                 <div>
                   <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-gray-700 mb-2">
                     <RequiredLabel>Ngày sinh</RequiredLabel>
+                    <span className="text-xs text-gray-500 font-normal ml-2">(Phải đủ 18 tuổi)</span>
                   </label>
                   <input
                     id="dateOfBirth"
                     name="dateOfBirth"
                     type="date"
                     required
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                    max={getMaxDateOfBirth()}
+                    className={`w-full border rounded-xl px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                      errors.dateOfBirth ? "border-red-500" : "border-gray-200"
+                    }`}
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                   />
+                  {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</p>}
                 </div>
 
                 <div>

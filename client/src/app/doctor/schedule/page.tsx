@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -17,7 +17,9 @@ import {
   DollarSign,
   Search,
   Settings,
-  Loader,
+  RefreshCw,
+  Notebook,
+  FileText,
 } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
@@ -30,6 +32,7 @@ import CancelWithBillingModal from "@/components/appointments/CancelWithBillingM
 import CreateFollowUpModal from "@/components/appointments/CreateFollowUpModal";
 import AppointmentAIDataDisplay from "@/components/appointments/AppointmentAIDataDisplay";
 import WorkingHoursModal from "@/components/appointments/WorkingHoursModal";
+import type { FollowUpSuggestion } from "@/types/followUpSuggestion";
 
 // Appointment type
 interface Appointment {
@@ -42,7 +45,8 @@ interface Appointment {
   startTime: string;
   endTime: string;
   visitType: string;
-  reason: string;
+  reason?: string; // Lý do khám
+  notes: string;
   status: string;
   gender: string;
   location: string;
@@ -127,6 +131,14 @@ function DoctorScheduleContent() {
   // Working hours modal state
   const [workingHoursModalOpen, setWorkingHoursModalOpen] = useState(false);
 
+  // Follow-up suggestions state
+  const [followUpSuggestions, setFollowUpSuggestions] = useState<FollowUpSuggestion[]>([]);
+  const [followUpSuggestionsModalOpen, setFollowUpSuggestionsModalOpen] = useState(false);
+  const [followUpFilterTab, setFollowUpFilterTab] = useState<"all" | "pending" | "scheduled" | "rejected">("all");
+
+  // Track if we've already processed the current URL params
+  const lastProcessedParams = useRef<string>("");
+
   // Fetch appointments from API
   const fetchAppointments = useCallback(async () => {
     const userId = (session?.user as { _id?: string })?._id;
@@ -168,16 +180,17 @@ function DoctorScheduleContent() {
             startTime: apt.startTime || "08:00",
             endTime: apt.endTime || "09:00",
             visitType: apt.appointmentType === "home_visit" ? "Home Visit" : "Clinic Visit",
-            reason: apt.notes || "Không có ghi chú",
+            reason: (apt as { reason?: string }).reason || "", // Lý do khám
+            notes: apt.notes || "Không có ghi chú",
             status: apt.status,
             gender: (apt.patientId as { gender?: string })?.gender || "N/A",
             location: (apt.patientId as { address?: string })?.address || "N/A",
             email: (apt.patientId as { email?: string })?.email,
             phone: (apt.patientId as { phone?: string })?.phone,
             dateOfBirth: (apt.patientId as { dateOfBirth?: string })?.dateOfBirth,
-            followUpParentId: (apt as any).followUpParentId, // CRITICAL: Include follow-up parent ID
+            followUpParentId: (apt as { followUpParentId?: string }).followUpParentId, // CRITICAL: Include follow-up parent ID
             createdAt: apt.createdAt,
-            aiAnalysisData: (apt as any).aiAnalysisData,
+            aiAnalysisData: (apt as { aiAnalysisData?: Appointment["aiAnalysisData"] }).aiAnalysisData,
           }));
 
         setAppointments(transformedData);
@@ -192,10 +205,28 @@ function DoctorScheduleContent() {
     }
   }, [session]);
 
+  // Fetch follow-up suggestions created by this doctor
+  const fetchFollowUpSuggestions = useCallback(async () => {
+    const userId = (session?.user as { _id?: string })?._id;
+    if (!userId) return;
+
+    try {
+      const accessToken = (session as ExtendedSession).access_token;
+      const result = await appointmentService.getFollowUpSuggestionsByDoctor(userId, accessToken);
+
+      if (result.success && result.data) {
+        setFollowUpSuggestions(result.data);
+      }
+    } catch (error) {
+      console.error("Fetch follow-up suggestions error:", error);
+    }
+  }, [session]);
+
   // Initial fetch
   useEffect(() => {
     fetchAppointments();
-  }, [fetchAppointments]);
+    fetchFollowUpSuggestions();
+  }, [fetchAppointments, fetchFollowUpSuggestions]);
 
   // Register this page's refresh callback with global socket
   useEffect(() => {
@@ -216,12 +247,38 @@ function DoctorScheduleContent() {
   // Handle appointmentId from URL params (from dashboard click)
   useEffect(() => {
     const appointmentId = searchParams.get("appointmentId");
+    const openFollowUpModal = searchParams.get("openFollowUpModal");
+    const timestamp = searchParams.get("_t"); // Timestamp for forcing re-process
 
-    if (appointmentId && appointments.length > 0 && !detailModalOpen) {
+    // Handle openFollowUpModal param first (doesn't need appointments to be loaded)
+    if (openFollowUpModal === "true") {
+      const followUpKey = `followup-${timestamp || ""}`;
+      if (followUpKey !== lastProcessedParams.current) {
+        lastProcessedParams.current = followUpKey;
+        setFollowUpSuggestionsModalOpen(true);
+        // Remove the param from URL
+        window.history.replaceState({}, "", "/doctor/schedule");
+      }
+      return;
+    }
+
+    // Handle appointmentId - needs appointments to be loaded
+    if (!appointmentId) return;
+
+    // Create a unique key for current params to avoid re-processing
+    const currentParamsKey = `${appointmentId}-${timestamp || ""}`;
+
+    // Skip if we've already processed these exact params (prevents double-open)
+    if (currentParamsKey === lastProcessedParams.current) {
+      return;
+    }
+
+    if (appointments.length > 0) {
       // Find the appointment by ID
       const appointment = appointments.find((apt) => apt._id === appointmentId || apt.id === appointmentId);
 
       if (appointment) {
+        lastProcessedParams.current = currentParamsKey;
         setSelectedAppointment(appointment);
         setDetailModalOpen(true);
 
@@ -229,7 +286,8 @@ function DoctorScheduleContent() {
         window.history.replaceState({}, "", "/doctor/schedule");
       }
     }
-  }, [searchParams, appointments, detailModalOpen]);
+    // If appointments not loaded yet, don't mark as processed - will retry when appointments load
+  }, [searchParams, appointments]);
 
   // Auto-switch calendar view based on date filter selection
   useEffect(() => {
@@ -266,12 +324,12 @@ function DoctorScheduleContent() {
       filtered = filtered.filter((apt) => apt.status === selectedTab);
     }
 
-    // Filter by search term (patient name, reason, phone)
+    // Filter by search term (patient name, notes, phone)
     if (searchTerm) {
       filtered = filtered.filter(
         (apt) =>
           apt.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          apt.reason?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          apt.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           apt.phone?.includes(searchTerm)
       );
     }
@@ -639,7 +697,7 @@ function DoctorScheduleContent() {
           ? "Đã hủy"
           : apt.status,
         apt.visitType || "",
-        apt.reason || "",
+        apt.notes || "",
       ]);
 
       const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
@@ -891,7 +949,7 @@ function DoctorScheduleContent() {
       {/* Main content */}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <button
             onClick={() => handleStatCardClick("all")}
             className={`bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left ${
@@ -981,6 +1039,23 @@ function DoctorScheduleContent() {
               </div>
               <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                 <X className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setFollowUpSuggestionsModalOpen(true)}
+            className="bg-white rounded-lg p-4 border-2 transition-all hover:shadow-md text-left border-gray-200"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Đề xuất tái khám</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {followUpSuggestions.filter((s) => s.status === "pending").length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <RefreshCw className="w-6 h-6 text-yellow-600" />
               </div>
             </div>
           </button>
@@ -1154,7 +1229,7 @@ function DoctorScheduleContent() {
 
                         {/* Reason */}
                         <div className="col-span-2">
-                          <p className="text-sm text-gray-600 truncate">{apt.reason}</p>
+                          <p className="text-sm text-gray-600 truncate">{apt.notes}</p>
                         </div>
 
                         {/* Visit Type */}
@@ -1368,10 +1443,22 @@ function DoctorScheduleContent() {
               )}
 
               {/* Reason */}
-              <div>
-                <p className="text-sm text-gray-600 mb-2">Lý do khám</p>
-                <p className="text-gray-900 bg-gray-50 rounded-lg p-4">{selectedAppointment.reason}</p>
-              </div>
+              {(selectedAppointment.reason || selectedAppointment.notes) && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">{selectedAppointment.reason ? "Lý do khám" : "Ghi chú"}</p>
+                  <p className="text-gray-900 bg-blue-50 rounded-lg p-4">
+                    {selectedAppointment.reason || selectedAppointment.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Notes - show separately if both reason and notes exist */}
+              {selectedAppointment.reason && selectedAppointment.notes && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Ghi chú</p>
+                  <p className="text-gray-900 bg-gray-50 rounded-lg p-4">{selectedAppointment.notes}</p>
+                </div>
+              )}
             </div>
 
             {/* Footer - Fixed Actions */}
@@ -1585,10 +1672,200 @@ function DoctorScheduleContent() {
           }
         }}
       />
+
+      {/* Follow-Up Suggestions Modal */}
+      {followUpSuggestionsModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Đề Xuất Tái Khám</h2>
+                  <p className="text-sm text-gray-600">
+                    {followUpSuggestions.filter((s) => s.status === "pending").length} đang chờ phản hồi
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setFollowUpSuggestionsModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="shrink-0 bg-gray-50 px-6 py-3 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setFollowUpFilterTab("all")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "all"
+                      ? "bg-primary text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Tất cả ({followUpSuggestions.length})
+                </button>
+                <button
+                  onClick={() => setFollowUpFilterTab("pending")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "pending"
+                      ? "bg-yellow-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Chờ phản hồi ({followUpSuggestions.filter((s) => s.status === "pending").length})
+                </button>
+                <button
+                  onClick={() => setFollowUpFilterTab("scheduled")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "scheduled"
+                      ? "bg-green-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Đã đặt lịch ({followUpSuggestions.filter((s) => s.status === "scheduled").length})
+                </button>
+                <button
+                  onClick={() => setFollowUpFilterTab("rejected")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    followUpFilterTab === "rejected"
+                      ? "bg-red-500 text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Đã từ chối ({followUpSuggestions.filter((s) => s.status === "rejected").length})
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {followUpSuggestions.length === 0 ? (
+                <div className="text-center py-12">
+                  <RefreshCw className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500">Chưa có đề xuất tái khám nào</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {followUpSuggestions
+                    .filter((s) => followUpFilterTab === "all" || s.status === followUpFilterTab)
+                    .map((suggestion) => {
+                      const patient = suggestion.patientId as any;
+                      const patientAge = patient?.dateOfBirth
+                        ? Math.floor(
+                            (new Date().getTime() - new Date(patient.dateOfBirth).getTime()) /
+                              (365.25 * 24 * 60 * 60 * 1000)
+                          )
+                        : null;
+                      const patientGender =
+                        patient?.gender === "male" ? "Nam" : patient?.gender === "female" ? "Nữ" : "";
+
+                      return (
+                        <div
+                          key={suggestion._id}
+                          className={`bg-white rounded-lg border-2 p-4 ${
+                            suggestion.status === "pending"
+                              ? "border-yellow-200 bg-yellow-50/30"
+                              : suggestion.status === "scheduled"
+                              ? "border-green-200 bg-green-50/30"
+                              : "border-gray-200"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                              <img
+                                src={patient?.avatarUrl || "/images/default-avatar.png"}
+                                alt={patient?.fullName || "Bệnh nhân"}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                              <div>
+                                <h3 className="font-semibold text-gray-900">{patient?.fullName || "Bệnh nhân"}</h3>
+                                <p className="text-sm text-gray-600">
+                                  {patientGender}
+                                  {patientGender && patientAge ? " • " : ""}
+                                  {patientAge ? `${patientAge} tuổi` : ""}
+                                </p>
+                                {suggestion.notes && (
+                                  <div className="mt-1 flex items-start gap-2 text-sm text-gray-600 mb-3">
+                                    <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                                    <p className="line-clamp-2">{suggestion.notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="shrink-0">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                  suggestion.status === "pending"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : suggestion.status === "scheduled"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {suggestion.status === "pending"
+                                  ? "Chờ phản hồi"
+                                  : suggestion.status === "scheduled"
+                                  ? "Đã đặt lịch"
+                                  : "Đã từ chối"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+                            <span>
+                              Tạo lúc:{" "}
+                              {suggestion.createdAt ? new Date(suggestion.createdAt).toLocaleString("vi-VN") : "N/A"}
+                            </span>
+                            {suggestion.voucherId && (
+                              <span className="flex items-center gap-1 text-green-600">🎁 Có voucher giảm giá 5%</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  {followUpSuggestions.filter((s) => followUpFilterTab === "all" || s.status === followUpFilterTab)
+                    .length === 0 && (
+                    <div className="text-center py-12">
+                      <RefreshCw className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                      <p className="text-gray-500">Không có đề xuất nào trong mục này</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="shrink-0 bg-white border-t border-gray-200 p-4 rounded-b-lg">
+              <button
+                onClick={() => setFollowUpSuggestionsModalOpen(false)}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function DoctorSchedulePage() {
-  return <DoctorScheduleContent />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      }
+    >
+      <DoctorScheduleContent />
+    </Suspense>
+  );
 }
