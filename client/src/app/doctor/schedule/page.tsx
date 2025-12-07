@@ -17,7 +17,6 @@ import {
   DollarSign,
   Search,
   Settings,
-  Loader,
 } from "lucide-react";
 import { useGlobalSocket } from "@/contexts/GlobalSocketContext";
 import { useAppointment } from "@/contexts/AppointmentContext";
@@ -42,7 +41,8 @@ interface Appointment {
   startTime: string;
   endTime: string;
   visitType: string;
-  reason: string;
+  reason?: string; // Lý do khám
+  notes: string;
   status: string;
   gender: string;
   location: string;
@@ -168,16 +168,17 @@ function DoctorScheduleContent() {
             startTime: apt.startTime || "08:00",
             endTime: apt.endTime || "09:00",
             visitType: apt.appointmentType === "home_visit" ? "Home Visit" : "Clinic Visit",
-            reason: apt.notes || "Không có ghi chú",
+            reason: (apt as { reason?: string }).reason || "", // Lý do khám
+            notes: apt.notes || "Không có ghi chú",
             status: apt.status,
             gender: (apt.patientId as { gender?: string })?.gender || "N/A",
             location: (apt.patientId as { address?: string })?.address || "N/A",
             email: (apt.patientId as { email?: string })?.email,
             phone: (apt.patientId as { phone?: string })?.phone,
             dateOfBirth: (apt.patientId as { dateOfBirth?: string })?.dateOfBirth,
-            followUpParentId: (apt as any).followUpParentId, // CRITICAL: Include follow-up parent ID
+            followUpParentId: (apt as { followUpParentId?: string }).followUpParentId, // CRITICAL: Include follow-up parent ID
             createdAt: apt.createdAt,
-            aiAnalysisData: (apt as any).aiAnalysisData,
+            aiAnalysisData: (apt as { aiAnalysisData?: Appointment["aiAnalysisData"] }).aiAnalysisData,
           }));
 
         setAppointments(transformedData);
@@ -266,12 +267,12 @@ function DoctorScheduleContent() {
       filtered = filtered.filter((apt) => apt.status === selectedTab);
     }
 
-    // Filter by search term (patient name, reason, phone)
+    // Filter by search term (patient name, notes, phone)
     if (searchTerm) {
       filtered = filtered.filter(
         (apt) =>
           apt.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          apt.reason?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          apt.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           apt.phone?.includes(searchTerm)
       );
     }
@@ -639,7 +640,7 @@ function DoctorScheduleContent() {
           ? "Đã hủy"
           : apt.status,
         apt.visitType || "",
-        apt.reason || "",
+        apt.notes || "",
       ]);
 
       const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
@@ -1154,7 +1155,7 @@ function DoctorScheduleContent() {
 
                         {/* Reason */}
                         <div className="col-span-2">
-                          <p className="text-sm text-gray-600 truncate">{apt.reason}</p>
+                          <p className="text-sm text-gray-600 truncate">{apt.notes}</p>
                         </div>
 
                         {/* Visit Type */}
@@ -1368,10 +1369,22 @@ function DoctorScheduleContent() {
               )}
 
               {/* Reason */}
-              <div>
-                <p className="text-sm text-gray-600 mb-2">Lý do khám</p>
-                <p className="text-gray-900 bg-gray-50 rounded-lg p-4">{selectedAppointment.reason}</p>
-              </div>
+              {(selectedAppointment.reason || selectedAppointment.notes) && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">{selectedAppointment.reason ? "Lý do khám" : "Ghi chú"}</p>
+                  <p className="text-gray-900 bg-blue-50 rounded-lg p-4">
+                    {selectedAppointment.reason || selectedAppointment.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Notes - show separately if both reason and notes exist */}
+              {selectedAppointment.reason && selectedAppointment.notes && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">Ghi chú</p>
+                  <p className="text-gray-900 bg-gray-50 rounded-lg p-4">{selectedAppointment.notes}</p>
+                </div>
+              )}
             </div>
 
             {/* Footer - Fixed Actions */}

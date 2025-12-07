@@ -70,6 +70,16 @@ export class AppointmentsController {
     );
   }
 
+  @Get('patient/:patientId/booked-slots')
+  @Public()
+  @ResponseMessage('Lấy danh sách khung giờ đã đặt của bệnh nhân thành công')
+  getPatientBookedSlots(
+    @Param('patientId') patientId: string,
+    @Query('date') date: string,
+  ) {
+    return this.appointmentsService.getPatientBookedSlots(patientId, date);
+  }
+
   @Get(':id')
   @Public()
   @ResponseMessage('Lấy thông tin lịch hẹn thành công')

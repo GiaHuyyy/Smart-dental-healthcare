@@ -1103,7 +1103,9 @@ function MyAppointmentsContent() {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="text-primary">{getConsultTypeIcon(selectedAppointment.consultType || selectedAppointment.appointmentType)}</span>
+                    <span className="text-primary">
+                      {getConsultTypeIcon(selectedAppointment.consultType || selectedAppointment.appointmentType)}
+                    </span>
                     <div className="flex-1">
                       <p className="text-sm text-gray-500">Hình thức khám</p>
                       <p className="font-medium text-gray-900">
@@ -1214,6 +1216,16 @@ function MyAppointmentsContent() {
               {selectedAppointment.aiAnalysisData && (
                 <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
                   <AppointmentAIDataDisplay aiData={selectedAppointment.aiAnalysisData} />
+                </div>
+              )}
+
+              {/* Reason */}
+              {(selectedAppointment.reason || (selectedAppointment as any).reason) && (
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2">Lý do khám</h4>
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-gray-700">{selectedAppointment.reason || (selectedAppointment as any).reason}</p>
+                  </div>
                 </div>
               )}
 

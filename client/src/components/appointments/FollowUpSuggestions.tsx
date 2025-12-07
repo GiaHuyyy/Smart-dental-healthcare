@@ -258,7 +258,8 @@ export default function FollowUpSuggestions() {
             : dataToSubmit.consultType === ConsultType.HOME_VISIT
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
-        notes: dataToSubmit.chiefComplaint || "",
+        reason: dataToSubmit.chiefComplaint || "", // Lý do khám
+        notes: dataToSubmit.notes || "", // Ghi chú bổ sung
         status: AppointmentStatus.CONFIRMED,
         paymentMethod: "wallet", // Wallet payment
         followUpParentId: parentAppointmentId, // LINK TO PARENT APPOINTMENT
@@ -416,7 +417,8 @@ export default function FollowUpSuggestions() {
             : dataToSubmit.consultType === ConsultType.HOME_VISIT
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
-        notes: dataToSubmit.chiefComplaint || "",
+        reason: dataToSubmit.chiefComplaint || "", // Lý do khám
+        notes: dataToSubmit.notes || "", // Ghi chú bổ sung
         status: AppointmentStatus.PENDING,
         paymentMethod: "momo", // MoMo payment
         followUpParentId: parentAppointmentId, // LINK TO PARENT APPOINTMENT
@@ -550,7 +552,8 @@ export default function FollowUpSuggestions() {
             : dataToSubmit.consultType === ConsultType.HOME_VISIT
             ? "Khám tại nhà"
             : "Khám tại phòng khám",
-        notes: dataToSubmit.chiefComplaint || "",
+        reason: dataToSubmit.chiefComplaint || "", // Lý do khám
+        notes: dataToSubmit.notes || "", // Ghi chú bổ sung
         status: AppointmentStatus.CONFIRMED,
         paymentMethod: dataToSubmit.paymentMethod || "later", // Add payment method
         followUpParentId: parentAppointmentId, // LINK TO PARENT APPOINTMENT

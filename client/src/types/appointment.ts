@@ -55,7 +55,8 @@ export interface Appointment {
   status: AppointmentStatus;
   consultType: ConsultType;
   chiefComplaint?: string;
-  notes?: string;
+  reason?: string; // Lý do khám (saved in DB)
+  notes?: string; // Ghi chú bổ sung
   bookingId?: string;
   cancellationReason?: string; // Reason for cancellation
   duration?: number; // Duration in minutes

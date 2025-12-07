@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 // Doctor schedule types
 interface DoctorDaySchedule {
@@ -45,6 +46,7 @@ interface TimeSlotPickerProps {
 }
 
 export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChange }: TimeSlotPickerProps) {
+  const { data: session } = useSession();
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedEndTime, setSelectedEndTime] = useState<string>("");
@@ -52,6 +54,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(getMonday(new Date()));
   const [duration, setDuration] = useState<30 | 60>(30);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [patientBookedSlots, setPatientBookedSlots] = useState<string[]>([]); // Patient's booked slots across all doctors
   const [loading, setLoading] = useState(false);
 
   // Doctor schedule states
@@ -151,24 +154,41 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
   useEffect(() => {
     if (!selectedDate || !doctor._id) {
       setBookedSlots([]);
+      setPatientBookedSlots([]);
       setAvailableSlotsBySchedule([]);
       return;
     }
 
+    // Get patient ID from session
+    const patientId =
+      (session?.user as { _id?: string; id?: string })?._id || (session?.user as { _id?: string; id?: string })?.id;
+
     const fetchSlotsData = async () => {
       setLoading(true);
       try {
-        // Fetch both: booked appointments AND doctor's schedule-based availability
-        const [appointmentsRes, scheduleRes] = await Promise.all([
+        // Build fetch requests array
+        const fetchRequests = [
           fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/doctor/${doctor._id}/available-slots?date=${selectedDate}&duration=${duration}`
           ),
           fetch(
             `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-schedule/${doctor._id}/available-slots?date=${selectedDate}`
           ),
-        ]);
+        ];
 
-        // Process booked appointments
+        // Also fetch patient's booked slots if we have patient ID
+        if (patientId) {
+          fetchRequests.push(
+            fetch(
+              `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/appointments/patient/${patientId}/booked-slots?date=${selectedDate}`
+            )
+          );
+        }
+
+        const responses = await Promise.all(fetchRequests);
+        const [appointmentsRes, scheduleRes, patientSlotsRes] = responses;
+
+        // Process doctor's booked appointments
         if (appointmentsRes.ok) {
           const appointmentsData = await appointmentsRes.json();
           const bookedSlotsArray = appointmentsData.bookedSlots || [];
@@ -185,10 +205,20 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
         } else {
           setAvailableSlotsBySchedule([]);
         }
+
+        // Process patient's booked slots (across all doctors)
+        if (patientSlotsRes && patientSlotsRes.ok) {
+          const patientData = await patientSlotsRes.json();
+          const patientSlotsArray = patientData.bookedSlots || patientData.data?.bookedSlots || [];
+          setPatientBookedSlots(patientSlotsArray);
+        } else {
+          setPatientBookedSlots([]);
+        }
       } catch (error) {
         console.error("Error fetching slots data:", error);
         toast.error("Không thể tải lịch trống của bác sĩ");
         setBookedSlots([]);
+        setPatientBookedSlots([]);
         setAvailableSlotsBySchedule([]);
       } finally {
         setLoading(false);
@@ -196,7 +226,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
     };
 
     fetchSlotsData();
-  }, [selectedDate, doctor._id, duration]);
+  }, [selectedDate, doctor._id, duration, session]);
 
   // Calculate end time based on start time and duration
   const calculateEndTime = (startTime: string, durationMinutes: number): string => {
@@ -271,10 +301,13 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
           }
         }
 
+        // Check if patient already has an appointment at this time (with any doctor)
+        const isPatientBusy = patientBookedSlots.includes(time);
+
         slots.push({
           time,
-          available: !isPast && !isBooked && !isBlockedBySchedule,
-          booked: isBooked || isBlockedBySchedule,
+          available: !isPast && !isBooked && !isBlockedBySchedule && !isPatientBusy,
+          booked: isBooked || isBlockedBySchedule || isPatientBusy,
           selected: time === selectedTime,
         });
 
@@ -288,7 +321,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
       morning: generateSlots(8, 12), // 8:00 - 11:30
       afternoon: generateSlots(13, 17), // 13:00 - 16:30
     };
-  }, [selectedDate, selectedTime, duration, bookedSlots, availableSlotsBySchedule]);
+  }, [selectedDate, selectedTime, duration, bookedSlots, availableSlotsBySchedule, patientBookedSlots]);
 
   const handleDateSelect = (date: Date) => {
     const dateStr = formatDate(date);
