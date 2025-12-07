@@ -108,7 +108,7 @@ const InputField = ({
   numberOfLines,
   autoComplete = 'off',
 }: InputFieldProps) => (
-  <View className="space-y-2">
+  <View style={{ gap: 8 }}>
     <Text className="text-sm font-semibold text-slate-700">{label}</Text>
     <TextInput
       className={`rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 ${
@@ -272,8 +272,8 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                <View className="mt-8 space-y-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl">
-                  <View className="flex-row space-x-4">
+                <View className="mt-8 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl" style={{ gap: 24 }}>
+                  <View className="flex-row" style={{ gap: 16 }}>
                     {USER_TYPE_OPTIONS.map(({ type, title, subtitle, Icon }) => {
                       const isActive = userType === type;
                       return (
@@ -301,16 +301,16 @@ export default function RegisterScreen() {
                     })}
                   </View>
 
-                  <View className="space-y-8 rounded-3xl border border-slate-100 bg-white/90 p-6">
+                  <View className="rounded-3xl border border-slate-100 bg-white/90 p-6" style={{ gap: 32 }}>
                     {error ? (
                       <View className="rounded-2xl border border-red-200 bg-red-50 p-4">
                         <Text className="text-sm font-medium text-red-600">{error}</Text>
                       </View>
                     ) : null}
 
-                    <View className="space-y-6">
+                    <View style={{ gap: 24 }}>
                       <Text className="text-lg font-semibold text-slate-900">Thông tin cơ bản</Text>
-                      <View className="space-y-6">
+                      <View style={{ gap: 24 }}>
                         <InputField
                           label="Họ và tên *"
                           value={form.fullName}
@@ -347,7 +347,7 @@ export default function RegisterScreen() {
                         />
                         <View>
                           <Text className="mb-2 text-sm font-semibold text-slate-700">Giới tính *</Text>
-                          <View className="flex-row space-x-3">
+                          <View className="flex-row" style={{ gap: 12 }}>
                             {GENDER_OPTIONS.map(({ value, label }) => {
                               const isActive = form.gender === value;
                               return (
@@ -380,9 +380,9 @@ export default function RegisterScreen() {
                     </View>
 
                     {userType === 'doctor' ? (
-                      <View className="space-y-6">
+                      <View style={{ gap: 24 }}>
                         <Text className="text-lg font-semibold text-slate-900">Thông tin nghề nghiệp</Text>
-                        <View className="space-y-6">
+                        <View style={{ gap: 24 }}>
                           <InputField
                             label="Chuyên khoa *"
                             value={form.specialty}
@@ -401,9 +401,9 @@ export default function RegisterScreen() {
                       </View>
                     ) : null}
 
-                    <View className="space-y-6">
+                    <View style={{ gap: 24 }}>
                       <Text className="text-lg font-semibold text-slate-900">Thông tin bảo mật</Text>
-                      <View className="space-y-6">
+                      <View style={{ gap: 24 }}>
                         <View>
                           <Text className="mb-2 text-sm font-semibold text-slate-700">Mật khẩu *</Text>
                           <View className="relative">
@@ -454,7 +454,7 @@ export default function RegisterScreen() {
                       onPress={handleRegister}
                     >
                       {isLoading ? (
-                        <View className="flex-row items-center justify-center space-x-2">
+                        <View className="flex-row items-center justify-center" style={{ gap: 8 }}>
                           <ActivityIndicator color="#ffffff" />
                           <Text className="text-base font-semibold text-white">Đang xử lý...</Text>
                         </View>

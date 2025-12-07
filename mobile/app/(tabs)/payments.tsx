@@ -193,7 +193,7 @@ function PaymentBadge({ status }: { status?: string }) {
     iconName: 'ellipse-outline' as const,
   };
   return (
-    <View className="self-start flex-row items-center space-x-1 rounded-full px-3 py-1" style={{ backgroundColor: badge.background }}>
+    <View className="self-start flex-row items-center rounded-full px-3 py-1" style={{ backgroundColor: badge.background, gap: 4 }}>
       <Ionicons name={badge.iconName} size={14} color={badge.color} />
       <Text className="text-xs font-semibold" style={{ color: badge.color }}>
         {badge.label}
@@ -236,7 +236,7 @@ function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Pa
         className="mt-4 rounded-2xl p-4"
         style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}
       >
-        <View className="flex-row items-center space-x-2">
+        <View className="flex-row items-center" style={{ gap: 8 }}>
           <Ionicons name="card-outline" size={18} color={Colors.primary[600]} />
           <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
             Thông tin thanh toán
@@ -405,14 +405,20 @@ export default function PaymentsScreen() {
       // Also fetch wallet balance silently
       void (async () => {
         try {
+          console.log('🔍 Fetching wallet balance...');
+          console.log('🔍 Token available:', !!token, 'Length:', token.length);
           const res = await walletService.getBalance(token);
           console.log('🔍 Wallet balance response:', res);
           if (res?.success && res.data) {
             console.log('✅ Setting wallet balance:', res.data.balance);
             setWalletBalance(res.data.balance ?? 0);
+          } else {
+            console.warn('⚠️ Wallet balance fetch failed:', res?.message);
+            // Keep balance at 0 or previous value, don't show error
           }
         } catch (e) {
           console.error('❌ Failed to fetch wallet balance:', e);
+          // Silent failure - don't disrupt user experience
         }
       })();
       return () => controller.abort();
@@ -478,8 +484,12 @@ export default function PaymentsScreen() {
       try {
         const bal = await walletService.getBalance(token);
         console.log('🔄 Payment modal wallet balance:', bal);
-        if (bal?.success && bal.data) setWalletBalance(bal.data.balance ?? 0);
-      } catch {}
+        if (bal?.success && bal.data) {
+          setWalletBalance(bal.data.balance ?? 0);
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not refresh wallet balance for modal:', e);
+      }
     })();
   }, [showPaymentModal, token]);
 
@@ -621,9 +631,9 @@ export default function PaymentsScreen() {
           ) : undefined
         }
       >
-        <View className="space-y-6">
+        <View style={{ gap: 24 }}>
           <Card className="p-4">
-            <View className="space-y-3">
+            <View style={{ gap: 12 }}>
               <View 
                 className="rounded-2xl border p-3"
                 style={{ 
@@ -641,7 +651,7 @@ export default function PaymentsScreen() {
                 />
               </View>
 
-              <View className="flex-row items-center flex-wrap gap-3">
+              <View className="flex-row items-center flex-wrap" style={{ gap: 12 }}>
                 <TouchableOpacity
                   className="rounded-2xl border px-4 py-2"
                   style={{ borderColor: Colors.primary[100], backgroundColor: '#fff' }}
@@ -685,8 +695,8 @@ export default function PaymentsScreen() {
             </View>
           </Card>
           {/* Stats Cards */}
-          <View className="gap-4">
-            <View className="flex-row flex-wrap gap-4">
+          <View style={{ gap: 16 }}>
+            <View className="flex-row flex-wrap" style={{ gap: 16 }}>
               <TouchableOpacity
                 onPress={() => setStatusFilter('all')}
                 className="flex-1 rounded-2xl border-2 p-4"
@@ -722,7 +732,7 @@ export default function PaymentsScreen() {
               </TouchableOpacity>
             </View>
 
-            <View className="flex-row flex-wrap gap-4">
+            <View className="flex-row flex-wrap" style={{ gap: 16 }}>
               <TouchableOpacity
                 onPress={() => setStatusFilter('completed')}
                 className="flex-1 rounded-2xl border-2 p-4"
@@ -832,7 +842,7 @@ export default function PaymentsScreen() {
                 backgroundColor: Colors.warning[50]
               }}
             >
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[600]} />
                 <Text className="flex-1 text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                   {errorMessage}
@@ -865,7 +875,7 @@ export default function PaymentsScreen() {
               </Text>
             </View>
           ) : (
-            <View className="space-y-5">
+            <View style={{ gap: 20 }}>
               {filteredPayments.map((payment) => (
                 <PaymentCard
                   key={payment._id ?? `${payment.transactionId}-${payment.createdAt}`}
@@ -968,7 +978,7 @@ export default function PaymentsScreen() {
               <Text className="text-sm font-bold mb-3" style={{ color: theme.text.primary }}>Lịch sử giao dịch</Text>
               <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
                 {walletTransactions && walletTransactions.length > 0 ? (
-                  <View className="space-y-2 pb-5">
+                  <View style={{ gap: 8, paddingBottom: 20 }}>
                     {walletTransactions.map((tx) => (
                       <View
                         key={tx._id}
@@ -1058,7 +1068,7 @@ export default function PaymentsScreen() {
                 }}
               />
               {Platform.OS === 'ios' && (
-                <View className="mt-3 flex-row justify-end space-x-3">
+                <View className="mt-3 flex-row justify-end" style={{ gap: 12 }}>
                   <TouchableOpacity onPress={() => setShowDatePicker(false)} className="rounded-2xl px-4 py-2" style={{ backgroundColor: theme.surface }}>
                     <Text style={{ color: theme.text.secondary }}>Hủy</Text>
                   </TouchableOpacity>

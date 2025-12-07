@@ -6,9 +6,7 @@ import { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
-import IncomingCallModal from '@/components/call/IncomingCallModal';
 import { AuthProvider } from '@/contexts/auth-context';
-import { CallProvider } from '@/contexts/CallContext';
 import { ChatProvider } from '@/contexts/chat-context';
 import { NotificationProvider } from '@/contexts/notification-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -35,8 +33,7 @@ export default function RootLayout() {
     <AuthProvider>
       <ChatProvider>
         <NotificationProvider>
-          <CallProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             {/* Ensure iOS/Android system background matches app theme to avoid black flashes */}
             {/** set background color at mount and on theme change **/}
             {(() => {
@@ -53,11 +50,9 @@ export default function RootLayout() {
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             </Stack>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} backgroundColor={bg} />
-            <IncomingCallModal />
           </ThemeProvider>
-        </CallProvider>
-      </NotificationProvider>
-    </ChatProvider>
+        </NotificationProvider>
+      </ChatProvider>
     </AuthProvider>
   );
 }

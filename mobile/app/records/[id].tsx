@@ -298,7 +298,8 @@ export default function RecordDetailScreen() {
         <View className="flex-row items-center justify-between p-4 border-b" style={{ borderBottomColor: theme.border }}>
           <TouchableOpacity
             onPress={() => router.back()}
-            className="flex-row items-center gap-2"
+            className="flex-row items-center"
+            style={{ gap: 8 }}
           >
             <Ionicons name="arrow-back" size={24} color={theme.text.primary} />
             <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
@@ -335,7 +336,8 @@ export default function RecordDetailScreen() {
       <View className="flex-row items-center justify-between p-4 border-b" style={{ borderBottomColor: theme.border }}>
         <TouchableOpacity
           onPress={() => router.back()}
-          className="flex-row items-center gap-2"
+          className="flex-row items-center"
+          style={{ gap: 8 }}
         >
           <Ionicons name="arrow-back" size={24} color={theme.text.primary} />
           <View>
@@ -348,7 +350,7 @@ export default function RecordDetailScreen() {
           </View>
         </TouchableOpacity>
 
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center" style={{ gap: 8 }}>
           <TouchableOpacity
             onPress={handleShareRecord}
             className="h-10 w-10 items-center justify-center rounded-full"
@@ -371,13 +373,13 @@ export default function RecordDetailScreen() {
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="space-y-6">
+        <View style={{ gap: 24 }}>
           {/* Doctor Info */}
           <Card className="p-4" style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}>
             <Text className="text-lg font-semibold mb-4" style={{ color: theme.text.primary }}>
               Thông tin bác sĩ
             </Text>
-            <View className="space-y-3">
+            <View style={{ gap: 12 }}>
               <View>
                 <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
                   Họ và tên:
@@ -405,7 +407,7 @@ export default function RecordDetailScreen() {
               <Text className="text-lg font-semibold mb-4" style={{ color: theme.text.primary }}>
                 Dấu hiệu sinh tồn
               </Text>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 {record.vitalSigns.bloodPressure && (
                   <View>
                     <Text className="text-xs font-semibold mb-1" style={{ color: theme.text.secondary }}>
@@ -441,7 +443,7 @@ export default function RecordDetailScreen() {
           )}
 
           {/* Clinical Information */}
-          <View className="space-y-4">
+          <View style={{ gap: 16 }}>
             <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
               Thông tin lâm sàng
             </Text>
@@ -459,7 +461,7 @@ export default function RecordDetailScreen() {
 
             {/* Diagnosis - Support diagnosisGroups or fallback to diagnosis */}
             {record.diagnosisGroups && record.diagnosisGroups.length > 0 ? (
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 <Text className="text-sm font-semibold" style={{ color: Colors.primary[700] }}>
                   Chẩn đoán
                 </Text>
@@ -475,7 +477,7 @@ export default function RecordDetailScreen() {
                       borderLeftColor: Colors.primary[600] 
                     }}
                   >
-                    <View className="flex-row items-start gap-2 mb-2">
+                    <View className="flex-row items-start mb-2" style={{ gap: 8 }}>
                       <View 
                         className="h-6 w-6 rounded-full items-center justify-center"
                         style={{ backgroundColor: Colors.primary[100] }}
@@ -495,7 +497,7 @@ export default function RecordDetailScreen() {
                           Phương pháp điều trị:
                         </Text>
                         {group.treatmentPlans.map((plan, planIndex) => (
-                          <View key={planIndex} className="flex-row items-start gap-2 mb-1">
+                          <View key={planIndex} className="flex-row items-start mb-1" style={{ gap: 8 }}>
                             <Text className="text-base" style={{ color: Colors.primary[600] }}>•</Text>
                             <Text className="flex-1 text-sm" style={{ color: theme.text.primary }}>
                               {plan}
@@ -564,14 +566,14 @@ export default function RecordDetailScreen() {
             if (meds.length === 0) return null;
             
             return (
-              <View className="space-y-4">
-                <View className="flex-row items-center gap-2">
+              <View style={{ gap: 16 }}>
+                <View className="flex-row items-center" style={{ gap: 8 }}>
                   <Ionicons name="medkit-outline" size={20} color={Colors.primary[600]} />
                   <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
-                    Thuốc được kê ({meds.length})
-                  </Text>
+                  Thuốc được kê ({meds.length})
+                </Text>
                 </View>
-                <View className="space-y-3">
+                <View style={{ gap: 12 }}>
                   {meds.map((med, index) => {
                     if (typeof med === 'string') {
                       return (
@@ -589,7 +591,7 @@ export default function RecordDetailScreen() {
                         <Text className="text-base font-semibold mb-3" style={{ color: theme.text.primary }}>
                           {medObj.name ?? 'Thuốc'}
                         </Text>
-                        <View className="space-y-2">
+                        <View style={{ gap: 8 }}>
                           {medObj.dosage && (
                             <View>
                               <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
@@ -632,11 +634,11 @@ export default function RecordDetailScreen() {
 
           {/* Procedures */}
           {record.procedures && record.procedures.length > 0 && (
-            <View className="space-y-4">
+            <View style={{ gap: 16 }}>
               <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
                 Thủ thuật đã thực hiện ({record.procedures.length})
               </Text>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 {record.procedures.map((procedure, index) => (
                   <Card key={`${procedure.name ?? index}-${index}`} className="p-4">
                     <View className="flex-row items-center justify-between mb-2">
@@ -656,7 +658,7 @@ export default function RecordDetailScreen() {
                         {procedure.description}
                       </Text>
                     )}
-                    <View className="flex-row items-center gap-4">
+                    <View className="flex-row items-center" style={{ gap: 16 }}>
                       {procedure.date && (
                         <Text className="text-xs" style={{ color: theme.text.secondary }}>
                           Ngày: {formatDate(procedure.date)}
@@ -691,7 +693,7 @@ export default function RecordDetailScreen() {
           {/* Follow-up */}
           {record.isFollowUpRequired && (
             <Card className="p-4" style={{ backgroundColor: Colors.error[50], borderWidth: 1, borderColor: Colors.error[100] }}>
-              <View className="flex-row items-center gap-2 mb-2">
+              <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.error[700]} />
                 <Text className="text-sm font-semibold" style={{ color: Colors.error[700] }}>
                   Cần tái khám

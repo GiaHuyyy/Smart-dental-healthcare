@@ -1388,7 +1388,7 @@ export default function AppointmentsScreen() {
 
         {errorMessage && (
           <Card className="mb-6" style={{ backgroundColor: Colors.warning[50] }}>
-            <View className="flex-row items-center gap-2">
+            <View className="flex-row items-center" style={{ gap: 8 }}>
               <Ionicons name="warning" size={20} color={Colors.warning[600]} />
               <Text className="flex-1 text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                 {errorMessage}
@@ -1404,7 +1404,7 @@ export default function AppointmentsScreen() {
             Chọn bác sĩ và bắt đầu quy trình đặt lịch khám 3 bước đơn giản.
           </Text>
 
-          <View className="mt-6 gap-4">
+          <View className="mt-6" style={{ gap: 16 }}>
             {/* Doctor Selection */}
             <View>
               <Text className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: theme.text.secondary }}>
@@ -1447,14 +1447,14 @@ export default function AppointmentsScreen() {
               onPress={() => handleOpenBookingModal()}
               disabled={formDisabled}
             >
-              <View className="flex-row items-center gap-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="calendar" size={20} color="white" />
                 <Text className="text-base font-semibold text-white">Bắt đầu đặt lịch</Text>
               </View>
             </TouchableOpacity>
 
             {/* Quick info */}
-            <View className="flex-row items-start gap-2 rounded-2xl p-3" style={{ backgroundColor: Colors.info[50] }}>
+            <View className="flex-row items-start rounded-2xl p-3" style={{ gap: 8, backgroundColor: Colors.info[50] }}>
               <Ionicons name="information-circle" size={18} color={Colors.info[600]} />
               <Text className="flex-1 text-xs" style={{ color: Colors.info[700] }}>
                 Sau khi chọn bác sĩ, bạn sẽ được hướng dẫn qua 3 bước: Chọn lịch → Điền thông tin → Xác nhận & Thanh toán
@@ -1467,7 +1467,7 @@ export default function AppointmentsScreen() {
         <Card className="mb-6">
           <View className="flex-row items-center justify-between mb-4">
             <SectionHeader title="Lịch hẹn sắp tới" />
-            <View className="flex-row items-center gap-2">
+            <View className="flex-row items-center" style={{ gap: 8 }}>
               <Ionicons name="checkmark-circle" size={18} color={Colors.primary[600]} />
               <Text className="text-xs font-medium" style={{ color: Colors.primary[700] }}>
                 Tự động làm mới
@@ -1479,7 +1479,7 @@ export default function AppointmentsScreen() {
               <ActivityIndicator color={Colors.primary[600]} />
             </View>
           ) : upcomingAndHistory.upcoming.length > 0 ? (
-            <View className="gap-4">
+            <View style={{ gap: 16 }}>
               {upcomingAndHistory.upcoming.map((appointment) => (
                 <AppointmentCard
                   key={appointment.id}
@@ -1516,7 +1516,7 @@ export default function AppointmentsScreen() {
               <ActivityIndicator color={Colors.primary[600]} />
             </View>
           ) : upcomingAndHistory.history.length > 0 ? (
-            <View className="mt-4 gap-3">
+            <View className="mt-4" style={{ gap: 12 }}>
               {upcomingAndHistory.history.map((appointment) => (
                 <HistoryCard key={appointment.id} appointment={appointment} />
               ))}
@@ -1624,7 +1624,7 @@ function PaymentLoadingModal({
           className="rounded-3xl shadow-2xl w-full max-w-md p-6"
           style={{ backgroundColor: theme.background }}
         >
-          <View className="items-center gap-4">
+          <View className="items-center" style={{ gap: 16 }}>
             {/* Loading Spinner */}
             <ActivityIndicator size="large" color={Colors.primary[600]} />
             
@@ -1634,7 +1634,7 @@ function PaymentLoadingModal({
             </Text>
             
             {/* Description */}
-            <View className="items-center gap-2">
+            <View className="items-center" style={{ gap: 8 }}>
               <Text className="text-sm text-center" style={{ color: theme.text.secondary }}>
                 Vui lòng hoàn tất thanh toán trên ứng dụng MoMo.
               </Text>
@@ -1730,7 +1730,7 @@ function CancelAppointmentModal({
             {/* Warning for near-time cancellation */}
             {isNearTime && (
               <View className="mb-4 rounded-2xl p-4" style={{ backgroundColor: Colors.warning[50], borderWidth: 2, borderColor: Colors.warning[500] }}>
-                <View className="flex-row items-start gap-3">
+                <View className="flex-row items-start" style={{ gap: 12 }}>
                   <Ionicons name="warning" size={24} color={Colors.warning[600]} />
                   <View className="flex-1">
                     <Text className="text-base font-bold mb-2" style={{ color: Colors.warning[700] }}>
@@ -1750,7 +1750,7 @@ function CancelAppointmentModal({
             {/* Info for normal cancellation (>= 30 minutes) */}
             {!isNearTime && minutesUntil > 0 && (
               <View className="mb-4 rounded-2xl p-4" style={{ backgroundColor: Colors.success[50], borderWidth: 2, borderColor: Colors.success[500] }}>
-                <View className="flex-row items-start gap-3">
+                <View className="flex-row items-start" style={{ gap: 12 }}>
                   <Ionicons name="checkmark-circle" size={24} color={Colors.success[600]} />
                   <View className="flex-1">
                     <Text className="text-base font-bold mb-2" style={{ color: Colors.success[700] }}>
@@ -1771,21 +1771,21 @@ function CancelAppointmentModal({
               <Text className="text-sm mb-3" style={{ color: theme.text.secondary }}>
                 Bạn có chắc chắn muốn hủy lịch hẹn:
               </Text>
-              <View className="gap-2">
-                <View className="flex-row items-center gap-2">
+              <View style={{ gap: 8 }}>
+                <View className="flex-row items-center" style={{ gap: 8 }}>
                   <Ionicons name="person-outline" size={18} color={Colors.primary[600]} />
                   <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
                     {appointment.doctorName}
                   </Text>
                 </View>
-                <View className="flex-row items-center gap-2">
+                <View className="flex-row items-center" style={{ gap: 8 }}>
                   <Ionicons name="calendar-outline" size={18} color={Colors.primary[600]} />
                   <Text className="text-sm" style={{ color: theme.text.secondary }}>
                     {appointment.dateLabel} • {appointment.timeLabel}
                   </Text>
                 </View>
                 {appointment.location && (
-                  <View className="flex-row items-center gap-2">
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
                     <Ionicons name="location-outline" size={18} color={Colors.primary[600]} />
                     <Text className="text-sm" style={{ color: theme.text.secondary }}>
                       {appointment.location}
@@ -1822,7 +1822,7 @@ function CancelAppointmentModal({
           </ScrollView>
 
           {/* Footer */}
-          <View className="flex-row gap-3 border-t px-6 py-4" style={{ borderColor: theme.border }}>
+          <View className="flex-row border-t px-6 py-4" style={{ gap: 12, borderColor: theme.border }}>
             <TouchableOpacity
               onPress={onClose}
               disabled={loading}

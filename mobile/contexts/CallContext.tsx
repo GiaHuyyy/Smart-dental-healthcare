@@ -1,9 +1,17 @@
 import webrtcService, { IncomingCallData } from "@/services/webrtcService";
-import { router } from "expo-router";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Alert, AppState, AppStateStatus } from "react-native";
-import { MediaStream } from "@/services/webrtc";
 import { useAuth } from "./auth-context";
+
+// Helper to safely navigate - dynamically require router to avoid top-level import issues
+const safeNavigate = (path: string) => {
+  try {
+    const { router } = require("expo-router");
+    router.push(path);
+  } catch (error) {
+    console.warn("⚠️ [CallContext] Navigation failed:", error);
+  }
+};
 
 interface CallState {
   inCall: boolean;
@@ -99,7 +107,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const callEndedCallbackRef = useRef<CallContextType["onCallEnded"]>();
+  const callEndedCallbackRef = useRef<Parameters<CallContextType["setOnCallEnded"]>[0]>(undefined);
   const incomingCallDataRef = useRef<IncomingCallData | null>(null);
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const isCallActiveRef = useRef<boolean>(false); // Track if call is active
@@ -386,7 +394,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }));
 
         // Navigate to call screen
-        router.push("/call");
+        safeNavigate("/call");
       } catch (error: any) {
         console.error("❌ [CallContext] Error initiating call:", error);
 
@@ -439,7 +447,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       incomingCallDataRef.current = null;
 
       // Navigate to call screen
-      router.push("/call");
+      safeNavigate("/call");
     } catch (error: any) {
       console.error("❌ [CallContext] Error answering call:", error);
 

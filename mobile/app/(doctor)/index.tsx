@@ -230,8 +230,9 @@ export default function DoctorDashboard() {
           </View>
           {growth !== undefined && growth !== 0 && (
             <View
-              className="flex-row items-center gap-1 px-2 py-0.5 rounded-full"
+              className="flex-row items-center px-2 py-0.5 rounded-full"
               style={{
+                gap: 4,
                 backgroundColor: growth > 0 ? Colors.success[50] : Colors.error[50],
               }}
             >
@@ -319,7 +320,7 @@ export default function DoctorDashboard() {
                 <Ionicons name="calendar-outline" size={26} color="white" />
               </View>
             </View>
-            <View className="flex-row items-center gap-2 mt-2">
+            <View className="flex-row items-center mt-2" style={{ gap: 8 }}>
               <View className="w-1.5 h-1.5 rounded-full bg-white" />
               <Text className="text-white/90 text-sm font-medium">
                 {todayAppointments.length} lịch hẹn hôm nay
@@ -328,7 +329,7 @@ export default function DoctorDashboard() {
           </View>
 
           {/* Stats Grid - 2 columns */}
-          <View className="flex-row flex-wrap gap-3 mb-4">
+          <View className="flex-row flex-wrap mb-4" style={{ gap: 12 }}>
             {statsLoading ? (
               <>
                 <View style={{ width: '48%' }}>
@@ -402,13 +403,13 @@ export default function DoctorDashboard() {
             </View>
 
             {appointmentsLoading ? (
-              <View className="space-y-2">
+              <View style={{ gap: 8 }}>
                 <SkeletonBox width="100%" height={78} />
                 <SkeletonBox width="100%" height={78} />
                 <SkeletonBox width="100%" height={78} />
               </View>
             ) : todayAppointments.length > 0 ? (
-              <View className="space-y-2">
+              <View style={{ gap: 8 }}>
                 {todayAppointments.slice(0, 3).map((appointment) => (
                   <Pressable
                     key={appointment._id}
@@ -416,8 +417,9 @@ export default function DoctorDashboard() {
                     className="active:opacity-80"
                   >
                     <View
-                      className="p-3 rounded-xl border flex-row items-center gap-3"
+                      className="p-3 rounded-xl border flex-row items-center"
                       style={{
+                        gap: 12,
                         backgroundColor: theme.card,
                         borderColor: Colors.gray[100],
                       }}
@@ -532,20 +534,20 @@ export default function DoctorDashboard() {
               }}
             >
               {/* Legend - Compact */}
-              <View className="flex-row flex-wrap gap-2 mb-3">
-                <View className="flex-row items-center gap-1">
+              <View className="flex-row flex-wrap mb-3" style={{ gap: 8 }}>
+                <View className="flex-row items-center" style={{ gap: 4 }}>
                   <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: Colors.primary[600] }} />
                   <Text className="text-[10px]" style={{ color: theme.text.secondary }}>
                     Hoàn thành
                   </Text>
                 </View>
-                <View className="flex-row items-center gap-1">
+                <View className="flex-row items-center" style={{ gap: 4 }}>
                   <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: Colors.gray[400] }} />
                   <Text className="text-[10px]" style={{ color: theme.text.secondary }}>
                     Hủy
                   </Text>
                 </View>
-                <View className="flex-row items-center gap-1">
+                <View className="flex-row items-center" style={{ gap: 4 }}>
                   <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: Colors.warning[500] }} />
                   <Text className="text-[10px]" style={{ color: theme.text.secondary }}>
                     Chờ xử lý
@@ -622,7 +624,7 @@ export default function DoctorDashboard() {
               Thao tác nhanh
             </Text>
             
-            <View className="flex-row gap-3">
+            <View className="flex-row" style={{ gap: 12 }}>
               <Pressable
                 onPress={() => router.push('/(doctor)/schedule' as any)}
                 className="flex-1 active:opacity-80"

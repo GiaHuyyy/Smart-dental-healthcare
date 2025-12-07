@@ -213,7 +213,7 @@ function SuggestedDoctorCard({
         backgroundColor: `${Colors.primary[50]}99`,
       }}
     >
-      <View className="flex-row items-center space-x-3">
+      <View className="flex-row items-center" style={{ gap: 12 }}>
         <View
           className="h-12 w-12 items-center justify-center rounded-2xl"
           style={{ backgroundColor: Colors.primary[600] }}
@@ -229,7 +229,7 @@ function SuggestedDoctorCard({
           </Text>
         </View>
       </View>
-      <View className="mt-3 flex-row flex-wrap gap-3">
+      <View className="mt-3 flex-row flex-wrap" style={{ gap: 12 }}>
         <TouchableOpacity
           className="flex-1 rounded-2xl px-4 py-2"
           style={{ backgroundColor: Colors.primary[600] }}
@@ -269,7 +269,7 @@ function AnalysisBlock({ analysis }: { analysis: ImageAnalysisResult }) {
   const sections = analysis.richContent?.sections ?? [];
 
   return (
-    <View className="mt-3 space-y-3">
+    <View className="mt-3" style={{ gap: 12 }}>
       {analysis.richContent?.title ? (
         <Text className="text-sm font-semibold" style={{ color: Colors.primary[900] }}>
           {analysis.richContent.title}
@@ -300,9 +300,9 @@ function AnalysisBlock({ analysis }: { analysis: ImageAnalysisResult }) {
                 </Text>
               ) : null}
               {section.bullets?.length ? (
-                <View className="mt-2 space-y-1">
+                <View className="mt-2" style={{ gap: 4 }}>
                   {section.bullets.map((bullet) => (
-                    <View key={bullet} className="flex-row items-start space-x-2">
+                    <View key={bullet} className="flex-row items-start" style={{ gap: 8 }}>
                       <View
                         className="mt-[6px] h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: Colors.primary[400] }}
@@ -368,19 +368,26 @@ function ChatBubble({
     confidence = message.analysisData.confidence;
   }
 
-  // Render call message bubble
-  if (message.isCallMessage && message.callType && message.callStatus) {
+  // Render call message bubble - provide default values if missing
+  if (message.isCallMessage) {
+    const callType = message.callType || "audio";
+    const callStatus = message.callStatus || "completed";
     return (
       <View className={`mb-3 flex-row px-1 ${isUser ? "justify-end" : "justify-start"}`}>
         <CallMessageBubble
-          callType={message.callType}
-          callStatus={message.callStatus}
+          callType={callType}
+          callStatus={callStatus}
           callDuration={message.callDuration}
           isOutgoing={isUser}
           timestamp={statusLabel}
         />
       </View>
     );
+  }
+
+  // Don't render empty text messages
+  if (!message.content && !message.attachments?.length && !message.analysisData) {
+    return null;
   }
 
   return (
@@ -425,7 +432,7 @@ function ChatBubble({
         ) : null}
 
         {message.quickActions?.length ? (
-          <View className="mt-3 flex-row flex-wrap gap-2">
+          <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
             {message.quickActions.map((action) => (
               <TouchableOpacity
                 key={action}
@@ -445,7 +452,7 @@ function ChatBubble({
         ) : null}
 
         {message.followUpQuestions?.length ? (
-          <View className="mt-3 space-y-2">
+          <View className="mt-3" style={{ gap: 8 }}>
             {message.followUpQuestions.map((question) => (
               <TouchableOpacity
                 key={question}
@@ -476,7 +483,7 @@ function ChatBubble({
               backgroundColor: urgencyStyles.backgroundColor,
             }}
           >
-            <View className="flex-row items-center space-x-2">
+            <View className="flex-row items-center" style={{ gap: 8 }}>
               <Ionicons name="heart-outline" size={16} color={urgencyStyles.iconColor} />
               <Text className="text-xs font-semibold" style={{ color: urgencyStyles.textColor }}>
                 Mức độ: {formatUrgencyLabel(message.urgencyLevel)}
@@ -854,19 +861,22 @@ export default function ChatConversationScreen() {
             );
 
             if (isMounted && response.data) {
-              console.log(`✅ [Chat] Loaded ${response.data.length} messages via REST API`);
+              console.log(`✅ [Chat] Loaded ${response.data.length} messages via REST API`, JSON.stringify(response.data));
 
               const loadedMessages: ChatMessage[] = response.data.map((msg: any) => {
                 const senderId = msg.senderId?._id || msg.senderId;
                 const isMyMessage = senderId === userId;
 
-                // Check if this is a call message using messageType and callData
-                const isCallMessage = msg.messageType === "call" && msg.callData;
+                // Check if this is a call message - support both callData object and direct fields
+                const isCallMessage = msg.messageType === "call";
+                const callType = msg.callData?.callType || msg.callType;
+                const callStatus = msg.callData?.callStatus || msg.callStatus;
+                const callDuration = msg.callData?.callDuration || msg.callDuration;
 
                 return {
                   id: msg._id,
                   role: isMyMessage ? "user" : "assistant",
-                  content: msg.content,
+                  content: msg.content || "",
                   createdAt: msg.createdAt,
                   status: "sent" as MessageStatus,
                   attachments: msg.fileUrl
@@ -878,11 +888,11 @@ export default function ChatConversationScreen() {
                         },
                       ]
                     : undefined,
-                  // Add call message fields from backend callData
+                  // Add call message fields - support both callData object and direct fields
                   isCallMessage,
-                  callType: msg.callData?.callType,
-                  callStatus: msg.callData?.callStatus,
-                  callDuration: msg.callData?.callDuration,
+                  callType,
+                  callStatus,
+                  callDuration,
                 };
               });
 
@@ -934,13 +944,16 @@ export default function ChatConversationScreen() {
             });
           } else {
             // Message from doctor
-            const isCallMessage = data.message.messageType === "call" && (data.message as any).callData;
-            const callData = (data.message as any).callData;
+            const msgData = data.message as any;
+            const isCallMessage = data.message.messageType === "call";
+            const callType = msgData.callData?.callType || msgData.callType;
+            const callStatus = msgData.callData?.callStatus || msgData.callStatus;
+            const callDuration = msgData.callData?.callDuration || msgData.callDuration;
 
             const newMsg: ChatMessage = {
               id: data.message._id,
               role: "assistant",
-              content: data.message.content,
+              content: data.message.content || "",
               createdAt: data.message.createdAt,
               status: "sent",
               attachments: data.message.fileUrl
@@ -952,11 +965,11 @@ export default function ChatConversationScreen() {
                     },
                   ]
                 : undefined,
-              // Add call message fields
+              // Add call message fields - support both callData object and direct fields
               isCallMessage,
-              callType: callData?.callType,
-              callStatus: callData?.callStatus,
-              callDuration: callData?.callDuration,
+              callType,
+              callStatus,
+              callDuration,
             };
             setMessages((prev) => [...prev, newMsg]);
           }
@@ -1419,9 +1432,9 @@ export default function ChatConversationScreen() {
 
   const renderListHeader = useCallback(
     () => (
-      <View className="space-y-4 pb-2">
+      <View style={{ gap: 16, paddingBottom: 8 }}>
         <Card className="px-4 py-3">
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             {isBusy ? (
               <ActivityIndicator size="small" color={Colors.primary[600]} />
             ) : (
@@ -1445,7 +1458,7 @@ export default function ChatConversationScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 4, paddingVertical: 6 }}
             >
-              <View className="flex-row space-x-3">
+              <View className="flex-row" style={{ gap: 12 }}>
                 {QUICK_TOPICS.map((topic) => (
                   <TouchableOpacity
                     key={topic.id}
@@ -1455,7 +1468,7 @@ export default function ChatConversationScreen() {
                   >
                     <Card className="px-4 py-3">
                       <View className="flex-row items-center justify-between">
-                        <View className="flex-row flex-1 items-center space-x-3">
+                        <View className="flex-row flex-1 items-center" style={{ gap: 12 }}>
                           <View
                             className="h-10 w-10 items-center justify-center rounded-2xl"
                             style={{ backgroundColor: `${topic.accent}1A` }}
@@ -1493,7 +1506,7 @@ export default function ChatConversationScreen() {
               </Text>
               {loadingSuggestions ? <ActivityIndicator color={Colors.primary[600]} size="small" /> : null}
             </View>
-            <View className="mt-3 flex-row flex-wrap gap-2">
+            <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
               {suggestions.map((suggestion) => (
                 <TouchableOpacity
                   key={suggestion}
@@ -1519,11 +1532,11 @@ export default function ChatConversationScreen() {
 
   const renderListFooter = useCallback(
     () => (
-      <View className="py-6 space-y-4">
+      <View style={{ paddingVertical: 24, gap: 16 }}>
         {isBusy && chatType === "ai" ? (
           <View
-            className="flex-row items-center space-x-2 rounded-2xl border px-3 py-2"
-            style={{ borderColor: Colors.primary[100], backgroundColor: theme.card }}
+            className="flex-row items-center rounded-2xl border px-3 py-2"
+            style={{ borderColor: Colors.primary[100], backgroundColor: theme.card, gap: 8 }}
           >
             <ActivityIndicator color={Colors.primary[600]} size="small" />
             <Text className="text-xs" style={{ color: theme.text.secondary }}>
@@ -1570,7 +1583,7 @@ export default function ChatConversationScreen() {
               )}
             </View>
           </View>
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             {/* Audio Call Button */}
             <CallButton
               receiverId={chatId}
@@ -1664,7 +1677,7 @@ export default function ChatConversationScreen() {
               blurOnSubmit={false}
             />
             {isDoctorTyping && chatType === "doctor" ? (
-              <View className="mt-2 flex-row items-center space-x-2">
+              <View className="mt-2 flex-row items-center" style={{ gap: 8 }}>
                 <ActivityIndicator size="small" color={Colors.primary[600]} />
                 <Text className="text-xs italic" style={{ color: theme.text.secondary }}>
                   {chatName} đang gõ...
@@ -1672,7 +1685,7 @@ export default function ChatConversationScreen() {
               </View>
             ) : null}
             <View className="mt-3 flex-row items-center justify-between">
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center" style={{ gap: 12 }}>
                 <TouchableOpacity
                   onPress={handlePickImage}
                   disabled={isUploadingImage || (chatType === "doctor" && !realtimeChatService.isConnected())}

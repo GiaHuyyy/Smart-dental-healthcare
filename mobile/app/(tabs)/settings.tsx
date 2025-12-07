@@ -278,13 +278,13 @@ export default function SettingsScreen() {
           </View>
 
           {/* Settings Sections */}
-          <View className="space-y-6">
+          <View style={{ gap: 24 }}>
             {/* Giao diện & ngôn ngữ */}
             <View>
               <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
                 Giao diện & Ngôn ngữ
               </Text>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 <SettingRow 
                   icon="color-palette-outline"
                   title="Chế độ giao diện" 
@@ -305,7 +305,7 @@ export default function SettingsScreen() {
               <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
                 Thông báo & Bảo mật
               </Text>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 <ToggleRow
                   icon="notifications-outline"
                   title="Thông báo đẩy"
@@ -344,7 +344,7 @@ export default function SettingsScreen() {
               <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
                 Tài khoản
               </Text>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 <SettingRow 
                   icon="lock-closed-outline"
                   title="Đổi mật khẩu" 
@@ -359,7 +359,7 @@ export default function SettingsScreen() {
               <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
                 Hỗ trợ & Thông tin
               </Text>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 <SettingRow 
                   icon="help-circle-outline"
                   title="Liên hệ hỗ trợ" 
@@ -384,7 +384,7 @@ export default function SettingsScreen() {
               <Text className="text-xs font-bold uppercase mb-3 px-1" style={{ color: theme.text.secondary, letterSpacing: 0.5 }}>
                 Dữ liệu & Lưu trữ
               </Text>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 <SettingRow 
                   icon="trash-outline"
                   title="Xóa bộ nhớ cache" 
