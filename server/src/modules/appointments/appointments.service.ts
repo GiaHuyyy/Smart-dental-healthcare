@@ -2038,7 +2038,9 @@ export class AppointmentsService {
       patientIdString,
       suggestionId,
     );
-    this.logger.log(`Follow-up scheduled socket event emitted to ${patientIdString}`);
+    this.logger.log(
+      `Follow-up scheduled socket event emitted to ${patientIdString}`,
+    );
 
     return suggestion;
   }
