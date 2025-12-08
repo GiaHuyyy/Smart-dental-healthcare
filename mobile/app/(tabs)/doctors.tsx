@@ -1,24 +1,17 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    ActivityIndicator,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import DoctorDetailModal from '@/components/doctors/DoctorDetailModal';
-import { AppHeader } from '@/components/layout/AppHeader';
-import { PolicyButton, PolicyModal } from '@/components/policy';
-import { Badge } from '@/components/ui/Badge';
-import { Card } from '@/components/ui/Card';
-import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/auth-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { apiRequest, formatApiError } from '@/utils/api';
+import DoctorDetailModal from "@/components/doctors/DoctorDetailModal";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { PolicyButton, PolicyModal } from "@/components/policy";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { Colors } from "@/constants/colors";
+import { useAuth } from "@/contexts/auth-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { apiRequest, formatApiError } from "@/utils/api";
 
 type Doctor = {
   _id?: string;
@@ -41,13 +34,13 @@ type DoctorCardProps = {
   onView?: (doctor: Doctor) => void;
 };
 
-const FALLBACK_SPECIALTIES = ['Nha khoa tổng quát', 'Chỉnh nha', 'Điều trị tủy', 'Thẩm mỹ răng'];
+const FALLBACK_SPECIALTIES = ["Nha khoa tổng quát", "Chỉnh nha", "Điều trị tủy", "Thẩm mỹ răng"];
 
 function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
   const hasHighRating = (doctor.rating ?? 4.5) >= 4.5;
-  
+
   return (
     <Card shadow="md" className="mb-4">
       <TouchableOpacity
@@ -57,10 +50,10 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
       >
         <View className="flex-1 pr-4">
           <Text className="text-lg font-semibold" style={{ color: theme.text.primary }}>
-            {doctor.fullName ?? doctor.name ?? 'Bác sĩ Smart Dental'}
+            {doctor.fullName ?? doctor.name ?? "Bác sĩ Smart Dental"}
           </Text>
           <Text className="mt-1 text-sm" style={{ color: Colors.primary[700] }}>
-            {doctor.specialty ?? doctor.specialization ?? 'Nha khoa tổng quát'}
+            {doctor.specialty ?? doctor.specialization ?? "Nha khoa tổng quát"}
           </Text>
           {doctor.bio ? (
             <Text className="mt-2 text-xs leading-5" style={{ color: theme.text.secondary }} numberOfLines={3}>
@@ -73,7 +66,10 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
             {doctor.experienceYears ?? 5}+ năm
           </Badge>
           {hasHighRating ? (
-            <View className="flex-row items-center rounded-full px-2 py-1" style={{ backgroundColor: Colors.success[50], gap: 4 }}>
+            <View
+              className="flex-row items-center rounded-full px-2 py-1"
+              style={{ backgroundColor: Colors.success[50], gap: 4 }}
+            >
               <Ionicons name="star" size={14} color={Colors.success[600]} />
               <Text className="text-xs font-semibold" style={{ color: Colors.success[700] }}>
                 {(doctor.rating ?? 4.7).toFixed(1)}
@@ -87,8 +83,7 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
         <View className="flex-row items-center" style={{ gap: 8 }}>
           <Ionicons name="medical-outline" size={16} color={Colors.primary[600]} />
           <Text className="flex-1 text-xs" style={{ color: theme.text.secondary }}>
-            Đang nhận bệnh tại{' '}
-            <Text className="font-semibold">Smart Dental Clinic</Text>
+            Đang nhận bệnh tại <Text className="font-semibold">Smart Dental Clinic</Text>
           </Text>
         </View>
         <View className="flex-row items-center" style={{ gap: 8 }}>
@@ -130,12 +125,12 @@ function DoctorCard({ doctor, onBook, onChat, onView }: DoctorCardProps) {
 export default function DoctorsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
   const { isAuthenticated, session } = useAuth();
   const token = session?.token;
 
-  const [search, setSearch] = useState('');
-  const [selectedSpecialty, setSelectedSpecialty] = useState('all');
+  const [search, setSearch] = useState("");
+  const [selectedSpecialty, setSelectedSpecialty] = useState("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -152,7 +147,7 @@ export default function DoctorsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiRequest<any>('/users/doctors', { token });
+      const response = await apiRequest<any>("/users/doctors", { token });
       const payload = response.data as any;
       const list: Doctor[] = Array.isArray(payload)
         ? payload
@@ -163,8 +158,8 @@ export default function DoctorsScreen() {
             : [];
       setDoctors(list);
     } catch (err) {
-      console.warn('loadDoctors failed', err);
-      setError(formatApiError(err, 'Không thể tải danh sách bác sĩ.'));
+      console.warn("loadDoctors failed", err);
+      setError(formatApiError(err, "Không thể tải danh sách bác sĩ."));
       setDoctors([]);
     } finally {
       setLoading(false);
@@ -178,7 +173,7 @@ export default function DoctorsScreen() {
   const specialties = useMemo(() => {
     const collected = new Set<string>();
     doctors.forEach((doctor) => {
-      const value = (doctor.specialty ?? doctor.specialization ?? '').trim();
+      const value = (doctor.specialty ?? doctor.specialization ?? "").trim();
       if (value) {
         collected.add(value);
       }
@@ -192,96 +187,97 @@ export default function DoctorsScreen() {
   const filteredDoctors = useMemo(() => {
     const query = search.trim().toLowerCase();
     return doctors.filter((doctor) => {
-      const name = (doctor.fullName ?? doctor.name ?? '').toLowerCase();
-      const mail = (doctor.email ?? '').toLowerCase();
-      const spec = (doctor.specialty ?? doctor.specialization ?? '').toLowerCase();
+      const name = (doctor.fullName ?? doctor.name ?? "").toLowerCase();
+      const mail = (doctor.email ?? "").toLowerCase();
+      const spec = (doctor.specialty ?? doctor.specialization ?? "").toLowerCase();
       const matchesQuery = query ? name.includes(query) || mail.includes(query) || spec.includes(query) : true;
-      const matchesSpecialty = selectedSpecialty === 'all' ? true : spec.includes(selectedSpecialty.toLowerCase());
+      const matchesSpecialty = selectedSpecialty === "all" ? true : spec.includes(selectedSpecialty.toLowerCase());
       return matchesQuery && matchesSpecialty;
     });
   }, [doctors, search, selectedSpecialty]);
 
-  const handleBook = useCallback((doctor: Doctor) => {
-    const id = doctor._id ?? doctor.id;
-    if (!id) {
-      return;
-    }
-    router.push({
-      pathname: '/(tabs)/appointments',
-      params: { 
-        doctorId: id, 
-        doctorName: doctor.fullName ?? doctor.name ?? '',
-        autoOpenBooking: 'true'
-      },
-    });
-  }, [router]);
+  const handleBook = useCallback(
+    (doctor: Doctor) => {
+      const id = doctor._id ?? doctor.id;
+      if (!id) {
+        return;
+      }
+      router.push({
+        pathname: "/(tabs)/appointments",
+        params: {
+          doctorId: id,
+          doctorName: doctor.fullName ?? doctor.name ?? "",
+          autoOpenBooking: "true",
+        },
+      });
+    },
+    [router]
+  );
 
   const handleView = useCallback((doctor: Doctor) => {
     setSelectedDoctor(doctor);
     setShowDoctorModal(true);
   }, []);
 
-  const handleChat = useCallback(async (doctor: Doctor) => {
-    const doctorId = doctor._id ?? doctor.id;
-    const doctorName = doctor.fullName ?? doctor.name ?? 'Bác sĩ';
-    if (!doctorId || !session?.token || !session?.user?._id) {
-      router.push('/(tabs)/chat');
-      return;
-    }
+  const handleChat = useCallback(
+    async (doctor: Doctor) => {
+      const doctorId = doctor._id ?? doctor.id;
+      const doctorName = doctor.fullName ?? doctor.name ?? "Bác sĩ";
+      if (!doctorId || !session?.token || !session?.user?._id) {
+        router.push("/(tabs)/chat");
+        return;
+      }
 
-    // Try to find existing conversation with this doctor
-    try {
-      const { apiRequest } = await import('@/utils/api');
-      const userId = session.user._id;
-      const userRole = session.user.role;
-      
-      const response = await apiRequest<any>(
-        `/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`,
-        {
-          method: 'GET',
+      // Try to find existing conversation with this doctor
+      try {
+        const { apiRequest } = await import("@/utils/api");
+        const userId = session.user._id;
+        const userRole = session.user.role;
+
+        const response = await apiRequest<any>(`/realtime-chat/conversations?userId=${userId}&userRole=${userRole}`, {
+          method: "GET",
           headers: {
             Authorization: `Bearer ${session.token}`,
           },
-        }
-      );
+        });
 
-      const conversations: any[] = Array.isArray(response.data) ? response.data : [];
-      const existingConversation = conversations.find(
-        (conv) => (conv.doctorId?._id || conv.doctorId) === doctorId
-      );
+        const conversations: any[] = Array.isArray(response.data) ? response.data : [];
+        const existingConversation = conversations.find((conv) => (conv.doctorId?._id || conv.doctorId) === doctorId);
 
-      const conversationId = existingConversation?._id;
+        const conversationId = existingConversation?._id;
 
-      router.push({
-        pathname: '/chat/[id]',
-        params: {
-          id: doctorId,
-          name: doctorName,
-          type: 'doctor',
-          ...(conversationId ? { conversationId } : {}),
-        },
-      });
-    } catch (error) {
-      console.warn('Failed to fetch conversations, navigating without conversationId:', error);
-      // If fetch fails, still navigate but without conversationId
-      // Chat screen will create/find conversation automatically
-      router.push({
-        pathname: '/chat/[id]',
-        params: {
-          id: doctorId,
-          name: doctorName,
-          type: 'doctor',
-        },
-      });
-    }
-  }, [router, session]);
+        router.push({
+          pathname: "/chat/[id]",
+          params: {
+            id: doctorId,
+            name: doctorName,
+            type: "doctor",
+            ...(conversationId ? { conversationId } : {}),
+          },
+        });
+      } catch (error) {
+        console.warn("Failed to fetch conversations, navigating without conversationId:", error);
+        // If fetch fails, still navigate but without conversationId
+        // Chat screen will create/find conversation automatically
+        router.push({
+          pathname: "/chat/[id]",
+          params: {
+            id: doctorId,
+            name: doctorName,
+            type: "doctor",
+          },
+        });
+      }
+    },
+    [router, session]
+  );
 
   return (
     <>
-      <AppHeader 
-        title="Bác sĩ" 
-        showNotification 
-        showAvatar 
+      <AppHeader
+        title="Bác sĩ"
+        showNotification
+        showAvatar
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
       <ScrollView
@@ -302,7 +298,7 @@ export default function DoctorsScreen() {
                   Tìm kiếm bác sĩ phù hợp, xem chuyên khoa và đặt lịch khám nhanh chóng.
                 </Text>
               </View>
-              <View 
+              <View
                 className="items-center justify-center rounded-2xl p-4"
                 style={{ backgroundColor: Colors.primary[100] }}
               >
@@ -312,14 +308,15 @@ export default function DoctorsScreen() {
             {isAuthenticated ? (
               <View className="mt-4 rounded-2xl p-4" style={{ backgroundColor: Colors.primary[50] }}>
                 <Text className="text-sm" style={{ color: Colors.primary[700] }}>
-                  Xin chào {session?.user?.fullName ?? session?.user?.email}, hãy chọn bác sĩ phù hợp để đặt lịch hoặc trao đổi.
+                  Xin chào {session?.user?.fullName ?? session?.user?.email}, hãy chọn bác sĩ phù hợp để đặt lịch hoặc
+                  trao đổi.
                 </Text>
               </View>
             ) : (
               <TouchableOpacity
                 className="mt-4 items-center justify-center rounded-2xl py-3"
                 style={{ backgroundColor: Colors.primary[600] }}
-                onPress={() => router.push('/(auth)/login' as const)}
+                onPress={() => router.push("/(auth)/login" as const)}
               >
                 <Text className="text-sm font-semibold text-white">Đăng nhập để xem danh sách bác sĩ</Text>
               </TouchableOpacity>
@@ -358,14 +355,14 @@ export default function DoctorsScreen() {
                     className="rounded-2xl px-4 py-2"
                     style={{
                       borderWidth: 1,
-                      borderColor: selectedSpecialty === 'all' ? Colors.primary[600] : Colors.primary[100],
-                      backgroundColor: selectedSpecialty === 'all' ? Colors.primary[600] : theme.card,
+                      borderColor: selectedSpecialty === "all" ? Colors.primary[500] : Colors.primary[100],
+                      backgroundColor: selectedSpecialty === "all" ? Colors.primary[500] : theme.card,
                     }}
-                    onPress={() => setSelectedSpecialty('all')}
+                    onPress={() => setSelectedSpecialty("all")}
                   >
                     <Text
                       className="text-xs font-semibold"
-                      style={{ color: selectedSpecialty === 'all' ? '#ffffff' : Colors.primary[700] }}
+                      style={{ color: selectedSpecialty === "all" ? Colors.white : Colors.primary[500] }}
                     >
                       Tất cả
                     </Text>
@@ -376,14 +373,14 @@ export default function DoctorsScreen() {
                       className="rounded-2xl px-4 py-2"
                       style={{
                         borderWidth: 1,
-                        borderColor: selectedSpecialty === item ? Colors.primary[600] : Colors.primary[100],
-                        backgroundColor: selectedSpecialty === item ? Colors.primary[600] : theme.card,
+                        borderColor: selectedSpecialty === item ? Colors.primary[500] : Colors.primary[100],
+                        backgroundColor: selectedSpecialty === item ? Colors.primary[500] : theme.card,
                       }}
                       onPress={() => setSelectedSpecialty(item)}
                     >
                       <Text
                         className="text-xs font-semibold"
-                        style={{ color: selectedSpecialty === item ? '#ffffff' : Colors.primary[700] }}
+                        style={{ color: selectedSpecialty === item ? Colors.white : Colors.primary[500] }}
                       >
                         {item}
                       </Text>
@@ -417,10 +414,7 @@ export default function DoctorsScreen() {
             </Card>
           ) : filteredDoctors.length === 0 ? (
             <Card shadow="md" className="p-8 items-center">
-              <View
-                className="rounded-full p-4"
-                style={{ backgroundColor: Colors.primary[50] }}
-              >
+              <View className="rounded-full p-4" style={{ backgroundColor: Colors.primary[50] }}>
                 <Ionicons name="calendar-outline" size={32} color={Colors.primary[600]} />
               </View>
               <Text className="mt-3 text-sm font-semibold" style={{ color: Colors.primary[700] }}>
@@ -447,7 +441,7 @@ export default function DoctorsScreen() {
       </ScrollView>
 
       <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />
-      
+
       <DoctorDetailModal
         visible={showDoctorModal}
         doctor={selectedDoctor}

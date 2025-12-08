@@ -9,15 +9,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -95,26 +95,26 @@ export default function DoctorChatDetail() {
         // Connect to socket first if not connected
         const socket = realtimeChatService.getSocket();
         if (!socket || !socket.connected) {
-          console.log('📡 [Doctor Chat Detail] Connecting to socket...');
+          console.log("📡 [Doctor Chat Detail] Connecting to socket...");
           try {
-            await realtimeChatService.connect(session.token, session.user._id, 'doctor');
+            await realtimeChatService.connect(session.token, session.user._id, "doctor");
             // Wait a bit for socket to be fully ready
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
             const connectedSocket = realtimeChatService.getSocket();
             if (connectedSocket && connectedSocket.connected) {
-              console.log('✅ [Doctor Chat Detail] Socket connected successfully');
+              console.log("✅ [Doctor Chat Detail] Socket connected successfully");
               setSocketConnected(true);
             } else {
-              console.error('❌ [Doctor Chat Detail] Socket connection failed');
+              console.error("❌ [Doctor Chat Detail] Socket connection failed");
               setSocketConnected(false);
             }
           } catch (connectError) {
-            console.error('❌ [Doctor Chat Detail] Socket connect error:', connectError);
+            console.error("❌ [Doctor Chat Detail] Socket connect error:", connectError);
             setSocketConnected(false);
           }
         } else {
-          console.log('✅ [Doctor Chat Detail] Socket already connected');
+          console.log("✅ [Doctor Chat Detail] Socket already connected");
           setSocketConnected(true);
         }
 
@@ -126,33 +126,33 @@ export default function DoctorChatDetail() {
 
         // Load messages via REST API
         const userId = session.user._id;
-        const userRole = 'doctor';
-        
-        console.log('📡 [Doctor Chat Detail] Loading messages via REST API...');
-        
+        const userRole = "doctor";
+
+        console.log("📡 [Doctor Chat Detail] Loading messages via REST API...");
+
         const response = await apiRequest<ChatMessage[]>(
           `/realtime-chat/conversations/${conversationId}/messages?limit=100&sort=createdAt&userId=${userId}&userRole=${userRole}`,
           {
-            method: 'GET',
+            method: "GET",
             headers: {
               Authorization: `Bearer ${session.token}`,
             },
           }
         );
 
-        console.log('✅ [Doctor Chat Detail] Response:', response);
+        console.log("✅ [Doctor Chat Detail] Response:", response);
 
         let messagesData: ChatMessage[] = [];
         if (response.data) {
           if (Array.isArray(response.data)) {
             messagesData = response.data;
-          } else if (typeof response.data === 'object' && 'messages' in response.data) {
+          } else if (typeof response.data === "object" && "messages" in response.data) {
             messagesData = (response.data as any).messages || [];
           }
         }
 
         console.log(`✅ [Doctor Chat Detail] Loaded ${messagesData.length} messages`);
-        
+
         // Messages are sorted oldest first (API returns with sort=createdAt)
         setMessages(messagesData);
         setLoading(false);
@@ -201,7 +201,7 @@ export default function DoctorChatDetail() {
         senderId: {
           _id: callInfo.isOutgoing ? session?.user?._id || "" : params.patientId,
           fullName: callInfo.isOutgoing ? "Bạn" : callInfo.receiverName,
-          avatar: callInfo.isOutgoing ? session?.user?.avatar : params.patientAvatar,
+          avatar: callInfo.isOutgoing ? session?.user?.avatarUrl : params.patientAvatar,
         },
         senderRole: callInfo.isOutgoing ? "doctor" : "patient",
         messageType: "call",
@@ -240,32 +240,32 @@ export default function DoctorChatDetail() {
     socket.on("newMessage", (data: { message: ChatMessage; conversationId: string }) => {
       if (data.conversationId === conversationId) {
         console.log("📨 New message received");
-        
+
         // Check if this message already exists (to avoid duplicates from our own temp message)
         setMessages((prev) => {
-          const exists = prev.some(msg => msg._id === data.message._id);
+          const exists = prev.some((msg) => msg._id === data.message._id);
           if (exists) {
             // Message already exists, don't add duplicate
             return prev;
           }
-          
+
           // Check if we have a temp message with same content sent recently (within 5 seconds)
           const now = new Date().getTime();
-          const tempMessageIndex = prev.findIndex(msg => {
+          const tempMessageIndex = prev.findIndex((msg) => {
             const msgTime = new Date(msg.createdAt).getTime();
-            const isRecent = (now - msgTime) < 5000;
+            const isRecent = now - msgTime < 5000;
             const isSameContent = msg.content === data.message.content;
             const isSameSender = msg.senderId?._id === data.message.senderId?._id;
             return isRecent && isSameContent && isSameSender;
           });
-          
+
           if (tempMessageIndex !== -1) {
             // Replace temp message with real one
             const newMessages = [...prev];
             newMessages[tempMessageIndex] = data.message;
             return newMessages;
           }
-          
+
           // New message, add it
           return [...prev, data.message];
         });
@@ -303,7 +303,7 @@ export default function DoctorChatDetail() {
       senderId: {
         _id: session?.user?._id || "",
         fullName: "Bạn",
-        avatar: session?.user?.avatar,
+        avatar: session?.user?.avatarUrl,
       },
       senderRole: "doctor",
       messageType: imageToSend ? "image" : "text",
@@ -364,13 +364,13 @@ export default function DoctorChatDetail() {
         })
         .catch(async (sendError: any) => {
           // If socket not connected, try to reconnect once
-          if (sendError.message?.includes('Socket not connected')) {
-            console.log('🔄 [Doctor Chat Detail] Socket disconnected, trying to reconnect...');
-            
+          if (sendError.message?.includes("Socket not connected")) {
+            console.log("🔄 [Doctor Chat Detail] Socket disconnected, trying to reconnect...");
+
             try {
-              await realtimeChatService.connect(session.token, session.user._id, 'doctor');
-              await new Promise(resolve => setTimeout(resolve, 500));
-              
+              await realtimeChatService.connect(session.token, session.user._id, "doctor");
+              await new Promise((resolve) => setTimeout(resolve, 500));
+
               // Retry sending
               await realtimeChatService.sendMessage(
                 conversationId,
@@ -380,7 +380,7 @@ export default function DoctorChatDetail() {
                 fileName,
                 fileType
               );
-              
+
               setSocketConnected(true);
               console.log("✅ Message sent after reconnect");
             } catch (retryError) {
@@ -392,7 +392,6 @@ export default function DoctorChatDetail() {
             Alert.alert("Lỗi", "Không thể gửi tin nhắn. Vui lòng thử lại.");
           }
         });
-
     } catch (error) {
       console.error("Error preparing message:", error);
       Alert.alert("Lỗi", "Không thể chuẩn bị tin nhắn. Vui lòng thử lại.");
@@ -436,7 +435,7 @@ export default function DoctorChatDetail() {
 
     // Check if this is a call message (either from messageType or from callData)
     const isCallMessage = item.messageType === "call" || !!item.callData;
-    
+
     let callType: "audio" | "video" | undefined;
     let callStatus: "missed" | "answered" | "rejected" | "completed" | undefined;
     let callDuration: number | undefined;
@@ -449,10 +448,10 @@ export default function DoctorChatDetail() {
     } else if (isCallMessage) {
       // Fallback: detect from content for backward compatibility
       const lowerContent = item.content?.toLowerCase() || "";
-      
+
       // Detect call type
       callType = lowerContent.includes("video") || lowerContent.includes("gọi video") ? "video" : "audio";
-      
+
       // Detect call status
       if (lowerContent.includes("nhỡ") || lowerContent.includes("missed")) {
         callStatus = "missed";
@@ -467,8 +466,7 @@ export default function DoctorChatDetail() {
       }
 
       // Extract duration (format: "X phút Y giây" or "X:Y")
-      const durationMatch = lowerContent.match(/(\d+)\s*phút\s*(\d+)\s*giây/) ||
-                           lowerContent.match(/(\d+):(\d+)/);
+      const durationMatch = lowerContent.match(/(\d+)\s*phút\s*(\d+)\s*giây/) || lowerContent.match(/(\d+):(\d+)/);
       if (durationMatch) {
         const mins = parseInt(durationMatch[1], 10);
         const secs = parseInt(durationMatch[2], 10);
@@ -480,7 +478,7 @@ export default function DoctorChatDetail() {
       <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
         {/* Date separator */}
         {showDate && (
-          <View style={{ alignItems: 'center', marginVertical: 16 }}>
+          <View style={{ alignItems: "center", marginVertical: 16 }}>
             <View style={{ paddingHorizontal: 16, paddingVertical: 4, borderRadius: 12, backgroundColor: theme.card }}>
               <Text style={{ fontSize: 11, color: theme.text.secondary }}>
                 {new Date(item.createdAt).toLocaleDateString("vi-VN", {
@@ -495,7 +493,7 @@ export default function DoctorChatDetail() {
 
         {/* Call message bubble */}
         {isCallMessage && callType && callStatus ? (
-          <View style={{ alignItems: isMyMessage ? 'flex-end' : 'flex-start' }}>
+          <View style={{ alignItems: isMyMessage ? "flex-end" : "flex-start" }}>
             <CallMessageBubble
               callType={callType}
               callStatus={callStatus}
@@ -506,72 +504,81 @@ export default function DoctorChatDetail() {
           </View>
         ) : (
           /* Regular message bubble */
-          <View 
-            style={{ 
-              flexDirection: 'row',
-              justifyContent: isMyMessage ? 'flex-end' : 'flex-start',
-              marginBottom: 4
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: isMyMessage ? "flex-end" : "flex-start",
+              marginBottom: 4,
             }}
           >
-          {/* Avatar for received messages */}
-          {!isMyMessage && (
-            <View style={{ marginRight: 8 }}>
-              {displayAvatar ? (
-                <Image source={{ uri: displayAvatar }} style={{ width: 32, height: 32, borderRadius: 16 }} contentFit="cover" />
-              ) : (
-                <View
-                  style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primary[100] }}
-                >
-                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: Colors.primary[600] }}>
-                    {senderName.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          <View 
-            style={{ maxWidth: '75%', alignItems: isMyMessage ? 'flex-end' : 'flex-start' }}
-          >
-            {/* Sender name for received messages */}
+            {/* Avatar for received messages */}
             {!isMyMessage && (
-              <Text style={{ fontSize: 11, marginBottom: 4, marginLeft: 8, color: theme.text.secondary }}>
-                {senderName}
-              </Text>
+              <View style={{ marginRight: 8 }}>
+                {displayAvatar ? (
+                  <Image
+                    source={{ uri: displayAvatar }}
+                    style={{ width: 32, height: 32, borderRadius: 16 }}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: Colors.primary[100],
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: "bold", color: Colors.primary[600] }}>
+                      {senderName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
             )}
 
-            {/* Message content */}
-            <View
-              style={{
-                borderRadius: 16,
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                backgroundColor: isMyMessage ? Colors.primary[600] : theme.card,
-                borderWidth: isMyMessage ? 0 : 1,
-                borderColor: isMyMessage ? 'transparent' : theme.border,
-              }}
-            >
-              {/* Image message */}
-              {item.messageType === "image" && item.fileUrl && (
-                <View style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden' }}>
-                  <Image source={{ uri: item.fileUrl }} style={{ width: 192, height: 192 }} contentFit="cover" />
-                </View>
-              )}
-
-              {/* Text content */}
-              {item.content && (
-                <Text style={{ fontSize: 15, lineHeight: 22, color: isMyMessage ? "white" : theme.text.primary }}>
-                  {item.content}
+            <View style={{ maxWidth: "75%", alignItems: isMyMessage ? "flex-end" : "flex-start" }}>
+              {/* Sender name for received messages */}
+              {!isMyMessage && (
+                <Text style={{ fontSize: 11, marginBottom: 4, marginLeft: 8, color: theme.text.secondary }}>
+                  {senderName}
                 </Text>
               )}
-            </View>
 
-            {/* Time */}
-            <Text style={{ fontSize: 10, marginTop: 4, marginLeft: 8, color: theme.text.secondary }}>
-              {formatTime(item.createdAt)}
-            </Text>
+              {/* Message content */}
+              <View
+                style={{
+                  borderRadius: 16,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  backgroundColor: isMyMessage ? Colors.primary[600] : theme.card,
+                  borderWidth: isMyMessage ? 0 : 1,
+                  borderColor: isMyMessage ? "transparent" : theme.border,
+                }}
+              >
+                {/* Image message */}
+                {item.messageType === "image" && item.fileUrl && (
+                  <View style={{ marginBottom: 8, borderRadius: 12, overflow: "hidden" }}>
+                    <Image source={{ uri: item.fileUrl }} style={{ width: 192, height: 192 }} contentFit="cover" />
+                  </View>
+                )}
+
+                {/* Text content */}
+                {item.content && (
+                  <Text style={{ fontSize: 15, lineHeight: 22, color: isMyMessage ? "white" : theme.text.primary }}>
+                    {item.content}
+                  </Text>
+                )}
+              </View>
+
+              {/* Time */}
+              <Text style={{ fontSize: 10, marginTop: 4, marginLeft: 8, color: theme.text.secondary }}>
+                {formatTime(item.createdAt)}
+              </Text>
+            </View>
           </View>
-        </View>
         )}
       </View>
     );
