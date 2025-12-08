@@ -1,30 +1,31 @@
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Linking,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { AppHeader } from '@/components/layout/AppHeader';
-import { PolicyButton, PolicyModal } from '@/components/policy';
-import { Card } from '@/components/ui/Card';
-import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/auth-context';
-import paymentService from '@/services/paymentService';
-import walletService from '@/services/walletService';
-import { apiRequest, formatApiError } from '@/utils/api';
+import { AppHeader } from "@/components/layout/AppHeader";
+import { PolicyButton, PolicyModal } from "@/components/policy";
+import { Card } from "@/components/ui/Card";
+import { Colors } from "@/constants/colors";
+import { useAuth } from "@/contexts/auth-context";
+import { useThemeColors } from "@/hooks/use-theme-colors";
+import paymentService from "@/services/paymentService";
+import walletService from "@/services/walletService";
+import { apiRequest, formatApiError } from "@/utils/api";
 
 // Enhanced types matching client structure
 type Doctor = {
@@ -43,7 +44,7 @@ type Appointment = {
   endTime: string;
   consultationFee?: number;
   status: string;
-  paymentStatus?: 'unpaid' | 'paid' | 'refunded';
+  paymentStatus?: "unpaid" | "paid" | "refunded";
   doctorId?: Doctor;
 };
 
@@ -59,9 +60,9 @@ type Payment = {
   doctorId?: Doctor | string;
   refId?: Appointment | string;
   amount?: number;
-  status?: 'pending' | 'completed' | 'failed' | 'refunded' | string;
-  type?: 'appointment' | 'treatment' | 'medicine' | 'other' | string;
-  billType?: 'consultation_fee' | 'refund' | 'reservation_fee' | 'cancellation_charge';
+  status?: "pending" | "completed" | "failed" | "refunded" | string;
+  type?: "appointment" | "treatment" | "medicine" | "other" | string;
+  billType?: "consultation_fee" | "refund" | "reservation_fee" | "cancellation_charge";
   paymentDate?: string | Date | null;
   paymentMethod?: string;
   transactionId?: string;
@@ -78,24 +79,47 @@ type Transaction = {
   type: string;
 };
 
-type StatusFilter = 'all' | 'pending' | 'completed' | 'refunded';
+type StatusFilter = "all" | "pending" | "completed" | "refunded";
 
 const STATUS_OPTIONS: { id: StatusFilter; label: string }[] = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'pending', label: 'Chờ thanh toán' },
-  { id: 'completed', label: 'Đã thanh toán' },
-  { id: 'refunded', label: 'Đã hoàn' },
+  { id: "all", label: "Tất cả" },
+  { id: "pending", label: "Chờ thanh toán" },
+  { id: "completed", label: "Đã thanh toán" },
+  { id: "refunded", label: "Đã hoàn" },
 ];
 
-const STATUS_BADGES: Record<string, { label: string; color: string; background: string; iconName: keyof typeof Ionicons.glyphMap }> = {
-  pending: { label: 'Chờ thanh toán', color: Colors.warning[700], background: Colors.warning[50], iconName: 'alert-circle-outline' },
-  completed: { label: 'Đã thanh toán', color: Colors.success[700], background: Colors.success[50], iconName: 'checkmark-circle-outline' },
-  failed: { label: 'Thanh toán thất bại', color: Colors.error[700], background: Colors.error[50], iconName: 'close-circle-outline' },
-  refunded: { label: 'Đã hoàn tiền', color: Colors.primary[600], background: Colors.primary[50], iconName: 'refresh-outline' },
+const STATUS_BADGES: Record<
+  string,
+  { label: string; color: string; background: string; iconName: keyof typeof Ionicons.glyphMap }
+> = {
+  pending: {
+    label: "Chờ thanh toán",
+    color: Colors.warning[700],
+    background: Colors.warning[50],
+    iconName: "alert-circle-outline",
+  },
+  completed: {
+    label: "Đã thanh toán",
+    color: Colors.success[700],
+    background: Colors.success[50],
+    iconName: "checkmark-circle-outline",
+  },
+  failed: {
+    label: "Thanh toán thất bại",
+    color: Colors.error[700],
+    background: Colors.error[50],
+    iconName: "close-circle-outline",
+  },
+  refunded: {
+    label: "Đã hoàn tiền",
+    color: Colors.primary[600],
+    background: Colors.primary[50],
+    iconName: "refresh-outline",
+  },
 };
 
 function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'AbortError';
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function ensureArray<T>(value: unknown): T[] {
@@ -111,89 +135,92 @@ function parseDate(value?: string | Date | null): Date | null {
 
 function formatDate(value?: string | Date | null): string {
   const date = parseDate(value);
-  if (!date) return '—';
-  return date.toLocaleDateString('vi-VN');
+  if (!date) return "—";
+  return date.toLocaleDateString("vi-VN");
 }
 
 function formatDateTime(value?: string | Date | null): string {
   const date = parseDate(value);
-  if (!date) return '—';
-  return date.toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  if (!date) return "—";
+  return date.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
-const currencyFormatter = new Intl.NumberFormat('vi-VN', {
-  style: 'currency',
-  currency: 'VND',
+const currencyFormatter = new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
   maximumFractionDigits: 0,
 });
 
 function formatCurrency(value?: number | null): string {
-  if (value === undefined || value === null) return '—';
+  if (value === undefined || value === null) return "—";
   return currencyFormatter.format(value);
 }
 
 function formatAmountWithSign(payment: Payment): string {
   const amount = payment.amount ?? 0;
   const absAmount = Math.abs(amount);
-  const formatted = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 0 }).format(absAmount);
-  if (payment.billType === 'refund') return `+${formatted} ₫`;
+  const formatted = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 0 }).format(absAmount);
+  if (payment.billType === "refund") return `+${formatted} ₫`;
   return `-${formatted} ₫`;
 }
 
-function extractUserName(user: Payment['doctorId'] | Payment['patientId']): string {
-  if (!user) return 'Smart Dental';
-  if (typeof user === 'string') return user;
-  return user.fullName ?? user.email ?? 'Smart Dental';
+function extractUserName(user: Payment["doctorId"] | Payment["patientId"]): string {
+  if (!user) return "Smart Dental";
+  if (typeof user === "string") return user;
+  return user.fullName ?? user.email ?? "Smart Dental";
 }
 
 function getBillTypeLabel(billType?: string): string {
   switch (billType) {
-    case 'consultation_fee':
-      return 'Phí khám';
-    case 'refund':
-      return 'Hoàn tiền';
-    case 'reservation_fee':
-      return 'Phí giữ chỗ';
-    case 'cancellation_charge':
-      return 'Phí giữ chỗ';
+    case "consultation_fee":
+      return "Phí khám";
+    case "refund":
+      return "Hoàn tiền";
+    case "reservation_fee":
+      return "Phí giữ chỗ";
+    case "cancellation_charge":
+      return "Phí giữ chỗ";
     default:
-      return 'Thanh toán';
+      return "Thanh toán";
   }
 }
 
 function getPaymentMethodLabel(method?: string): string {
   switch (method) {
-    case 'momo':
-      return 'Ví MoMo';
-    case 'wallet_deduction':
-      return 'Ví điện tử';
-    case 'cash':
-      return 'Tiền mặt';
-    case 'card':
-      return 'Thẻ tín dụng';
-    case 'pending':
-      return 'Chưa thanh toán';
+    case "momo":
+      return "Ví MoMo";
+    case "wallet_deduction":
+      return "Ví điện tử";
+    case "cash":
+      return "Tiền mặt";
+    case "card":
+      return "Thẻ tín dụng";
+    case "pending":
+      return "Chưa thanh toán";
     default:
-      return method || 'Chưa xác định';
+      return method || "Chưa xác định";
   }
 }
 
 function PaymentBadge({ status }: { status?: string }) {
-  const normalized = (status ?? '').toLowerCase();
+  const normalized = (status ?? "").toLowerCase();
   const badge = STATUS_BADGES[normalized] ?? {
-    label: 'Đang xử lý',
-    color: '#334155',
-    background: '#e2e8f0',
-    iconName: 'ellipse-outline' as const,
+    label: "Đang xử lý",
+    color: "#334155",
+    background: "#e2e8f0",
+    iconName: "ellipse-outline" as const,
   };
   return (
-    <View className="self-start flex-row items-center rounded-full px-3 py-1" style={{ backgroundColor: badge.background, gap: 4 }}>
+    <View
+      className="self-start flex-row items-center rounded-full px-3 py-1"
+      style={{ backgroundColor: badge.background, gap: 4 }}
+    >
       <Ionicons name={badge.iconName} size={14} color={badge.color} />
       <Text className="text-xs font-semibold" style={{ color: badge.color }}>
         {badge.label}
@@ -202,20 +229,19 @@ function PaymentBadge({ status }: { status?: string }) {
   );
 }
 
-function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Payment) => void }) {
-  // Fixed light theme colors
-  const theme = {
-    surface: '#ffffff',
-    border: '#e2e8f0',
-    text: {
-      secondary: '#64748b'
-    }
-  };
-  
+function PaymentCard({
+  payment,
+  onPayNow,
+  theme,
+}: {
+  payment: Payment;
+  onPayNow: (p: Payment) => void;
+  theme: ReturnType<typeof useThemeColors>;
+}) {
   // Determine amount color - green for refund (+), red for charge (-)
-  const isRefund = payment.billType === 'refund';
+  const isRefund = payment.billType === "refund";
   const amountColor = isRefund ? Colors.success[600] : Colors.error[600];
-  
+
   return (
     <Card shadow="md" className="p-5">
       <View className="flex-row items-start justify-between">
@@ -224,7 +250,11 @@ function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Pa
             {formatAmountWithSign(payment)}
           </Text>
           <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
-            {payment.billType === 'refund' ? 'Hoàn tiền khám' : (typeof payment.refId === 'object' ? payment.refId?.appointmentType : payment.type ?? 'Thanh toán')}
+            {payment.billType === "refund"
+              ? "Hoàn tiền khám"
+              : typeof payment.refId === "object"
+                ? payment.refId?.appointmentType
+                : (payment.type ?? "Thanh toán")}
           </Text>
           <View className="mt-2">
             <PaymentBadge status={payment.status} />
@@ -244,12 +274,18 @@ function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Pa
         </View>
         <View className="mt-3">
           <Text className="text-xs" style={{ color: theme.text.secondary }}>
-            Bác sĩ: {typeof payment.refId === 'object' && payment.refId?.doctorId?.fullName ? payment.refId.doctorId.fullName : extractUserName(payment.doctorId)}
+            Bác sĩ:{" "}
+            {typeof payment.refId === "object" && payment.refId?.doctorId?.fullName
+              ? payment.refId.doctorId.fullName
+              : extractUserName(payment.doctorId)}
           </Text>
           <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
-            Ngày khám: {typeof payment.refId === 'object' && payment.refId?.appointmentDate ? formatDate(payment.refId.appointmentDate) : formatDate(payment.createdAt)}
+            Ngày khám:{" "}
+            {typeof payment.refId === "object" && payment.refId?.appointmentDate
+              ? formatDate(payment.refId.appointmentDate)
+              : formatDate(payment.createdAt)}
           </Text>
-          {typeof payment.refId === 'object' && payment.refId?.startTime ? (
+          {typeof payment.refId === "object" && payment.refId?.startTime ? (
             <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
               Giờ khám: {payment.refId.startTime}
             </Text>
@@ -267,7 +303,7 @@ function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Pa
           <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
             Tạo lúc: {formatDateTime(payment.createdAt)}
           </Text>
-          {payment.status !== 'pending' ? (
+          {payment.status !== "pending" ? (
             <Text className="mt-1 text-xs" style={{ color: theme.text.secondary }}>
               Cập nhật: {formatDateTime(payment.updatedAt)}
             </Text>
@@ -294,16 +330,20 @@ function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Pa
         </View>
       ) : null}
 
-      {(payment.status === 'pending' || payment.status === 'failed') && (
+      {(payment.status === "pending" || payment.status === "failed") && (
         <TouchableOpacity
           className="mt-4 items-center justify-center rounded-2xl py-3"
-          style={{ backgroundColor: payment.status === 'pending' ? Colors.primary[600] : Colors.error[600] }}
+          style={{ backgroundColor: payment.status === "pending" ? Colors.primary[600] : Colors.error[600] }}
           onPress={() => onPayNow(payment)}
         >
           <View className="flex-row items-center">
-            <Ionicons name={payment.status === 'pending' ? 'wallet-outline' : 'refresh-outline'} size={18} color="#ffffff" />
+            <Ionicons
+              name={payment.status === "pending" ? "wallet-outline" : "refresh-outline"}
+              size={18}
+              color="#ffffff"
+            />
             <Text className="ml-2 text-sm font-semibold text-white">
-              {payment.status === 'pending' ? 'Thanh toán ngay' : 'Thử lại thanh toán'}
+              {payment.status === "pending" ? "Thanh toán ngay" : "Thử lại thanh toán"}
             </Text>
           </View>
         </TouchableOpacity>
@@ -315,36 +355,25 @@ function PaymentCard({ payment, onPayNow }: { payment: Payment; onPayNow: (p: Pa
 export default function PaymentsScreen() {
   const router = useRouter();
   const { session, isAuthenticated, isHydrating } = useAuth();
-  
-  // Fixed light theme colors (not affected by dark mode)
-  const theme = {
-    background: '#f8fafc',
-    surface: '#ffffff',
-    border: '#e2e8f0',
-    text: {
-      primary: '#0f172a',
-      secondary: '#64748b',
-      tertiary: '#94a3b8'
-    }
-  };
+  const theme = useThemeColors();
 
-  const patientId = session?.user?._id ?? '';
-  const token = session?.token ?? '';
+  const patientId = session?.user?._id ?? "";
+  const token = session?.token ?? "";
 
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   // Date filters
-  const [startFilterDate, setStartFilterDate] = useState<string>('');
-  const [endFilterDate, setEndFilterDate] = useState<string>('');
+  const [startFilterDate, setStartFilterDate] = useState<string>("");
+  const [endFilterDate, setEndFilterDate] = useState<string>("");
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [datePickerMode, setDatePickerMode] = useState<'start' | 'end'>('start');
+  const [datePickerMode, setDatePickerMode] = useState<"start" | "end">("start");
   const [tempDate, setTempDate] = useState<Date>(new Date());
 
   // Payment modal
@@ -357,7 +386,7 @@ export default function PaymentsScreen() {
   const [walletTransactions, setWalletTransactions] = useState<Transaction[]>([]);
   const [walletStats, setWalletStats] = useState({ totalTopUp: 0, successfulTransactions: 0 });
   const [showTopUpForm, setShowTopUpForm] = useState(false);
-  const [topUpAmount, setTopUpAmount] = useState('');
+  const [topUpAmount, setTopUpAmount] = useState("");
   const [topUpLoading, setTopUpLoading] = useState(false);
 
   const loadPayments = useCallback(
@@ -385,7 +414,7 @@ export default function PaymentsScreen() {
           return;
         }
         setPayments([]);
-        setErrorMessage(formatApiError(error, 'Không thể tải lịch sử thanh toán.'));
+        setErrorMessage(formatApiError(error, "Không thể tải lịch sử thanh toán."));
       } finally {
         if (viaRefresh) {
           setRefreshing(false);
@@ -394,7 +423,7 @@ export default function PaymentsScreen() {
         }
       }
     },
-    [patientId, token],
+    [patientId, token]
   );
 
   useFocusEffect(
@@ -405,24 +434,24 @@ export default function PaymentsScreen() {
       // Also fetch wallet balance silently
       void (async () => {
         try {
-          console.log('🔍 Fetching wallet balance...');
-          console.log('🔍 Token available:', !!token, 'Length:', token.length);
+          console.log("🔍 Fetching wallet balance...");
+          console.log("🔍 Token available:", !!token, "Length:", token.length);
           const res = await walletService.getBalance(token);
-          console.log('🔍 Wallet balance response:', res);
+          console.log("🔍 Wallet balance response:", res);
           if (res?.success && res.data) {
-            console.log('✅ Setting wallet balance:', res.data.balance);
+            console.log("✅ Setting wallet balance:", res.data.balance);
             setWalletBalance(res.data.balance ?? 0);
           } else {
-            console.warn('⚠️ Wallet balance fetch failed:', res?.message);
+            console.warn("⚠️ Wallet balance fetch failed:", res?.message);
             // Keep balance at 0 or previous value, don't show error
           }
         } catch (e) {
-          console.error('❌ Failed to fetch wallet balance:', e);
+          console.error("❌ Failed to fetch wallet balance:", e);
           // Silent failure - don't disrupt user experience
         }
       })();
       return () => controller.abort();
-    }, [patientId, token, loadPayments]),
+    }, [patientId, token, loadPayments])
   );
 
   const handleRefresh = useCallback(() => {
@@ -441,24 +470,24 @@ export default function PaymentsScreen() {
     try {
       const res = await walletService.payPendingBill(token, selectedPayment._id);
       if (res.success) {
-        Alert.alert('Thành công', res.message || 'Thanh toán thành công');
+        Alert.alert("Thành công", res.message || "Thanh toán thành công");
         setShowPaymentModal(false);
         // Refresh payments and wallet balance
         void loadPayments();
         try {
           const bal = await walletService.getBalance(token);
           if (bal?.success && bal.data) {
-            console.log('💰 Updated wallet balance after payment:', bal.data.balance);
+            console.log("💰 Updated wallet balance after payment:", bal.data.balance);
             setWalletBalance(bal.data.balance ?? 0);
           }
         } catch (e) {
-          console.error('❌ Failed to refresh wallet balance:', e);
+          console.error("❌ Failed to refresh wallet balance:", e);
         }
       } else {
-        Alert.alert('Thất bại', res.error || 'Không thể thanh toán');
+        Alert.alert("Thất bại", res.error || "Không thể thanh toán");
       }
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.message || 'Không thể thanh toán');
+      Alert.alert("Lỗi", e?.message || "Không thể thanh toán");
     }
   }, [selectedPayment?._id, token, loadPayments]);
 
@@ -470,10 +499,10 @@ export default function PaymentsScreen() {
         setShowPaymentModal(false);
         Linking.openURL(resp.data.payUrl);
       } else {
-        Alert.alert('Không thể tạo thanh toán MoMo', resp.message || 'Vui lòng thử lại.');
+        Alert.alert("Không thể tạo thanh toán MoMo", resp.message || "Vui lòng thử lại.");
       }
     } catch (e: any) {
-      Alert.alert('Lỗi', e?.message || 'Không thể tạo thanh toán MoMo');
+      Alert.alert("Lỗi", e?.message || "Không thể tạo thanh toán MoMo");
     }
   }, [selectedPayment?._id, token]);
 
@@ -483,25 +512,27 @@ export default function PaymentsScreen() {
     (async () => {
       try {
         const bal = await walletService.getBalance(token);
-        console.log('🔄 Payment modal wallet balance:', bal);
+        console.log("🔄 Payment modal wallet balance:", bal);
         if (bal?.success && bal.data) {
           setWalletBalance(bal.data.balance ?? 0);
         }
       } catch (e) {
-        console.warn('⚠️ Could not refresh wallet balance for modal:', e);
+        console.warn("⚠️ Could not refresh wallet balance for modal:", e);
       }
     })();
   }, [showPaymentModal, token]);
 
   const stats = useMemo(() => {
     const all = payments;
-    const completedCharges = all.filter((p) => (p.status ?? '').toLowerCase() === 'completed' && p.billType !== 'refund');
+    const completedCharges = all.filter(
+      (p) => (p.status ?? "").toLowerCase() === "completed" && p.billType !== "refund"
+    );
     const completedTotal = completedCharges.reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
-    const pendingPayments = all.filter((p) => (p.status ?? '').toLowerCase() === 'pending');
+    const pendingPayments = all.filter((p) => (p.status ?? "").toLowerCase() === "pending");
     const pendingTotal = pendingPayments.reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
-    const refundedPayments = all.filter((p) => p.billType === 'refund');
+    const refundedPayments = all.filter((p) => p.billType === "refund");
     const refundedTotal = Math.abs(refundedPayments.reduce((sum, p) => sum + (p.amount ?? 0), 0));
 
     const totalSpending = completedTotal + pendingTotal + refundedTotal;
@@ -528,27 +559,27 @@ export default function PaymentsScreen() {
   const filteredPayments = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return payments.filter((payment) => {
-      const appointment = typeof payment.refId === 'object' ? payment.refId : null;
-      const doctor = typeof payment.doctorId === 'object' ? payment.doctorId : null;
+      const appointment = typeof payment.refId === "object" ? payment.refId : null;
+      const doctor = typeof payment.doctorId === "object" ? payment.doctorId : null;
 
-      const doctorName = appointment?.doctorId?.fullName || doctor?.fullName || '';
-      const appointmentType = appointment?.appointmentType || '';
-      const transactionId = payment.transactionId || '';
-      const notes = payment.notes || '';
+      const doctorName = appointment?.doctorId?.fullName || doctor?.fullName || "";
+      const appointmentType = appointment?.appointmentType || "";
+      const transactionId = payment.transactionId || "";
+      const notes = payment.notes || "";
 
       const matchesSearch =
-        term === '' ||
+        term === "" ||
         doctorName.toLowerCase().includes(term) ||
         appointmentType.toLowerCase().includes(term) ||
         transactionId.toLowerCase().includes(term) ||
         notes.toLowerCase().includes(term);
 
-      const status = (payment.status ?? '').toLowerCase();
+      const status = (payment.status ?? "").toLowerCase();
       const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'refunded' && payment.billType === 'refund') ||
-        (statusFilter === 'completed' && status === 'completed' && payment.billType !== 'refund') ||
-        (statusFilter === 'pending' && status === 'pending');
+        statusFilter === "all" ||
+        (statusFilter === "refunded" && payment.billType === "refund") ||
+        (statusFilter === "completed" && status === "completed" && payment.billType !== "refund") ||
+        (statusFilter === "pending" && status === "pending");
 
       // Date filter
       let matchesDate = true;
@@ -576,16 +607,16 @@ export default function PaymentsScreen() {
   if (!isHydrating && !isAuthenticated) {
     return (
       <>
-        <AppHeader 
-          title="Thanh toán" 
-          showNotification 
-          showAvatar 
+        <AppHeader
+          title="Thanh toán"
+          showNotification
+          showAvatar
           rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
         />
-        <ScrollView 
+        <ScrollView
           className="flex-1"
           style={{ backgroundColor: theme.background }}
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}
         >
           <Card className="w-full max-w-md p-6">
             <View className="items-center">
@@ -599,7 +630,7 @@ export default function PaymentsScreen() {
               <TouchableOpacity
                 className="mt-6 w-full items-center justify-center rounded-2xl py-3"
                 style={{ backgroundColor: Colors.primary[600] }}
-                onPress={() => router.push('/(auth)/login' as const)}
+                onPress={() => router.push("/(auth)/login" as const)}
               >
                 <Text className="text-sm font-semibold text-white">Đăng nhập</Text>
               </TouchableOpacity>
@@ -614,10 +645,10 @@ export default function PaymentsScreen() {
 
   return (
     <>
-      <AppHeader 
-        title="Thanh toán" 
-        showNotification 
-        showAvatar 
+      <AppHeader
+        title="Thanh toán"
+        showNotification
+        showAvatar
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
       <ScrollView
@@ -634,11 +665,11 @@ export default function PaymentsScreen() {
         <View style={{ gap: 24 }}>
           <Card className="p-4">
             <View style={{ gap: 12 }}>
-              <View 
+              <View
                 className="rounded-2xl border p-3"
-                style={{ 
+                style={{
                   borderColor: Colors.primary[100],
-                  backgroundColor: `${Colors.primary[50]}CC`
+                  backgroundColor: `${Colors.primary[50]}CC`,
                 }}
               >
                 <TextInput
@@ -654,40 +685,40 @@ export default function PaymentsScreen() {
               <View className="flex-row items-center flex-wrap" style={{ gap: 12 }}>
                 <TouchableOpacity
                   className="rounded-2xl border px-4 py-2"
-                  style={{ borderColor: Colors.primary[100], backgroundColor: '#fff' }}
+                  style={{ borderColor: Colors.primary[100], backgroundColor: theme.surface }}
                   onPress={() => {
-                    setDatePickerMode('start');
+                    setDatePickerMode("start");
                     setTempDate(startFilterDate ? new Date(startFilterDate) : new Date());
                     setShowDatePicker(true);
                   }}
                 >
-                  <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
-                    Từ: {startFilterDate ? formatDate(startFilterDate) : 'Chọn ngày'}
+                  <Text className="text-xs font-semibold" style={{ color: Colors.primary[500] }}>
+                    Từ: {startFilterDate ? formatDate(startFilterDate) : "Chọn ngày"}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="rounded-2xl border px-4 py-2"
-                  style={{ borderColor: Colors.primary[100], backgroundColor: '#fff' }}
+                  style={{ borderColor: Colors.primary[100], backgroundColor: theme.surface }}
                   onPress={() => {
-                    setDatePickerMode('end');
+                    setDatePickerMode("end");
                     setTempDate(endFilterDate ? new Date(endFilterDate) : new Date());
                     setShowDatePicker(true);
                   }}
                 >
-                  <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
-                    Đến: {endFilterDate ? formatDate(endFilterDate) : 'Chọn ngày'}
+                  <Text className="text-xs font-semibold" style={{ color: Colors.primary[500] }}>
+                    Đến: {endFilterDate ? formatDate(endFilterDate) : "Chọn ngày"}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="rounded-2xl border px-4 py-2"
-                  style={{ borderColor: Colors.primary[100], backgroundColor: '#fff' }}
+                  style={{ borderColor: Colors.primary[100], backgroundColor: theme.surface }}
                   onPress={() => {
-                    setStartFilterDate('');
-                    setEndFilterDate('');
-                    setSearchTerm('');
+                    setStartFilterDate("");
+                    setEndFilterDate("");
+                    setSearchTerm("");
                   }}
                 >
-                  <Text className="text-xs font-semibold" style={{ color: Colors.primary[700] }}>
+                  <Text className="text-xs font-semibold" style={{ color: Colors.primary[500] }}>
                     Xóa lọc
                   </Text>
                 </TouchableOpacity>
@@ -698,15 +729,24 @@ export default function PaymentsScreen() {
           <View style={{ gap: 16 }}>
             <View className="flex-row flex-wrap" style={{ gap: 16 }}>
               <TouchableOpacity
-                onPress={() => setStatusFilter('all')}
+                onPress={() => setStatusFilter("all")}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'all' ? '#ef4444' : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
+                style={{
+                  borderColor: statusFilter === "all" ? Colors.error[500] : theme.border,
+                  backgroundColor: theme.surface,
+                  minWidth: 150,
+                }}
               >
-                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: '#fee2e2' }}>
-                  <Ionicons name="cash-outline" color="#dc2626" size={22} />
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-xl mb-3"
+                  style={{ backgroundColor: Colors.error[50] }}
+                >
+                  <Ionicons name="cash-outline" color={Colors.error[600]} size={22} />
                 </View>
-                <Text className="text-xs" style={{ color: theme.text.secondary }}>Tổng chi tiêu</Text>
-                <Text className="mt-1 text-xl font-bold" style={{ color: '#dc2626' }}>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                  Tổng chi tiêu
+                </Text>
+                <Text className="mt-1 text-xl font-bold" style={{ color: Colors.error[600] }}>
                   {formatCurrency(stats.totalSpending)}
                 </Text>
                 <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
@@ -715,15 +755,24 @@ export default function PaymentsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => setStatusFilter('pending')}
+                onPress={() => setStatusFilter("pending")}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'pending' ? '#f59e0b' : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
+                style={{
+                  borderColor: statusFilter === "pending" ? Colors.warning[500] : theme.border,
+                  backgroundColor: theme.surface,
+                  minWidth: 150,
+                }}
               >
-                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: '#fef3c7' }}>
-                  <Ionicons name="time-outline" color="#d97706" size={22} />
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-xl mb-3"
+                  style={{ backgroundColor: Colors.warning[50] }}
+                >
+                  <Ionicons name="time-outline" color={Colors.warning[600]} size={22} />
                 </View>
-                <Text className="text-xs" style={{ color: theme.text.secondary }}>Chờ thanh toán</Text>
-                <Text className="mt-1 text-xl font-bold" style={{ color: '#d97706' }}>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                  Chờ thanh toán
+                </Text>
+                <Text className="mt-1 text-xl font-bold" style={{ color: Colors.warning[600] }}>
                   {formatCurrency(stats.pendingTotal)}
                 </Text>
                 <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
@@ -734,15 +783,24 @@ export default function PaymentsScreen() {
 
             <View className="flex-row flex-wrap" style={{ gap: 16 }}>
               <TouchableOpacity
-                onPress={() => setStatusFilter('completed')}
+                onPress={() => setStatusFilter("completed")}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'completed' ? '#10b981' : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
+                style={{
+                  borderColor: statusFilter === "completed" ? Colors.success[500] : theme.border,
+                  backgroundColor: theme.surface,
+                  minWidth: 150,
+                }}
               >
-                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: '#d1fae5' }}>
-                  <Ionicons name="checkmark-circle-outline" color="#059669" size={22} />
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-xl mb-3"
+                  style={{ backgroundColor: Colors.success[50] }}
+                >
+                  <Ionicons name="checkmark-circle-outline" color={Colors.success[600]} size={22} />
                 </View>
-                <Text className="text-xs" style={{ color: theme.text.secondary }}>Đã thanh toán</Text>
-                <Text className="mt-1 text-xl font-bold" style={{ color: '#059669' }}>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                  Đã thanh toán
+                </Text>
+                <Text className="mt-1 text-xl font-bold" style={{ color: Colors.success[600] }}>
                   {formatCurrency(stats.completedTotal)}
                 </Text>
                 <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
@@ -751,14 +809,23 @@ export default function PaymentsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => setStatusFilter('refunded')}
+                onPress={() => setStatusFilter("refunded")}
                 className="flex-1 rounded-2xl border-2 p-4"
-                style={{ borderColor: statusFilter === 'refunded' ? Colors.primary[600] : '#e5e7eb', backgroundColor: '#fff', minWidth: 150 }}
+                style={{
+                  borderColor: statusFilter === "refunded" ? Colors.primary[500] : theme.border,
+                  backgroundColor: theme.surface,
+                  minWidth: 150,
+                }}
               >
-                <View className="h-12 w-12 items-center justify-center rounded-xl mb-3" style={{ backgroundColor: Colors.primary[50] }}>
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-xl mb-3"
+                  style={{ backgroundColor: Colors.primary[50] }}
+                >
                   <Ionicons name="refresh-outline" color={Colors.primary[600]} size={22} />
                 </View>
-                <Text className="text-xs" style={{ color: theme.text.secondary }}>Đã hoàn tiền</Text>
+                <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                  Đã hoàn tiền
+                </Text>
                 <Text className="mt-1 text-xl font-bold" style={{ color: Colors.primary[600] }}>
                   +{formatCurrency(stats.refundedTotal)}
                 </Text>
@@ -779,36 +846,41 @@ export default function PaymentsScreen() {
                     walletService.getStats(token),
                   ]);
                   if (balanceRes?.success && balanceRes.data) {
-                    console.log('🔍 Wallet modal balance:', balanceRes.data.balance);
+                    console.log("🔍 Wallet modal balance:", balanceRes.data.balance);
                     setWalletBalance(balanceRes.data.balance ?? 0);
                   }
                   if ((historyRes as any)?.success && (historyRes as any).data) {
-                    console.log('🔍 Wallet modal history:', (historyRes as any).data);
+                    console.log("🔍 Wallet modal history:", (historyRes as any).data);
                     const tx = (historyRes as any).data.transactions;
                     setWalletTransactions(Array.isArray(tx) ? tx : []);
                   } else {
                     setWalletTransactions([]);
                   }
                   if ((statsRes as any)?.success && (statsRes as any).data) {
-                    console.log('🔍 Wallet modal stats:', (statsRes as any).data);
+                    console.log("🔍 Wallet modal stats:", (statsRes as any).data);
                     setWalletStats((statsRes as any).data as any);
                   }
                 } catch {}
               }}
               className="rounded-2xl border-2 p-4"
-              style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}
+              style={{ borderColor: theme.border, backgroundColor: theme.surface }}
             >
               <View className="flex-row items-start justify-between">
                 <View>
-                  <Text className="text-xs" style={{ color: theme.text.secondary }}>Ví của tôi</Text>
-                  <Text className="mt-1 text-2xl font-bold" style={{ color: Colors.primary[700] }}>
+                  <Text className="text-xs" style={{ color: theme.text.secondary }}>
+                    Ví của tôi
+                  </Text>
+                  <Text className="mt-1 text-2xl font-bold" style={{ color: Colors.primary[500] }}>
                     {formatCurrency(walletBalance)}
                   </Text>
                   <Text className="mt-1 text-[11px]" style={{ color: theme.text.secondary }}>
                     Nhấp để xem chi tiết ví
                   </Text>
                 </View>
-                <View className="h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: Colors.primary[100] }}>
+                <View
+                  className="h-12 w-12 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: Colors.primary[100] }}
+                >
                   <Ionicons name="wallet-outline" color={Colors.primary[700]} size={22} />
                 </View>
               </View>
@@ -817,16 +889,22 @@ export default function PaymentsScreen() {
 
           {/* Pending alert */}
           {stats.pendingCount > 0 && (
-            <View className="rounded-2xl border-2 p-4" style={{ borderColor: '#fde68a', backgroundColor: '#fffbeb' }}>
+            <View
+              className="rounded-2xl border-2 p-4"
+              style={{ borderColor: Colors.warning[100], backgroundColor: Colors.warning[50] }}
+            >
               <View className="flex-row items-start">
-                <View className="mr-3 h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: '#fef3c7' }}>
-                  <Ionicons name="alert-circle-outline" color="#ca8a04" size={20} />
+                <View
+                  className="mr-3 h-10 w-10 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: Colors.warning[100] }}
+                >
+                  <Ionicons name="alert-circle-outline" color={Colors.warning[600]} size={20} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-semibold" style={{ color: '#713f12' }}>
+                  <Text className="text-base font-semibold" style={{ color: Colors.warning[700] }}>
                     Bạn có {stats.pendingCount} thanh toán chờ xử lý
                   </Text>
-                  <Text className="mt-1 text-xs" style={{ color: '#854d0e' }}>
+                  <Text className="mt-1 text-xs" style={{ color: Colors.warning[600] }}>
                     Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn. Nhấn "Thanh toán ngay" trong từng giao dịch.
                   </Text>
                 </View>
@@ -835,11 +913,11 @@ export default function PaymentsScreen() {
           )}
 
           {errorMessage ? (
-            <View 
+            <View
               className="rounded-3xl border p-4"
-              style={{ 
+              style={{
                 borderColor: Colors.warning[100],
-                backgroundColor: Colors.warning[50]
+                backgroundColor: Colors.warning[50],
               }}
             >
               <View className="flex-row items-center" style={{ gap: 8 }}>
@@ -859,11 +937,11 @@ export default function PaymentsScreen() {
               </Text>
             </Card>
           ) : filteredPayments.length === 0 ? (
-            <View 
+            <View
               className="items-center justify-center rounded-3xl border border-dashed p-8 text-center"
               style={{
                 borderColor: Colors.primary[200],
-                backgroundColor: `${Colors.primary[50]}B3`
+                backgroundColor: `${Colors.primary[50]}B3`,
               }}
             >
               <Ionicons name="card-outline" size={28} color={Colors.primary[600]} />
@@ -881,6 +959,7 @@ export default function PaymentsScreen() {
                   key={payment._id ?? `${payment.transactionId}-${payment.createdAt}`}
                   payment={payment}
                   onPayNow={handlePayNow}
+                  theme={theme}
                 />
               ))}
             </View>
@@ -889,11 +968,18 @@ export default function PaymentsScreen() {
       </ScrollView>
 
       {/* Payment Method Modal */}
-      <Modal visible={showPaymentModal} transparent animationType="fade" onRequestClose={() => setShowPaymentModal(false)}>
-        <View className="flex-1 items-center justify-center" style={{ backgroundColor: '#00000066' }}>
+      <Modal
+        visible={showPaymentModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.overlay }}>
           <View className="w-11/12 max-w-md rounded-2xl p-5" style={{ backgroundColor: theme.surface }}>
             <View className="mb-3 flex-row items-center justify-between">
-              <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>Chọn phương thức</Text>
+              <Text className="text-base font-semibold" style={{ color: theme.text.primary }}>
+                Chọn phương thức
+              </Text>
               <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
                 <Ionicons name="close" size={20} color={theme.text.secondary} />
               </TouchableOpacity>
@@ -913,15 +999,18 @@ export default function PaymentsScreen() {
                 )}
               </View>
             ) : null}
-            
+
             {/* Wallet option */}
             <TouchableOpacity
               className="mb-3 rounded-2xl py-3 items-center justify-center"
-              style={{ backgroundColor: ((selectedPayment?.amount ?? 0) > walletBalance) ? '#94a3b8' : Colors.primary[600], opacity: ((selectedPayment?.amount ?? 0) > walletBalance) ? 0.7 : 1 }}
+              style={{
+                backgroundColor: (selectedPayment?.amount ?? 0) > walletBalance ? "#94a3b8" : Colors.primary[600],
+                opacity: (selectedPayment?.amount ?? 0) > walletBalance ? 0.7 : 1,
+              }}
               disabled={(selectedPayment?.amount ?? 0) > walletBalance}
               onPress={async () => {
                 if ((selectedPayment?.amount ?? 0) > walletBalance) {
-                  Alert.alert('Số dư không đủ', 'Vui lòng nạp thêm tiền vào ví để thanh toán.');
+                  Alert.alert("Số dư không đủ", "Vui lòng nạp thêm tiền vào ví để thanh toán.");
                   return;
                 }
                 await handlePayWithWallet();
@@ -932,7 +1021,7 @@ export default function PaymentsScreen() {
                 <Text className="ml-2 text-sm font-semibold text-white">Thanh toán bằng ví</Text>
               </View>
             </TouchableOpacity>
-            
+
             {/* MoMo option */}
             <TouchableOpacity
               className="rounded-2xl border py-3 items-center justify-center"
@@ -941,7 +1030,9 @@ export default function PaymentsScreen() {
             >
               <View className="flex-row items-center">
                 <Ionicons name="card-outline" color={Colors.primary[700]} size={18} />
-                <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.primary[700] }}>Thanh toán qua MoMo</Text>
+                <Text className="ml-2 text-sm font-semibold" style={{ color: Colors.primary[700] }}>
+                  Thanh toán qua MoMo
+                </Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -949,16 +1040,26 @@ export default function PaymentsScreen() {
       </Modal>
 
       {/* Wallet Modal */}
-      <Modal visible={showWalletModal} transparent animationType="slide" onRequestClose={() => setShowWalletModal(false)}>
-        <View className="flex-1" style={{ backgroundColor: '#00000066' }}>
+      <Modal
+        visible={showWalletModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowWalletModal(false)}
+      >
+        <View className="flex-1" style={{ backgroundColor: "#00000066" }}>
           <View className="flex-1 mt-20 rounded-t-3xl" style={{ backgroundColor: theme.surface }}>
             {/* Header */}
             <View className="flex-row items-center justify-between p-5 border-b" style={{ borderColor: theme.border }}>
               <View className="flex-row items-center">
-                <View className="h-10 w-10 items-center justify-center rounded-xl mr-3" style={{ backgroundColor: Colors.primary[100] }}>
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-xl mr-3"
+                  style={{ backgroundColor: Colors.primary[100] }}
+                >
                   <Ionicons name="wallet-outline" color={Colors.primary[700]} size={22} />
                 </View>
-                <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>Ví của tôi</Text>
+                <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>
+                  Ví của tôi
+                </Text>
               </View>
               <TouchableOpacity onPress={() => setShowWalletModal(false)}>
                 <Ionicons name="close" size={24} color={theme.text.secondary} />
@@ -975,7 +1076,9 @@ export default function PaymentsScreen() {
 
             {/* Transaction History */}
             <View className="flex-1 px-5">
-              <Text className="text-sm font-bold mb-3" style={{ color: theme.text.primary }}>Lịch sử giao dịch</Text>
+              <Text className="text-sm font-bold mb-3" style={{ color: theme.text.primary }}>
+                Lịch sử giao dịch
+              </Text>
               <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
                 {walletTransactions && walletTransactions.length > 0 ? (
                   <View style={{ gap: 8, paddingBottom: 20 }}>
@@ -983,24 +1086,28 @@ export default function PaymentsScreen() {
                       <View
                         key={tx._id}
                         className="rounded-2xl border p-4"
-                        style={{ borderColor: theme.border, backgroundColor: '#fff' }}
+                        style={{ borderColor: theme.border, backgroundColor: "#fff" }}
                       >
                         <View className="flex-row items-start justify-between">
                           <View className="flex-1">
                             <View className="flex-row items-center">
                               <View
                                 className="h-8 w-8 items-center justify-center rounded-lg mr-2"
-                                style={{ backgroundColor: tx.type === 'topup' ? Colors.success[50] : Colors.error[50] }}
+                                style={{ backgroundColor: tx.type === "topup" ? Colors.success[50] : Colors.error[50] }}
                               >
-                                <Ionicons 
-                                  name={tx.type === 'topup' ? 'arrow-down' : 'arrow-up'} 
-                                  size={16} 
-                                  color={tx.type === 'topup' ? Colors.success[600] : Colors.error[600]} 
+                                <Ionicons
+                                  name={tx.type === "topup" ? "arrow-down" : "arrow-up"}
+                                  size={16}
+                                  color={tx.type === "topup" ? Colors.success[600] : Colors.error[600]}
                                 />
                               </View>
                               <View className="flex-1">
                                 <Text className="text-sm font-semibold" style={{ color: theme.text.primary }}>
-                                  {tx.type === 'topup' ? 'Nạp tiền' : tx.type === 'payment' ? 'Thanh toán' : 'Giao dịch'}
+                                  {tx.type === "topup"
+                                    ? "Nạp tiền"
+                                    : tx.type === "payment"
+                                      ? "Thanh toán"
+                                      : "Giao dịch"}
                                 </Text>
                                 <Text className="text-xs" style={{ color: theme.text.secondary }}>
                                   {formatDate(tx.createdAt)}
@@ -1009,21 +1116,24 @@ export default function PaymentsScreen() {
                             </View>
                           </View>
                           <View className="items-end">
-                            <Text 
+                            <Text
                               className="text-base font-bold"
-                              style={{ color: tx.type === 'topup' ? Colors.success[600] : Colors.error[600] }}
+                              style={{ color: tx.type === "topup" ? Colors.success[600] : Colors.error[600] }}
                             >
-                              {tx.type === 'topup' ? '+' : '-'}{formatCurrency(tx.amount)}
+                              {tx.type === "topup" ? "+" : "-"}
+                              {formatCurrency(tx.amount)}
                             </Text>
-                            <View 
+                            <View
                               className="mt-1 rounded-full px-2 py-0.5"
-                              style={{ backgroundColor: tx.status === 'completed' ? Colors.success[50] : Colors.warning[50] }}
+                              style={{
+                                backgroundColor: tx.status === "completed" ? Colors.success[50] : Colors.warning[50],
+                              }}
                             >
-                              <Text 
+                              <Text
                                 className="text-[10px] font-semibold"
-                                style={{ color: tx.status === 'completed' ? Colors.success[700] : Colors.warning[700] }}
+                                style={{ color: tx.status === "completed" ? Colors.success[700] : Colors.warning[700] }}
                               >
-                                {tx.status === 'completed' ? 'Hoàn tất' : 'Đang xử lý'}
+                                {tx.status === "completed" ? "Hoàn tất" : "Đang xử lý"}
                               </Text>
                             </View>
                           </View>
@@ -1032,9 +1142,14 @@ export default function PaymentsScreen() {
                     ))}
                   </View>
                 ) : (
-                  <View className="rounded-2xl border-2 border-dashed p-6 items-center" style={{ borderColor: Colors.primary[200] }}>
+                  <View
+                    className="rounded-2xl border-2 border-dashed p-6 items-center"
+                    style={{ borderColor: Colors.primary[200] }}
+                  >
                     <Ionicons name="receipt-outline" size={32} color={Colors.primary[400]} />
-                    <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>Chưa có giao dịch nào</Text>
+                    <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>
+                      Chưa có giao dịch nào
+                    </Text>
                   </View>
                 )}
               </ScrollView>
@@ -1046,19 +1161,19 @@ export default function PaymentsScreen() {
       {/* Date Picker Modal */}
       {showDatePicker && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
-          <View className="flex-1 items-center justify-center" style={{ backgroundColor: '#00000066' }}>
+          <View className="flex-1 items-center justify-center" style={{ backgroundColor: "#00000066" }}>
             <View className="w-11/12 max-w-md rounded-2xl p-4" style={{ backgroundColor: theme.surface }}>
               <Text className="mb-2 text-sm font-semibold" style={{ color: theme.text.primary }}>
-                {datePickerMode === 'start' ? 'Chọn ngày bắt đầu' : 'Chọn ngày kết thúc'}
+                {datePickerMode === "start" ? "Chọn ngày bắt đầu" : "Chọn ngày kết thúc"}
               </Text>
               <DateTimePicker
                 value={tempDate}
                 mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                display={Platform.OS === "ios" ? "spinner" : "default"}
                 onChange={(event, date) => {
-                  if (Platform.OS === 'android') {
-                    if (event.type === 'set' && date) {
-                      if (datePickerMode === 'start') setStartFilterDate(date.toISOString());
+                  if (Platform.OS === "android") {
+                    if (event.type === "set" && date) {
+                      if (datePickerMode === "start") setStartFilterDate(date.toISOString());
                       else setEndFilterDate(date.toISOString());
                     }
                     setShowDatePicker(false);
@@ -1067,14 +1182,18 @@ export default function PaymentsScreen() {
                   if (date) setTempDate(date);
                 }}
               />
-              {Platform.OS === 'ios' && (
+              {Platform.OS === "ios" && (
                 <View className="mt-3 flex-row justify-end" style={{ gap: 12 }}>
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)} className="rounded-2xl px-4 py-2" style={{ backgroundColor: theme.surface }}>
+                  <TouchableOpacity
+                    onPress={() => setShowDatePicker(false)}
+                    className="rounded-2xl px-4 py-2"
+                    style={{ backgroundColor: theme.surface }}
+                  >
                     <Text style={{ color: theme.text.secondary }}>Hủy</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
-                      if (datePickerMode === 'start') setStartFilterDate(tempDate.toISOString());
+                      if (datePickerMode === "start") setStartFilterDate(tempDate.toISOString());
                       else setEndFilterDate(tempDate.toISOString());
                       setShowDatePicker(false);
                     }}

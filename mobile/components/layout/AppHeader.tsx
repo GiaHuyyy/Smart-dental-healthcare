@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NotificationModal } from '@/components/notifications/NotificationModal';
@@ -63,7 +63,7 @@ export function AppHeader({
     const userName = session?.user?.fullName || session?.user?.email || 'User';
     return userName.charAt(0).toUpperCase();
   }, [session?.user]);
-
+  console.log('session:', session);
   // Use totalUnreadCount from context (notifications + messages) if notificationCount prop is not provided
   const displayNotificationCount = notificationCount ?? totalUnreadCount;
 
@@ -150,10 +150,14 @@ export function AppHeader({
           {showAvatar && (
             <Pressable
               onPress={handleAvatarPress}
-              className="w-9 h-9 rounded-full items-center justify-center ml-1 active:opacity-80"
-              style={{ backgroundColor: Colors.primary[600] }}
+              className="w-9 h-9 rounded-full ml-1"
+              // style={{ backgroundColor: Colors.primary[600] }}
             >
-              <Text className="text-white font-semibold text-sm">{userInitial}</Text>
+              {/* <Text className="text-white font-semibold text-sm">{userInitial}</Text> */}
+              <Image
+                source={{ uri: session?.user?.avatarUrl }}
+                className='w-full h-full rounded-full'
+              />
             </Pressable>
           )}
 
@@ -182,13 +186,13 @@ export function AppHeader({
         >
           {HeaderContent}
         </LinearGradient>
-        
+
         {/* Notification Modal */}
         <NotificationModal
           visible={showNotificationModal}
           onClose={() => setShowNotificationModal(false)}
         />
-        
+
         {/* Profile Modal */}
         <ProfileModal
           visible={showProfileModal}
@@ -212,13 +216,13 @@ export function AppHeader({
       >
         {HeaderContent}
       </View>
-      
+
       {/* Notification Modal */}
       <NotificationModal
         visible={showNotificationModal}
         onClose={() => setShowNotificationModal(false)}
       />
-      
+
       {/* Profile Modal */}
       <ProfileModal
         visible={showProfileModal}

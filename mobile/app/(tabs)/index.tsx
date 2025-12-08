@@ -255,7 +255,7 @@ export default function PatientDashboard() {
     return (
       <>
         <AppHeader title="Tổng quan" showNotification showAvatar />
-        <ScrollView 
+        <ScrollView
           className="flex-1"
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
@@ -287,7 +287,7 @@ export default function PatientDashboard() {
     return (
       <>
         <AppHeader title="Tổng quan" showNotification showAvatar />
-        <ScrollView 
+        <ScrollView
           className="flex-1"
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
@@ -303,9 +303,9 @@ export default function PatientDashboard() {
 
   return (
     <>
-      <AppHeader 
-        title="Tổng quan" 
-        showNotification 
+      <AppHeader
+        title="Tổng quan"
+        showNotification
         showAvatar
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
@@ -493,7 +493,7 @@ export default function PatientDashboard() {
               </Text>
             </TouchableOpacity>
           </View>
-          
+
           {activities.length > 0 ? (
             <Card className="p-0">
               {activities.map((activity, index) => {

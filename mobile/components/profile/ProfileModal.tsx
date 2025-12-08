@@ -14,6 +14,7 @@ import {
   ScrollView,
   Text,
   View,
+  Image,
 } from 'react-native';
 
 import { Colors } from '@/constants/colors';
@@ -35,11 +36,11 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
   const userName = session?.user?.fullName || 'Người dùng';
   const userEmail = session?.user?.email || '';
   const userPhone = session?.user?.phone || '';
-  const userInitial = userName.charAt(0).toUpperCase();
+  // const userInitial = userName.charAt(0).toUpperCase();
 
   const handleLogout = async () => {
     console.log('ProfileModal handleLogout called');
-    
+
     const confirmed = Platform.OS === 'web'
       ? window.confirm('Bạn có chắc chắn muốn đăng xuất?')
       : await new Promise((resolve) => {
@@ -52,12 +53,12 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
             ]
           );
         });
-    
+
     if (!confirmed) {
       console.log('Logout cancelled');
       return;
     }
-    
+
     try {
       console.log('ProfileModal logout button pressed');
       await logout();
@@ -143,7 +144,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
     >
       <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
         <Pressable style={{ flex: 1 }} onPress={onClose} />
-        
+
         <View
           style={{
             backgroundColor: theme.background,
@@ -170,10 +171,13 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
                 style={{ backgroundColor: Colors.primary[50] }}
               >
                 <View
-                  className="w-20 h-20 rounded-full items-center justify-center mb-3"
-                  style={{ backgroundColor: Colors.primary[600] }}
+                  className="w-20 h-20 rounded-full mb-3"
                 >
-                  <Text className="text-white font-bold text-2xl">{userInitial}</Text>
+                  {/* <Text className="text-white font-bold text-2xl">{userInitial}</Text> */}
+                  <Image
+                    source={{ uri: session?.user?.avatarUrl }}
+                    className="w-full h-full rounded-full"
+                  />
                 </View>
                 <Text className="text-lg font-bold mb-1" style={{ color: theme.text.primary }}>
                   {userName}
@@ -196,13 +200,13 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
                   Thông tin liên hệ
                 </Text>
               </View>
-              
+
               <MenuItem
                 icon="mail-outline"
                 label="Email"
                 value={userEmail}
               />
-              
+
               {userPhone && (
                 <MenuItem
                   icon="call-outline"
@@ -219,7 +223,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
                   Cài đặt
                 </Text>
               </View>
-              
+
               <MenuItem
                 icon="person-outline"
                 label="Chỉnh sửa hồ sơ"
@@ -229,7 +233,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
                   Alert.alert('Thông báo', 'Tính năng đang phát triển');
                 }}
               />
-              
+
               <MenuItem
                 icon="lock-closed-outline"
                 label="Đổi mật khẩu"
@@ -239,7 +243,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
                   Alert.alert('Thông báo', 'Tính năng đang phát triển');
                 }}
               />
-              
+
               <MenuItem
                 icon="settings-outline"
                 label="Cài đặt chung"
@@ -258,7 +262,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
                   Về ứng dụng
                 </Text>
               </View>
-              
+
               <MenuItem
                 icon="information-circle-outline"
                 label="Giới thiệu"
@@ -267,7 +271,7 @@ export function ProfileModal({ visible, onClose }: ProfileModalProps) {
                   Alert.alert('Smart Dental Healthcare', 'Phiên bản 1.0.0\n\nỨng dụng quản lý nha khoa thông minh');
                 }}
               />
-              
+
               <MenuItem
                 icon="help-circle-outline"
                 label="Trợ giúp & Hỗ trợ"

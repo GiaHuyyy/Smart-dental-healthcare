@@ -3,12 +3,12 @@
  * Reusable modal displaying appointment policies
  */
 
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
-import { Colors } from '@/constants/colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors } from "@/constants/colors";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 interface PolicyModalProps {
   visible: boolean;
@@ -17,31 +17,29 @@ interface PolicyModalProps {
 
 export function PolicyModal({ visible, onClose }: PolicyModalProps) {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View 
-        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+    <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 16,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+        }}
       >
-        <Pressable 
-          style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}
-          onPress={onClose} 
-        />
-        
-        <View 
-          style={{ 
-            width: '100%',
+        <Pressable style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} onPress={onClose} />
+
+        <View
+          style={{
+            width: "100%",
             maxWidth: 512,
             backgroundColor: theme.background,
-            maxHeight: '85%',
+            maxHeight: "85%",
             borderRadius: 16,
-            overflow: 'hidden',
+            overflow: "hidden",
           }}
         >
           {/* Header */}
@@ -52,7 +50,7 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                   Chính sách Đặt lịch & Quản lý Hẹn
                 </Text>
               </View>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={onClose}
                 className="w-8 h-8 items-center justify-center rounded-full"
                 style={{ backgroundColor: theme.border }}
@@ -66,7 +64,7 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
             {/* Introduction */}
             <Text className="mb-4 text-center text-xs leading-5" style={{ color: theme.text.secondary }}>
-              Nhằm đảm bảo chất lượng dịch vụ, tối ưu hóa thời gian chờ đợi cho Bệnh nhân và lịch làm việc của Bác sĩ, 
+              Nhằm đảm bảo chất lượng dịch vụ, tối ưu hóa thời gian chờ đợi cho Bệnh nhân và lịch làm việc của Bác sĩ,
               chúng tôi ban hành các quy định về việc đặt và quản lý lịch hẹn trực tuyến như sau:
             </Text>
 
@@ -82,13 +80,15 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                   1.1. Đặt lịch hẹn mới
                 </Text>
                 <Text className="mb-1.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
-                  Để đảm bảo công tác chuẩn bị được chu đáo, Bệnh nhân vui lòng đặt lịch hẹn{' '}
+                  Để đảm bảo công tác chuẩn bị được chu đáo, Bệnh nhân vui lòng đặt lịch hẹn{" "}
                   <Text className="font-semibold" style={{ color: theme.text.primary }}>
                     trước giờ khám dự kiến ít nhất 1 giờ (60 phút)
-                  </Text>.
+                  </Text>
+                  .
                 </Text>
                 <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                  Hệ thống sẽ không hiển thị các khung giờ còn trống nếu thời điểm đặt lịch ít hơn 1 giờ so với thời điểm khám.
+                  Hệ thống sẽ không hiển thị các khung giờ còn trống nếu thời điểm đặt lịch ít hơn 1 giờ so với thời
+                  điểm khám.
                 </Text>
               </View>
 
@@ -97,15 +97,17 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                 <Text className="mb-1.5 text-xs font-semibold" style={{ color: theme.text.primary }}>
                   1.2. Đổi lịch hẹn (Reschedule)
                 </Text>
-                
+
                 {/* Đổi lịch hợp lệ */}
                 <View className="mb-2 rounded-lg p-2.5" style={{ backgroundColor: Colors.success[50] }}>
                   <Text className="mb-1 text-xs font-medium" style={{ color: Colors.success[700] }}>
                     ✓ Đổi lịch hợp lệ (Trước 30 phút)
                   </Text>
                   <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    Bệnh nhân được phép thay đổi ngày/giờ hẹn{' '}
-                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>miễn phí</Text>{' '}
+                    Bệnh nhân được phép thay đổi ngày/giờ hẹn{" "}
+                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                      miễn phí
+                    </Text>{" "}
                     nếu thao tác được thực hiện trước giờ hẹn ban đầu ít nhất 30 phút.
                   </Text>
                 </View>
@@ -119,8 +121,10 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                     Nếu Bệnh nhân thao tác đổi lịch trong vòng 30 phút trước giờ hẹn, hệ thống sẽ hiển thị cảnh báo.
                   </Text>
                   <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    Nếu xác nhận tiếp tục, một{' '}
-                    <Text className="font-semibold" style={{ color: Colors.error[700] }}>phí giữ chỗ 100.000 VNĐ</Text>{' '}
+                    Nếu xác nhận tiếp tục, một{" "}
+                    <Text className="font-semibold" style={{ color: Colors.error[700] }}>
+                      phí giữ chỗ 50.000 VNĐ
+                    </Text>{" "}
                     sẽ được áp dụng.
                   </Text>
                 </View>
@@ -131,7 +135,7 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                 <Text className="mb-1.5 text-xs font-semibold" style={{ color: theme.text.primary }}>
                   1.3. Hủy lịch hẹn (Cancel)
                 </Text>
-                
+
                 {/* Hủy lịch hợp lệ */}
                 <View className="mb-2 rounded-lg p-2.5" style={{ backgroundColor: Colors.success[50] }}>
                   <Text className="mb-1 text-xs font-medium" style={{ color: Colors.success[700] }}>
@@ -141,11 +145,16 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                     Bệnh nhân hủy lịch hẹn trước giờ hẹn ban đầu ít nhất 30 phút.
                   </Text>
                   <Text className="mb-0.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    • Việc hủy lịch là hoàn toàn <Text className="font-semibold" style={{ color: Colors.success[700] }}>miễn phí</Text>
+                    • Việc hủy lịch là hoàn toàn{" "}
+                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                      miễn phí
+                    </Text>
                   </Text>
                   <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    • Nếu đã thanh toán phí khám, được{' '}
-                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>hoàn lại 100%</Text>
+                    • Nếu đã thanh toán phí khám, được{" "}
+                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                      hoàn lại 100%
+                    </Text>
                   </Text>
                 </View>
 
@@ -158,17 +167,21 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                     Nếu Bệnh nhân hủy lịch trong vòng 30 phút trước giờ hẹn, hệ thống sẽ hiển thị cảnh báo.
                   </Text>
                   <Text className="mb-0.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    • Nếu xác nhận hủy, một{' '}
-                    <Text className="font-semibold" style={{ color: Colors.error[700] }}>phí giữ chỗ 100.000 VNĐ</Text>{' '}
+                    • Nếu xác nhận hủy, một{" "}
+                    <Text className="font-semibold" style={{ color: Colors.error[700] }}>
+                      phí giữ chỗ 50.000 VNĐ
+                    </Text>{" "}
                     sẽ được áp dụng (bị trừ)
                   </Text>
                   <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    • Nếu đã thanh toán phí khám, vẫn được{' '}
-                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>hoàn lại 100% phí khám</Text>
+                    • Nếu đã thanh toán phí khám, vẫn được{" "}
+                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                      hoàn lại 100% phí khám
+                    </Text>
                   </Text>
                   <View className="mt-1.5 rounded p-1.5" style={{ backgroundColor: Colors.warning[50] }}>
                     <Text className="text-xs leading-4" style={{ color: Colors.warning[700] }}>
-                      ⚠ Lưu ý: Khoản hoàn 100% phí khám không bao gồm 100.000 VNĐ phí giữ chỗ đã bị trừ.
+                      ⚠ Lưu ý: Khoản hoàn 100% phí khám không bao gồm 50.000 VNĐ phí giữ chỗ đã bị trừ.
                     </Text>
                   </View>
                 </View>
@@ -187,8 +200,10 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                 </Text>
                 <View className="rounded-lg p-2.5" style={{ backgroundColor: Colors.success[50] }}>
                   <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    Khi chọn [Lên lịch tái khám], Bệnh nhân sẽ chủ động chọn ngày giờ phù hợp và được hưởng{' '}
-                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>ưu đãi giảm 5%</Text>{' '}
+                    Khi chọn [Lên lịch tái khám], Bệnh nhân sẽ chủ động chọn ngày giờ phù hợp và được hưởng{" "}
+                    <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                      ưu đãi giảm 5%
+                    </Text>{" "}
                     chi phí cho lần tái khám này.
                   </Text>
                 </View>
@@ -206,14 +221,14 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                 <Text className="mb-1.5 text-xs font-semibold" style={{ color: theme.text.primary }}>
                   2.1. Hủy lịch hẹn (Do Bác sĩ/Phòng khám)
                 </Text>
-                
+
                 {/* Trường hợp 1: Lý do đột xuất */}
                 <View className="mb-2 rounded-lg p-2.5" style={{ backgroundColor: theme.card }}>
                   <Text className="mb-1 text-xs font-medium" style={{ color: theme.text.primary }}>
                     Trường hợp 1: Lý do đột xuất từ Phòng khám
                   </Text>
                   <Text className="mb-1.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    Nếu Phòng khám/Bác sĩ phải hủy lịch vì lý do bất khả kháng (Bác sĩ ốm, sự cố thiết bị, mất điện...), 
+                    Nếu Phòng khám/Bác sĩ phải hủy lịch vì lý do bất khả kháng (Bác sĩ ốm, sự cố thiết bị, mất điện...),
                     Bệnh nhân sẽ được thông báo ngay lập tức.
                   </Text>
                   <View className="rounded p-1.5" style={{ backgroundColor: Colors.success[50] }}>
@@ -221,10 +236,18 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                       Chính sách hỗ trợ:
                     </Text>
                     <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                      • Bệnh nhân được <Text className="font-semibold" style={{ color: Colors.success[700] }}>hoàn 100%</Text> phí đã thanh toán (nếu có)
+                      • Bệnh nhân được{" "}
+                      <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                        hoàn 100%
+                      </Text>{" "}
+                      phí đã thanh toán (nếu có)
                     </Text>
                     <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                      • Nhận một <Text className="font-semibold" style={{ color: Colors.success[700] }}>Voucher giảm 5%</Text> cho lần đặt lịch tiếp theo
+                      • Nhận một{" "}
+                      <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                        Voucher giảm 5%
+                      </Text>{" "}
+                      cho lần đặt lịch tiếp theo
                     </Text>
                   </View>
                 </View>
@@ -235,24 +258,28 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                     Trường hợp 2: Bệnh nhân đến trễ
                   </Text>
                   <Text className="mb-1.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
-                    Nếu Bệnh nhân đến trễ quá 15 phút so với giờ hẹn, Bác sĩ có quyền hủy lịch hẹn để không ảnh hưởng đến 
-                    các Bệnh nhân kế tiếp.
+                    Nếu Bệnh nhân đến trễ quá 15 phút so với giờ hẹn, Bác sĩ có quyền hủy lịch hẹn để không ảnh hưởng
+                    đến các Bệnh nhân kế tiếp.
                   </Text>
                   <View className="rounded p-1.5" style={{ backgroundColor: Colors.error[50] }}>
                     <Text className="text-xs font-semibold" style={{ color: Colors.error[700] }}>
                       Chính sách xử lý:
                     </Text>
                     <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                      • Lịch hẹn bị hủy và Bệnh nhân bị áp dụng{' '}
-                      <Text className="font-semibold" style={{ color: Colors.error[700] }}>phí giữ chỗ 100.000 VNĐ</Text>
+                      • Lịch hẹn bị hủy và Bệnh nhân bị áp dụng{" "}
+                      <Text className="font-semibold" style={{ color: Colors.error[700] }}>
+                        phí giữ chỗ 50.000 VNĐ
+                      </Text>
                     </Text>
                     <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                      • Nếu đã thanh toán phí khám, được{' '}
-                      <Text className="font-semibold" style={{ color: Colors.success[700] }}>hoàn 100% phí khám</Text>
+                      • Nếu đã thanh toán phí khám, được{" "}
+                      <Text className="font-semibold" style={{ color: Colors.success[700] }}>
+                        hoàn 100% phí khám
+                      </Text>
                     </Text>
                     <View className="mt-1.5 rounded p-1.5" style={{ backgroundColor: Colors.warning[100] }}>
                       <Text className="text-xs leading-4" style={{ color: Colors.warning[700] }}>
-                        ⚠ Khoản hoàn 100% phí khám không bao gồm 100.000 VNĐ phí giữ chỗ đã bị trừ.
+                        ⚠ Khoản hoàn 100% phí khám không bao gồm 50.000 VNĐ phí giữ chỗ đã bị trừ.
                       </Text>
                     </View>
                   </View>
@@ -265,11 +292,12 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                   2.2. Lên lịch Tái khám (Phía Bác sĩ)
                 </Text>
                 <Text className="mb-1.5 text-xs leading-4" style={{ color: theme.text.secondary }}>
-                  Các lịch tái khám do Bác sĩ tạo là các đề xuất và sẽ hiển thị ở trạng thái "Chờ xác nhận" 
-                  (chưa chính thức chiếm chỗ trên lịch làm việc của Bác sĩ).
+                  Các lịch tái khám do Bác sĩ tạo là các đề xuất và sẽ hiển thị ở trạng thái "Chờ xác nhận" (chưa chính
+                  thức chiếm chỗ trên lịch làm việc của Bác sĩ).
                 </Text>
                 <Text className="text-xs leading-4" style={{ color: theme.text.secondary }}>
-                  Lịch tái khám chỉ trở thành chính thức sau khi Bệnh nhân xác nhận [Lên lịch tái khám] như mô tả ở Mục 1.4.
+                  Lịch tái khám chỉ trở thành chính thức sau khi Bệnh nhân xác nhận [Lên lịch tái khám] như mô tả ở Mục
+                  1.4.
                 </Text>
               </View>
             </View>
@@ -280,10 +308,15 @@ export function PolicyModal({ visible, onClose }: PolicyModalProps) {
                 PHẦN 3: QUY ĐỊNH VỀ THÔNG BÁO
               </Text>
               <Text className="text-center text-xs leading-5" style={{ color: theme.text.secondary }}>
-                Để đảm bảo tính minh bạch, tất cả các hành động liên quan đến lịch hẹn (Đặt, Đổi, Hủy, Đề xuất tái khám, 
-                Xác nhận tái khám...) đều sẽ được hệ thống gửi{' '}
-                <Text className="font-semibold" style={{ color: theme.text.primary }}>thông báo ngay lập tức (realtime)</Text> và{' '}
-                <Text className="font-semibold" style={{ color: theme.text.primary }}>gửi Email xác nhận</Text>{' '}
+                Để đảm bảo tính minh bạch, tất cả các hành động liên quan đến lịch hẹn (Đặt, Đổi, Hủy, Đề xuất tái khám,
+                Xác nhận tái khám...) đều sẽ được hệ thống gửi{" "}
+                <Text className="font-semibold" style={{ color: theme.text.primary }}>
+                  thông báo ngay lập tức (realtime)
+                </Text>{" "}
+                và{" "}
+                <Text className="font-semibold" style={{ color: theme.text.primary }}>
+                  gửi Email xác nhận
+                </Text>{" "}
                 đến các bên liên quan (Bệnh nhân và Bác sĩ).
               </Text>
             </View>

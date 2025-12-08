@@ -59,7 +59,7 @@ export default function DoctorDetailModal({
         {/* Header */}
         <View
           className="flex-row items-center justify-between border-b px-4 py-4"
-          style={{ 
+          style={{
             backgroundColor: theme.card,
             borderBottomColor: theme.border,
           }}
@@ -231,7 +231,7 @@ export default function DoctorDetailModal({
         {/* Bottom Actions */}
         <View
           className="border-t px-4 py-4"
-          style={{ 
+          style={{
             backgroundColor: theme.card,
             borderTopColor: theme.border,
           }}
@@ -253,7 +253,7 @@ export default function DoctorDetailModal({
 
             <TouchableOpacity
               className="flex-1 items-center justify-center rounded-2xl py-4"
-              style={{ 
+              style={{
                 backgroundColor: Colors.primary[50],
                 borderWidth: 1,
                 borderColor: Colors.primary[200],
