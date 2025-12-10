@@ -9,33 +9,37 @@ import { AppointmentProvider } from "@/contexts/AppointmentContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { RealtimeChatProvider } from "@/contexts/RealtimeChatContext";
 import { CallProvider } from "@/contexts/CallContext";
+import { TourGuideProvider } from "@/contexts/TourGuideContext";
 import { IncomingCallModal, CallScreen } from "@/components/call";
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
       <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
-        {/* Global Socket Provider - Single connection for all features */}
-        <GlobalSocketProvider>
-          {/* Appointment Context - Handles appointment-related events */}
-          <AppointmentProvider>
-            {/* Notification Context - Handles persistent notifications */}
-            <NotificationProvider>
-              {/* Chat Context - Reuses socket for chat (except private chat rooms) */}
-              <RealtimeChatProvider>
-                {/* Call Context - WebRTC calls */}
-                <CallProvider>
-                  {children}
-                  <Toaster expand={false} position="top-right" richColors closeButton />
+        {/* Tour Guide Provider - User onboarding tours */}
+        <TourGuideProvider>
+          {/* Global Socket Provider - Single connection for all features */}
+          <GlobalSocketProvider>
+            {/* Appointment Context - Handles appointment-related events */}
+            <AppointmentProvider>
+              {/* Notification Context - Handles persistent notifications */}
+              <NotificationProvider>
+                {/* Chat Context - Reuses socket for chat (except private chat rooms) */}
+                <RealtimeChatProvider>
+                  {/* Call Context - WebRTC calls */}
+                  <CallProvider>
+                    {children}
+                    <Toaster expand={false} position="top-right" richColors closeButton />
 
-                  {/* Global Call Components */}
-                  <IncomingCallModal />
-                  <CallScreen />
-                </CallProvider>
-              </RealtimeChatProvider>
-            </NotificationProvider>
-          </AppointmentProvider>
-        </GlobalSocketProvider>
+                    {/* Global Call Components */}
+                    <IncomingCallModal />
+                    <CallScreen />
+                  </CallProvider>
+                </RealtimeChatProvider>
+              </NotificationProvider>
+            </AppointmentProvider>
+          </GlobalSocketProvider>
+        </TourGuideProvider>
       </SessionProvider>
     </Provider>
   );

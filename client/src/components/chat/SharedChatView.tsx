@@ -5,6 +5,7 @@ import ChatHeader from "@/components/chat/ChatHeader";
 import ChatInterface from "@/components/chat/ChatInterface";
 import realtimeChatService from "@/services/realtimeChatService";
 import { extractUserData } from "@/utils/sessionHelpers";
+import { useTourGuide } from "@/contexts/TourGuideContext";
 import { Drone, Menu, Stethoscope, User } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -43,9 +44,10 @@ interface SharedChatViewProps {
 // --- Component chính ---
 export default function SharedChatView({ userRole }: SharedChatViewProps) {
   const { data: session } = useSession();
+  const { startChatTour, isChatTourCompleted } = useTourGuide();
 
-  // Mở chat AI mặc định cho patient khi vào trang
-  const [selectedChat, setSelectedChat] = useState<string | null>(userRole === "patient" ? "ai" : null);
+  // Default: no chat selected
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
@@ -58,6 +60,30 @@ export default function SharedChatView({ userRole }: SharedChatViewProps) {
   const newlyCreatedConvsRef = useRef<Set<string>>(new Set());
   const userData = extractUserData(session);
   const router = useRouter();
+
+  // Check URL params on mount and when URL changes - open AI chat if openAi=true
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("openAi") === "true") {
+        setSelectedChat("ai");
+        // Clean up URL without reloading the page
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+      }
+    }
+  }, []);
+
+  // Start chat tour for new users (patient only)
+  useEffect(() => {
+    if (userRole === "patient" && session?.user && !isChatTourCompleted && selectedChat === "ai") {
+      // Delay to ensure the page is fully rendered
+      const timer = setTimeout(() => {
+        startChatTour();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [userRole, session, isChatTourCompleted, startChatTour, selectedChat]);
 
   const addOrUpdateConversation = useCallback(
     (newConversationData: any) => {
