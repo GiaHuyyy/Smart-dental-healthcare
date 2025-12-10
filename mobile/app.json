@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Smart Dental",
+    "slug": "smart-dental",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "icon": "./assets/images/tooth.png",
+    "scheme": "smart-dental",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
