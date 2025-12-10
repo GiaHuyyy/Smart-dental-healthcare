@@ -68,7 +68,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
 
     const fetchDoctorSchedule = async () => {
       setScheduleLoading(true);
-      console.log("[TimeSlotPicker] Fetching doctor schedule for:", doctor._id);
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/doctor-schedule/${doctor._id}`);
 
@@ -78,14 +77,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
 
         const result = await response.json();
         const scheduleData = result.data || result;
-        console.log("[TimeSlotPicker] Doctor schedule loaded:", {
-          weeklySchedule: scheduleData?.weeklySchedule?.map((d: DoctorDaySchedule) => ({
-            dayIndex: d.dayIndex,
-            dayName: d.dayName,
-            isWorking: d.isWorking,
-          })),
-          blockedTimesCount: scheduleData?.blockedTimes?.length || 0,
-        });
         setDoctorSchedule(scheduleData);
       } catch (error) {
         console.error("[TimeSlotPicker] Error fetching doctor schedule:", error);
@@ -174,7 +165,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
 
     const fetchSlotsData = async () => {
       setLoading(true);
-      console.log("[TimeSlotPicker] Fetching slots for date:", selectedDate, "doctor:", doctor._id);
       try {
         // Build fetch requests array
         const fetchRequests = [
@@ -202,10 +192,8 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
         if (appointmentsRes.ok) {
           const appointmentsData = await appointmentsRes.json();
           const bookedSlotsArray = appointmentsData.bookedSlots || [];
-          console.log("[TimeSlotPicker] Booked slots from appointments:", bookedSlotsArray);
           setBookedSlots(bookedSlotsArray);
         } else {
-          console.log("[TimeSlotPicker] Failed to fetch appointments slots:", appointmentsRes.status);
           setBookedSlots([]);
         }
 
@@ -213,14 +201,8 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
         if (scheduleRes.ok) {
           const scheduleData = await scheduleRes.json();
           const availableSlots = scheduleData.data || scheduleData || [];
-          console.log("[TimeSlotPicker] Available slots from schedule:", {
-            totalSlots: availableSlots.length,
-            availableCount: availableSlots.filter((s: { available: boolean }) => s.available).length,
-            firstFewSlots: availableSlots.slice(0, 5),
-          });
           setAvailableSlotsBySchedule(availableSlots);
         } else {
-          console.log("[TimeSlotPicker] Failed to fetch schedule slots:", scheduleRes.status);
           setAvailableSlotsBySchedule([]);
         }
 
@@ -228,7 +210,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
         if (patientSlotsRes && patientSlotsRes.ok) {
           const patientData = await patientSlotsRes.json();
           const patientSlotsArray = patientData.bookedSlots || patientData.data?.bookedSlots || [];
-          console.log("[TimeSlotPicker] Patient booked slots:", patientSlotsArray);
           setPatientBookedSlots(patientSlotsArray);
         } else {
           setPatientBookedSlots([]);
@@ -338,15 +319,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
 
     const morningSlots = generateSlots(8, 12);
     const afternoonSlots = generateSlots(13, 17);
-
-    console.log("[TimeSlotPicker] Generated time slots:", {
-      selectedDate,
-      morningTotal: morningSlots.length,
-      morningAvailable: morningSlots.filter((s) => s.available).length,
-      afternoonTotal: afternoonSlots.length,
-      afternoonAvailable: afternoonSlots.filter((s) => s.available).length,
-      availableSlotsByScheduleLength: availableSlotsBySchedule.length,
-    });
 
     return {
       morning: morningSlots, // 8:00 - 11:30
@@ -554,21 +526,6 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
             <Clock className="w-5 h-5 text-primary" />
             Khung giờ khả dụng ({duration} phút)
           </h3>
-
-          {(() => {
-            const allMorningUnavailable = timeSlotsByPeriod.morning.every((s) => !s.available);
-            const allAfternoonUnavailable = timeSlotsByPeriod.afternoon.every((s) => !s.available);
-            console.log("[TimeSlotPicker] Render check:", {
-              loading,
-              selectedDate,
-              morningCount: timeSlotsByPeriod.morning.length,
-              afternoonCount: timeSlotsByPeriod.afternoon.length,
-              allMorningUnavailable,
-              allAfternoonUnavailable,
-              showNoSlotsMessage: allMorningUnavailable && allAfternoonUnavailable,
-            });
-            return null;
-          })()}
 
           {loading ? (
             <div className="flex items-center justify-center py-12">

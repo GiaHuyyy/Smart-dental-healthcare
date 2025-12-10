@@ -100,7 +100,11 @@ const doctorDashboardService = {
 
   async getTodayAppointments(doctorId: string, token?: string): Promise<DashboardResponse<TodayAppointment[]>> {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      // Use local timezone for date comparison to avoid UTC date shift
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+        now.getDate()
+      ).padStart(2, "0")}`;
       console.log("Fetching appointments for today:", today);
 
       // Lấy tất cả appointments rồi filter ở client vì backend không support date filter
@@ -135,15 +139,28 @@ const doctorDashboardService = {
 
       console.log("Today appointments - raw count:", rawAppointments.length);
 
-      // Filter appointments cho ngày hôm nay
-      const todayAppointments = rawAppointments.filter((apt: { appointmentDate: string | Date }) => {
-        const aptDate = new Date(apt.appointmentDate).toISOString().split("T")[0];
+      // Filter appointments cho ngày hôm nay - use local timezone
+      // Also exclude cancelled appointments
+      const todayAppointments = rawAppointments.filter((apt: { appointmentDate: string | Date; status?: string }) => {
+        // Exclude cancelled appointments
+        if (apt.status === "cancelled") return false;
+
+        const aptDateObj = new Date(apt.appointmentDate);
+        const aptDate = `${aptDateObj.getFullYear()}-${String(aptDateObj.getMonth() + 1).padStart(2, "0")}-${String(
+          aptDateObj.getDate()
+        ).padStart(2, "0")}`;
         return aptDate === today;
       });
 
       console.log("Today appointments - filtered by date:", todayAppointments.length);
 
-      const appointments = todayAppointments.map((apt: Record<string, unknown>) => ({
+      // Remove duplicates based on _id
+      const uniqueAppointments = todayAppointments.filter(
+        (apt: { _id: string }, index: number, self: { _id: string }[]) =>
+          index === self.findIndex((t) => t._id === apt._id)
+      );
+
+      const appointments = uniqueAppointments.map((apt: Record<string, unknown>) => ({
         ...apt,
         patient: apt.patientId || apt.patient,
         patientName:
