@@ -25,7 +25,7 @@ const TOUR_STEPS = {
         title: "🔍 Phân tích ảnh X-quang/Răng",
         description:
           "Tải lên ảnh X-quang hoặc ảnh răng của bạn để AI phân tích tình trạng sức khỏe răng miệng. Kết quả phân tích sẽ giúp bạn hiểu rõ hơn về tình trạng hiện tại.",
-        side: "top" as const,
+        side: "bottom" as const,
         align: "center" as const,
       },
     },
