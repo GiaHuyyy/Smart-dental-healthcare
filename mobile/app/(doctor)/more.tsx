@@ -28,36 +28,29 @@ const menuItems: MenuItem[] = [
     icon: 'chatbubbles',
     title: 'Chat & Tư vấn',
     description: 'Nhắn tin với bệnh nhân',
-    route: '/(tabs)/chat',
+    route: '/(doctor)/chat',
     color: Colors.primary[600],
   },
   {
     icon: 'document-text',
     title: 'Hồ sơ điều trị',
     description: 'Quản lý hồ sơ bệnh án',
-    route: '/medical-records',
+    route: '/(doctor)/medical-records',
     color: Colors.primary[600],
   },
   {
     icon: 'medical',
     title: 'Đơn thuốc',
     description: 'Kê đơn và theo dõi',
-    route: '/prescriptions',
+    route: '/(doctor)/prescriptions',
     color: Colors.primary[600],
   },
   {
     icon: 'notifications',
     title: 'Thông báo',
     description: 'Xem thông báo hệ thống',
-    route: '/notifications',
+    route: '/(doctor)/notifications',
     color: Colors.primary[600],
-  },
-  {
-    icon: 'settings',
-    title: 'Cài đặt',
-    description: 'Cài đặt tài khoản',
-    route: '/(tabs)/settings',
-    color: Colors.gray[600],
   },
 ];
 
@@ -98,21 +91,10 @@ export default function DoctorMore() {
       console.log('Doctor more logout button pressed');
       await logout();
       console.log('Doctor more logout successful');
-      // Clear navigation stack and force redirect
-      if (Platform.OS === 'web') {
-        window.location.href = '/';
-      } else {
-        router.dismissAll();
-        router.replace('/');
-      }
-      console.log('Doctor more navigation called');
+      // Logout will automatically redirect via auth context
     } catch (error) {
       console.error('Doctor more logout error:', error);
-      if (Platform.OS === 'web') {
-        window.alert('Không thể đăng xuất. Vui lòng thử lại.');
-      } else {
-        Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
-      }
+      Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
     }
   };
 
@@ -149,7 +131,7 @@ export default function DoctorMore() {
           </View>
         </Card>
 
-        <View className="space-y-3">
+        <View style={{ gap: 12 }}>
           {menuItems.map((item, index) => (
             <Pressable
               key={index}
@@ -157,7 +139,7 @@ export default function DoctorMore() {
               className="active:opacity-70"
             >
               <Card shadow="sm">
-                <View className="flex-row items-center gap-4">
+                <View className="flex-row items-center" style={{ gap: 16 }}>
                   <View
                     className="w-12 h-12 rounded-xl items-center justify-center"
                     style={{ backgroundColor: `${item.color}15` }}
@@ -185,7 +167,7 @@ export default function DoctorMore() {
             onPress={handleLogout}
             className="active:opacity-70"
           >
-            <View className="flex-row items-center justify-center gap-3 py-3">
+            <View className="flex-row items-center justify-center py-3" style={{ gap: 12 }}>
               <Ionicons name="log-out-outline" size={22} color={Colors.error[600]} />
               <Text className="font-bold text-base" style={{ color: Colors.error[600] }}>
                 Đăng xuất

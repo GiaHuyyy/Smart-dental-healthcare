@@ -19,8 +19,8 @@ import {
 } from 'react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 
-import { AppHeader } from '@/components/layout/AppHeader';
 import TreatmentModal from '@/components/appointments/TreatmentModal';
+import { AppHeader } from '@/components/layout/AppHeader';
 import PatientDetailModal from '@/components/patient/PatientDetailModal';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -543,20 +543,9 @@ export default function DoctorSchedule() {
     }
   };
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.background }}>
-        <ActivityIndicator size="large" color={Colors.primary[600]} />
-        <Text className="mt-4" style={{ color: theme.text.secondary }}>
-          Đang tải dữ liệu...
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <>
-      <AppHeader title="Lịch khám" showNotification />
+      <AppHeader title="Lịch khám" showNotification showAvatar />
 
       <ScrollView
         className="flex-1"
@@ -675,7 +664,14 @@ export default function DoctorSchedule() {
             </Text>
           </View>
 
-          {viewMode === 'calendar' ? (
+          {loading ? (
+            <View className="items-center justify-center py-16">
+              <ActivityIndicator size="large" color={Colors.primary[600]} />
+              <Text className="mt-4 text-sm" style={{ color: theme.text.secondary }}>
+                Đang tải dữ liệu...
+              </Text>
+            </View>
+          ) : viewMode === 'calendar' ? (
             /* Calendar View */
             <View>
               <Card className="mb-4 overflow-hidden">
@@ -762,7 +758,7 @@ export default function DoctorSchedule() {
               </View>
 
               {selectedDateAppointments.length > 0 ? (
-                <View className="space-y-3">
+                <View style={{ gap: 12 }}>
                   {selectedDateAppointments.map((appointment) => (
                     <Pressable
                       key={appointment._id}
@@ -878,7 +874,7 @@ export default function DoctorSchedule() {
             /* List View */
             <View>
               {filteredAppointments.length > 0 ? (
-                <View className="space-y-3">
+                <View style={{ gap: 12 }}>
                   {filteredAppointments.map((appointment) => (
                 <Pressable
                   key={appointment._id}
@@ -1036,8 +1032,8 @@ export default function DoctorSchedule() {
                   </View>
 
                   {/* Details */}
-                  <View className="space-y-4 mb-6">
-                    <View className="flex-row items-start gap-3">
+                  <View style={{ gap: 16, marginBottom: 24 }}>
+                    <View className="flex-row items-start" style={{ gap: 12 }}>
                       <Ionicons name="calendar" size={20} color={Colors.primary[600]} />
                       <View className="flex-1">
                         <Text className="text-xs mb-1" style={{ color: theme.text.secondary }}>
@@ -1049,7 +1045,7 @@ export default function DoctorSchedule() {
                       </View>
                     </View>
 
-                    <View className="flex-row items-start gap-3">
+                    <View className="flex-row items-start" style={{ gap: 12 }}>
                       <Ionicons name="time" size={20} color={Colors.primary[600]} />
                       <View className="flex-1">
                         <Text className="text-xs mb-1" style={{ color: theme.text.secondary }}>
@@ -1061,7 +1057,7 @@ export default function DoctorSchedule() {
                       </View>
                     </View>
 
-                    <View className="flex-row items-start gap-3">
+                    <View className="flex-row items-start" style={{ gap: 12 }}>
                       <Ionicons name="medical" size={20} color={Colors.primary[600]} />
                       <View className="flex-1">
                         <Text className="text-xs mb-1" style={{ color: theme.text.secondary }}>
@@ -1074,7 +1070,7 @@ export default function DoctorSchedule() {
                     </View>
 
                     {selectedAppointment.patientId?.phone && (
-                      <View className="flex-row items-start gap-3">
+                      <View className="flex-row items-start" style={{ gap: 12 }}>
                         <Ionicons name="call" size={20} color={Colors.primary[600]} />
                         <View className="flex-1">
                           <Text className="text-xs mb-1" style={{ color: theme.text.secondary }}>
@@ -1088,7 +1084,7 @@ export default function DoctorSchedule() {
                     )}
 
                     {selectedAppointment.notes && (
-                      <View className="flex-row items-start gap-3">
+                      <View className="flex-row items-start" style={{ gap: 12 }}>
                         <Ionicons name="document-text" size={20} color={Colors.primary[600]} />
                         <View className="flex-1">
                           <Text className="text-xs mb-1" style={{ color: theme.text.secondary }}>
@@ -1105,8 +1101,8 @@ export default function DoctorSchedule() {
                   {/* View Patient Profile Button */}
                   <Pressable
                     onPress={() => setPatientDetailModalVisible(true)}
-                    className="flex-row items-center justify-center gap-2 py-3 mb-4 rounded-xl border-2"
-                    style={{ borderColor: Colors.primary[600] }}
+                    className="flex-row items-center justify-center py-3 mb-4 rounded-xl border-2"
+                    style={{ gap: 8, borderColor: Colors.primary[600] }}
                   >
                     <Ionicons name="person-outline" size={20} color={Colors.primary[600]} />
                     <Text className="font-semibold" style={{ color: Colors.primary[600] }}>
@@ -1116,7 +1112,7 @@ export default function DoctorSchedule() {
 
                   {/* Actions */}
                   {selectedAppointment.status === 'pending' && (
-                    <View className="flex-row gap-3">
+                    <View className="flex-row" style={{ gap: 12 }}>
                       <Pressable
                         onPress={() => handleConfirm(selectedAppointment._id)}
                         disabled={actionLoading}
@@ -1141,7 +1137,7 @@ export default function DoctorSchedule() {
                   )}
 
                   {selectedAppointment.status === 'confirmed' && (
-                    <View className="flex-row gap-3">
+                    <View className="flex-row" style={{ gap: 12 }}>
                       <Pressable
                         onPress={() => handleTreatment(selectedAppointment)}
                         disabled={actionLoading}
@@ -1214,7 +1210,7 @@ export default function DoctorSchedule() {
               </Pressable>
             </View>
 
-            <View className="space-y-4">
+            <View style={{ gap: 16 }}>
               {/* Start Date */}
               <View>
                 <Text className="text-sm font-semibold mb-2" style={{ color: theme.text.secondary }}>
@@ -1252,7 +1248,7 @@ export default function DoctorSchedule() {
               </View>
 
               {/* Action Buttons */}
-              <View className="flex-row gap-3 mt-4">
+              <View className="flex-row mt-4" style={{ gap: 12 }}>
                 <Pressable
                   onPress={() => {
                     setStartFilterDate('');

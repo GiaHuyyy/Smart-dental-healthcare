@@ -1,23 +1,25 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { Eye, EyeOff, Smile, Stethoscope, User } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { LinearGradient } from "expo-linear-gradient";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
+import { Eye, EyeOff, Smile, Stethoscope, User } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  Image,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from '@/contexts/auth-context';
-import { apiRequest, formatApiError } from '@/utils/api';
+import { Colors, Gradients } from "@/constants/colors";
+import { useAuth } from "@/contexts/auth-context";
+import { apiRequest, formatApiError } from "@/utils/api";
 
 type LoginResponse = {
   user: {
@@ -33,7 +35,7 @@ type QueryParams = {
   email?: string | string[];
 };
 
-type UserType = 'patient' | 'doctor';
+type UserType = "patient" | "doctor";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -42,21 +44,21 @@ export default function LoginScreen() {
   const prefilledEmail = useMemo(() => {
     const value = params?.email;
     if (Array.isArray(value)) {
-      return value[0] ?? '';
+      return value[0] ?? "";
     }
-    return typeof value === 'string' ? value : '';
+    return typeof value === "string" ? value : "";
   }, [params]);
 
-  const [userType, setUserType] = useState<UserType>('patient');
+  const [userType, setUserType] = useState<UserType>("patient");
   const [email, setEmail] = useState<string>(prefilledEmail);
-  const [password, setPassword] = useState<string>('');
+  const [password, setPassword] = useState<string>("");
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    console.log('🔐 Login screen mounted');
+    console.log("🔐 Login screen mounted");
     if (prefilledEmail) {
       setEmail(prefilledEmail);
     }
@@ -64,7 +66,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      setError('Vui lòng nhập đầy đủ thông tin đăng nhập.');
+      setError("Vui lòng nhập đầy đủ thông tin đăng nhập.");
       return;
     }
 
@@ -72,9 +74,9 @@ export default function LoginScreen() {
     setError(null);
 
     try {
-      console.log('🔐 Attempting login with:', { email, userType });
-      const response = await apiRequest<LoginResponse>('/auth/login', {
-        method: 'POST',
+      console.log("🔐 Attempting login with:", { email, userType });
+      const response = await apiRequest<LoginResponse>("/auth/login", {
+        method: "POST",
         body: {
           username: email.trim(),
           email: email.trim(),
@@ -87,7 +89,7 @@ export default function LoginScreen() {
       const accessToken = response.data?.access_token;
 
       if (!user || !accessToken) {
-        throw new Error('Phản hồi đăng nhập không hợp lệ. Vui lòng thử lại.');
+        throw new Error("Phản hồi đăng nhập không hợp lệ. Vui lòng thử lại.");
       }
 
       await setSession({
@@ -95,36 +97,33 @@ export default function LoginScreen() {
         token: accessToken,
       });
 
-      const userName = user.fullName ?? user.email ?? 'bạn';
+      const userName = user.fullName ?? user.email ?? "bạn";
 
-      Alert.alert('Đăng nhập thành công', `Chào mừng ${userName}!`);
-      
+      Alert.alert("Đăng nhập thành công", `Chào mừng ${userName}!`);
+
       // Navigate based on user role
-      if (user.role === 'doctor') {
-        router.replace('/(doctor)/home' as any);
+      if (user.role === "doctor") {
+        router.replace("/(doctor)/home" as any);
       } else {
-        router.replace('/(tabs)/dashboard' as any);
+        router.replace("/(tabs)/dashboard" as any);
       }
     } catch (err) {
       const message = formatApiError(err);
       setError(message);
-      Alert.alert('Đăng nhập thất bại', message);
+      Alert.alert("Đăng nhập thất bại", message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  console.log('🎨 Login render:', { email, userType, isLoading, hasError: !!error });
+  console.log("🎨 Login render:", { email, userType, isLoading, hasError: !!error });
 
   return (
-    <LinearGradient 
-      colors={['#eff6ff', '#e0f2fe', '#dbeafe']} 
-      style={{ flex: 1 }}
-    >
-      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+    <LinearGradient colors={[Colors.primary[50], Colors.primary[100], Colors.primary[50]]} style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={Platform.select({ ios: 0, android: -200, default: 0 }) ?? 0}
         >
           <ScrollView
@@ -132,17 +131,22 @@ export default function LoginScreen() {
             contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 32 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View className="flex-1 items-center">
+            <View className="flex-1 items-center pt-4">
               <View className="w-full" style={{ maxWidth: 420 }}>
                 <View className="items-center">
                   <TouchableOpacity
                     activeOpacity={0.9}
                     className="flex-row items-center"
-                    onPress={() => router.push('/(tabs)/dashboard' as const)}
+                    onPress={() => router.push("/(tabs)/dashboard" as const)}
                   >
-                    <View className="h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 shadow-lg">
-                      <Smile color="#ffffff" size={32} />
+                    <View className="h-16 w-16 items-center justify-center rounded-3xl bg-[#00a6f4] shadow-lg">
+                      <Image
+                        source={require("../../assets/images/tooth.png")}
+                        className="h-8 w-8"
+                        resizeMode="contain"
+                      />
                     </View>
+
                     <View className="ml-4">
                       <Text className="text-2xl font-bold text-slate-900">Smart Dental</Text>
                       <Text className="-mt-1 text-sm text-slate-500">Healthcare Platform</Text>
@@ -157,31 +161,44 @@ export default function LoginScreen() {
                 </View>
 
                 {/* User Type Selection */}
-                <View className="mt-6 space-y-4 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl">
-                  <View className="flex-row gap-4">
+                <View className="mt-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl" style={{ gap: 16 }}>
+                  <View className="flex-row" style={{ gap: 16 }}>
                     {/* Patient Card */}
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      className={`flex-1 rounded-2xl border-2 p-4 ${
-                        userType === 'patient'
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 bg-white'
-                      }`}
+                      style={{
+                        flex: 1,
+                        borderRadius: 16,
+                        borderWidth: 2,
+                        padding: 16,
+                        borderColor: userType === "patient" ? Colors.primary[500] : Colors.gray[200],
+                        backgroundColor: userType === "patient" ? Colors.primary[50] : Colors.white,
+                      }}
                       onPress={() => {
-                        setUserType('patient');
-                        setEmail('');
-                        setPassword('');
+                        setUserType("patient");
+                        setError(null);
                       }}
                     >
                       <View className="items-center">
                         <View
-                          className={`mb-2 h-12 w-12 items-center justify-center rounded-xl ${
-                            userType === 'patient' ? 'bg-blue-100' : 'bg-gray-100'
-                          }`}
+                          style={{
+                            marginBottom: 8,
+                            height: 48,
+                            width: 48,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 12,
+                            backgroundColor: userType === "patient" ? Colors.primary[100] : Colors.gray[100],
+                          }}
                         >
-                          <User color={userType === 'patient' ? '#1d4ed8' : '#6b7280'} size={24} />
+                          <User color={userType === "patient" ? Colors.primary[600] : Colors.gray[500]} size={24} />
                         </View>
-                        <Text className={`font-semibold ${userType === 'patient' ? 'text-blue-700' : 'text-gray-700'}`}>
+                        <Text
+                          style={{
+                            fontWeight: "600",
+                            color: userType === "patient" ? Colors.primary[600] : Colors.gray[700],
+                          }}
+                        >
                           Bệnh nhân
                         </Text>
                         <Text className="mt-1 text-center text-xs text-gray-500">Đặt lịch & theo dõi sức khỏe</Text>
@@ -191,26 +208,42 @@ export default function LoginScreen() {
                     {/* Doctor Card */}
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      className={`flex-1 rounded-2xl border-2 p-4 ${
-                        userType === 'doctor'
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 bg-white'
-                      }`}
+                      style={{
+                        flex: 1,
+                        borderRadius: 16,
+                        borderWidth: 2,
+                        padding: 16,
+                        borderColor: userType === "doctor" ? Colors.primary[500] : Colors.gray[200],
+                        backgroundColor: userType === "doctor" ? Colors.primary[50] : Colors.white,
+                      }}
                       onPress={() => {
-                        setUserType('doctor');
-                        setEmail('');
-                        setPassword('');
+                        setUserType("doctor");
+                        setError(null);
                       }}
                     >
                       <View className="items-center">
                         <View
-                          className={`mb-2 h-12 w-12 items-center justify-center rounded-xl ${
-                            userType === 'doctor' ? 'bg-blue-100' : 'bg-gray-100'
-                          }`}
+                          style={{
+                            marginBottom: 8,
+                            height: 48,
+                            width: 48,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 12,
+                            backgroundColor: userType === "doctor" ? Colors.primary[100] : Colors.gray[100],
+                          }}
                         >
-                          <Stethoscope color={userType === 'doctor' ? '#1d4ed8' : '#6b7280'} size={24} />
+                          <Stethoscope
+                            color={userType === "doctor" ? Colors.primary[600] : Colors.gray[500]}
+                            size={24}
+                          />
                         </View>
-                        <Text className={`font-semibold ${userType === 'doctor' ? 'text-blue-700' : 'text-gray-700'}`}>
+                        <Text
+                          style={{
+                            fontWeight: "600",
+                            color: userType === "doctor" ? Colors.primary[600] : Colors.gray[700],
+                          }}
+                        >
                           Bác sĩ
                         </Text>
                         <Text className="mt-1 text-center text-xs text-gray-500">Quản lý bệnh nhân & điều trị</Text>
@@ -226,7 +259,7 @@ export default function LoginScreen() {
                       </View>
                     ) : null}
 
-                    <View className="space-y-6">
+                    <View style={{ gap: 24 }}>
                       <View>
                         <Text className="mb-2 text-sm font-semibold text-slate-700">Địa chỉ email</Text>
                         <TextInput
@@ -263,50 +296,51 @@ export default function LoginScreen() {
                       </View>
 
                       <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center space-x-3">
+                        <View className="flex-row items-center" style={{ gap: 12 }}>
                           <Switch
                             value={rememberMe}
                             onValueChange={setRememberMe}
-                            thumbColor={rememberMe ? '#1d4ed8' : undefined}
-                            trackColor={{ false: '#cbd5f5', true: '#bfdbfe' }}
+                            thumbColor={rememberMe ? "#00a6f4" : "#f1f5f9"}
+                            trackColor={{ false: "#cbd5f5", true: "#7dd3fc" }}
                           />
                           <Text className="text-sm font-medium text-slate-700">Ghi nhớ đăng nhập</Text>
                         </View>
                         <TouchableOpacity
                           onPress={() =>
                             Alert.alert(
-                              'Quên mật khẩu',
-                              'Vui lòng sử dụng tính năng quên mật khẩu trên phiên bản web để đặt lại mật khẩu trong giai đoạn này.',
+                              "Quên mật khẩu",
+                              "Vui lòng sử dụng tính năng quên mật khẩu trên phiên bản web để đặt lại mật khẩu trong giai đoạn này."
                             )
                           }
                         >
-                          <Text className="text-sm font-semibold text-blue-600">Quên mật khẩu?</Text>
+                          <Text className="text-sm font-semibold text-[#00a6f4]">Quên mật khẩu?</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
 
                     <TouchableOpacity
                       activeOpacity={0.9}
-                      className={`mt-8 rounded-2xl bg-blue-600 py-4 ${isLoading ? 'opacity-60' : ''}`}
+                      className="mt-8 rounded-2xl bg-[#00a6f4] py-4"
+                      style={{ opacity: isLoading ? 0.6 : 1 }}
                       disabled={isLoading}
                       onPress={handleLogin}
                     >
                       {isLoading ? (
-                        <View className="flex-row items-center justify-center space-x-2">
+                        <View className="flex-row items-center justify-center" style={{ gap: 8 }}>
                           <ActivityIndicator color="#ffffff" />
                           <Text className="text-base font-semibold text-white">Đang đăng nhập...</Text>
                         </View>
                       ) : (
                         <Text className="text-center text-lg font-semibold text-white">
-                          Đăng nhập {userType === 'doctor' ? 'Bác sĩ' : 'Bệnh nhân'}
+                          Đăng nhập {userType === "doctor" ? "Bác sĩ" : "Bệnh nhân"}
                         </Text>
                       )}
                     </TouchableOpacity>
 
                     <View className="mt-6 items-center">
                       <Text className="text-sm text-slate-600">
-                        Chưa có tài khoản?{' '}
-                        <Link href="/(auth)/register" className="font-semibold text-blue-600">
+                        Chưa có tài khoản?{" "}
+                        <Link href="/(auth)/register" className="font-semibold text-[#00a6f4]">
                           Đăng ký ngay
                         </Link>
                       </Text>

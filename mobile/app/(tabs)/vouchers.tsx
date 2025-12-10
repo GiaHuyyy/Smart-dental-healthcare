@@ -122,7 +122,7 @@ function VoucherCard({ voucher, onCopy }: { voucher: Voucher; onCopy: (code: str
     >
       {/* Header */}
       <View className="flex-row items-start justify-between mb-3">
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center" style={{ gap: 8 }}>
           <View
             className="h-8 w-8 items-center justify-center rounded-lg"
             style={{ backgroundColor: reasonData.bg }}
@@ -141,14 +141,14 @@ function VoucherCard({ voucher, onCopy }: { voucher: Voucher; onCopy: (code: str
 
         {/* Status Badge */}
         {used ? (
-          <View className="flex-row items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: Colors.success[100] }}>
+          <View className="flex-row items-center rounded-full px-2.5 py-1" style={{ backgroundColor: Colors.success[100], gap: 4 }}>
             <Ionicons name="checkmark-circle" size={14} color={Colors.success[700]} />
             <Text className="text-xs font-semibold" style={{ color: Colors.success[700] }}>
               Đã dùng
             </Text>
           </View>
         ) : expired ? (
-          <View className="flex-row items-center gap-1 rounded-full px-2.5 py-1" style={{ backgroundColor: theme.border }}>
+          <View className="flex-row items-center rounded-full px-2.5 py-1" style={{ backgroundColor: theme.border, gap: 4 }}>
             <Ionicons name="close-circle" size={14} color={theme.text.secondary} />
             <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
               Hết hạn
@@ -195,7 +195,7 @@ function VoucherCard({ voucher, onCopy }: { voucher: Voucher; onCopy: (code: str
 
       {/* Footer Info */}
       <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center gap-1.5">
+        <View className="flex-row items-center" style={{ gap: 6 }}>
           <Ionicons name="calendar-outline" size={12} color={theme.text.secondary} />
           <Text className="text-xs" style={{ color: theme.text.secondary }}>
             HSD: {formatDate(voucher.expiresAt)}
@@ -370,7 +370,7 @@ export default function VouchersScreen() {
           ) : undefined
         }
       >
-        <View className="space-y-6">
+        <View style={{ gap: 24 }}>
           {/* Header Card */}
           <Card className="p-6">
             <View className="flex-row items-start justify-between">
@@ -388,7 +388,7 @@ export default function VouchersScreen() {
                   Quản lý và sử dụng các voucher giảm giá của bạn
                 </Text>
               </View>
-              <View className="space-y-2">
+              <View style={{ gap: 8 }}>
                 <View className="rounded-2xl px-3 py-2" style={{ backgroundColor: Colors.primary[50] }}>
                   <Text className="text-xs font-semibold" style={{ color: Colors.primary[600] }}>
                     Tổng số
@@ -402,10 +402,10 @@ export default function VouchersScreen() {
           </Card>
 
           {/* Quick Stats */}
-          <View className="flex-row flex-wrap gap-3">
-            <View className="flex-1" style={{ minWidth: '48%' }}>
+          <View className="flex-row flex-wrap" style={{ gap: 12 }}>
+            <View className="w-full flex-1" style={{ minWidth: '48%' }}>
               <Card className="p-4">
-                <View className="flex-row items-center gap-2 mb-2">
+                <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                   <Ionicons name="checkmark-circle-outline" size={20} color={Colors.success[600]} />
                   <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
                     Khả dụng
@@ -416,9 +416,9 @@ export default function VouchersScreen() {
                 </Text>
               </Card>
             </View>
-            <View className="flex-1" style={{ minWidth: '48%' }}>
+            <View className="w-full flex-1" style={{ minWidth: '48%' }}>
               <Card className="p-4">
-                <View className="flex-row items-center gap-2 mb-2">
+                <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
                   <Ionicons name="checkmark-done-outline" size={20} color={Colors.primary[600]} />
                   <Text className="text-xs font-semibold" style={{ color: theme.text.secondary }}>
                     Đã dùng
@@ -438,7 +438,7 @@ export default function VouchersScreen() {
               className="p-4"
               style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}
             >
-              <View className="flex-row items-center space-x-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[700]} />
                 <Text className="flex-1 text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                   {errorMessage}
@@ -471,7 +471,7 @@ export default function VouchersScreen() {
               </Text>
             </Card>
           ) : (
-            <View className="space-y-4">
+            <View style={{ gap: 16 }}>
               {sortedVouchers.map((voucher) => (
                 <VoucherCard 
                   key={voucher._id ?? `${voucher.code}-${voucher.createdAt}`} 
@@ -484,32 +484,32 @@ export default function VouchersScreen() {
 
           {/* Usage Instructions */}
           <Card className="p-5" style={{ backgroundColor: Colors.primary[50], borderWidth: 1, borderColor: Colors.primary[100] }}>
-            <View className="flex-row items-center gap-2 mb-3">
+            <View className="flex-row items-center mb-3" style={{ gap: 8 }}>
               <Text className="text-xl">💡</Text>
               <Text className="text-base font-semibold" style={{ color: Colors.primary[700] }}>
                 Hướng dẫn sử dụng voucher
               </Text>
             </View>
-            <View className="space-y-2">
-              <View className="flex-row items-start gap-2">
+            <View style={{ gap: 8 }}>
+              <View className="flex-row items-start" style={{ gap: 8 }}>
                 <Text className="font-bold" style={{ color: Colors.primary[700] }}>1.</Text>
                 <Text className="flex-1 text-sm" style={{ color: Colors.primary[700] }}>
                   Click vào mã voucher để sao chép vào clipboard
                 </Text>
               </View>
-              <View className="flex-row items-start gap-2">
+              <View className="flex-row items-start" style={{ gap: 8 }}>
                 <Text className="font-bold" style={{ color: Colors.primary[700] }}>2.</Text>
                 <Text className="flex-1 text-sm" style={{ color: Colors.primary[700] }}>
                   Khi đặt lịch khám hoặc thanh toán, dán mã voucher vào ô "Mã giảm giá"
                 </Text>
               </View>
-              <View className="flex-row items-start gap-2">
+              <View className="flex-row items-start" style={{ gap: 8 }}>
                 <Text className="font-bold" style={{ color: Colors.primary[700] }}>3.</Text>
                 <Text className="flex-1 text-sm" style={{ color: Colors.primary[700] }}>
                   Voucher sẽ được áp dụng tự động và giảm trừ vào tổng số tiền
                 </Text>
               </View>
-              <View className="flex-row items-start gap-2">
+              <View className="flex-row items-start" style={{ gap: 8 }}>
                 <Text className="font-bold" style={{ color: Colors.primary[700] }}>4.</Text>
                 <Text className="flex-1 text-sm" style={{ color: Colors.primary[700] }}>
                   Mỗi voucher chỉ được sử dụng một lần và có thời hạn sử dụng
@@ -520,26 +520,26 @@ export default function VouchersScreen() {
 
           {/* How to get vouchers */}
           <Card className="p-5" style={{ backgroundColor: Colors.success[50], borderWidth: 1, borderColor: Colors.success[100] }}>
-            <View className="flex-row items-center gap-2 mb-3">
+            <View className="flex-row items-center mb-3" style={{ gap: 8 }}>
               <Text className="text-xl">🎁</Text>
               <Text className="text-base font-semibold" style={{ color: Colors.success[700] }}>
                 Cách nhận voucher
               </Text>
             </View>
-            <View className="space-y-2">
-              <View className="flex-row items-start gap-2">
+            <View style={{ gap: 8 }}>
+              <View className="flex-row items-start" style={{ gap: 8 }}>
                 <Text style={{ color: Colors.success[700] }}>•</Text>
                 <Text className="flex-1 text-sm" style={{ color: Colors.success[700] }}>
                   <Text className="font-semibold">Bác sĩ hủy lịch khẩn cấp:</Text> Nhận voucher giảm giá 5% cho lần khám tiếp theo
                 </Text>
               </View>
-              <View className="flex-row items-start gap-2">
+              <View className="flex-row items-start" style={{ gap: 8 }}>
                 <Text style={{ color: Colors.success[700] }}>•</Text>
                 <Text className="flex-1 text-sm" style={{ color: Colors.success[700] }}>
                   <Text className="font-semibold">Lịch tái khám:</Text> Khi bác sĩ tạo đề xuất tái khám, bạn nhận voucher giảm giá 5%
                 </Text>
               </View>
-              <View className="flex-row items-start gap-2">
+              <View className="flex-row items-start" style={{ gap: 8 }}>
                 <Text style={{ color: Colors.success[700] }}>•</Text>
                 <Text className="flex-1 text-sm" style={{ color: Colors.success[700] }}>
                   <Text className="font-semibold">Chương trình khuyến mãi:</Text> Theo dõi email và thông báo để không bỏ lỡ voucher đặc biệt

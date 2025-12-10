@@ -59,7 +59,7 @@ export default function DoctorDetailModal({
         {/* Header */}
         <View
           className="flex-row items-center justify-between border-b px-4 py-4"
-          style={{ 
+          style={{
             backgroundColor: theme.card,
             borderBottomColor: theme.border,
           }}
@@ -103,14 +103,14 @@ export default function DoctorDetailModal({
               </Text>
 
               {/* Badges */}
-              <View className="mt-4 flex-row items-center gap-3">
+              <View className="mt-4 flex-row items-center" style={{ gap: 12 }}>
                 <Badge variant="primary" size="md">
                   {doctor.experienceYears ?? 5}+ năm kinh nghiệm
                 </Badge>
                 {hasHighRating && (
                   <View
-                    className="flex-row items-center gap-1 rounded-full px-3 py-1.5"
-                    style={{ backgroundColor: Colors.success[50] }}
+                    className="flex-row items-center rounded-full px-3 py-1.5"
+                    style={{ backgroundColor: Colors.success[50], gap: 4 }}>
                   >
                     <Ionicons name="star" size={16} color={Colors.success[600]} />
                     <Text className="text-sm font-semibold" style={{ color: Colors.success[700] }}>
@@ -125,7 +125,7 @@ export default function DoctorDetailModal({
           {/* Bio */}
           {doctor.bio && (
             <Card shadow="sm" className="mb-4">
-              <View className="flex-row items-start gap-3">
+              <View className="flex-row items-start" style={{ gap: 12 }}>
                 <View
                   className="h-10 w-10 items-center justify-center rounded-full"
                   style={{ backgroundColor: Colors.primary[50] }}
@@ -150,9 +150,9 @@ export default function DoctorDetailModal({
               Thông tin liên hệ
             </Text>
 
-            <View className="space-y-3">
+            <View style={{ gap: 12 }}>
               {doctor.email && (
-                <View className="flex-row items-center gap-3">
+                <View className="flex-row items-center" style={{ gap: 12 }}>
                   <View
                     className="h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: Colors.primary[50] }}
@@ -166,7 +166,7 @@ export default function DoctorDetailModal({
               )}
 
               {doctor.phone && (
-                <View className="flex-row items-center gap-3">
+                <View className="flex-row items-center" style={{ gap: 12 }}>
                   <View
                     className="h-10 w-10 items-center justify-center rounded-full"
                     style={{ backgroundColor: Colors.primary[50] }}
@@ -179,7 +179,7 @@ export default function DoctorDetailModal({
                 </View>
               )}
 
-              <View className="flex-row items-center gap-3">
+              <View className="flex-row items-center" style={{ gap: 12 }}>
                 <View
                   className="h-10 w-10 items-center justify-center rounded-full"
                   style={{ backgroundColor: Colors.primary[50] }}
@@ -193,7 +193,7 @@ export default function DoctorDetailModal({
                 </View>
               </View>
 
-              <View className="flex-row items-center gap-3">
+              <View className="flex-row items-center" style={{ gap: 12 }}>
                 <View
                   className="h-10 w-10 items-center justify-center rounded-full"
                   style={{ backgroundColor: Colors.primary[50] }}
@@ -214,7 +214,7 @@ export default function DoctorDetailModal({
             <Text className="mb-4 text-base font-semibold" style={{ color: theme.text.primary }}>
               Chuyên môn
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
               <Badge variant="primary" size="md">
                 {doctor.specialty ?? doctor.specialization ?? 'Nha khoa tổng quát'}
               </Badge>
@@ -231,12 +231,12 @@ export default function DoctorDetailModal({
         {/* Bottom Actions */}
         <View
           className="border-t px-4 py-4"
-          style={{ 
+          style={{
             backgroundColor: theme.card,
             borderTopColor: theme.border,
           }}
         >
-          <View className="flex-row gap-3">
+          <View className="flex-row" style={{ gap: 12 }}>
             <TouchableOpacity
               className="flex-1 items-center justify-center rounded-2xl py-4"
               style={{ backgroundColor: Colors.primary[600] }}
@@ -245,7 +245,7 @@ export default function DoctorDetailModal({
                 onClose();
               }}
             >
-              <View className="flex-row items-center gap-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="calendar-outline" size={20} color="#ffffff" />
                 <Text className="text-base font-semibold text-white">Đặt lịch</Text>
               </View>
@@ -253,7 +253,7 @@ export default function DoctorDetailModal({
 
             <TouchableOpacity
               className="flex-1 items-center justify-center rounded-2xl py-4"
-              style={{ 
+              style={{
                 backgroundColor: Colors.primary[50],
                 borderWidth: 1,
                 borderColor: Colors.primary[200],
@@ -263,7 +263,7 @@ export default function DoctorDetailModal({
                 onClose();
               }}
             >
-              <View className="flex-row items-center gap-2">
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="chatbubble-outline" size={20} color={Colors.primary[600]} />
                 <Text className="text-base font-semibold" style={{ color: Colors.primary[700] }}>
                   Trao đổi

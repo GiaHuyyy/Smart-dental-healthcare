@@ -1,24 +1,26 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { Link, useRouter } from 'expo-router';
-import { Eye, EyeOff, Smile, Stethoscope, User } from 'lucide-react-native';
-import { useState } from 'react';
+import { LinearGradient } from "expo-linear-gradient";
+import { Link, useRouter } from "expo-router";
+import { Eye, EyeOff, Smile, Stethoscope, User } from "lucide-react-native";
+import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    KeyboardTypeOptions,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  KeyboardTypeOptions,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { apiRequest, formatApiError } from '@/utils/api';
+import { Colors } from "@/constants/colors";
+import { apiRequest, formatApiError } from "@/utils/api";
 
-type UserType = 'patient' | 'doctor';
+type UserType = "patient" | "doctor";
 
 type RegisterResponse = {
   _id: string;
@@ -32,7 +34,7 @@ type UserTypeOption = {
 };
 
 type GenderOption = {
-  value: 'male' | 'female' | 'other';
+  value: "male" | "female" | "other";
   label: string;
 };
 
@@ -43,7 +45,7 @@ type RegisterFormState = {
   password: string;
   confirmPassword: string;
   dateOfBirth: string;
-  gender: GenderOption['value'] | '';
+  gender: GenderOption["value"] | "";
   address: string;
   specialty: string;
   licenseNumber: string;
@@ -56,44 +58,44 @@ type InputFieldProps = {
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
   secureTextEntry?: boolean;
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
   multiline?: boolean;
   numberOfLines?: number;
-  autoComplete?: 'email' | 'name' | 'tel' | 'street-address' | 'birthdate-full' | 'off';
+  autoComplete?: "email" | "name" | "tel" | "street-address" | "birthdate-full" | "off";
 };
 
 const USER_TYPE_OPTIONS: UserTypeOption[] = [
   {
-    type: 'patient',
-    title: 'Bệnh nhân',
-    subtitle: 'Đặt lịch & theo dõi sức khỏe',
+    type: "patient",
+    title: "Bệnh nhân",
+    subtitle: "Đặt lịch & theo dõi sức khỏe",
     Icon: User,
   },
   {
-    type: 'doctor',
-    title: 'Bác sĩ',
-    subtitle: 'Quản lý bệnh nhân & điều trị',
+    type: "doctor",
+    title: "Bác sĩ",
+    subtitle: "Quản lý bệnh nhân & điều trị",
     Icon: Stethoscope,
   },
 ];
 
 const GENDER_OPTIONS: GenderOption[] = [
-  { value: 'male', label: 'Nam' },
-  { value: 'female', label: 'Nữ' },
-  { value: 'other', label: 'Khác' },
+  { value: "male", label: "Nam" },
+  { value: "female", label: "Nữ" },
+  { value: "other", label: "Khác" },
 ];
 
 const INITIAL_FORM_STATE: RegisterFormState = {
-  fullName: '',
-  email: '',
-  phone: '',
-  password: '',
-  confirmPassword: '',
-  dateOfBirth: '',
-  gender: '',
-  address: '',
-  specialty: '',
-  licenseNumber: '',
+  fullName: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
+  dateOfBirth: "",
+  gender: "",
+  address: "",
+  specialty: "",
+  licenseNumber: "",
 };
 
 const InputField = ({
@@ -103,16 +105,16 @@ const InputField = ({
   placeholder,
   keyboardType,
   secureTextEntry,
-  autoCapitalize = 'sentences',
+  autoCapitalize = "sentences",
   multiline,
   numberOfLines,
-  autoComplete = 'off',
+  autoComplete = "off",
 }: InputFieldProps) => (
-  <View className="space-y-2">
+  <View style={{ gap: 8 }}>
     <Text className="text-sm font-semibold text-slate-700">{label}</Text>
     <TextInput
       className={`rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 ${
-        multiline ? 'min-h-[56px]' : ''
+        multiline ? "min-h-[56px]" : ""
       }`}
       placeholder={placeholder}
       placeholderTextColor="#94a3b8"
@@ -130,7 +132,7 @@ const InputField = ({
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const [userType, setUserType] = useState<UserType>('patient');
+  const [userType, setUserType] = useState<UserType>("patient");
   const [form, setForm] = useState<RegisterFormState>(INITIAL_FORM_STATE);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
@@ -143,38 +145,38 @@ export default function RegisterScreen() {
 
   const validateForm = () => {
     if (!form.fullName.trim()) {
-      return 'Vui lòng nhập họ và tên.';
+      return "Vui lòng nhập họ và tên.";
     }
     if (!form.email.trim()) {
-      return 'Vui lòng nhập email.';
+      return "Vui lòng nhập email.";
     }
     if (!form.phone.trim()) {
-      return 'Vui lòng nhập số điện thoại.';
+      return "Vui lòng nhập số điện thoại.";
     }
     if (!form.dateOfBirth.trim()) {
-      return 'Vui lòng nhập ngày sinh (YYYY-MM-DD).';
+      return "Vui lòng nhập ngày sinh (YYYY-MM-DD).";
     }
     if (!form.gender) {
-      return 'Vui lòng chọn giới tính.';
+      return "Vui lòng chọn giới tính.";
     }
     if (!form.address.trim()) {
-      return 'Vui lòng nhập địa chỉ.';
+      return "Vui lòng nhập địa chỉ.";
     }
     if (!form.password) {
-      return 'Vui lòng nhập mật khẩu.';
+      return "Vui lòng nhập mật khẩu.";
     }
     if (form.password.length < 6) {
-      return 'Mật khẩu cần ít nhất 6 ký tự.';
+      return "Mật khẩu cần ít nhất 6 ký tự.";
     }
     if (form.password !== form.confirmPassword) {
-      return 'Mật khẩu xác nhận không khớp.';
+      return "Mật khẩu xác nhận không khớp.";
     }
-    if (userType === 'doctor') {
+    if (userType === "doctor") {
       if (!form.specialty.trim()) {
-        return 'Vui lòng nhập chuyên khoa.';
+        return "Vui lòng nhập chuyên khoa.";
       }
       if (!form.licenseNumber.trim()) {
-        return 'Vui lòng nhập số chứng chỉ hành nghề.';
+        return "Vui lòng nhập số chứng chỉ hành nghề.";
       }
     }
     return null;
@@ -191,8 +193,8 @@ export default function RegisterScreen() {
     setError(null);
 
     try {
-      const { data } = await apiRequest<RegisterResponse>('/auth/register', {
-        method: 'POST',
+      const { data } = await apiRequest<RegisterResponse>("/auth/register", {
+        method: "POST",
         body: {
           fullName: form.fullName.trim(),
           email: form.email.trim(),
@@ -201,8 +203,8 @@ export default function RegisterScreen() {
           dateOfBirth: form.dateOfBirth.trim(),
           gender: form.gender,
           address: form.address.trim(),
-          specialty: userType === 'doctor' ? form.specialty.trim() : undefined,
-          licenseNumber: userType === 'doctor' ? form.licenseNumber.trim() : undefined,
+          specialty: userType === "doctor" ? form.specialty.trim() : undefined,
+          licenseNumber: userType === "doctor" ? form.licenseNumber.trim() : undefined,
           role: userType,
         },
       });
@@ -210,37 +212,37 @@ export default function RegisterScreen() {
       const registeredId = data?._id;
 
       Alert.alert(
-        'Đăng ký thành công',
+        "Đăng ký thành công",
         `Vui lòng kiểm tra email để kích hoạt tài khoản trước khi đăng nhập.${
-          registeredId ? `\nMã người dùng: ${registeredId}` : ''
+          registeredId ? `\nMã người dùng: ${registeredId}` : ""
         }`,
         [
           {
-            text: 'Đăng nhập ngay',
+            text: "Đăng nhập ngay",
             onPress: () =>
               router.replace({
-                pathname: '/(auth)/login' as const,
+                pathname: "/(auth)/login" as const,
                 params: { email: form.email.trim() },
               }),
           },
-        ],
+        ]
       );
       setForm(INITIAL_FORM_STATE);
     } catch (err) {
       const message = formatApiError(err);
       setError(message);
-      Alert.alert('Đăng ký thất bại', message);
+      Alert.alert("Đăng ký thất bại", message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <LinearGradient colors={['#eff6ff', '#e0f2fe', '#dbeafe']} className="flex-1">
+    <LinearGradient colors={[Colors.primary[50], Colors.primary[100], Colors.primary[50]]} className="flex-1">
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView
           className="flex-1"
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={Platform.select({ ios: 0, android: -200, default: 0 }) ?? 0}
         >
           <ScrollView
@@ -248,16 +250,20 @@ export default function RegisterScreen() {
             contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 }}
             keyboardShouldPersistTaps="handled"
           >
-            <View className="flex-1 items-center">
+            <View className="flex-1 items-center pt-4">
               <View className="w-full" style={{ maxWidth: 720 }}>
                 <View className="items-center">
                   <TouchableOpacity
                     activeOpacity={0.9}
                     className="flex-row items-center"
-                    onPress={() => router.push('/(tabs)/dashboard' as const)}
+                    onPress={() => router.push("/(tabs)/dashboard" as const)}
                   >
-                    <View className="h-16 w-16 items-center justify-center rounded-3xl bg-blue-500 shadow-lg">
-                      <Smile color="#ffffff" size={32} />
+                    <View className="h-16 w-16 items-center justify-center rounded-3xl bg-[#00a6f4] shadow-lg">
+                      <Image
+                        source={require("../../assets/images/tooth.png")}
+                        className="h-8 w-8"
+                        resizeMode="contain"
+                      />
                     </View>
                     <View className="ml-4">
                       <Text className="text-2xl font-bold text-slate-900">Smart Dental</Text>
@@ -272,8 +278,8 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                <View className="mt-8 space-y-6 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl">
-                  <View className="flex-row space-x-4">
+                <View className="mt-8 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-xl" style={{ gap: 24 }}>
+                  <View className="flex-row" style={{ gap: 16 }}>
                     {USER_TYPE_OPTIONS.map(({ type, title, subtitle, Icon }) => {
                       const isActive = userType === type;
                       return (
@@ -281,17 +287,17 @@ export default function RegisterScreen() {
                           key={type}
                           activeOpacity={0.9}
                           className={`flex-1 rounded-2xl border-2 px-3 py-4 ${
-                            isActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
+                            isActive ? "border-[#00a6f4] bg-blue-50" : "border-slate-200 bg-white"
                           }`}
                           onPress={() => setUserType(type)}
                         >
                           <View className="items-center">
                             <View
                               className={`mb-2 h-12 w-12 items-center justify-center rounded-xl ${
-                                isActive ? 'bg-blue-100' : 'bg-slate-100'
+                                isActive ? "bg-blue-100" : "bg-slate-100"
                               }`}
                             >
-                              <Icon color={isActive ? '#1d4ed8' : '#475569'} size={28} />
+                              <Icon color={isActive ? "#00a6f4" : "#475569"} size={28} />
                             </View>
                             <Text className="text-base font-semibold text-slate-900">{title}</Text>
                             <Text className="mt-1 text-center text-xs text-slate-500">{subtitle}</Text>
@@ -301,20 +307,20 @@ export default function RegisterScreen() {
                     })}
                   </View>
 
-                  <View className="space-y-8 rounded-3xl border border-slate-100 bg-white/90 p-6">
+                  <View className="rounded-3xl border border-slate-100 bg-white/90 p-6" style={{ gap: 32 }}>
                     {error ? (
                       <View className="rounded-2xl border border-red-200 bg-red-50 p-4">
                         <Text className="text-sm font-medium text-red-600">{error}</Text>
                       </View>
                     ) : null}
 
-                    <View className="space-y-6">
+                    <View style={{ gap: 24 }}>
                       <Text className="text-lg font-semibold text-slate-900">Thông tin cơ bản</Text>
-                      <View className="space-y-6">
+                      <View style={{ gap: 24 }}>
                         <InputField
                           label="Họ và tên *"
                           value={form.fullName}
-                          onChangeText={(value) => updateField('fullName', value)}
+                          onChangeText={(value) => updateField("fullName", value)}
                           placeholder="Nhập họ và tên đầy đủ"
                           autoCapitalize="words"
                           autoComplete="name"
@@ -322,7 +328,7 @@ export default function RegisterScreen() {
                         <InputField
                           label="Email *"
                           value={form.email}
-                          onChangeText={(value) => updateField('email', value)}
+                          onChangeText={(value) => updateField("email", value)}
                           placeholder="Nhập địa chỉ email"
                           keyboardType="email-address"
                           autoCapitalize="none"
@@ -331,7 +337,7 @@ export default function RegisterScreen() {
                         <InputField
                           label="Số điện thoại *"
                           value={form.phone}
-                          onChangeText={(value) => updateField('phone', value)}
+                          onChangeText={(value) => updateField("phone", value)}
                           placeholder="Nhập số điện thoại"
                           keyboardType="phone-pad"
                           autoComplete="tel"
@@ -339,7 +345,7 @@ export default function RegisterScreen() {
                         <InputField
                           label="Ngày sinh (YYYY-MM-DD) *"
                           value={form.dateOfBirth}
-                          onChangeText={(value) => updateField('dateOfBirth', value)}
+                          onChangeText={(value) => updateField("dateOfBirth", value)}
                           placeholder="Ví dụ: 1990-12-31"
                           keyboardType="numbers-and-punctuation"
                           autoCapitalize="none"
@@ -347,7 +353,7 @@ export default function RegisterScreen() {
                         />
                         <View>
                           <Text className="mb-2 text-sm font-semibold text-slate-700">Giới tính *</Text>
-                          <View className="flex-row space-x-3">
+                          <View className="flex-row" style={{ gap: 12 }}>
                             {GENDER_OPTIONS.map(({ value, label }) => {
                               const isActive = form.gender === value;
                               return (
@@ -355,11 +361,13 @@ export default function RegisterScreen() {
                                   key={value}
                                   activeOpacity={0.9}
                                   className={`flex-1 rounded-2xl border px-4 py-3 ${
-                                    isActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white'
+                                    isActive ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white"
                                   }`}
-                                  onPress={() => updateField('gender', value)}
+                                  onPress={() => updateField("gender", value)}
                                 >
-                                  <Text className={`text-center font-semibold ${isActive ? 'text-blue-700' : 'text-slate-600'}`}>
+                                  <Text
+                                    className={`text-center font-semibold ${isActive ? "text-[#00a6f4]" : "text-slate-600"}`}
+                                  >
                                     {label}
                                   </Text>
                                 </TouchableOpacity>
@@ -370,7 +378,7 @@ export default function RegisterScreen() {
                         <InputField
                           label="Địa chỉ *"
                           value={form.address}
-                          onChangeText={(value) => updateField('address', value)}
+                          onChangeText={(value) => updateField("address", value)}
                           placeholder="Nhập địa chỉ đầy đủ"
                           multiline
                           numberOfLines={3}
@@ -379,21 +387,21 @@ export default function RegisterScreen() {
                       </View>
                     </View>
 
-                    {userType === 'doctor' ? (
-                      <View className="space-y-6">
+                    {userType === "doctor" ? (
+                      <View style={{ gap: 24 }}>
                         <Text className="text-lg font-semibold text-slate-900">Thông tin nghề nghiệp</Text>
-                        <View className="space-y-6">
+                        <View style={{ gap: 24 }}>
                           <InputField
                             label="Chuyên khoa *"
                             value={form.specialty}
-                            onChangeText={(value) => updateField('specialty', value)}
+                            onChangeText={(value) => updateField("specialty", value)}
                             placeholder="Ví dụ: Nha khoa tổng quát, Chỉnh hình..."
                             autoCapitalize="sentences"
                           />
                           <InputField
                             label="Số chứng chỉ hành nghề *"
                             value={form.licenseNumber}
-                            onChangeText={(value) => updateField('licenseNumber', value)}
+                            onChangeText={(value) => updateField("licenseNumber", value)}
                             placeholder="Nhập số chứng chỉ hành nghề"
                             autoCapitalize="characters"
                           />
@@ -401,9 +409,9 @@ export default function RegisterScreen() {
                       </View>
                     ) : null}
 
-                    <View className="space-y-6">
+                    <View style={{ gap: 24 }}>
                       <Text className="text-lg font-semibold text-slate-900">Thông tin bảo mật</Text>
-                      <View className="space-y-6">
+                      <View style={{ gap: 24 }}>
                         <View>
                           <Text className="mb-2 text-sm font-semibold text-slate-700">Mật khẩu *</Text>
                           <View className="relative">
@@ -413,7 +421,7 @@ export default function RegisterScreen() {
                               placeholderTextColor="#94a3b8"
                               secureTextEntry={!showPassword}
                               value={form.password}
-                              onChangeText={(value) => updateField('password', value)}
+                              onChangeText={(value) => updateField("password", value)}
                               autoCapitalize="none"
                             />
                             <TouchableOpacity
@@ -433,14 +441,18 @@ export default function RegisterScreen() {
                               placeholderTextColor="#94a3b8"
                               secureTextEntry={!showConfirmPassword}
                               value={form.confirmPassword}
-                              onChangeText={(value) => updateField('confirmPassword', value)}
+                              onChangeText={(value) => updateField("confirmPassword", value)}
                               autoCapitalize="none"
                             />
                             <TouchableOpacity
                               className="absolute inset-y-0 right-0 flex items-center justify-center pr-4"
                               onPress={() => setShowConfirmPassword((prev) => !prev)}
                             >
-                              {showConfirmPassword ? <EyeOff color="#0369a1" size={22} /> : <Eye color="#64748b" size={22} />}
+                              {showConfirmPassword ? (
+                                <EyeOff color="#0369a1" size={22} />
+                              ) : (
+                                <Eye color="#64748b" size={22} />
+                              )}
                             </TouchableOpacity>
                           </View>
                         </View>
@@ -449,26 +461,26 @@ export default function RegisterScreen() {
 
                     <TouchableOpacity
                       activeOpacity={0.9}
-                      className={`rounded-2xl bg-blue-600 py-4 ${isLoading ? 'opacity-60' : ''}`}
+                      className={`rounded-2xl bg-[#00a6f4] py-4 ${isLoading ? "opacity-60" : ""}`}
                       disabled={isLoading}
                       onPress={handleRegister}
                     >
                       {isLoading ? (
-                        <View className="flex-row items-center justify-center space-x-2">
+                        <View className="flex-row items-center justify-center" style={{ gap: 8 }}>
                           <ActivityIndicator color="#ffffff" />
                           <Text className="text-base font-semibold text-white">Đang xử lý...</Text>
                         </View>
                       ) : (
                         <Text className="text-center text-lg font-semibold text-white">
-                          {userType === 'doctor' ? 'Tạo tài khoản Bác sĩ' : 'Tạo tài khoản Bệnh nhân'}
+                          {userType === "doctor" ? "Tạo tài khoản Bác sĩ" : "Tạo tài khoản Bệnh nhân"}
                         </Text>
                       )}
                     </TouchableOpacity>
 
                     <View className="items-center">
                       <Text className="text-sm text-slate-600">
-                        Đã có tài khoản?{' '}
-                        <Link href="/(auth)/login" className="font-semibold text-blue-600">
+                        Đã có tài khoản?{" "}
+                        <Link href="/(auth)/login" className="font-semibold text-[#00a6f4]">
                           Đăng nhập ngay
                         </Link>
                       </Text>

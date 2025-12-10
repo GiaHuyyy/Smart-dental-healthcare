@@ -89,7 +89,7 @@ function ChatListItem({
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <Card className="mb-3">
-        <View className="flex-row items-center space-x-3">
+        <View className="flex-row items-center" style={{ gap: 12 }}>
           <View 
             className="h-14 w-14 items-center justify-center rounded-2xl"
             style={{ backgroundColor: iconBgColor }}
@@ -303,10 +303,10 @@ export default function ChatListScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, paddingTop: 12 }}
         showsVerticalScrollIndicator={false}
       >
-        <View className="space-y-6">
+        <View style={{ gap: 24 }}>
           {/* Search bar */}
           <Card className="p-3">
-            <View className="flex-row items-center space-x-3">
+            <View className="flex-row items-center" style={{ gap: 12 }}>
               <Ionicons name="search-outline" size={20} color={theme.text.secondary} />
               <TextInput
                 value={searchTerm}
@@ -353,7 +353,7 @@ export default function ChatListScreen() {
                   backgroundColor: Colors.error[50]
                 }}
               >
-                <View className="flex-row items-center space-x-2">
+                <View className="flex-row items-center" style={{ gap: 8 }}>
                   <Ionicons name="alert-circle-outline" size={18} color={Colors.error[600]} />
                   <Text className="flex-1 text-sm" style={{ color: Colors.error[700] }}>
                     {errorMessage}
@@ -386,7 +386,7 @@ export default function ChatListScreen() {
                 </Text>
               </View>
             ) : (
-              <View className="space-y-0">
+              <View>
                 {filteredConversations.map((conversation) => {
                   const doctor = conversation.doctorId;
                   

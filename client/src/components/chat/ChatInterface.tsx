@@ -43,6 +43,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useCall } from "@/contexts/CallContext";
+import { useTourGuide } from "@/contexts/TourGuideContext";
 import realtimeChatService from "@/services/realtimeChatService";
 import CallMessage from "../call/CallMessage";
 
@@ -175,6 +176,9 @@ export default function ChatInterface({
 
   // Call hook for video calling
   const { callState, incomingCall } = useCall();
+
+  // Tour guide hook
+  const { destroyCurrentTour } = useTourGuide();
 
   // AI Chat History hook
   const {
@@ -2172,7 +2176,11 @@ export default function ChatInterface({
               </div>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={handleImageUploadClick}
+                  id="image-analysis-button"
+                  onClick={() => {
+                    destroyCurrentTour("chat");
+                    handleImageUploadClick();
+                  }}
                   disabled={isLoading || isAnalyzing}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap disabled:opacity-50 bg-primary text-white"
                 >

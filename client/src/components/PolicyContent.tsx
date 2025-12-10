@@ -28,8 +28,8 @@ export function PolicyContent() {
   return (
     <div className="text-sm leading-relaxed space-y-8">
       <p className="text-base text-center text-gray-600">
-        Nhằm đảm bảo chất lượng dịch vụ, tối ưu hóa thời gian chờ đợi cho Bệnh nhân và lịch làm việc của Bác sĩ, chúng tôi
-        ban hành các quy định về việc đặt và quản lý lịch hẹn trực tuyến như sau:
+        Nhằm đảm bảo chất lượng dịch vụ, tối ưu hóa thời gian chờ đợi cho Bệnh nhân và lịch làm việc của Bác sĩ, chúng
+        tôi ban hành các quy định về việc đặt và quản lý lịch hẹn trực tuyến như sau:
       </p>
 
       {/* PHẦN 1 */}
@@ -52,8 +52,8 @@ export function PolicyContent() {
         <PolicySection title="1.2. Đổi lịch hẹn (Reschedule)">
           <PolicyCase title="Đổi lịch hợp lệ (Trước 30 phút):">
             <p>
-              Bệnh nhân được phép thay đổi ngày/giờ hẹn <strong className="text-green-600">miễn phí</strong> nếu thao tác được thực
-              hiện <strong className="text-gray-900">trước giờ hẹn ban đầu ít nhất 30 phút</strong>.
+              Bệnh nhân được phép thay đổi ngày/giờ hẹn <strong className="text-green-600">miễn phí</strong> nếu thao
+              tác được thực hiện <strong className="text-gray-900">trước giờ hẹn ban đầu ít nhất 30 phút</strong>.
             </p>
           </PolicyCase>
           <PolicyCase title="Đổi lịch cận giờ (Trong vòng 30 phút):">
@@ -62,12 +62,10 @@ export function PolicyContent() {
               hẹn, hệ thống sẽ hiển thị cảnh báo "Đổi lịch cận giờ".
             </p>
             <p>
-              Nếu Bệnh nhân xác nhận tiếp tục, một{" "}
-              <strong className="text-red-600">phí giữ chỗ 50.000 VNĐ</strong> sẽ được áp dụng.
+              Nếu Bệnh nhân xác nhận tiếp tục, một <strong className="text-red-600">phí giữ chỗ 50.000 VNĐ</strong> sẽ
+              được áp dụng.
             </p>
-            <p>
-              Phí giữ chỗ sẽ được ghi nhận vào hệ thống sau khi Bệnh nhân hoàn tất việc xác nhận lịch hẹn mới.
-            </p>
+            <p>Phí giữ chỗ sẽ được ghi nhận vào hệ thống sau khi Bệnh nhân hoàn tất việc xác nhận lịch hẹn mới.</p>
           </PolicyCase>
         </PolicySection>
 
@@ -80,7 +78,9 @@ export function PolicyContent() {
             <p>
               Bệnh nhân hủy lịch hẹn <strong className="text-gray-900">trước giờ hẹn ban đầu ít nhất 30 phút</strong>.
             </p>
-            <p>Việc hủy lịch là hoàn toàn <strong className="text-green-600">miễn phí</strong>.</p>
+            <p>
+              Việc hủy lịch là hoàn toàn <strong className="text-green-600">miễn phí</strong>.
+            </p>
             <p>
               Trường hợp Bệnh nhân đã thanh toán phí khám, Bệnh nhân sẽ được{" "}
               <strong className="text-green-600">hoàn lại 100%</strong> số tiền đã thanh toán.
@@ -88,8 +88,8 @@ export function PolicyContent() {
           </PolicyCase>
           <PolicyCase title="Hủy lịch cận giờ (Trong vòng 30 phút):">
             <p>
-              Nếu Bệnh nhân hủy lịch <strong className="text-gray-900">trong vòng 30 phút</strong> trước giờ hẹn, hệ thống
-              sẽ hiển thị cảnh báo "Hủy lịch cận giờ".
+              Nếu Bệnh nhân hủy lịch <strong className="text-gray-900">trong vòng 30 phút</strong> trước giờ hẹn, hệ
+              thống sẽ hiển thị cảnh báo "Hủy lịch cận giờ".
             </p>
             <p>
               Nếu Bệnh nhân xác nhận hủy, một <strong className="text-red-600">phí giữ chỗ 50.000 VNĐ</strong> sẽ được
@@ -100,15 +100,16 @@ export function PolicyContent() {
               <strong className="text-green-600">hoàn lại 100% phí khám</strong>.
             </p>
             <PolicyNote>
-              Lưu ý: Khoản hoàn 100% phí khám <strong className="text-yellow-900">không bao gồm 50.000 VNĐ phí giữ chỗ</strong> đã bị trừ.
+              Lưu ý: Khoản hoàn 100% phí khám{" "}
+              <strong className="text-yellow-900">không bao gồm 50.000 VNĐ phí giữ chỗ</strong> đã bị trừ.
             </PolicyNote>
           </PolicyCase>
         </PolicySection>
 
         <PolicySection title="1.4. Lịch Tái khám (Follow-up)">
           <p>
-            Sau khi kết thúc điều trị, Bác sĩ có thể tạo một <strong className="text-gray-900">đề xuất</strong> lịch tái khám
-            dựa trên kế hoạch điều trị.
+            Sau khi kết thúc điều trị, Bác sĩ có thể tạo một <strong className="text-gray-900">đề xuất</strong> lịch tái
+            khám dựa trên kế hoạch điều trị.
           </p>
           <p>
             Đề xuất này sẽ được gửi thông báo và hiển thị trong mục{" "}
@@ -142,8 +143,8 @@ export function PolicyContent() {
           </PolicyCase>
           <PolicyCase title="Trường hợp 2: Bệnh nhân đến trễ">
             <p>
-              Nếu Bệnh nhân <strong className="text-gray-900">đến trễ quá 15 phút</strong> so với giờ hẹn, Bác sĩ có quyền
-              hủy lịch hẹn để không ảnh hưởng đến các Bệnh nhân kế tiếp.
+              Nếu Bệnh nhân <strong className="text-gray-900">đến trễ quá 15 phút</strong> so với giờ hẹn, Bác sĩ có
+              quyền hủy lịch hẹn để không ảnh hưởng đến các Bệnh nhân kế tiếp.
             </p>
             <p>
               <strong className="text-gray-900">Chính sách xử lý:</strong> Lịch hẹn bị hủy và Bệnh nhân bị áp dụng{" "}
@@ -154,7 +155,8 @@ export function PolicyContent() {
               <strong className="text-green-600">hoàn 100% phí khám</strong>.
             </p>
             <PolicyNote>
-               Khoản hoàn 100% phí khám <strong className="text-yellow-900">không bao gồm 100.000 VNĐ phí giữ chỗ</strong> đã bị trừ.
+              Khoản hoàn 100% phí khám <strong className="text-yellow-900">không bao gồm 50.000 VNĐ phí giữ chỗ</strong>{" "}
+              đã bị trừ.
             </PolicyNote>
           </PolicyCase>
         </PolicySection>
@@ -165,17 +167,15 @@ export function PolicyContent() {
             trạng thái "Chờ xác nhận" (chưa chính thức chiếm chỗ trên lịch làm việc của Bác sĩ).
           </p>
           <p>
-            Lịch tái khám <strong className="text-gray-900">chỉ trở thành chính thức</strong> sau khi Bệnh nhân xác
-            nhận [Lên lịch tái khám] như mô tả ở Mục 1.4.
+            Lịch tái khám <strong className="text-gray-900">chỉ trở thành chính thức</strong> sau khi Bệnh nhân xác nhận
+            [Lên lịch tái khám] như mô tả ở Mục 1.4.
           </p>
         </PolicySection>
       </section>
 
       {/* PHẦN 3 */}
       <section className="space-y-6">
-        <h2 className="text-xl font-bold text-center text-[#00a6f4] border-b pb-2">
-          PHẦN 3: QUY ĐỊNH VỀ THÔNG BÁO
-        </h2>
+        <h2 className="text-xl font-bold text-center text-[#00a6f4] border-b pb-2">PHẦN 3: QUY ĐỊNH VỀ THÔNG BÁO</h2>
         <p className="text-center text-base text-gray-700">
           Để đảm bảo tính minh bạch, <strong className="text-gray-900">tất cả các hành động</strong> liên quan đến lịch
           hẹn (Đặt, Đổi, Hủy, Đề xuất tái khám, Xác nhận tái khám...) đều sẽ được hệ thống gửi{" "}

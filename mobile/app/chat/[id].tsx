@@ -4,17 +4,17 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,15 +29,15 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import realtimeChatService, { ChatMessage as RealtimeChatMessage } from "@/services/realtimeChatService";
 import uploadService from "@/services/uploadService";
 import {
-  AiAssistantResponse,
-  fetchAiAdvice,
-  fetchQuickSuggestions,
-  fetchSuggestedQuestions,
-  formatUrgencyLabel,
-  ImageAnalysisResult,
-  startChatSession,
-  SuggestedDoctor,
-  uploadAnalysisImage,
+    AiAssistantResponse,
+    fetchAiAdvice,
+    fetchQuickSuggestions,
+    fetchSuggestedQuestions,
+    formatUrgencyLabel,
+    ImageAnalysisResult,
+    startChatSession,
+    SuggestedDoctor,
+    uploadAnalysisImage,
 } from "@/utils/ai-chat";
 import { formatApiError } from "@/utils/api";
 import { clearChatState, loadChatState, persistChatState, StoredChatMessage } from "@/utils/chat-storage";
@@ -213,7 +213,7 @@ function SuggestedDoctorCard({
         backgroundColor: `${Colors.primary[50]}99`,
       }}
     >
-      <View className="flex-row items-center space-x-3">
+      <View className="flex-row items-center" style={{ gap: 12 }}>
         <View
           className="h-12 w-12 items-center justify-center rounded-2xl"
           style={{ backgroundColor: Colors.primary[600] }}
@@ -229,7 +229,7 @@ function SuggestedDoctorCard({
           </Text>
         </View>
       </View>
-      <View className="mt-3 flex-row flex-wrap gap-3">
+      <View className="mt-3 flex-row flex-wrap" style={{ gap: 12 }}>
         <TouchableOpacity
           className="flex-1 rounded-2xl px-4 py-2"
           style={{ backgroundColor: Colors.primary[600] }}
@@ -269,7 +269,7 @@ function AnalysisBlock({ analysis }: { analysis: ImageAnalysisResult }) {
   const sections = analysis.richContent?.sections ?? [];
 
   return (
-    <View className="mt-3 space-y-3">
+    <View className="mt-3" style={{ gap: 12 }}>
       {analysis.richContent?.title ? (
         <Text className="text-sm font-semibold" style={{ color: Colors.primary[900] }}>
           {analysis.richContent.title}
@@ -300,9 +300,9 @@ function AnalysisBlock({ analysis }: { analysis: ImageAnalysisResult }) {
                 </Text>
               ) : null}
               {section.bullets?.length ? (
-                <View className="mt-2 space-y-1">
+                <View className="mt-2" style={{ gap: 4 }}>
                   {section.bullets.map((bullet) => (
-                    <View key={bullet} className="flex-row items-start space-x-2">
+                    <View key={bullet} className="flex-row items-start" style={{ gap: 8 }}>
                       <View
                         className="mt-[6px] h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: Colors.primary[400] }}
@@ -425,7 +425,7 @@ function ChatBubble({
         ) : null}
 
         {message.quickActions?.length ? (
-          <View className="mt-3 flex-row flex-wrap gap-2">
+          <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
             {message.quickActions.map((action) => (
               <TouchableOpacity
                 key={action}
@@ -445,7 +445,7 @@ function ChatBubble({
         ) : null}
 
         {message.followUpQuestions?.length ? (
-          <View className="mt-3 space-y-2">
+          <View className="mt-3" style={{ gap: 8 }}>
             {message.followUpQuestions.map((question) => (
               <TouchableOpacity
                 key={question}
@@ -476,7 +476,7 @@ function ChatBubble({
               backgroundColor: urgencyStyles.backgroundColor,
             }}
           >
-            <View className="flex-row items-center space-x-2">
+            <View className="flex-row items-center" style={{ gap: 8 }}>
               <Ionicons name="heart-outline" size={16} color={urgencyStyles.iconColor} />
               <Text className="text-xs font-semibold" style={{ color: urgencyStyles.textColor }}>
                 Mức độ: {formatUrgencyLabel(message.urgencyLevel)}
@@ -1419,9 +1419,9 @@ export default function ChatConversationScreen() {
 
   const renderListHeader = useCallback(
     () => (
-      <View className="space-y-4 pb-2">
+      <View className="pb-2" style={{ gap: 16 }}>
         <Card className="px-4 py-3">
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             {isBusy ? (
               <ActivityIndicator size="small" color={Colors.primary[600]} />
             ) : (
@@ -1445,7 +1445,7 @@ export default function ChatConversationScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 4, paddingVertical: 6 }}
             >
-              <View className="flex-row space-x-3">
+              <View className="flex-row" style={{ gap: 12 }}>
                 {QUICK_TOPICS.map((topic) => (
                   <TouchableOpacity
                     key={topic.id}
@@ -1455,7 +1455,7 @@ export default function ChatConversationScreen() {
                   >
                     <Card className="px-4 py-3">
                       <View className="flex-row items-center justify-between">
-                        <View className="flex-row flex-1 items-center space-x-3">
+                        <View className="flex-row flex-1 items-center" style={{ gap: 12 }}>
                           <View
                             className="h-10 w-10 items-center justify-center rounded-2xl"
                             style={{ backgroundColor: `${topic.accent}1A` }}
@@ -1493,7 +1493,7 @@ export default function ChatConversationScreen() {
               </Text>
               {loadingSuggestions ? <ActivityIndicator color={Colors.primary[600]} size="small" /> : null}
             </View>
-            <View className="mt-3 flex-row flex-wrap gap-2">
+            <View className="mt-3 flex-row flex-wrap" style={{ gap: 8 }}>
               {suggestions.map((suggestion) => (
                 <TouchableOpacity
                   key={suggestion}
@@ -1519,10 +1519,11 @@ export default function ChatConversationScreen() {
 
   const renderListFooter = useCallback(
     () => (
-      <View className="py-6 space-y-4">
+      <View className="py-6" style={{ gap: 16 }}>
         {isBusy && chatType === "ai" ? (
           <View
-            className="flex-row items-center space-x-2 rounded-2xl border px-3 py-2"
+            className="flex-row items-center rounded-2xl border px-3 py-2"
+            style={{ gap: 8, borderColor: Colors.primary[100], backgroundColor: theme.card }}
             style={{ borderColor: Colors.primary[100], backgroundColor: theme.card }}
           >
             <ActivityIndicator color={Colors.primary[600]} size="small" />
@@ -1570,7 +1571,7 @@ export default function ChatConversationScreen() {
               )}
             </View>
           </View>
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center" style={{ gap: 8 }}>
             {/* Audio Call Button */}
             <CallButton
               receiverId={chatId}
@@ -1664,7 +1665,7 @@ export default function ChatConversationScreen() {
               blurOnSubmit={false}
             />
             {isDoctorTyping && chatType === "doctor" ? (
-              <View className="mt-2 flex-row items-center space-x-2">
+              <View className="mt-2 flex-row items-center" style={{ gap: 8 }}>
                 <ActivityIndicator size="small" color={Colors.primary[600]} />
                 <Text className="text-xs italic" style={{ color: theme.text.secondary }}>
                   {chatName} đang gõ...
@@ -1672,7 +1673,7 @@ export default function ChatConversationScreen() {
               </View>
             ) : null}
             <View className="mt-3 flex-row items-center justify-between">
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center" style={{ gap: 12 }}>
                 <TouchableOpacity
                   onPress={handlePickImage}
                   disabled={isUploadingImage || (chatType === "doctor" && !realtimeChatService.isConnected())}

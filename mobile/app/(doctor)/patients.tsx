@@ -4,20 +4,21 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    Pressable,
+    RefreshControl,
+    SafeAreaView,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
-import { SafeContainer } from '@/components/layout/SafeContainer';
 import PatientDetailModal from '@/components/patient/PatientDetailModal';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/auth-context';
@@ -31,7 +32,7 @@ export default function DoctorPatients() {
   const theme = Colors[colorScheme ?? 'light'];
   const { session } = useAuth();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [total, setTotal] = useState(0);
@@ -45,10 +46,17 @@ export default function DoctorPatients() {
 
   // Fetch patients
   const fetchPatients = useCallback(async (page = 1, search = '') => {
-    if (!session?.user?._id || !session?.token) return;
+    if (!session?.user?._id || !session?.token) {
+      console.log('❌ [Patients] No session or token');
+      setLoading(false);
+      setPatients([]);
+      return;
+    }
 
     try {
-      if (page === 1) setLoading(true);
+      setLoading(true);
+      
+      console.log('🔄 [Patients] Fetching patients...', { doctorId: session.user._id, page, search });
       
       const response = await getDoctorPatients(session.user._id, session.token, {
         current: page,
@@ -56,18 +64,26 @@ export default function DoctorPatients() {
         search,
       });
 
+      console.log('📦 [Patients] API Response:', JSON.stringify(response, null, 2));
+
       if (response.success && response.data) {
-        setPatients(response.data.patients || []);
-        setTotal(response.data.total || 0);
+        const patientsList = response.data.patients || response.data || [];
+        console.log('✅ [Patients] Loaded patients:', patientsList.length);
+        console.log('✅ [Patients] First patient:', patientsList[0]);
+        const patientsArray = Array.isArray(patientsList) ? patientsList : [];
+        console.log('✅ [Patients] Setting patients array length:', patientsArray.length);
+        setPatients(patientsArray);
+        setTotal(response.data.total || patientsList.length || 0);
         setTotalPages(response.data.pagination?.totalPages || 1);
+        console.log('✅ [Patients] State updated successfully');
       } else {
-        console.error('Error fetching patients:', response.message);
+        console.error('❌ [Patients] Error fetching patients:', response.message);
         setPatients([]);
         setTotal(0);
         setTotalPages(1);
       }
     } catch (error) {
-      console.error('Error fetching patients:', error);
+      console.error('❌ [Patients] Error fetching patients:', error);
       setPatients([]);
       setTotal(0);
       setTotalPages(1);
@@ -77,19 +93,18 @@ export default function DoctorPatients() {
     }
   }, [session]);
 
-  useEffect(() => {
-    fetchPatients(currentPage, searchTerm);
-  }, [fetchPatients, currentPage]);
-
-  // Search handler with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setCurrentPage(1);
-      fetchPatients(1, searchTerm);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  // Load data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?._id && session?.token) {
+        console.log('🔄 [Patients] useFocusEffect triggered');
+        // Call fetch directly with current values
+        fetchPatients(currentPage, searchTerm);
+      } else {
+        console.log('❌ [Patients] No session in useFocusEffect');
+      }
+    }, [session?.user?._id, session?.token, currentPage, searchTerm])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -99,6 +114,7 @@ export default function DoctorPatients() {
 
   // Sort patients
   const getSortedPatients = () => {
+    console.log('🔄 [Patients] getSortedPatients called, patients.length:', patients.length);
     const sorted = [...patients];
     
     switch (sortBy) {
@@ -114,6 +130,7 @@ export default function DoctorPatients() {
   };
 
   const sortedPatients = getSortedPatients();
+  console.log('👥 [Patients] Rendering with sortedPatients.length:', sortedPatients.length);
 
   // Calculate age
   const calculateAge = (dateOfBirth?: string) => {
@@ -129,6 +146,7 @@ export default function DoctorPatients() {
   };
 
   const renderPatientItem = ({ item }: { item: Patient }) => {
+    console.log('👤 [Patients] Rendering patient:', item.fullName);
     const age = calculateAge(item.dateOfBirth);
     const genderIcon = item.gender === 'male' ? 'male' : item.gender === 'female' ? 'female' : 'person';
     const genderColor = item.gender === 'male' ? Colors.primary[600] : item.gender === 'female' ? Colors.error[600] : Colors.gray[600];
@@ -174,7 +192,7 @@ export default function DoctorPatients() {
               )}
             </View>
             
-            <View className="flex-row items-center mt-1 gap-3">
+            <View className="flex-row items-center mt-1" style={{ gap: 12 }}>
               {item.phone && (
                 <View className="flex-row items-center">
                   <Ionicons name="call-outline" size={12} color={Colors.gray[500]} />
@@ -231,13 +249,12 @@ export default function DoctorPatients() {
   };
 
   return (
-    <>
-      <AppHeader title="Bệnh nhân" showNotification />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <AppHeader title="Bệnh nhân" showNotification showAvatar />
 
-      <SafeContainer>
-        <View className="flex-1 px-4 pt-3">
+      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 12 }}>
           {/* Search + Filter */}
-          <View className="flex-row items-center gap-2 mb-3">
+          <View className="flex-row items-center mb-3" style={{ gap: 8 }}>
             <View
               className="flex-1 flex-row items-center px-3 py-2.5 rounded-lg"
               style={{ backgroundColor: Colors.gray[100] }}
@@ -288,19 +305,22 @@ export default function DoctorPatients() {
 
           {/* Patient List */}
           {loading && !refreshing ? (
-            <View className="flex-1 items-center justify-center">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator size="large" color={Colors.primary[600]} />
               <Text className="mt-3 text-sm" style={{ color: theme.text.secondary }}>
                 Đang tải danh sách...
               </Text>
             </View>
           ) : (
-            <FlatList
-              data={sortedPatients}
-              renderItem={renderPatientItem}
-              keyExtractor={(item) => item._id}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
+            <>
+              {console.log('📝 [Patients] Rendering FlatList with data.length:', sortedPatients.length)}
+              <FlatList
+                style={{ flex: 1 }}
+                data={sortedPatients}
+                renderItem={renderPatientItem}
+                keyExtractor={(item) => item._id}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={onRefresh}
@@ -319,7 +339,7 @@ export default function DoctorPatients() {
                         Tổng: {total} bệnh nhân
                       </Text>
                     </View>
-                    <View className="flex-row gap-2">
+                    <View className="flex-row" style={{ gap: 8 }}>
                       <Pressable
                         onPress={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
@@ -356,9 +376,9 @@ export default function DoctorPatients() {
               }
               contentContainerStyle={sortedPatients.length === 0 ? { flexGrow: 1 } : undefined}
             />
+            </>
           )}
         </View>
-      </SafeContainer>
 
       {/* Filter Modal */}
       <Modal
@@ -381,7 +401,7 @@ export default function DoctorPatients() {
             </View>
 
             {/* Sort Options */}
-            <View className="gap-2 mb-4">
+            <View className="mb-4" style={{ gap: 8 }}>
               {[
                 { value: 'name' as SortBy, label: 'Tên A-Z', icon: 'text-outline' },
                 { value: 'recent' as SortBy, label: 'Mới nhất', icon: 'time-outline' },
@@ -447,7 +467,7 @@ export default function DoctorPatients() {
           token={session?.token || ''}
         />
       )}
-    </>
+    </SafeAreaView>
   );
 }
 

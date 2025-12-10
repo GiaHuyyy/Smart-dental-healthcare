@@ -26,21 +26,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
-        "BLUETOOTH",
-        "BLUETOOTH_ADMIN",
-        "BLUETOOTH_CONNECT",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
-        "BLUETOOTH",
-        "BLUETOOTH_ADMIN",
-        "BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
@@ -83,6 +74,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0400423a-02bc-4f8e-b76d-715918c12b4d"
+      }
     }
   }
 }

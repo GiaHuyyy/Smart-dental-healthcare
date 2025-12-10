@@ -1,27 +1,20 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
-import { AppHeader } from '@/components/layout/AppHeader';
-import { Card } from '@/components/ui/Card';
-import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/auth-context';
-import { useNotifications } from '@/contexts/notification-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { apiRequest, formatApiError } from '@/utils/api';
+import { AppHeader } from "@/components/layout/AppHeader";
+import { Card } from "@/components/ui/Card";
+import { Colors } from "@/constants/colors";
+import { useAuth } from "@/contexts/auth-context";
+import { useNotifications } from "@/contexts/notification-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { apiRequest, formatApiError } from "@/utils/api";
 
 type Notification = {
   _id?: string;
   userId?: string;
-  type?: 'appointment' | 'payment' | 'reminder' | 'system' | string;
+  type?: "appointment" | "payment" | "reminder" | "system" | string;
   title?: string;
   message?: string;
   isRead?: boolean;
@@ -30,7 +23,7 @@ type Notification = {
 };
 
 function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'AbortError';
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function ensureArray<T>(value: unknown): T[] {
@@ -46,85 +39,72 @@ function parseDate(value?: string | Date | null): Date | null {
 
 function formatDateTime(value?: string | Date | null): string {
   const date = parseDate(value);
-  if (!date) return '—';
-  
+  if (!date) return "—";
+
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return 'Vừa xong';
+  if (minutes < 1) return "Vừa xong";
   if (minutes < 60) return `${minutes} phút trước`;
   if (hours < 24) return `${hours} giờ trước`;
   if (days < 7) return `${days} ngày trước`;
-  
-  return date.toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 }
 
 const NOTIFICATION_ICONS: Record<string, { name: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
-  appointment: { name: 'calendar', color: Colors.primary[600], bg: Colors.primary[50] },
-  payment: { name: 'card', color: Colors.success[600], bg: Colors.success[50] },
-  reminder: { name: 'alarm', color: Colors.warning[600], bg: Colors.warning[50] },
-  system: { name: 'information-circle', color: Colors.primary[600], bg: Colors.primary[50] },
+  appointment: { name: "calendar", color: Colors.primary[600], bg: Colors.primary[50] },
+  payment: { name: "card", color: Colors.success[600], bg: Colors.success[50] },
+  reminder: { name: "alarm", color: Colors.warning[600], bg: Colors.warning[50] },
+  system: { name: "information-circle", color: Colors.primary[600], bg: Colors.primary[50] },
 };
 
 function NotificationCard({ notification, onPress }: { notification: Notification; onPress: () => void }) {
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
-  
-  const iconConfig = NOTIFICATION_ICONS[notification.type || 'system'] || NOTIFICATION_ICONS.system;
-  
+  const theme = Colors[colorScheme ?? "light"];
+
+  const iconConfig = NOTIFICATION_ICONS[notification.type || "system"] || NOTIFICATION_ICONS.system;
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
-      <Card 
+      <Card
         className="p-4"
         style={{
           backgroundColor: notification.isRead ? theme.surface : Colors.primary[50],
           borderLeftWidth: 3,
-          borderLeftColor: notification.isRead ? 'transparent' : Colors.primary[600],
+          borderLeftColor: notification.isRead ? "transparent" : Colors.primary[600],
         }}
       >
-        <View className="flex-row items-start space-x-3">
+        <View className="flex-row items-start" style={{ gap: 12 }}>
           <View
             className="h-12 w-12 items-center justify-center rounded-full"
             style={{ backgroundColor: iconConfig.bg }}
           >
             <Ionicons name={iconConfig.name} size={24} color={iconConfig.color} />
           </View>
-          
+
           <View className="flex-1">
             <View className="flex-row items-start justify-between mb-1">
-              <Text 
-                className="flex-1 text-sm font-semibold pr-2"
-                style={{ color: theme.text.primary }}
-              >
-                {notification.title || 'Thông báo'}
+              <Text className="flex-1 text-sm font-semibold pr-2" style={{ color: theme.text.primary }}>
+                {notification.title || "Thông báo"}
               </Text>
               {!notification.isRead && (
-                <View 
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: Colors.primary[600] }}
-                />
+                <View className="h-2 w-2 rounded-full" style={{ backgroundColor: Colors.primary[600] }} />
               )}
             </View>
-            
-            <Text 
-              className="text-xs mb-2"
-              style={{ color: theme.text.secondary }}
-              numberOfLines={2}
-            >
-              {notification.message || 'Không có nội dung'}
+
+            <Text className="text-xs mb-2" style={{ color: theme.text.secondary }} numberOfLines={2}>
+              {notification.message || "Không có nội dung"}
             </Text>
-            
-            <Text 
-              className="text-xs"
-              style={{ color: theme.text.secondary, opacity: 0.7 }}
-            >
+
+            <Text className="text-xs" style={{ color: theme.text.secondary, opacity: 0.7 }}>
               {formatDateTime(notification.createdAt)}
             </Text>
           </View>
@@ -139,16 +119,16 @@ export default function NotificationsScreen() {
   const { session, isAuthenticated } = useAuth();
   const { refreshNotifications: refreshContext } = useNotifications();
   const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const theme = Colors[colorScheme ?? "light"];
 
-  const userId = session?.user?._id ?? '';
-  const token = session?.token ?? '';
+  const userId = session?.user?._id ?? "";
+  const token = session?.token ?? "";
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<"all" | "unread">("all");
 
   const loadNotifications = useCallback(
     async ({ viaRefresh = false, signal }: { viaRefresh?: boolean; signal?: AbortSignal } = {}) => {
@@ -177,7 +157,7 @@ export default function NotificationsScreen() {
           return;
         }
         setNotifications([]);
-        setErrorMessage(formatApiError(error, 'Không thể tải thông báo.'));
+        setErrorMessage(formatApiError(error, "Không thể tải thông báo."));
       } finally {
         if (viaRefresh) {
           setRefreshing(false);
@@ -186,7 +166,7 @@ export default function NotificationsScreen() {
         }
       }
     },
-    [userId, token],
+    [userId, token]
   );
 
   useFocusEffect(
@@ -195,7 +175,7 @@ export default function NotificationsScreen() {
       const controller = new AbortController();
       void loadNotifications({ signal: controller.signal });
       return () => controller.abort();
-    }, [userId, token, loadNotifications]),
+    }, [userId, token, loadNotifications])
   );
 
   const handleRefresh = useCallback(() => {
@@ -209,20 +189,18 @@ export default function NotificationsScreen() {
 
       try {
         await apiRequest(`/notifications/${notificationId}/read`, {
-          method: 'PATCH',
+          method: "PATCH",
           token,
         });
 
-        setNotifications((prev) =>
-          prev.map((n) => (n._id === notificationId ? { ...n, isRead: true } : n))
-        );
+        setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, isRead: true } : n)));
         // Refresh context to update badge count
         void refreshContext();
       } catch (error) {
-        console.error('Error marking notification as read:', error);
+        console.error("Error marking notification as read:", error);
       }
     },
-    [token],
+    [token]
   );
 
   const handleMarkAllAsRead = useCallback(async () => {
@@ -230,7 +208,7 @@ export default function NotificationsScreen() {
 
     try {
       await apiRequest(`/notifications/user/${userId}/read-all`, {
-        method: 'PATCH',
+        method: "PATCH",
         token,
       });
 
@@ -238,12 +216,12 @@ export default function NotificationsScreen() {
       // Refresh context to update badge count
       void refreshContext();
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      console.error("Error marking all as read:", error);
     }
   }, [userId, token]);
 
   const filteredNotifications = useMemo(() => {
-    if (filter === 'unread') {
+    if (filter === "unread") {
       return notifications.filter((n) => !n.isRead);
     }
     return notifications;
@@ -257,10 +235,7 @@ export default function NotificationsScreen() {
     return (
       <>
         <AppHeader title="Thông báo" showBack />
-        <View 
-          className="flex-1 items-center justify-center px-6"
-          style={{ backgroundColor: theme.background }}
-        >
+        <View className="flex-1 items-center justify-center px-6" style={{ backgroundColor: theme.background }}>
           <Card className="w-full p-6">
             <View className="items-center">
               <Ionicons name="notifications-outline" size={48} color={Colors.primary[600]} />
@@ -273,7 +248,7 @@ export default function NotificationsScreen() {
               <TouchableOpacity
                 className="mt-6 w-full items-center justify-center rounded-2xl py-3"
                 style={{ backgroundColor: Colors.primary[600] }}
-                onPress={() => router.push('/(auth)/login' as const)}
+                onPress={() => router.push("/(auth)/login" as const)}
               >
                 <Text className="text-sm font-semibold text-white">Đăng nhập</Text>
               </TouchableOpacity>
@@ -299,13 +274,10 @@ export default function NotificationsScreen() {
                 Tổng số thông báo
               </Text>
             </View>
-            
+
             {unreadCount > 0 && (
-              <View className="flex-row items-center space-x-3">
-                <View
-                  className="px-3 py-1 rounded-full"
-                  style={{ backgroundColor: Colors.primary[50] }}
-                >
+              <View className="flex-row items-center" style={{ gap: 12 }}>
+                <View className="px-3 py-1 rounded-full" style={{ backgroundColor: Colors.primary[50] }}>
                   <Text className="text-xs font-semibold" style={{ color: Colors.primary[600] }}>
                     {unreadCount} chưa đọc
                   </Text>
@@ -313,7 +285,7 @@ export default function NotificationsScreen() {
                 <TouchableOpacity
                   onPress={handleMarkAllAsRead}
                   className="px-3 py-1 rounded-full border"
-                  style={{ 
+                  style={{
                     borderColor: Colors.primary[100],
                     backgroundColor: Colors.primary[50],
                   }}
@@ -327,33 +299,33 @@ export default function NotificationsScreen() {
           </View>
 
           {/* Filter Tabs */}
-          <View className="flex-row gap-2 mt-4">
+          <View className="flex-row mt-4" style={{ gap: 8 }}>
             <TouchableOpacity
-              onPress={() => setFilter('all')}
+              onPress={() => setFilter("all")}
               className="px-4 py-2 rounded-full border"
               style={{
-                borderColor: filter === 'all' ? Colors.primary[600] : Colors.primary[100],
-                backgroundColor: filter === 'all' ? Colors.primary[600] : '#ffffff',
+                borderColor: filter === "all" ? Colors.primary[500] : Colors.primary[100],
+                backgroundColor: filter === "all" ? Colors.primary[500] : theme.surface,
               }}
             >
               <Text
                 className="text-xs font-semibold"
-                style={{ color: filter === 'all' ? '#ffffff' : Colors.primary[700] }}
+                style={{ color: filter === "all" ? Colors.white : Colors.primary[500] }}
               >
                 Tất cả
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setFilter('unread')}
+              onPress={() => setFilter("unread")}
               className="px-4 py-2 rounded-full border"
               style={{
-                borderColor: filter === 'unread' ? Colors.primary[600] : Colors.primary[100],
-                backgroundColor: filter === 'unread' ? Colors.primary[600] : '#ffffff',
+                borderColor: filter === "unread" ? Colors.primary[500] : Colors.primary[100],
+                backgroundColor: filter === "unread" ? Colors.primary[500] : theme.surface,
               }}
             >
               <Text
                 className="text-xs font-semibold"
-                style={{ color: filter === 'unread' ? '#ffffff' : Colors.primary[700] }}
+                style={{ color: filter === "unread" ? Colors.white : Colors.primary[500] }}
               >
                 Chưa đọc ({unreadCount})
               </Text>
@@ -371,8 +343,11 @@ export default function NotificationsScreen() {
           }
         >
           {errorMessage ? (
-            <Card className="p-4 border" style={{ borderColor: Colors.warning[100], backgroundColor: Colors.warning[50] }}>
-              <View className="flex-row items-center space-x-2">
+            <Card
+              className="p-4 border"
+              style={{ borderColor: Colors.warning[100], backgroundColor: Colors.warning[50] }}
+            >
+              <View className="flex-row items-center" style={{ gap: 8 }}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[600]} />
                 <Text className="flex-1 text-sm" style={{ color: Colors.warning[700] }}>
                   {errorMessage}
@@ -390,16 +365,16 @@ export default function NotificationsScreen() {
             <View className="items-center justify-center py-12">
               <Ionicons name="notifications-off-outline" size={48} color={Colors.primary[300]} />
               <Text className="mt-4 text-base font-semibold" style={{ color: theme.text.primary }}>
-                {filter === 'unread' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo'}
+                {filter === "unread" ? "Không có thông báo chưa đọc" : "Chưa có thông báo"}
               </Text>
               <Text className="mt-2 text-sm text-center" style={{ color: theme.text.secondary }}>
-                {filter === 'unread'
-                  ? 'Tất cả thông báo đã được đọc'
-                  : 'Bạn sẽ nhận được thông báo về lịch hẹn và thanh toán'}
+                {filter === "unread"
+                  ? "Tất cả thông báo đã được đọc"
+                  : "Bạn sẽ nhận được thông báo về lịch hẹn và thanh toán"}
               </Text>
             </View>
           ) : (
-            <View className="space-y-3">
+            <View style={{ gap: 12 }}>
               {filteredNotifications.map((notification) => (
                 <NotificationCard
                   key={notification._id ?? `notif-${notification.createdAt}`}

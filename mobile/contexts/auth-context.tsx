@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter, useSegments } from 'expo-router';
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const AUTH_STORAGE_KEY = 'smartdental_auth_session_v1';
@@ -35,7 +36,10 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSessionState] = useState<AuthSession | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
+  const router = useRouter();
+  const segments = useSegments();
 
+  // Load session from storage on mount
   useEffect(() => {
     let isMounted = true;
 
@@ -70,6 +74,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isMounted = false;
     };
   }, []);
+
+  // Auto redirect when session changes
+  useEffect(() => {
+    if (isHydrating) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!session && !inAuthGroup) {
+      // User logged out, redirect to login
+      console.log('🔐 Auth: Redirecting to login (logged out)');
+      router.replace('/(auth)/login');
+    } else if (session && inAuthGroup) {
+      // User logged in, redirect to appropriate home
+      const role = session.user?.role?.toLowerCase();
+      console.log('🔐 Auth: Redirecting to home (logged in as', role, ')');
+      
+      if (role === 'doctor') {
+        router.replace('/(doctor)');
+      } else {
+        router.replace('/(tabs)');
+      }
+    }
+  }, [session, segments, isHydrating, router]);
 
   const persistSession = useCallback(async (next: AuthSession | null) => {
     if (!next) {

@@ -619,7 +619,7 @@ function DoctorTimeStep({
                     maxWidth: 160,
                   }}
                 >
-                  <View className="items-center gap-2">
+                  <View className="items-center" style={{ gap: 8 }}>
                     <View 
                       className="h-12 w-12 items-center justify-center rounded-full"
                       style={{ backgroundColor: isSelected ? type.color + '20' : theme.border }}
@@ -642,7 +642,7 @@ function DoctorTimeStep({
                         {formatFee(type.fee)}
                       </Text>
                       {showDiscount && (
-                        <View className="mt-1 flex-row items-center gap-1">
+                        <View className="mt-1 flex-row items-center" style={{ gap: 4 }}>
                           <Text className="text-xs line-through" style={{ color: theme.text.secondary }}>
                             {formatFee(type.baseFee)}
                           </Text>

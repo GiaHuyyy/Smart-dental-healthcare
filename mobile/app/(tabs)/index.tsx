@@ -8,12 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { AppHeader } from '@/components/layout/AppHeader';
@@ -255,7 +255,7 @@ export default function PatientDashboard() {
     return (
       <>
         <AppHeader title="Tổng quan" showNotification showAvatar />
-        <ScrollView 
+        <ScrollView
           className="flex-1"
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
@@ -287,7 +287,7 @@ export default function PatientDashboard() {
     return (
       <>
         <AppHeader title="Tổng quan" showNotification showAvatar />
-        <ScrollView 
+        <ScrollView
           className="flex-1"
           style={{ backgroundColor: theme.background }}
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
@@ -303,9 +303,9 @@ export default function PatientDashboard() {
 
   return (
     <>
-      <AppHeader 
-        title="Tổng quan" 
-        showNotification 
+      <AppHeader
+        title="Tổng quan"
+        showNotification
         showAvatar
         rightComponent={<PolicyButton onPress={() => setShowPolicyModal(true)} />}
       />
@@ -345,7 +345,7 @@ export default function PatientDashboard() {
 
         {/* Stats Grid */}
         <View className="mt-6 px-4">
-          <View className="flex-row gap-3">
+          <View className="flex-row" style={{ gap: 12 }}>
             {/* Next Appointment */}
             <TouchableOpacity
               className="flex-1"
@@ -414,7 +414,7 @@ export default function PatientDashboard() {
             </TouchableOpacity>
           </View>
 
-          <View className="mt-3 flex-row gap-3">
+          <View className="mt-3 flex-row" style={{ gap: 12 }}>
             {/* Follow-up Required */}
             <TouchableOpacity
               className="flex-1"
@@ -493,7 +493,7 @@ export default function PatientDashboard() {
               </Text>
             </TouchableOpacity>
           </View>
-          
+
           {activities.length > 0 ? (
             <Card className="p-0">
               {activities.map((activity, index) => {
@@ -562,7 +562,7 @@ export default function PatientDashboard() {
           <Text className="mb-3 text-base font-semibold" style={{ color: theme.text.primary }}>
             Thao tác nhanh
           </Text>
-          <View className="flex-row gap-3">
+          <View className="flex-row" style={{ gap: 12 }}>
             <TouchableOpacity
               className="flex-1"
               onPress={() => router.push('/(tabs)/appointments')}

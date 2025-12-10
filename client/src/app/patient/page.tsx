@@ -20,11 +20,13 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
 import patientDashboardService, { PatientDashboardStats, RecentActivity } from "@/services/patientDashboardService";
 import { useAppointment } from "@/contexts/AppointmentContext";
+import { useTourGuide } from "@/contexts/TourGuideContext";
 
 export default function PatientDashboard() {
   const router = useRouter();
   const { data: session } = useSession();
   const { registerFollowUpCallback, unregisterFollowUpCallback } = useAppointment();
+  const { startDashboardTour, isDashboardTourCompleted } = useTourGuide();
   const [stats, setStats] = useState<PatientDashboardStats | null>(null);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +83,18 @@ export default function PatientDashboard() {
 
     return () => clearInterval(timer);
   }, []);
+
+  // Start tour for new users
+  useEffect(() => {
+    if (!loading && session?.user && !isDashboardTourCompleted) {
+      // Delay to ensure the page is fully rendered
+      const timer = setTimeout(() => {
+        startDashboardTour();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, session, isDashboardTourCompleted, startDashboardTour]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -130,7 +144,7 @@ export default function PatientDashboard() {
           >
             <div className="flex items-start gap-3">
               <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
                 style={{ backgroundColor: "var(--color-primary-50)" }}
               >
                 <Calendar className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
@@ -166,7 +180,7 @@ export default function PatientDashboard() {
           >
             <div className="flex items-start gap-3">
               <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
                 style={{ backgroundColor: "var(--color-primary-50)" }}
               >
                 <Check className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
@@ -197,7 +211,7 @@ export default function PatientDashboard() {
           >
             <div className="flex items-start gap-3">
               <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
                 style={{ backgroundColor: "#FEF3C7" }}
               >
                 <AlertTriangle className="w-6 h-6 text-orange-500" />
@@ -226,7 +240,7 @@ export default function PatientDashboard() {
           >
             <div className="flex items-start gap-3">
               <div
-                className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
                 style={{ backgroundColor: "var(--color-primary-50)" }}
               >
                 <Heart className="w-6 h-6" style={{ color: "var(--color-primary)" }} />
@@ -281,7 +295,7 @@ export default function PatientDashboard() {
                         className="flex items-start gap-4 p-4 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow"
                       >
                         <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                           style={{ backgroundColor: "var(--color-primary-50)" }}
                         >
                           <IconComponent className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
@@ -379,7 +393,7 @@ export default function PatientDashboard() {
               <div className="space-y-3">
                 <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
                   <div
-                    className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
+                    className="w-2 h-2 rounded-full mt-2 shrink-0"
                     style={{ backgroundColor: "var(--color-primary)" }}
                   ></div>
                   <div className="flex-1">
@@ -390,7 +404,7 @@ export default function PatientDashboard() {
 
                 <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
                   <div
-                    className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
+                    className="w-2 h-2 rounded-full mt-2 shrink-0"
                     style={{ backgroundColor: "var(--color-primary)" }}
                   ></div>
                   <div className="flex-1">
@@ -401,7 +415,7 @@ export default function PatientDashboard() {
 
                 <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
                   <div
-                    className="w-2 h-2 rounded-full mt-2 flex-shrink-0"
+                    className="w-2 h-2 rounded-full mt-2 shrink-0"
                     style={{ backgroundColor: "var(--color-primary)" }}
                   ></div>
                   <div className="flex-1">

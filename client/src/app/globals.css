@@ -84,7 +84,9 @@ button {
   cursor: pointer !important;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   outline: none;
 }
 
@@ -617,4 +619,144 @@ input, textarea, select {
 
 .animate-scale-in {
   animation: scale-in 0.2s ease-out;
+}
+
+/* =============================================
+   Driver.js Tour Guide Custom Styles
+   ============================================= */
+
+/* Popover container styling */
+.driver-popover.smart-dental-tour-popover {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 2px solid var(--color-primary);
+  max-width: 340px;
+}
+
+/* Popover title */
+.driver-popover.smart-dental-tour-popover .driver-popover-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-primary-contrast);
+  padding: 16px 16px 8px 16px;
+}
+
+/* Popover description */
+.driver-popover.smart-dental-tour-popover .driver-popover-description {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-muted);
+  padding: 0 16px 12px 16px;
+}
+
+/* Popover footer */
+.driver-popover.smart-dental-tour-popover .driver-popover-footer {
+  padding: 12px 16px 16px 16px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 8px;
+}
+
+/* Progress text */
+.driver-popover.smart-dental-tour-popover .driver-popover-progress-text {
+  font-size: 0.8125rem;
+  color: var(--color-muted-light);
+  font-weight: 500;
+}
+
+/* Navigation buttons */
+.driver-popover.smart-dental-tour-popover .driver-popover-navigation-btns {
+  gap: 8px;
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-prev-btn {
+  background: var(--color-surface-tertiary);
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-prev-btn:hover {
+  background: var(--color-surface-secondary);
+  color: var(--color-primary-contrast);
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-next-btn {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-shadow: none;
+  transition: all 0.2s ease;
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-next-btn:hover {
+  background: var(--color-primary-600);
+}
+
+/* Close button */
+.driver-popover.smart-dental-tour-popover .driver-popover-close-btn {
+  color: var(--color-muted);
+  transition: color 0.2s ease;
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-close-btn:hover {
+  color: var(--color-primary-contrast);
+}
+
+/* Arrow styling */
+.driver-popover.smart-dental-tour-popover .driver-popover-arrow {
+  border-color: var(--color-primary);
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-arrow-side-top {
+  border-top-color: var(--color-surface);
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--color-surface);
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-arrow-side-left {
+  border-left-color: var(--color-surface);
+}
+
+.driver-popover.smart-dental-tour-popover .driver-popover-arrow-side-right {
+  border-right-color: var(--color-surface);
+}
+
+/* Highlighted element styling - Driver.js uses SVG overlay */
+.driver-active-element {
+  position: relative !important;
+  z-index: 10000 !important;
+}
+
+/* Make sure the highlighted element has proper background */
+#chat-ai-button.driver-active-element {
+  background: white !important;
+  box-shadow: 0 0 0 4px var(--color-primary), 0 0 20px 8px rgba(0, 166, 244, 0.4) !important;
+}
+
+/* Image analysis button - ensure text is visible on highlight */
+#image-analysis-button.driver-active-element {
+  background: var(--color-primary) !important;
+  color: white !important;
+  box-shadow: 0 0 0 4px white, 0 0 0 8px var(--color-primary), 0 0 25px 10px rgba(0, 166, 244, 0.5) !important;
+}
+
+/* Overlay styling - Driver.js SVG overlay */
+.driver-overlay {
+  opacity: 0.7 !important;
+}
+
+/* Ensure the overlay SVG covers properly */
+.driver-overlay svg {
+  filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0.7));
 }
