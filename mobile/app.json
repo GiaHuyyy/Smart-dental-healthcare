@@ -19,9 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/tooth.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -31,16 +29,13 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
-        "android.permission.BLUETOOTH_CONNECT",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.BLUETOOTH_CONNECT"
       ],
       "package": "com.anonymous.mobile"
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/tooth.png"
     },
     "plugins": [
       "expo-router",
@@ -78,7 +73,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0400423a-02bc-4f8e-b76d-715918c12b4d"
+        "projectId": "6d5dbd2e-14e8-4795-8621-5b49ce166b9f"
       }
     }
   }
