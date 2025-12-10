@@ -110,7 +110,6 @@ export class DoctorScheduleService {
     doctorId: string,
     updateDto: UpdateDoctorScheduleDto,
   ): Promise<DoctorSchedule> {
-
     const schedule = await this.doctorScheduleModel
       .findOneAndUpdate(
         { doctorId },
@@ -175,7 +174,10 @@ export class DoctorScheduleService {
     date: string,
   ): Promise<{ time: string; available: boolean }[]> {
     const schedule = await this.getSchedule(doctorId);
-    const targetDate = new Date(date);
+
+    // Parse date as local time to avoid timezone issues
+    // date format: "2025-12-11" -> parse as local midnight, not UTC
+    const targetDate = new Date(`${date}T00:00:00`);
     const dayIndex = targetDate.getDay(); // 0 = Sunday, 1 = Monday, ...
 
     // Find the day config
@@ -189,10 +191,12 @@ export class DoctorScheduleService {
     }
 
     // Check blocked times for this date
+    // Compare using date strings to avoid timezone issues
+    const targetDateStr = date; // "2025-12-11" format
     const blockedOnDate = schedule.blockedTimes.filter((bt) => {
-      const startDate = new Date(bt.startDate);
-      const endDate = new Date(bt.endDate);
-      return targetDate >= startDate && targetDate <= endDate;
+      const startDateStr = bt.startDate.split('T')[0];
+      const endDateStr = bt.endDate.split('T')[0];
+      return targetDateStr >= startDateStr && targetDateStr <= endDateStr;
     });
 
     // Build available slots

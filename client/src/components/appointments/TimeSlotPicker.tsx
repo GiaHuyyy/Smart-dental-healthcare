@@ -79,7 +79,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
         const scheduleData = result.data || result;
         setDoctorSchedule(scheduleData);
       } catch (error) {
-        console.error("Error fetching doctor schedule:", error);
+        console.error("[TimeSlotPicker] Error fetching doctor schedule:", error);
         // Use default schedule if fetch fails
         setDoctorSchedule(null);
       } finally {
@@ -215,7 +215,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
           setPatientBookedSlots([]);
         }
       } catch (error) {
-        console.error("Error fetching slots data:", error);
+        console.error("[TimeSlotPicker] Error fetching slots data:", error);
         toast.error("Không thể tải lịch trống của bác sĩ");
         setBookedSlots([]);
         setPatientBookedSlots([]);
@@ -317,9 +317,12 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
       return slots;
     };
 
+    const morningSlots = generateSlots(8, 12);
+    const afternoonSlots = generateSlots(13, 17);
+
     return {
-      morning: generateSlots(8, 12), // 8:00 - 11:30
-      afternoon: generateSlots(13, 17), // 13:00 - 16:30
+      morning: morningSlots, // 8:00 - 11:30
+      afternoon: afternoonSlots, // 13:00 - 16:30
     };
   }, [selectedDate, selectedTime, duration, bookedSlots, availableSlotsBySchedule, patientBookedSlots]);
 
@@ -610,7 +613,7 @@ export default function TimeSlotPicker({ doctor, onSelectSlot, onConsultTypeChan
               </p>
               <p className="text-xs text-green-600 mt-1">
                 Ngày:{" "}
-                {new Date(selectedDate).toLocaleDateString("vi-VN", {
+                {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("vi-VN", {
                   weekday: "long",
                   year: "numeric",
                   month: "long",
@@ -666,5 +669,9 @@ function getMonday(date: Date): Date {
 }
 
 function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
+  // Use local timezone instead of UTC to avoid date shifting
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

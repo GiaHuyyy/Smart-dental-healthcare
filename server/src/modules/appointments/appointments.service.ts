@@ -1254,18 +1254,14 @@ export class AppointmentsService {
       throw new BadRequestException('Thiếu doctorId hoặc date');
     }
 
-    // Parse date string (YYYY-MM-DD) to Date object
-    const targetDate = new Date(date);
+    // Parse date string (YYYY-MM-DD) to Date object as local time
+    const targetDate = new Date(`${date}T00:00:00`);
     if (isNaN(targetDate.getTime())) {
       throw new BadRequestException('Định dạng ngày không hợp lệ');
     }
 
-    // Set to start of day
-    targetDate.setHours(0, 0, 0, 0);
-
     // End of day
-    const endDate = new Date(targetDate);
-    endDate.setHours(23, 59, 59, 999);
+    const endDate = new Date(`${date}T23:59:59.999`);
 
     // Fetch all booked appointments for this doctor on this date
     // KHÔNG exclude CANCELLED - cho phép đặt trùng giờ với lịch đã hủy
@@ -1310,18 +1306,14 @@ export class AppointmentsService {
       throw new BadRequestException('Thiếu patientId hoặc date');
     }
 
-    // Parse date string (YYYY-MM-DD) to Date object
-    const targetDate = new Date(date);
+    // Parse date string (YYYY-MM-DD) to Date object as local time
+    const targetDate = new Date(`${date}T00:00:00`);
     if (isNaN(targetDate.getTime())) {
       throw new BadRequestException('Định dạng ngày không hợp lệ');
     }
 
-    // Set to start of day
-    targetDate.setHours(0, 0, 0, 0);
-
     // End of day
-    const endDate = new Date(targetDate);
-    endDate.setHours(23, 59, 59, 999);
+    const endDate = new Date(`${date}T23:59:59.999`);
 
     // Fetch all booked appointments for this patient on this date
     const bookedAppointments = await this.appointmentModel

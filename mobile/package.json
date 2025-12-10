@@ -5,7 +5,7 @@
   "scripts": {
     "start": "expo start --port 8082",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android --port 8082",
+    "android": "npx expo run:android",
     "ios": "expo start --ios --port 8082",
     "web": "expo start --web --port 8082",
     "lint": "expo lint"
@@ -26,10 +26,11 @@
     "expo-blur": "~15.0.7",
     "expo-camera": "~17.0.9",
     "expo-constants": "~18.0.9",
+    "expo-dev-client": "~6.0.20",
     "expo-font": "~14.0.8",
     "expo-haptics": "~15.0.7",
     "expo-image": "~3.0.8",
-    "expo-image-picker": "~15.0.7",
+    "expo-image-picker": "^17.0.9",
     "expo-linear-gradient": "^15.0.7",
     "expo-linking": "~8.0.8",
     "expo-router": "~6.0.10",

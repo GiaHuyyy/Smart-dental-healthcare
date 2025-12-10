@@ -6,7 +6,9 @@ import { useEffect } from "react";
 import { LogBox } from "react-native";
 import "react-native-reanimated";
 
+import IncomingCallModal from "@/components/call/IncomingCallModal";
 import { AuthProvider } from "@/contexts/auth-context";
+import { CallProvider } from "@/contexts/CallContext";
 import { ChatProvider } from "@/contexts/chat-context";
 import { NotificationProvider } from "@/contexts/notification-context";
 import { ThemeProvider } from "@/contexts/theme-context";
@@ -57,11 +59,14 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ChatProvider>
-          <NotificationProvider>
-            <LayoutContent />
-          </NotificationProvider>
-        </ChatProvider>
+        <CallProvider>
+          <ChatProvider>
+            <NotificationProvider>
+              <LayoutContent />
+              <IncomingCallModal />
+            </NotificationProvider>
+          </ChatProvider>
+        </CallProvider>
       </AuthProvider>
     </ThemeProvider>
   );

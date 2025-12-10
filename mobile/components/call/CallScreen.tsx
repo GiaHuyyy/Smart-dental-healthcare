@@ -13,13 +13,44 @@ export default function CallScreen() {
   const { callState, endCall, toggleMute, toggleVideo, switchCamera, formatDuration } = useCall();
 
   const [isLocalVideoMinimized, setIsLocalVideoMinimized] = useState(false);
+  const hasNavigatedBackRef = React.useRef(false);
 
-  // Navigate back when call ends
+  // Log state on mount and changes
   useEffect(() => {
-    if (!callState.inCall && callState.callStatus === "idle") {
-      router.back();
+    console.log("📱 [CallScreen] Mounted/Updated, callState:", {
+      inCall: callState.inCall,
+      callStatus: callState.callStatus,
+      isReceivingCall: callState.isReceivingCall,
+    });
+  }, [callState.inCall, callState.callStatus, callState.isReceivingCall]);
+
+  // Navigate back only when call truly ends (status becomes idle AND not in call)
+  useEffect(() => {
+    // Only navigate back if:
+    // 1. We haven't already navigated back
+    // 2. Call is not active (inCall = false)
+    // 3. Status is idle (not connecting/connected)
+    // 4. We're not receiving a call
+    const shouldGoBack =
+      !hasNavigatedBackRef.current &&
+      !callState.inCall &&
+      callState.callStatus === "idle" &&
+      !callState.isReceivingCall;
+
+    if (shouldGoBack) {
+      // Add a small delay to ensure state is stable
+      const timer = setTimeout(() => {
+        // Double check before navigating
+        if (!callState.inCall && callState.callStatus === "idle") {
+          console.log("📱 [CallScreen] Navigating back - call ended");
+          hasNavigatedBackRef.current = true;
+          router.back();
+        }
+      }, 300);
+
+      return () => clearTimeout(timer);
     }
-  }, [callState.inCall, callState.callStatus]);
+  }, [callState.inCall, callState.callStatus, callState.isReceivingCall]);
 
   const handleEndCall = () => {
     endCall();

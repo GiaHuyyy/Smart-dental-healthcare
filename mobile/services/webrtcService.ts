@@ -98,6 +98,20 @@ class WebRTCService {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        // Check if already connected with same user
+        if (this.socket?.connected && this.userId === userId) {
+          console.log("✅ [WebRTC] Already connected, reusing existing connection");
+          resolve();
+          return;
+        }
+
+        // Disconnect existing socket if connecting with different user
+        if (this.socket) {
+          console.log("🔄 [WebRTC] Disconnecting existing socket before reconnecting");
+          this.socket.disconnect();
+          this.socket = null;
+        }
+
         this.userId = userId;
         this.userRole = userRole;
         this.userName = userName;
@@ -472,6 +486,15 @@ class WebRTCService {
       // Log current state before setting remote description
       console.log("📝 [WebRTC] Current signaling state:", this.peerConnection.signalingState);
       console.log("📝 [WebRTC] Current ICE connection state:", this.peerConnection.iceConnectionState);
+
+      // Check if we're in the correct state to receive an answer
+      // Only set remote description if signaling state is 'have-local-offer'
+      if (this.peerConnection.signalingState !== "have-local-offer") {
+        console.warn(
+          `⚠️ [WebRTC] Cannot set remote answer - signaling state is '${this.peerConnection.signalingState}', expected 'have-local-offer'. Ignoring duplicate/late answer.`
+        );
+        return;
+      }
 
       // SimplePeer may send signal in different format
       // It could be { type: 'answer', sdp: '...' } or just the SDP object
