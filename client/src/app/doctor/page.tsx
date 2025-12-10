@@ -37,7 +37,14 @@ export default function DoctorDashboard() {
 
   // Thay đổi từ month/year sang date picker
   const currentDate = new Date();
-  const [selectedDate, setSelectedDate] = useState<string>(currentDate.toISOString().split("T")[0]);
+  // Use local timezone for date formatting to avoid UTC date shift
+  const formatLocalDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const [selectedDate, setSelectedDate] = useState<string>(formatLocalDate(currentDate));
 
   // Cập nhật thời gian thực mỗi phút
   useEffect(() => {
@@ -96,7 +103,8 @@ export default function DoctorDashboard() {
         setChartLoading(true);
 
         try {
-          const date = new Date(selectedDate);
+          // Parse as local time to avoid timezone issues
+          const date = new Date(`${selectedDate}T00:00:00`);
           const year = date.getFullYear();
           const month = date.getMonth() + 1; // 1-12
 
@@ -439,7 +447,8 @@ export default function DoctorDashboard() {
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
-                        const date = new Date(selectedDate);
+                        // Parse as local time to avoid timezone issues
+                        const date = new Date(`${selectedDate}T00:00:00`);
                         const monthNames = [
                           "Tháng 1",
                           "Tháng 2",
