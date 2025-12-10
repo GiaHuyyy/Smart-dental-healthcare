@@ -5,10 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import LogoutButton from "./auth/LogoutButton";
-import { User, Settings, Activity, Home, FileText, Drone } from "lucide-react";
+import { User, Settings, Activity, Home, FileText, Drone, HelpCircle } from "lucide-react";
 import Image from "next/image";
 import { PolicyModal } from "@/components/PolicyModal";
 import { NotificationButton } from "./NotificationButton";
+import { useTourGuide } from "@/contexts/TourGuideContext";
 import tooth from "../../public/tooth.svg";
 import toothWhite from "../../public/tooth-white.svg";
 
@@ -19,6 +20,7 @@ export default function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { restartAllTours, destroyCurrentTour } = useTourGuide();
 
   // Handle scroll for transparent header on homepage
   const handleScroll = useCallback(() => {
@@ -114,9 +116,7 @@ export default function Header() {
               <div className="flex items-center gap-3">
                 {dashboardInfo && (
                   <div className="flex items-center gap-2">
-                    <span
-                      className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-[18px] font-semibold border border-[#8bd9fd] bg-linear-to-r from-60 to-100 from-blue-100 to-[#80d7ff] text-primary shadow-sm tracking-wide"
-                    >
+                    <span className="inline-flex items-center gap-2 px-4 py-1 rounded-full text-[18px] font-semibold border border-[#8bd9fd] bg-linear-to-r from-60 to-100 from-blue-100 to-[#80d7ff] text-primary shadow-sm tracking-wide">
                       <span className="ml-1">{dashboardInfo.role}</span>
                     </span>
                   </div>
@@ -143,12 +143,25 @@ export default function Header() {
                 {/* Chat AI button - only for patients */}
                 {!isHomePage && session.user.role === "patient" && (
                   <Link
-                    href="/patient/chat"
+                    id="chat-ai-button"
+                    href="/patient/chat?openAi=true"
+                    onClick={() => destroyCurrentTour("dashboard")}
                     className="flex items-center ring ring-primary gap-2 px-3 hover:opacity-75 py-2 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
                   >
                     <Drone className="w-5 h-5" />
                     <span className="hidden sm:inline">Chat AI</span>
                   </Link>
+                )}
+
+                {/* Help button to restart tour - only for patients */}
+                {!isHomePage && session.user.role === "patient" && (
+                  <button
+                    onClick={restartAllTours}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-primary"
+                    title="Hướng dẫn sử dụng"
+                  >
+                    <HelpCircle className="w-5 h-5" />
+                  </button>
                 )}
 
                 {/* Notification button for logged-in users */}
