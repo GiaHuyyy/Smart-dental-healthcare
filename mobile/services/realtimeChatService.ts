@@ -42,6 +42,7 @@ export interface ChatConversation {
     fullName?: string;
     name?: string;
     avatar?: string;
+    avatarUrl?: string;
     email?: string;
   };
   doctorId: {
@@ -51,6 +52,7 @@ export interface ChatConversation {
     fullName?: string;
     name?: string;
     avatar?: string;
+    avatarUrl?: string;
     email?: string;
     specialty?: string;
     specialization?: string;
@@ -75,6 +77,7 @@ export interface SocketEvents {
   // Conversation events
   conversationCreated: (conversation: ChatConversation) => void;
   conversationUpdated: (conversation: ChatConversation) => void;
+  conversationRead: (data: { conversationId: string; userId: string }) => void;
 
   // List events
   conversationsLoaded: (data: { conversations: Array<ChatConversation> }) => void;
@@ -98,6 +101,9 @@ class RealtimeChatService {
   private userId: string | null = null;
   private userRole: "patient" | "doctor" | null = null;
   private eventListeners: Map<string, Array<(...args: any[]) => void>> = new Map();
+  private connectionState: "disconnected" | "connecting" | "connected" | "failed" = "disconnected";
+  private activeConversationId: string | null = null;
+  private activeConversationId: string | null = null;
 
   connect(token: string, userId: string, userRole: "patient" | "doctor"): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -105,6 +111,7 @@ class RealtimeChatService {
         // Store user info for reconnections
         this.userId = userId;
         this.userRole = userRole;
+        this.connectionState = "connecting";
 
         console.log(`🔌 [Socket] Connecting with userID: ${userId}, role: ${userRole}`);
         console.log(`🔌 [Socket] Server URL: ${SOCKET_BASE_URL}`);
@@ -113,6 +120,7 @@ class RealtimeChatService {
         if (this.socket) {
           console.log("🔌 [Socket] Disconnecting existing socket connection");
           this.socket.disconnect();
+          this.socket = null;
         }
 
         // Ensure token is properly formatted
@@ -127,12 +135,18 @@ class RealtimeChatService {
           extraHeaders: {
             Authorization: formattedToken,
           },
-          transports: ["websocket", "polling"],
+          // Start with polling first, then upgrade to websocket if available
+          transports: ["polling", "websocket"],
           upgrade: true,
-          timeout: 20000,
+          timeout: 30000, // Increased timeout
           path: "/socket.io",
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          forceNew: true, // Force new connection
+          autoConnect: true,
+          // DO NOT use query params - causes 400 error on production server
+          // All auth data is in auth object and extraHeaders
         });
 
         // Debug listener for all events
@@ -142,8 +156,19 @@ class RealtimeChatService {
           }
         });
 
+        // Add connection timeout
+        const connectionTimeout = setTimeout(() => {
+          if (!this.socket?.connected) {
+            console.error("❌ [Socket] Connection timeout after 30s");
+            reject(new Error("Socket connection timeout"));
+          }
+        }, 30000);
+
         this.socket.on("connect", () => {
+          clearTimeout(connectionTimeout);
+          this.connectionState = "connected";
           console.log(`✅ [Socket] Connected with ID: ${this.socket?.id}`);
+          console.log(`✅ [Socket] Transport: ${this.socket?.io.engine.transport.name}`);
           this.reconnectAttempts = 0;
 
           // Re-attach all event listeners
@@ -154,10 +179,29 @@ class RealtimeChatService {
 
         this.socket.on("connect_error", (error) => {
           console.error("❌ [Socket] Connection error:", error);
-          reject(error);
+          console.error("❌ [Socket] Error details:", {
+            message: error.message,
+            description: error.description,
+            context: error.context,
+            type: error.type,
+          });
+          
+          this.reconnectAttempts++;
+          
+          // Allow a few retries before failing
+          if (this.reconnectAttempts >= 3) {
+            this.connectionState = "failed";
+            console.error("❌ [Socket] Failed after 3 attempts. App will work with REST API only.");
+            clearTimeout(connectionTimeout);
+            // Don't reject - allow app to work without realtime
+            resolve();
+          } else {
+            console.log(`🔄 [Socket] Retry ${this.reconnectAttempts}/3 with polling transport...`);
+          }
         });
 
         this.socket.on("disconnect", (reason) => {
+          this.connectionState = "disconnected";
           console.log("🔌 [Socket] Disconnected:", reason);
 
           if (reason === "io server disconnect") {
@@ -225,10 +269,19 @@ class RealtimeChatService {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.connectionState = "disconnected";
     this.joinedRooms.clear();
     this.userId = null;
     this.userRole = null;
     this.eventListeners.clear();
+  }
+
+  isConnected(): boolean {
+    return this.socket?.connected === true && this.connectionState === "connected";
+  }
+
+  getConnectionState(): "disconnected" | "connecting" | "connected" | "failed" {
+    return this.connectionState;
   }
 
   // Event listeners with auto-reattach support
@@ -273,6 +326,7 @@ class RealtimeChatService {
       console.log(`🚪 [Socket] Joining conversation: ${conversationId}`);
       this.socket.emit("joinConversation", { conversationId });
       this.joinedRooms.add(conversationId);
+      this.activeConversationId = conversationId;
     } else {
       console.warn("⚠️ [Socket] Cannot join conversation - socket not connected");
     }
@@ -280,9 +334,12 @@ class RealtimeChatService {
 
   leaveConversation(conversationId: string) {
     if (this.socket && this.socket.connected) {
-      console.log(`🚪 [Socket] Leaving conversation: ${conversationId}`);
+      console.log(`✓ [Socket] Leaving conversation: ${conversationId}`);
       this.socket.emit("leaveConversation", { conversationId });
       this.joinedRooms.delete(conversationId);
+      if (this.activeConversationId === conversationId) {
+        this.activeConversationId = null;
+      }
     }
   }
 
@@ -410,6 +467,16 @@ class RealtimeChatService {
       console.log(`✓ [Socket] Marking conversation as read: ${conversationId}`);
       this.socket.emit("markConversationAsRead", { conversationId });
     }
+  }
+
+  // Check if a conversation is currently being viewed
+  isConversationActive(conversationId: string): boolean {
+    return this.activeConversationId === conversationId;
+  }
+
+  // Check if a conversation is currently being viewed
+  isConversationActive(conversationId: string): boolean {
+    return this.activeConversationId === conversationId;
   }
 
   // Create a new conversation

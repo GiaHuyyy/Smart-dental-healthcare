@@ -7,12 +7,12 @@ import { LogBox } from "react-native";
 import "react-native-reanimated";
 
 import IncomingCallModal from "@/components/call/IncomingCallModal";
+import { Colors } from "@/constants/colors";
 import { AuthProvider } from "@/contexts/auth-context";
 import { CallProvider } from "@/contexts/CallContext";
 import { ChatProvider } from "@/contexts/chat-context";
 import { NotificationProvider } from "@/contexts/notification-context";
 import { ThemeProvider } from "@/contexts/theme-context";
-import { Colors } from "@/constants/colors";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import "../global.css";
 
@@ -27,6 +27,7 @@ function LayoutContent() {
       "Attempted to import the module", // event-target-shim package.json exports issue
       'which is not listed in the "exports"', // Metro resolver fallback warning
       "Logs will appear in the browser console", // Web platform log redirection
+      "props.pointerEvents is deprecated", // react-native-web internal deprecation warning
     ]);
 
     // Align system background with app background to avoid black screens
