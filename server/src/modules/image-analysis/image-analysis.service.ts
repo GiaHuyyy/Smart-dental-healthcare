@@ -78,7 +78,7 @@ export class ImageAnalysisService {
     // Initialize SDK client and model
     try {
       this.genAI = new GoogleGenerativeAI(this.geminiApiKey);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     } catch (initError) {
       this.logger.warn(
         `Failed to initialize Gemini SDK: ${initError?.message || initError}`,
@@ -119,7 +119,7 @@ export class ImageAnalysisService {
           analysisDate: new Date().toISOString(),
           processingTime,
           imageQuality: 'good' as const,
-          aiModelVersion: 'gemini-2.5-pro',
+          aiModelVersion: 'gemini-2.5-flash',
           analysisSource: 'gemini_ai',
         },
       };
@@ -782,7 +782,7 @@ Hãy trả về kết quả theo format JSON sau:
       // Test Gemini AI connection
       const response: any = await (firstValueFrom as any)(
         this.httpService.get(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro?key=${this.geminiApiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${this.geminiApiKey}`,
           { timeout: 5000 },
         ),
       );
