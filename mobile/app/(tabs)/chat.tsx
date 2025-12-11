@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -189,6 +189,16 @@ export default function ChatListScreen() {
   useEffect(() => {
     void fetchConversations();
   }, [fetchConversations]);
+
+  // Refresh conversations when screen comes into focus (e.g., after reading a chat)
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && session?.token) {
+        console.log('🔄 [Patient Chat] Screen focused - refreshing conversations');
+        void fetchConversations();
+      }
+    }, [isAuthenticated, session?.token, fetchConversations])
+  );
 
   const handleChatWithAI = useCallback(() => {
     router.push({

@@ -692,17 +692,40 @@ export default function RecordDetailScreen() {
 
           {/* Follow-up */}
           {record.isFollowUpRequired && (
-            <Card className="p-4" style={{ backgroundColor: Colors.error[50], borderWidth: 1, borderColor: Colors.error[100] }}>
+            <Card className="p-4" style={{ backgroundColor: Colors.warning[50], borderWidth: 1, borderColor: Colors.warning[100] }}>
               <View className="flex-row items-center mb-2" style={{ gap: 8 }}>
-                <Ionicons name="alert-circle-outline" size={18} color={Colors.error[700]} />
-                <Text className="text-sm font-semibold" style={{ color: Colors.error[700] }}>
+                <Ionicons name="alert-circle-outline" size={18} color={Colors.warning[700]} />
+                <Text className="text-sm font-semibold" style={{ color: Colors.warning[700] }}>
                   Cần tái khám
                 </Text>
               </View>
               {record.followUpDate && (
-                <Text className="text-base mt-1" style={{ color: Colors.error[700] }}>
+                <Text className="text-base mt-1" style={{ color: Colors.warning[700], marginBottom: !record.parentRecordId ? 12 : 0 }}>
                   Ngày tái khám: {formatDate(record.followUpDate)} {record.followUpTime ? `• ${record.followUpTime}` : ''}
                 </Text>
+              )}
+              {/* Only show booking button for original records (not follow-up records) */}
+              {!record.parentRecordId && (
+                <TouchableOpacity
+                  onPress={() => router.push('/(tabs)/appointments?autoOpenBooking=true')}
+                  style={{
+                    marginTop: 8,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 12,
+                    backgroundColor: Colors.primary[600],
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    gap: 8,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar" size={18} color="white" />
+                  <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>
+                    Đặt lịch tái khám
+                  </Text>
+                </TouchableOpacity>
               )}
             </Card>
           )}

@@ -9,6 +9,7 @@ import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
+    Image,
     Modal,
     Pressable,
     RefreshControl,
@@ -165,13 +166,15 @@ export default function DoctorPatients() {
         >
           {/* Avatar */}
           <View
-            className="w-12 h-12 rounded-full items-center justify-center mr-3"
+            className="w-12 h-12 rounded-full items-center justify-center mr-3 overflow-hidden"
             style={{ backgroundColor: Colors.primary[100] }}
           >
-            {item.avatar ? (
-              <Text className="text-lg font-bold" style={{ color: Colors.primary[600] }}>
-                {item.fullName.charAt(0).toUpperCase()}
-              </Text>
+            {item.avatar || item.avatarUrl ? (
+              <Image 
+                source={{ uri: item.avatar || item.avatarUrl }} 
+                className="w-full h-full"
+                resizeMode="cover"
+              />
             ) : (
               <Ionicons name="person" size={24} color={Colors.primary[600]} />
             )}

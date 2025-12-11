@@ -9,15 +9,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -156,6 +156,10 @@ export default function DoctorChatDetail() {
         // Messages are sorted oldest first (API returns with sort=createdAt)
         setMessages(messagesData);
         setLoading(false);
+
+        // Mark conversation as read when messages are loaded
+        console.log("✅ [Doctor Chat Detail] Marking conversation as read:", conversationId);
+        realtimeChatService.markConversationAsRead(conversationId);
 
         // Scroll to bottom
         setTimeout(() => {
