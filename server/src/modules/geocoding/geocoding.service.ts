@@ -24,7 +24,7 @@ export class GeocodingService {
       try {
         this.genAI = new GoogleGenerativeAI(this.geminiApiKey);
         this.model = this.genAI.getGenerativeModel({
-          model: 'gemini-2.5-pro',
+          model: 'gemini-2.5-flash',
         });
         this.logger.log('GeocodingService initialized with Gemini AI');
       } catch (error) {

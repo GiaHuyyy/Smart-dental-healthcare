@@ -191,7 +191,7 @@ export default function AppointmentsMap({
           setIsRequestingLocation(false);
           resolve(null);
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 20000 }
       );
     });
   }, []);
