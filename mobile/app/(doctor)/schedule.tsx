@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Modal,
     Pressable,
     RefreshControl,
@@ -29,6 +30,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { Appointment, AppointmentStatus } from '@/services/appointmentService';
 import * as appointmentService from '@/services/appointmentService';
+import { realtimeAppointmentService } from '@/services/realtimeAppointmentService';
 
 type TabStatus = 'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
 type ViewMode = 'list' | 'calendar';
@@ -95,6 +97,57 @@ export default function DoctorSchedule() {
     fetchAppointments();
   }, [fetchAppointments]);
 
+  // Setup real-time appointment updates
+  useEffect(() => {
+    if (!session?.user?._id || !session?.token) return;
+
+    // Connect to appointment socket
+    const connectSocket = async () => {
+      try {
+        await realtimeAppointmentService.connect(
+          session.token,
+          session.user._id,
+          'doctor'
+        );
+        console.log('✅ [Schedule] Connected to appointment socket');
+
+        // Listen for new appointments
+        realtimeAppointmentService.on('appointment:new', (data) => {
+          console.log('📅 [Schedule] New appointment:', data);
+          // Refresh appointments list
+          fetchAppointments();
+        });
+
+        // Listen for appointment confirmations
+        realtimeAppointmentService.on('appointment:confirmed', (data) => {
+          console.log('✅ [Schedule] Appointment confirmed:', data);
+          fetchAppointments();
+        });
+
+        // Listen for appointment cancellations
+        realtimeAppointmentService.on('appointment:cancelled', (data) => {
+          console.log('❌ [Schedule] Appointment cancelled:', data);
+          fetchAppointments();
+        });
+
+        // Listen for appointment completions
+        realtimeAppointmentService.on('appointment:completed', (data) => {
+          console.log('✔️ [Schedule] Appointment completed:', data);
+          fetchAppointments();
+        });
+      } catch (error) {
+        console.error('❌ [Schedule] Socket connection error:', error);
+      }
+    };
+
+    connectSocket();
+
+    // Cleanup on unmount
+    return () => {
+      realtimeAppointmentService.disconnect();
+    };
+  }, [session?.user?._id, session?.token, fetchAppointments]);
+
   // Handle appointmentId from params (from dashboard)
   useEffect(() => {
     if (params.id && appointments.length > 0 && !detailModalVisible) {
@@ -144,13 +197,13 @@ export default function DoctorSchedule() {
       });
     }
 
-    // Sort by date and time (nearest first)
+    // Sort by date and time (newest first - ngày mới nhất lên đầu)
     filtered.sort((a, b) => {
-      const dateCompare = new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime();
+      const dateCompare = new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime();
       if (dateCompare !== 0) return dateCompare;
       const timeA = a.startTime || '00:00';
       const timeB = b.startTime || '00:00';
-      return timeA.localeCompare(timeB);
+      return timeB.localeCompare(timeA); // Time cũng mới nhất lên đầu
     });
 
     return filtered;
@@ -1016,12 +1069,18 @@ export default function DoctorSchedule() {
                   {/* Patient Info */}
                   <View className="items-center mb-6">
                     <View
-                      className="w-20 h-20 rounded-full items-center justify-center mb-3"
-                      style={{ backgroundColor: Colors.primary[600] }}
+                      className="w-20 h-20 rounded-full items-center justify-center mb-3 overflow-hidden"
+                      style={{ backgroundColor: Colors.primary[100] }}
                     >
-                      <Text className="text-white font-bold text-3xl">
-                        {selectedAppointment.patientId?.fullName?.charAt(0).toUpperCase() || 'P'}
-                      </Text>
+                      {(selectedAppointment.patientId?.avatar || selectedAppointment.patientId?.avatarUrl) ? (
+                        <Image
+                          source={{ uri: selectedAppointment.patientId.avatar || selectedAppointment.patientId.avatarUrl }}
+                          style={{ width: 80, height: 80 }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Ionicons name="person" size={40} color={Colors.primary[600]} />
+                      )}
                     </View>
                     <Text className="text-xl font-bold" style={{ color: theme.text.primary }}>
                       {selectedAppointment.patientId?.fullName || 'Bệnh nhân'}

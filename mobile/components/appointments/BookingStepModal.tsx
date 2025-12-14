@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/Card';
 import { Colors } from '@/constants/colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import walletService from '@/services/walletService';
 import { apiRequest } from '@/utils/api';
 import { calculateConsultationFee, ConsultType as ConsultTypeEnum, formatFee, getConsultTypeDescription, getConsultTypeLabel } from '@/utils/consultationFees';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,7 +45,7 @@ type BookingFormData = {
   patientGender?: 'male' | 'female' | 'other';
   chiefComplaint?: string;
   notes?: string;
-  paymentMethod?: 'momo' | 'cash' | 'later';
+  paymentMethod?: 'momo' | 'cash' | 'later' | 'wallet';
   paymentAmount?: number;
   voucherCode?: string;
   voucherId?: string;
@@ -60,6 +61,7 @@ interface BookingStepModalProps {
   availableTimes: string[];
   busyTimes?: Set<string>;
   onDateChange?: (date: string) => void;
+  token?: string;
 }
 
 const STEPS: Array<{ id: BookingStep; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
@@ -79,6 +81,7 @@ export default function BookingStepModal({
   availableTimes,
   busyTimes,
   onDateChange,
+  token,
 }: BookingStepModalProps) {
   const colorScheme = useColorScheme();
   const theme = {
@@ -105,6 +108,8 @@ export default function BookingStepModal({
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [duration, setDuration] = useState<30 | 60>(30);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
 
   const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
   const isFirstStep = currentStepIndex === 0;
@@ -299,6 +304,26 @@ export default function BookingStepModal({
     return allTimeSlots.filter(slot => slot.available).map(slot => slot.time);
   }, [allTimeSlots]);
 
+  // Fetch wallet balance when modal opens
+  useEffect(() => {
+    if (visible && token) {
+      const fetchBalance = async () => {
+        setWalletLoading(true);
+        try {
+          const response = await walletService.getBalance(token);
+          if (response.success) {
+            setWalletBalance(response.data.balance);
+          }
+        } catch (error) {
+          console.error('Error fetching wallet balance:', error);
+        } finally {
+          setWalletLoading(false);
+        }
+      };
+      fetchBalance();
+    }
+  }, [visible, token]);
+
   // Fetch booked slots when date changes
   useEffect(() => {
     if (!formData.appointmentDate || !doctor?._id && !doctor?.id) {
@@ -446,6 +471,8 @@ export default function BookingStepModal({
                 setVoucherLoading={setVoucherLoading}
                 voucherApplied={voucherApplied}
                 setVoucherApplied={setVoucherApplied}
+                walletBalance={walletBalance}
+                walletLoading={walletLoading}
                 theme={theme}
               />
             )}
@@ -1156,6 +1183,8 @@ function ConfirmationStep({
   setVoucherLoading,
   voucherApplied,
   setVoucherApplied,
+  walletBalance,
+  walletLoading,
   theme,
 }: any) {
   const finalAmount = calculateFee();
@@ -1177,6 +1206,17 @@ function ConfirmationStep({
   };
 
   const PAYMENT_METHODS = [
+    {
+      value: 'wallet',
+      label: 'Ví điện tử',
+      icon: 'wallet' as const,
+      description: walletLoading 
+        ? 'Đang tải số dư...' 
+        : walletBalance !== null 
+          ? `Số dư: ${formatFee(walletBalance)}`
+          : 'Thanh toán bằng số dư trong ví',
+      color: Colors.primary[600],
+    },
     {
       value: 'momo',
       label: 'MoMo',

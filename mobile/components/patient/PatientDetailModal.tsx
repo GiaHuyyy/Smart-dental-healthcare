@@ -2,10 +2,12 @@
  * Patient Detail Modal
  * Modal hiển thị chi tiết thông tin bệnh nhân với progressive loading
  */
+import CreateFollowUpModal from '@/components/appointments/CreateFollowUpModal';
 import { Colors } from '@/constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+    Image,
     Linking,
     Modal,
     Pressable,
@@ -23,6 +25,8 @@ interface Patient {
   dateOfBirth?: string;
   gender?: 'male' | 'female';
   address?: string;
+  avatar?: string;
+  avatarUrl?: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -60,6 +64,7 @@ interface MedicalRecord {
   createdAt: string;
   patientId?: any;
   doctorId?: any;
+  appointmentId?: string | { _id: string };
   recordDate?: string;
   chiefComplaint?: string;
   diagnosis?: string;
@@ -73,6 +78,10 @@ interface MedicalRecord {
   medications?: string[];
   notes?: string;
   status?: string;
+  diagnosisGroups?: any[];
+  detailedMedications?: any[];
+  isFollowUpRequired?: boolean;
+  followUpDate?: string;
 }
 
 interface PatientStats {
@@ -120,6 +129,9 @@ export default function PatientDetailModal({
   // State cho modal chi tiết hồ sơ
   const [selectedMedicalRecord, setSelectedMedicalRecord] = useState<MedicalRecord | null>(null);
   const [medicalRecordModalVisible, setMedicalRecordModalVisible] = useState(false);
+  
+  // State cho modal đề xuất tái khám
+  const [followUpModalVisible, setFollowUpModalVisible] = useState(false);
 
   useEffect(() => {
     if (visible && patientId) {
@@ -348,12 +360,18 @@ export default function PatientDetailModal({
             <View className="flex-row items-center justify-between mb-3">
               <View className="flex-row items-center flex-1" style={{ gap: 12 }}>
                 <View
-                  className="w-12 h-12 rounded-full items-center justify-center"
+                  className="w-12 h-12 rounded-full items-center justify-center overflow-hidden"
                   style={{ backgroundColor: Colors.primary[100] }}
                 >
-                  <Text className="text-lg font-bold" style={{ color: Colors.primary[700] }}>
-                    {patient?.fullName?.charAt(0).toUpperCase() || 'P'}
-                  </Text>
+                  {(patient?.avatar || patient?.avatarUrl) ? (
+                    <Image
+                      source={{ uri: patient.avatar || patient.avatarUrl }}
+                      style={{ width: 48, height: 48 }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Ionicons name="person" size={24} color={Colors.primary[600]} />
+                  )}
                 </View>
                 <View className="flex-1">
                   <Text className="text-base font-bold text-gray-900" numberOfLines={1}>
@@ -1113,10 +1131,51 @@ export default function PatientDetailModal({
                     )}
                   </View>
                 )}
+                
+                {/* Create Follow-up Suggestion Button - Only show for original records, not follow-up records */}
+                {!selectedMedicalRecord?.parentRecordId && (
+                  <View style={{ marginTop: 16, marginBottom: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setFollowUpModalVisible(true);
+                      }}
+                      style={{
+                        backgroundColor: Colors.primary[600],
+                        borderRadius: 12,
+                        padding: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="calendar-outline" size={20} color="white" />
+                      <Text className="text-base font-bold text-white">
+                        Đề xuất tái khám
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </View>
         </Modal>
+      )}
+      
+      {/* Create Follow-up Modal */}
+      {selectedMedicalRecord && (
+        <CreateFollowUpModal
+          visible={followUpModalVisible}
+          onClose={() => setFollowUpModalVisible(false)}
+          patientName={patient?.fullName || 'Bệnh nhân'}
+          medicalRecord={selectedMedicalRecord}
+          token={token}
+          onSuccess={() => {
+            // Refresh data after creating follow-up
+            fetchPatientData();
+          }}
+        />
       )}
     </>
   );

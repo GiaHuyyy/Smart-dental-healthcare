@@ -3,19 +3,21 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Linking,
+    Modal,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 import BookingStepModal from "@/components/appointments/BookingStepModal";
+import FollowUpSuggestions from "@/components/appointments/FollowUpSuggestions";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PolicyButton, PolicyModal } from "@/components/policy";
 import { Badge } from "@/components/ui/Badge";
@@ -24,8 +26,8 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Colors } from "@/constants/colors";
 import { useAuth } from "@/contexts/auth-context";
 import { useThemeColors } from "@/hooks/use-theme-colors";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import paymentService from "@/services/paymentService";
+import { realtimeAppointmentService } from "@/services/realtimeAppointmentService";
 import { apiRequest, formatApiError } from "@/utils/api";
 
 type Doctor = {
@@ -490,6 +492,13 @@ export default function AppointmentsScreen() {
   // New booking flow states
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDoctorForBooking, setSelectedDoctorForBooking] = useState<Doctor | null>(null);
+  
+  // Follow-up suggestions states
+  const [showFollowUpSection, setShowFollowUpSection] = useState(false);
+  const [followUpCount, setFollowUpCount] = useState(0);
+  
+  // Filter tab state
+  const [filterTab, setFilterTab] = useState<"upcoming" | "history" | "follow-up">("upcoming");
 
   // Payment loading modal states
   const [showPaymentLoadingModal, setShowPaymentLoadingModal] = useState(false);
@@ -592,6 +601,56 @@ export default function AppointmentsScreen() {
     await fetchAppointments(false);
     setRefreshing(false);
   }, [fetchAppointments, patientId, token]);
+
+  // Setup real-time appointment updates
+  useEffect(() => {
+    if (!patientId || !token) return;
+
+    // Connect to appointment socket
+    const connectSocket = async () => {
+      try {
+        await realtimeAppointmentService.connect(
+          token,
+          patientId,
+          'patient'
+        );
+        console.log('✅ [Appointments] Connected to appointment socket');
+
+        // Listen for new appointments (shouldn't happen for patient, but just in case)
+        realtimeAppointmentService.on('appointment:new', (data) => {
+          console.log('📅 [Appointments] New appointment:', data);
+          fetchAppointments(false);
+        });
+
+        // Listen for appointment confirmations
+        realtimeAppointmentService.on('appointment:confirmed', (data) => {
+          console.log('✅ [Appointments] Appointment confirmed:', data);
+          fetchAppointments(false);
+        });
+
+        // Listen for appointment cancellations
+        realtimeAppointmentService.on('appointment:cancelled', (data) => {
+          console.log('❌ [Appointments] Appointment cancelled:', data);
+          fetchAppointments(false);
+        });
+
+        // Listen for appointment completions
+        realtimeAppointmentService.on('appointment:completed', (data) => {
+          console.log('✔️ [Appointments] Appointment completed:', data);
+          fetchAppointments(false);
+        });
+      } catch (error) {
+        console.error('❌ [Appointments] Socket connection error:', error);
+      }
+    };
+
+    connectSocket();
+
+    // Cleanup on unmount
+    return () => {
+      realtimeAppointmentService.disconnect();
+    };
+  }, [patientId, token, fetchAppointments]);
 
   const upcomingAndHistory = useMemo(() => {
     const now = new Date();
@@ -1440,7 +1499,109 @@ export default function AppointmentsScreen() {
           </Card>
         )}
 
-        {/* Booking Form - Simplified */}
+        {/* Filter Tabs */}
+        <View className="mb-6">
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}
+          >
+            <Pressable
+              onPress={() => setFilterTab('upcoming')}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: filterTab === 'upcoming' ? Colors.primary[500] : theme.border,
+                backgroundColor: filterTab === 'upcoming' ? Colors.primary[50] : theme.card,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons 
+                  name="calendar-outline" 
+                  size={16} 
+                  color={filterTab === 'upcoming' ? Colors.primary[700] : theme.text.secondary} 
+                />
+                <Text 
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: filterTab === 'upcoming' ? Colors.primary[700] : theme.text.secondary,
+                  }}
+                >
+                  Sắp tới
+                </Text>
+              </View>
+            </Pressable>
+            
+            <Pressable
+              onPress={() => setFilterTab('follow-up')}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: filterTab === 'follow-up' ? Colors.warning[500] : theme.border,
+                backgroundColor: filterTab === 'follow-up' ? Colors.warning[50] : theme.card,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons 
+                  name="alert-circle-outline" 
+                  size={16} 
+                  color={filterTab === 'follow-up' ? Colors.warning[700] : theme.text.secondary} 
+                />
+                <Text 
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: filterTab === 'follow-up' ? Colors.warning[700] : theme.text.secondary,
+                  }}
+                >
+                  Cần tái khám
+                </Text>
+                {followUpCount > 0 && (
+                  <Badge variant="warning" size="sm">
+                    {followUpCount}
+                  </Badge>
+                )}
+              </View>
+            </Pressable>
+            
+            <Pressable
+              onPress={() => setFilterTab('history')}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: filterTab === 'history' ? Colors.success[500] : theme.border,
+                backgroundColor: filterTab === 'history' ? Colors.success[50] : theme.card,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons 
+                  name="time-outline" 
+                  size={16} 
+                  color={filterTab === 'history' ? Colors.success[700] : theme.text.secondary} 
+                />
+                <Text 
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: filterTab === 'history' ? Colors.success[700] : theme.text.secondary,
+                  }}
+                >
+                  Lịch sử
+                </Text>
+              </View>
+            </Pressable>
+          </ScrollView>
+        </View>
+
+        {/* Booking Form - Show only on 'upcoming' tab */}
+        {filterTab === 'upcoming' && (
         <Card className="mb-6">
           <SectionHeader title="Đặt lịch mới" />
           <Text className="mt-2 text-sm" style={{ color: theme.text.secondary }}>
@@ -1509,8 +1670,47 @@ export default function AppointmentsScreen() {
             </View>
           </View>
         </Card>
-
-        {/* Upcoming Appointments */}
+        )}
+        
+        {/* Follow-up Tab - Show FollowUpSuggestions (Always render to preload data) */}
+        {isAuthenticated && (
+          <View style={{ display: filterTab === 'follow-up' ? 'flex' : 'none' }}>
+            <Card className="mb-6">
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: Colors.warning[100],
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={Colors.warning[700]} />
+                </View>
+                <Text className="text-base font-bold" style={{ color: theme.text.primary }}>
+                  Đề xuất tái khám
+                </Text>
+              </View>
+              <FollowUpSuggestions
+                patientId={patientId}
+                token={token}
+                onCountChange={(count) => setFollowUpCount(count)}
+                onSchedule={(suggestion) => {
+                  // Handle scheduling from follow-up suggestion
+                  const doctor = suggestion.doctorId;
+                  setSelectedDoctorForBooking(doctor);
+                  setShowBookingModal(true);
+                  setFilterTab('upcoming'); // Switch back to upcoming tab
+                }}
+              />
+            </Card>
+          </View>
+        )}
+        
+        {/* Upcoming Appointments - Show only on 'upcoming' tab */}
+        {filterTab === 'upcoming' && (
         <Card className="mb-6">
           <View className="flex-row items-center justify-between mb-4">
             <SectionHeader title="Lịch hẹn sắp tới" />
@@ -1557,8 +1757,10 @@ export default function AppointmentsScreen() {
             </View>
           )}
         </Card>
+        )}
 
-        {/* History */}
+        {/* History - Show only on 'history' tab */}
+        {filterTab === 'history' && (
         <Card className="mb-6">
           <SectionHeader title="Lịch sử khám" />
           {appointmentsLoading && !refreshing ? (
@@ -1577,6 +1779,7 @@ export default function AppointmentsScreen() {
             </Text>
           )}
         </Card>
+        )}
       </ScrollView>
 
       <DoctorSelectModal
@@ -1597,6 +1800,7 @@ export default function AppointmentsScreen() {
         doctor={selectedDoctorForBooking}
         onConfirm={handleBookingConfirm}
         availableTimes={[]}
+        token={token}
       />
 
       <PolicyModal visible={showPolicyModal} onClose={() => setShowPolicyModal(false)} />

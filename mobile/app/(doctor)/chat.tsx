@@ -51,6 +51,7 @@ export default function DoctorChat() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('recent');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false); // Track if already loaded
 
   // Fetch conversations using REST API (like patient chat)
   const fetchConversations = useCallback(async () => {
@@ -179,12 +180,13 @@ export default function DoctorChat() {
         }
         
         console.log('✅ Final lastMessage:', lastMessagePrefix + lastMessage);
+        console.log('🔍 Patient avatar:', patient.avatar);
         
         return {
           id: conv._id,
           patientId,
           patientName,
-          patientAvatar: patient.avatar,
+          patientAvatar: patient.avatar || patient.avatarUrl || '',
           patientEmail: patient.email,
           lastMessage: lastMessagePrefix + lastMessage, // Combine prefix + message
           lastMessageTime: conv.lastMessage?.createdAt || conv.updatedAt,
@@ -309,18 +311,32 @@ export default function DoctorChat() {
         return;
       }
 
-      console.log('🔄 [Doctor Chat] useFocusEffect triggered');
+      console.log('🔄 [Doctor Chat] useFocusEffect triggered, isInitialized:', isInitialized);
       
       const initializeChat = async () => {
         try {
-          // Connect to socket
-          await realtimeChatService.connect(session.token, session.user._id, 'doctor');
+          // Only connect socket if not already connected
+          if (!realtimeChatService.isConnected()) {
+            console.log('🔌 [Doctor Chat] Connecting to socket...');
+            await realtimeChatService.connect(session.token, session.user._id, 'doctor');
+          } else {
+            console.log('✅ [Doctor Chat] Socket already connected');
+          }
           
-          // Setup real-time event listeners
+          // Setup real-time event listeners (safe to call multiple times)
           setupSocketListeners();
           
-          // Load initial conversations via REST API
-          await fetchConversations();
+          // Only load conversations on first mount, not on every focus
+          if (!isInitialized) {
+            console.log('📥 [Doctor Chat] First load - fetching conversations');
+            await fetchConversations();
+            setIsInitialized(true);
+          } else {
+            console.log('✅ [Doctor Chat] Already initialized - refreshing data');
+            // Refresh conversations and unread count when coming back
+            await fetchConversations();
+            refreshUnreadCount();
+          }
           
           console.log('✅ Chat initialized');
         } catch (error) {
@@ -331,17 +347,32 @@ export default function DoctorChat() {
 
       initializeChat();
 
+      // Don't disconnect on blur - keep socket connected
       return () => {
-        console.log('🔌 [Doctor Chat] Disconnecting socket');
-        realtimeChatService.disconnect();
+        console.log('🔄 [Doctor Chat] Screen blur - keeping socket connected');
+        // Don't disconnect socket here to avoid reconnection overhead
       };
-    }, [session?.user?._id, session?.token])
+    }, [session?.user?._id, session?.token, isInitialized])
   );
 
   // Setup socket event listeners for real-time updates only
   const setupSocketListeners = () => {
     const socket = realtimeChatService.getSocket();
     if (!socket) return;
+
+    // Listen for conversation read event from server
+    socket.on('conversationRead', (data: { conversationId: string; userId: string }) => {
+      console.log('✅ Conversation marked as read:', data.conversationId);
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === data.conversationId
+            ? { ...conv, unreadCount: 0 }
+            : conv
+        )
+      );
+      // Refresh total unread count badge
+      refreshUnreadCount();
+    });
 
     // New message received - update existing conversation
     socket.on('newMessage', (data: { message: ChatMessage; conversationId: string }) => {
@@ -367,11 +398,17 @@ export default function DoctorChat() {
             // Add "Bạn: " prefix if it's doctor's message
             const finalMessage = isMyMessage ? `Bạn: ${displayMessage}` : displayMessage;
             
+            // Don't increment unreadCount if user is currently viewing this conversation
+            const isViewingThisConversation = realtimeChatService.isConversationActive(data.conversationId);
+            const newUnreadCount = isMyMessage || isViewingThisConversation 
+              ? conv.unreadCount 
+              : (conv.unreadCount || 0) + 1;
+            
             return {
               ...conv,
               lastMessage: finalMessage,
               lastMessageTime: data.message.createdAt,
-              unreadCount: isMyMessage ? conv.unreadCount : (conv.unreadCount || 0) + 1,
+              unreadCount: newUnreadCount,
             };
           }
           return conv;
@@ -400,7 +437,7 @@ export default function DoctorChat() {
         id: conversation._id,
         patientId,
         patientName,
-        patientAvatar: patient.avatar,
+        patientAvatar: patient.avatar || patient.avatarUrl || '',
         patientEmail: patient.email,
         lastMessage: 'Bắt đầu cuộc trò chuyện',
         lastMessageTime: conversation.updatedAt,

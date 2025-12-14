@@ -4,17 +4,17 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Linking,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,15 +29,15 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import realtimeChatService, { ChatMessage as RealtimeChatMessage } from "@/services/realtimeChatService";
 import uploadService from "@/services/uploadService";
 import {
-    AiAssistantResponse,
-    fetchAiAdvice,
-    fetchQuickSuggestions,
-    fetchSuggestedQuestions,
-    formatUrgencyLabel,
-    ImageAnalysisResult,
-    startChatSession,
-    SuggestedDoctor,
-    uploadAnalysisImage,
+  AiAssistantResponse,
+  fetchAiAdvice,
+  fetchQuickSuggestions,
+  fetchSuggestedQuestions,
+  formatUrgencyLabel,
+  ImageAnalysisResult,
+  startChatSession,
+  SuggestedDoctor,
+  uploadAnalysisImage,
 } from "@/utils/ai-chat";
 import { formatApiError } from "@/utils/api";
 import { clearChatState, loadChatState, persistChatState, StoredChatMessage } from "@/utils/chat-storage";
@@ -83,6 +83,8 @@ type QuickTopic = {
 
 const WEB_CHAT_URL = "https://smart-dental-healthcare.com/patient/chat-support";
 const MAX_HISTORY = 12;
+const INITIAL_MESSAGE_LOAD = 30; // Load 30 tin nhắn đầu tiên
+const MESSAGES_PER_PAGE = 20; // Load thêm 20 tin mỗi lần
 
 const QUICK_TOPICS: QuickTopic[] = [
   {
@@ -385,6 +387,15 @@ function ChatBubble({
 
   return (
     <View className={`mb-3 flex-row px-1 ${isUser ? "justify-end" : "justify-start"}`}>
+      {/* Avatar for assistant messages */}
+      {!isUser && (
+        <View
+          className="w-8 h-8 rounded-full items-center justify-center mr-2 overflow-hidden"
+          style={{ backgroundColor: Colors.primary[100] }}
+        >
+          <Ionicons name="person" size={16} color={Colors.primary[600]} />
+        </View>
+      )}
       <View
         className="max-w-[82%] rounded-3xl px-4 py-3"
         style={{
@@ -532,6 +543,14 @@ export default function ChatConversationScreen() {
   const [isConnectingSocket, setIsConnectingSocket] = useState(false);
   const [isDoctorTyping, setIsDoctorTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const conversationCacheRef = useRef<Map<string, string>>(new Map()); // doctorId -> conversationId
+  const currentConversationRef = useRef<string | null>(null); // Track current conversation for cleanup
+  const abortControllerRef = useRef<AbortController | null>(null); // Cancel pending requests
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Load chat state
   useEffect(() => {
@@ -759,6 +778,63 @@ export default function ChatConversationScreen() {
     );
   }, [messages, sessionId, isHydrated, chatType, conversationId, existingConversationId]);
 
+  // Reset state when switching conversations
+  useEffect(() => {
+    // Reset messages and pagination when conversation changes
+    if (chatType === "doctor") {
+      setMessages([]);
+      messagesRef.current = [];
+      setCurrentPage(1);
+      setHasMoreMessages(true);
+      setIsLoadingMessages(false);
+    }
+  }, [chatId, existingConversationId, chatType]);
+
+  // Reset state when switching conversations
+  useEffect(() => {
+    // Clear any pending loading timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+
+    // Reset messages and pagination when conversation changes
+    if (chatType === "doctor") {
+      const resetStartTime = performance.now();
+      console.log("🔄 [Chat] Switching to conversation:", chatId);
+      
+      // CRITICAL: Leave old conversation BEFORE switching
+      if (currentConversationRef.current && realtimeChatService.isConnected()) {
+        console.log("🚺 [Chat] Leaving old conversation:", currentConversationRef.current);
+        realtimeChatService.leaveConversation(currentConversationRef.current);
+        currentConversationRef.current = null;
+      }
+      
+      // Cancel any pending message load requests
+      if (abortControllerRef.current) {
+        console.log("❌ [Chat] Aborting pending request");
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      
+      // Show loading immediately - DON'T clear messages yet (keep old messages visible)
+      setIsLoadingMessages(true);
+      setConversationId(null);
+      
+      console.log(`⚡ [Chat] Switch initiated in ${(performance.now() - resetStartTime).toFixed(2)}ms`);
+    }
+
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      // Abort any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, [chatId, existingConversationId, chatType]);
+
   // Auto scroll to bottom
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -780,24 +856,44 @@ export default function ChatConversationScreen() {
     const connectSocket = async () => {
       try {
         setIsConnectingSocket(true);
-        console.log("🔌 [Chat] Connecting to realtime chat...");
-
-        // Connect and wait for socket to be ready
-        await realtimeChatService.connect(session.token!, userId, "patient");
+        
+        // Skip reconnect if already connected
+        if (!realtimeChatService.isConnected()) {
+          console.log("🔌 [Chat] Connecting to realtime chat...");
+          try {
+            await realtimeChatService.connect(session.token!, userId, "patient");
+            
+            if (!isMounted) return;
+            
+            const connectionState = realtimeChatService.getConnectionState();
+            if (connectionState === "failed") {
+              console.warn("⚠️ [Chat] Socket connection failed - using REST API only");
+              // Continue without socket - app will work with REST API
+            } else if (!realtimeChatService.isConnected()) {
+              console.error("❌ [Chat] Socket connected but isConnected() returns false");
+              // Continue anyway - don't block the app
+            }
+          } catch (error) {
+            console.error("❌ [Chat] Socket connection error:", error);
+            // Continue without socket - app will work with REST API
+          }
+        } else {
+          console.log("✅ [Chat] Already connected to socket");
+        }
 
         if (!isMounted) return;
 
-        // Double check socket is actually connected
-        if (!realtimeChatService.isConnected()) {
-          console.error("❌ [Chat] Socket connected but isConnected() returns false");
-          throw new Error("Socket connection not established properly");
-        }
-
         setIsConnectingSocket(false);
-        console.log("✅ [Chat] Connected to realtime chat");
+        console.log("✅ [Chat] Socket connection attempt completed");
 
         // Use existing conversation ID if provided, otherwise create/find conversation
         let targetConversationId = existingConversationId;
+
+        // Check cache first
+        if (!targetConversationId && conversationCacheRef.current.has(chatId)) {
+          targetConversationId = conversationCacheRef.current.get(chatId);
+          console.log("💾 [Chat] Using cached conversation:", targetConversationId);
+        }
 
         if (!targetConversationId) {
           // Try to create or find conversation
@@ -805,6 +901,8 @@ export default function ChatConversationScreen() {
             const conversation = await realtimeChatService.createConversation(userId, chatId);
             if (isMounted) {
               targetConversationId = conversation._id;
+              // Cache the conversation ID
+              conversationCacheRef.current.set(chatId, targetConversationId);
               console.log("✅ [Chat] Conversation created/found:", conversation._id);
             }
           } catch (error) {
@@ -825,6 +923,8 @@ export default function ChatConversationScreen() {
               const existingConv = conversations.find((conv) => (conv.doctorId?._id || conv.doctorId) === chatId);
               if (existingConv && isMounted) {
                 targetConversationId = existingConv._id;
+                // Cache the conversation ID
+                conversationCacheRef.current.set(chatId, targetConversationId);
                 console.log("✅ [Chat] Found existing conversation via REST API:", targetConversationId);
               }
             } catch (findError) {
@@ -834,27 +934,60 @@ export default function ChatConversationScreen() {
         }
 
         if (targetConversationId && isMounted) {
+          // Leave previous conversation BEFORE setting new one
+          if (conversationId && conversationId !== targetConversationId) {
+            console.log("🚪 [Chat] Leaving previous conversation:", conversationId);
+            realtimeChatService.leaveConversation(conversationId);
+          }
+
           setConversationId(targetConversationId);
+          currentConversationRef.current = targetConversationId; // Track current conversation
           console.log("✅ [Chat] Using conversation:", targetConversationId);
 
-          // Join conversation room
-          realtimeChatService.joinConversation(targetConversationId);
+          // Join conversation room (non-blocking) - only if socket connected
+          if (realtimeChatService.isConnected()) {
+            realtimeChatService.joinConversation(targetConversationId);
+          } else {
+            console.warn("⚠️ [Chat] Socket not connected - skipping room join");
+          }
 
-          // Load messages via REST API
-          try {
-            const { apiRequest } = await import("@/utils/api");
-            const response = await apiRequest<ChatMessage[]>(
-              `/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&limit=100`,
-              {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${session.token}`,
-                },
-              }
+          // Load messages immediately (don't wait for join to complete)
+          const loadStartTime = performance.now();
+          setIsLoadingMessages(true);
+          
+          // Add timeout to prevent hanging
+          const loadMessagesWithTimeout = async () => {
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Load messages timeout')), 10000)
             );
+            
+            const loadPromise = (async () => {
+              const { apiRequest } = await import("@/utils/api");
+              return await apiRequest<ChatMessage[]>(
+                `/realtime-chat/conversations/${targetConversationId}/messages?userId=${userId}&userRole=patient&page=1&limit=${INITIAL_MESSAGE_LOAD}`,
+                {
+                  method: "GET",
+                  headers: {
+                    Authorization: `Bearer ${session.token}`,
+                  },
+                }
+              );
+            })();
+            
+            return Promise.race([loadPromise, timeoutPromise]);
+          };
+          
+          try {
+            const response = await loadMessagesWithTimeout() as any;
+            console.log(`⚡ [Chat] Messages loaded in ${(performance.now() - loadStartTime).toFixed(2)}ms`);
 
             if (isMounted && response.data) {
-              console.log(`✅ [Chat] Loaded ${response.data.length} messages via REST API`);
+              const totalMessages = response.data.length;
+              console.log(`✅ [Chat] Loaded ${totalMessages} messages via REST API`);
+              
+              // NOW clear old messages and show new ones
+              setCurrentPage(1);
+              setHasMoreMessages(totalMessages >= INITIAL_MESSAGE_LOAD);
 
               const loadedMessages: ChatMessage[] = response.data.map((msg: any) => {
                 const senderId = msg.senderId?._id || msg.senderId;
@@ -889,6 +1022,12 @@ export default function ChatConversationScreen() {
               // Only update if we have messages, or if this is a new conversation (empty is fine)
               setMessages(loadedMessages);
               messagesRef.current = loadedMessages;
+
+              // Mark conversation as read when messages are loaded
+              if (conversationId) {
+                console.log("✅ [Chat] Marking conversation as read:", conversationId);
+                realtimeChatService.markConversationAsRead(conversationId);
+              }
             } else if (isMounted) {
               // No messages found, set empty array
               console.log("ℹ️ [Chat] No messages found for conversation");
@@ -900,6 +1039,10 @@ export default function ChatConversationScreen() {
             if (isMounted) {
               setMessages([]);
               messagesRef.current = [];
+            }
+          } finally {
+            if (isMounted) {
+              setIsLoadingMessages(false);
             }
           }
         }
@@ -925,10 +1068,13 @@ export default function ChatConversationScreen() {
               );
 
               if (matchingMsg) {
-                // Update existing message status
-                return prev.map((m) =>
-                  m.id === matchingMsg.id ? { ...m, status: "sent" as MessageStatus, id: data.message._id } : m
-                );
+                // Update existing message status - chỉ update message cần thiết
+                const newMessages = [...prev];
+                const index = newMessages.findIndex((m) => m.id === matchingMsg.id);
+                if (index !== -1) {
+                  newMessages[index] = { ...matchingMsg, status: "sent" as MessageStatus, id: data.message._id };
+                }
+                return newMessages;
               }
               return prev;
             });
@@ -1005,6 +1151,16 @@ export default function ChatConversationScreen() {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      // Abort any pending requests on unmount
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      // Clear ref on unmount
+      currentConversationRef.current = null;
     };
   }, [chatType, chatId, session?.token, session?.user, existingConversationId]);
 
@@ -1117,22 +1273,36 @@ export default function ChatConversationScreen() {
           return;
         }
 
-        // Check real-time connection status
-        if (!realtimeChatService.isConnected()) {
-          updateMessage(userMessage.id, {
-            status: "failed",
-          });
-          Alert.alert("Lỗi kết nối", "Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng và thử lại.");
-          console.error("❌ [Chat] Socket not connected");
-          return;
-        }
+        // Send message - try socket first, fallback to REST API
+        const sendMessagePromise = realtimeChatService.isConnected()
+          ? realtimeChatService.sendMessage(conversationId, text, "text")
+          : (async () => {
+              console.log("⚠️ [Chat] Socket not connected, using REST API for message");
+              const { apiRequest } = await import("@/utils/api");
+              await apiRequest(
+                `/realtime-chat/conversations/${conversationId}/messages`,
+                {
+                  method: "POST",
+                  body: {
+                    content: text,
+                    messageType: "text",
+                  },
+                  headers: {
+                    Authorization: `Bearer ${session.token}`,
+                  },
+                }
+              );
+            })();
 
         // Send message without blocking UI
-        // Status will be updated to 'sent' when we receive the message back from server via Socket.IO
-        realtimeChatService
-          .sendMessage(conversationId, text, "text")
+        // Status will be updated to 'sent' when we receive the message back from server
+        sendMessagePromise
           .then(() => {
             console.log("✅ [Chat] Message sent to server");
+            // If using REST API, update status immediately
+            if (!realtimeChatService.isConnected()) {
+              updateMessage(userMessage.id, { status: "sent" });
+            }
           })
           .catch((error) => {
             console.error("❌ [Chat] Failed to send message:", error);
@@ -1248,15 +1418,15 @@ export default function ChatConversationScreen() {
     try {
       // Handle doctor chat - upload via socket
       if (chatType === "doctor") {
-        if (!conversationId || !realtimeChatService.isConnected()) {
+        if (!conversationId) {
           updateMessage(userMessage.id, {
             status: "failed",
           });
-          Alert.alert("Lỗi kết nối", "Chưa kết nối đến máy chủ chat. Vui lòng kiểm tra kết nối mạng.");
+          Alert.alert("Lỗi", "Chưa có cuộc hội thoại. Vui lòng thử lại.");
           return;
         }
 
-        // Upload image via socket
+        // Upload image
         const uploadResult = await uploadService.uploadImage(
           {
             uri: asset.uri,
@@ -1271,16 +1441,44 @@ export default function ChatConversationScreen() {
           throw new Error(uploadResult.error ?? "Upload thất bại");
         }
 
-        // Send message with uploaded image URL
-        await realtimeChatService.sendMessage(
-          conversationId,
-          userMessage.content,
-          "image",
-          uploadResult.url,
-          asset.fileName ?? `image-${Date.now()}.jpg`,
-          asset.mimeType ?? "image/jpeg",
-          asset.fileSize
-        );
+        // Try to send via socket first, fallback to REST API
+        try {
+          if (realtimeChatService.isConnected()) {
+            await realtimeChatService.sendMessage(
+              conversationId,
+              userMessage.content,
+              "image",
+              uploadResult.url,
+              asset.fileName ?? `image-${Date.now()}.jpg`,
+              asset.mimeType ?? "image/jpeg",
+              asset.fileSize
+            );
+          } else {
+            // Fallback to REST API
+            console.log("⚠️ [Chat] Socket not connected, using REST API for message");
+            const { apiRequest } = await import("@/utils/api");
+            await apiRequest(
+              `/realtime-chat/conversations/${conversationId}/messages`,
+              {
+                method: "POST",
+                body: {
+                  content: userMessage.content,
+                  messageType: "image",
+                  fileUrl: uploadResult.url,
+                  fileName: asset.fileName ?? `image-${Date.now()}.jpg`,
+                  fileType: asset.mimeType ?? "image/jpeg",
+                  fileSize: asset.fileSize,
+                },
+                headers: {
+                  Authorization: `Bearer ${session.token}`,
+                },
+              }
+            );
+          }
+        } catch (sendError) {
+          console.error("❌ [Chat] Error sending message:", sendError);
+          throw sendError;
+        }
 
         updateMessage(userMessage.id, {
           status: "sent",
@@ -1362,6 +1560,67 @@ export default function ChatConversationScreen() {
     [handleSend]
   );
 
+  const handleLoadMore = useCallback(async () => {
+    if (!hasMoreMessages || isLoadingMore || !conversationId || chatType !== "doctor") {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    const nextPage = currentPage + 1;
+    try {
+      const { apiRequest } = await import("@/utils/api");
+      const response = await apiRequest<ChatMessage[]>(
+        `/realtime-chat/conversations/${conversationId}/messages?userId=${session?.user?._id}&userRole=patient&page=${nextPage}&limit=${MESSAGES_PER_PAGE}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.token}`,
+          },
+        }
+      );
+
+      if (response.data && response.data.length > 0) {
+        const olderMessages: ChatMessage[] = response.data.map((msg: any) => {
+          const senderId = msg.senderId?._id || msg.senderId;
+          const isMyMessage = senderId === session?.user?._id;
+          const isCallMessage = msg.messageType === "call" && msg.callData;
+
+          return {
+            id: msg._id,
+            role: isMyMessage ? "user" : "assistant",
+            content: msg.content,
+            createdAt: msg.createdAt,
+            status: "sent" as MessageStatus,
+            attachments: msg.fileUrl
+              ? [
+                  {
+                    id: msg._id,
+                    type: "image" as const,
+                    uri: msg.fileUrl,
+                  },
+                ]
+              : undefined,
+            isCallMessage,
+            callType: msg.callData?.callType,
+            callStatus: msg.callData?.callStatus,
+            callDuration: msg.callData?.callDuration,
+          };
+        });
+
+        // Prepend older messages to the beginning
+        setMessages((prev) => [...olderMessages, ...prev]);
+        setCurrentPage(nextPage);
+        setHasMoreMessages(olderMessages.length >= MESSAGES_PER_PAGE);
+      } else {
+        setHasMoreMessages(false);
+      }
+    } catch (error) {
+      console.error("❌ [Chat] Error loading more messages:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMoreMessages, isLoadingMore, conversationId, currentPage, session, chatType]);
+
   const handleClearConversation = useCallback(() => {
     Alert.alert("Đặt lại cuộc trò chuyện", "Bạn có chắc muốn xóa lịch sử chat?", [
       { text: "Hủy", style: "cancel" },
@@ -1397,8 +1656,14 @@ export default function ChatConversationScreen() {
     if (isConnectingSocket) {
       return "Đang kết nối đến máy chủ chat...";
     }
-    if (chatType === "doctor" && !realtimeChatService.isConnected()) {
-      return "Không thể kết nối. Vui lòng kiểm tra kết nối mạng.";
+    if (chatType === "doctor") {
+      const connectionState = realtimeChatService.getConnectionState();
+      if (connectionState === "failed") {
+        return "⚠️ Chế độ offline - Tin nhắn sẽ được đồng bộ sau";
+      }
+      if (!realtimeChatService.isConnected() && connectionState !== "connecting") {
+        return "⚠️ Mất kết nối realtime - Sử dụng REST API";
+      }
     }
     if (isUploadingImage) {
       return chatType === "doctor" ? "Đang tải hình ảnh..." : "Đang tải và phân tích hình ảnh của bạn...";
@@ -1598,6 +1863,16 @@ export default function ChatConversationScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? tabBarHeight + composerSafePadding : tabBarHeight + 16}
       >
         <View className="flex-1">
+          {isLoadingMessages && (
+            <View className="absolute top-0 left-0 right-0 z-50 items-center py-2">
+              <View className="flex-row items-center rounded-full px-4 py-2" style={{ backgroundColor: theme.card, gap: 8 }}>
+                <ActivityIndicator size="small" color={Colors.primary[600]} />
+                <Text className="text-xs font-medium" style={{ color: theme.text.secondary }}>
+                  Đang tải tin nhắn...
+                </Text>
+              </View>
+            </View>
+          )}
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -1612,26 +1887,64 @@ export default function ChatConversationScreen() {
             ListHeaderComponent={renderListHeader}
             ListFooterComponent={renderListFooter}
             ListEmptyComponent={
-              chatType === "doctor" && realtimeChatService.isConnected() ? (
-                <View className="flex-1 items-center justify-center py-20">
-                  <View
-                    className="h-20 w-20 items-center justify-center rounded-full mb-4"
-                    style={{ backgroundColor: Colors.primary[100] }}
-                  >
-                    <Ionicons name="chatbubbles-outline" size={40} color={Colors.primary[600]} />
+              chatType === "doctor" ? (
+                isLoadingMessages ? (
+                  // Skeleton loading state
+                  <View className="flex-1 py-4" style={{ gap: 16 }}>
+                    {[1, 2, 3].map((i) => (
+                      <View key={i} className={`flex-row ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
+                        <View
+                          className="rounded-2xl px-4 py-3"
+                          style={{
+                            backgroundColor: theme.card,
+                            width: "70%",
+                            opacity: 0.5,
+                          }}
+                        >
+                          <View className="h-4 rounded" style={{ backgroundColor: theme.border, width: "80%" }} />
+                          <View className="h-4 rounded mt-2" style={{ backgroundColor: theme.border, width: "60%" }} />
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                  <Text className="text-base font-semibold mb-2" style={{ color: theme.text.primary }}>
-                    Bắt đầu cuộc trò chuyện
-                  </Text>
-                  <Text className="text-sm text-center px-8" style={{ color: theme.text.secondary }}>
-                    Gửi tin nhắn đầu tiên cho bác sĩ {chatName}
-                  </Text>
-                </View>
+                ) : realtimeChatService.isConnected() ? (
+                  // Empty state when connected
+                  <View className="flex-1 items-center justify-center py-20">
+                    <View
+                      className="h-20 w-20 items-center justify-center rounded-full mb-4"
+                      style={{ backgroundColor: Colors.primary[100] }}
+                    >
+                      <Ionicons name="chatbubbles-outline" size={40} color={Colors.primary[600]} />
+                    </View>
+                    <Text className="text-base font-semibold mb-2" style={{ color: theme.text.primary }}>
+                      Bắt đầu cuộc trò chuyện
+                    </Text>
+                    <Text className="text-sm text-center px-8" style={{ color: theme.text.secondary }}>
+                      Gửi tin nhắn đầu tiên cho bác sĩ {chatName}
+                    </Text>
+                  </View>
+                ) : null
               ) : null
             }
             contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: conversationPaddingBottom }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            // Performance optimizations
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={15}
+            windowSize={10}
+            getItemLayout={(data, index) => ({
+              length: 100, // Estimated height
+              offset: 100 * index,
+              index,
+            })}
+            // Pagination
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            onRefresh={isLoadingMessages ? undefined : handleLoadMore}
+            refreshing={isLoadingMore}
           />
         </View>
 
