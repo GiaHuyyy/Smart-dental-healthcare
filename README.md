@@ -47,70 +47,125 @@ Smart-dental-healthcare/
 
 ---
 
-## Chức năng chính sơ bộ (kèm ảnh minh hoạ)
+## Chức năng chính (kèm ảnh minh hoạ)
 
-> Bạn thêm ảnh sau: đặt ảnh vào `docs/screenshots/...` và đổi đúng tên file theo placeholders bên dưới.
+> Ảnh demo hiện nằm trong `docs/screenshots/web` và `docs/screenshots/mobile`.
 
 ### Web app (client)
 
-#### 1) Xác thực & hồ sơ người dùng
+#### Landing / giới thiệu
 
-![Web - Auth 01](docs/screenshots/web/auth-01.png)
-![Web - Auth 02](docs/screenshots/web/auth-02.png)
+![Web - Landing](docs/screenshots/web/p1-0.png)
 
-#### 2) Đặt lịch khám & quản lý lịch hẹn
+#### Dành cho bệnh nhân
 
-![Web - Appointments 01](docs/screenshots/web/appointments-01.png)
-![Web - Appointments 02](docs/screenshots/web/appointments-02.png)
+##### 1) Tổng quan sức khoẻ răng miệng, nhắc nhở chăm sóc
 
-#### 3) Theo dõi tái khám (Follow-ups)
+![Web - Patient Dashboard](docs/screenshots/web/p1-1.png)
 
-![Web - Followups 01](docs/screenshots/web/followups-01.png)
-![Web - Followups 02](docs/screenshots/web/followups-02.png)
+##### 2) Tìm kiếm bác sĩ & đặt lịch (bản đồ / danh sách)
 
-#### 4) Chat realtime & hỗ trợ AI
+![Web - Book Appointment Map](docs/screenshots/web/p1-2.png)
 
-![Web - Chat 01](docs/screenshots/web/chat-01.png)
-![Web - Chat 02](docs/screenshots/web/chat-02.png)
+##### 3) Xem thông tin bác sĩ / phòng khám
 
-#### 5) Thanh toán, ví & hoá đơn
+![Web - Doctor Profile](docs/screenshots/web/p1-3.png)
+![Web - Clinic Gallery](docs/screenshots/web/p1-4.png)
 
-![Web - Payments 01](docs/screenshots/web/payments-01.png)
-![Web - Payments 02](docs/screenshots/web/payments-02.png)
+##### 4) Hồ sơ điều trị
 
-#### 6) Dashboard/Thống kê
+![Web - Treatment Records](docs/screenshots/web/p1-6.png)
 
-![Web - Dashboard 01](docs/screenshots/web/dashboard-01.png)
-![Web - Dashboard 02](docs/screenshots/web/dashboard-02.png)
+##### 5) Thanh toán, ví & lịch sử giao dịch
+
+![Web - Payments](docs/screenshots/web/p1-7.png)
+
+##### 6) Thông báo
+
+![Web - Notifications](docs/screenshots/web/p1-8.png)
+
+##### 7) Chat AI (tư vấn + phân tích ảnh)
+
+![Web - AI Chat](docs/screenshots/web/p1-5.png)
+
+#### Dành cho bác sĩ
+
+##### 1) Dashboard tổng quan
+
+![Web - Doctor Overview](docs/screenshots/web/p1-9.png)
+
+##### 2) Quản lý lịch hẹn
+
+![Web - Doctor Schedule](docs/screenshots/web/p1-10.png)
+
+##### 3) Quản lý bệnh nhân
+
+![Web - Patient Management](docs/screenshots/web/p1-11.png)
+
+##### 4) Chat tư vấn & gọi video (telehealth)
+
+![Web - Chat & Calls](docs/screenshots/web/p1-12.png)
+![Web - Video Call](docs/screenshots/web/p1-26.png)
+
+##### 5) Doanh thu
+
+![Web - Revenue](docs/screenshots/web/p1-13.png)
 
 ---
 
 ### Mobile app (mobile)
 
-#### 1) Đăng nhập/Đăng ký & hồ sơ
+#### Dành cho bệnh nhân
 
-![Mobile - Auth 01](docs/screenshots/mobile/auth-01.png)
-![Mobile - Auth 02](docs/screenshots/mobile/auth-02.png)
+##### 1) Tổng quan
 
-#### 2) Đặt lịch & theo dõi lịch hẹn
+![Mobile - Patient Overview](docs/screenshots/mobile/p1-14.jpg)
 
-![Mobile - Appointments 01](docs/screenshots/mobile/appointments-01.png)
-![Mobile - Appointments 02](docs/screenshots/mobile/appointments-02.png)
+##### 2) Đặt lịch & xem lịch hẹn
 
-#### 3) Chat realtime
+![Mobile - Appointment Booking](docs/screenshots/mobile/p1-15.jpg)
 
-![Mobile - Chat 01](docs/screenshots/mobile/chat-01.png)
-![Mobile - Chat 02](docs/screenshots/mobile/chat-02.png)
+##### 3) Smart Dental AI (tư vấn)
 
-#### 4) Gọi video/Telehealth (WebRTC)
+![Mobile - Smart Dental AI](docs/screenshots/mobile/p1-16.jpg)
 
-![Mobile - Call 01](docs/screenshots/mobile/call-01.png)
-![Mobile - Call 02](docs/screenshots/mobile/call-02.png)
+##### 4) Hồ sơ bệnh án
 
-#### 5) Thông báo & hồ sơ bệnh án
+![Mobile - Medical Records](docs/screenshots/mobile/p1-17.jpg)
 
-![Mobile - Notifications 01](docs/screenshots/mobile/notifications-01.png)
-![Mobile - Records 01](docs/screenshots/mobile/records-01.png)
+##### 5) Thanh toán & ví
+
+![Mobile - Payments](docs/screenshots/mobile/p1-18.jpg)
+
+##### 6) Cài đặt
+
+![Mobile - Settings](docs/screenshots/mobile/p1-19.jpg)
+
+#### Dành cho bác sĩ
+
+##### 1) Tổng quan
+
+![Mobile - Doctor Overview](docs/screenshots/mobile/p1-20.jpg)
+
+##### 2) Lịch khám
+
+![Mobile - Doctor Schedule](docs/screenshots/mobile/p1-21.jpg)
+
+##### 3) Danh sách bệnh nhân
+
+![Mobile - Patients](docs/screenshots/mobile/p1-22.jpg)
+
+##### 4) Chat & lịch sử cuộc gọi
+
+![Mobile - Chat & Calls](docs/screenshots/mobile/p1-23.jpg)
+
+##### 5) Doanh thu
+
+![Mobile - Revenue](docs/screenshots/mobile/p1-24.jpg)
+
+##### 6) Thông tin cá nhân
+
+![Mobile - Profile](docs/screenshots/mobile/p1-25.jpg)
 
 ---
 

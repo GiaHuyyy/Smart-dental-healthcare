@@ -241,6 +241,15 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <ul className="mt-2">
+                <li className="text-sm text-gray-700">
+                  TK bệnh nhân: tovugiahuy@gmail.com / Huy12345
+                </li>
+                <li className="text-sm text-gray-700">
+                  TK bác sĩ: baotran.060103@gmail.com / Bao12345
+                </li>
+              </ul>
+
               <div className="mt-8">
                 <button
                   type="submit"
